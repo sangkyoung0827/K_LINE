@@ -11,7 +11,7 @@ This project is intentionally independent from any existing Xtudy Universe proje
 
 GitHub repository: `sangkyoung0827/K_LINE`
 
-Default production URL target: `https://kline.vercel.app`
+Default production URL target: `https://kline-nine-wheat.vercel.app`
 
 ## Tech Stack
 
