@@ -34,9 +34,10 @@ export function ContactForm() {
       <h2 className="font-serif text-3xl font-semibold text-ink">Contact K_LINE</h2>
       <select className="form-field" value={form.inquiryType} onChange={(event) => update("inquiryType", event.target.value)}>
         <option>General inquiry</option>
-        <option>Han-hwal inquiry</option>
-        <option>Archery class inquiry</option>
         <option>Goods inquiry</option>
+        <option>K-Culture Project inquiry</option>
+        <option>Our Activities inquiry</option>
+        <option>Han-hwal project inquiry</option>
       </select>
       <div className="grid gap-4 md:grid-cols-2">
         <input required className="form-field" placeholder="Name" value={form.name} onChange={(event) => update("name", event.target.value)} />

@@ -1,13 +1,17 @@
 import type { MetadataRoute } from "next";
+import { activities } from "@/data/activities";
 import { goods } from "@/data/goods";
+import { projects } from "@/data/projects";
 import { siteConfig } from "@/lib/seo";
 
 const staticRoutes = [
   "",
-  "/han-hwal",
-  "/archery-class",
-  "/k-culture-project",
   "/goods",
+  "/k-culture-project",
+  "/k-culture-project/submit",
+  "/k-culture-project/han-hwal",
+  "/our-activities",
+  "/our-activities/write",
   "/cart",
   "/checkout",
   "/contact"
@@ -29,5 +33,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7
   }));
 
-  return [...staticEntries, ...goodsEntries];
+  const projectEntries = projects
+    .filter((project) => project.slug !== "han-hwal")
+    .map((project) => ({
+      url: `${siteConfig.url}/k-culture-project/${project.slug}`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.7
+    }));
+
+  const activityEntries = activities.map((post) => ({
+    url: `${siteConfig.url}/our-activities/${post.slug}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.65
+  }));
+
+  return [...staticEntries, ...goodsEntries, ...projectEntries, ...activityEntries];
 }

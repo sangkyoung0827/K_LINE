@@ -33,6 +33,34 @@ export type ClassItem = {
   includedItems: string[];
 };
 
+export type ProjectItem = {
+  id: string;
+  slug: string;
+  title: string;
+  englishTitle: string;
+  teamOrAuthor: string;
+  category: string;
+  location: string;
+  shortDescription: string;
+  fullDescription: string;
+  image: ImageAsset;
+  tags: string[];
+  date: string;
+};
+
+export type ActivityPost = {
+  id: string;
+  slug: string;
+  title: string;
+  category: "News" | "Activity Log" | "Review" | "Field Note" | "Free Board";
+  author: string;
+  date: string;
+  excerpt: string;
+  content: string;
+  image: ImageAsset;
+  tags: string[];
+};
+
 export type CartLine = {
   id: string;
   slug: string;

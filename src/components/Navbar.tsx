@@ -21,13 +21,14 @@ export function Navbar() {
           </span>
           <span className="leading-tight">
             <span className="block text-base font-semibold text-ink">K_LINE</span>
-            <span className="block text-xs text-ink/60">Han-hwal Cultural Platform</span>
+            <span className="block text-xs text-ink/60">Cultural Dashboard Platform</span>
           </span>
         </Link>
 
         <div className="hidden items-center gap-1 lg:flex">
           {navigation.map((item) => {
-            const active = pathname === item.href;
+            const active =
+              pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
             return (
               <Link
                 key={item.href}

@@ -9,8 +9,8 @@ export function Footer() {
         <div>
           <p className="text-xl font-semibold">K_LINE</p>
           <p className="mt-3 max-w-md text-sm leading-7 text-paper/70">
-            한국의 선, 유럽을 잇다. A public Korean cultural platform for Han-hwal,
-            Korean traditional archery, Jeonbuk K-culture, Hanji, calligraphy, and goods.
+            한국의 선, 유럽을 잇다. A three-section cultural dashboard for Goods,
+            K-Culture Project, and Our Activities.
           </p>
         </div>
         <div>

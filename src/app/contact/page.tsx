@@ -6,11 +6,11 @@ import { siteConfig } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Contact K_LINE for general inquiry, Han-hwal inquiry, archery class inquiry, or goods inquiry.",
+    "Contact K_LINE for Goods, K-Culture Project, Our Activities, Han-hwal project, or general inquiries.",
   openGraph: {
     title: "Contact | K_LINE",
     description:
-      "General inquiry, Han-hwal inquiry, archery class inquiry, and Goods inquiry for K_LINE."
+      "General inquiry, Goods inquiry, K-Culture Project inquiry, and Our Activities inquiry for K_LINE."
   }
 };
 
@@ -22,7 +22,7 @@ export default function ContactPage() {
           <SectionHeader
             eyebrow="Contact"
             title="Open a cultural conversation"
-            description="Use the form for general inquiries, Han-hwal participation, Korean archery class booking, Goods inquiries, or future collaboration."
+            description="Use the form for Goods, K-Culture Project, Our Activities, Han-hwal project, or future collaboration inquiries."
           />
           <div className="mt-8 grid gap-4 text-sm text-ink/70">
             <p>
