@@ -43,6 +43,14 @@ Header account action:
 
 - Login
 
+Our Activities hover menu:
+
+- ECC
+- 한활 Hanhwal
+
+ECC and Hanhwal free-board posts are saved in browser localStorage for this prototype.
+Connect a real database and image storage before treating the boards as shared public data.
+
 Han-hwal is no longer a top-level menu item. It has moved under:
 
 ```text
@@ -66,6 +74,8 @@ The old route redirects:
 - `/k-culture-project/han-hwal`
 - `/k-culture-project/connecting-korean-lines-to-europe`
 - `/our-activities`
+- `/our-activities/ecc`
+- `/our-activities/hanhwal`
 - `/our-activities/write`
 - `/our-activities/han-hwal-korean-archery-experience-international-students`
 - `/login`
@@ -80,6 +90,7 @@ The old route redirects:
 - `src/data/goods.ts`
 - `src/data/projects.ts`
 - `src/data/activities.ts`
+- `src/data/activityBoards.ts`
 - `src/data/navigation.ts`
 
 ## Components
@@ -92,6 +103,8 @@ Reusable UI components include:
 - `ActivityPostCard`
 - `ProjectSubmitForm`
 - `ActivityWriteForm`
+- `FreeBoardPage`
+- `FreeBoardDetailPage`
 - `AuthProvider`
 - `AuthStatus`
 - `LoginPanel`

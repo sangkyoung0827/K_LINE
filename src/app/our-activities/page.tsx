@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CTAButton } from "@/components/CTAButton";
 import { ActivityPostCard } from "@/components/ActivityPostCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { activities } from "@/data/activities";
+import { activityBoards } from "@/data/activityBoards";
 import { seoKeywords } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -37,6 +39,36 @@ export default function OurActivitiesPage() {
       </section>
 
       <section className="bg-paper py-14 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 md:px-8">
+          <SectionHeader
+            eyebrow="Free boards"
+            title="ECC and Hanhwal community boards"
+            description="Open boards for activity posts, photos, questions, and community records."
+          />
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
+            {activityBoards.map((board) => (
+              <Link
+                key={board.id}
+                href={`/our-activities/${board.slug}`}
+                className="paper-panel grid min-h-56 content-between p-6 transition hover:border-brass hover:bg-white/65"
+              >
+                <div>
+                  <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
+                  <h2 className="mt-4 font-serif text-4xl font-semibold text-ink">
+                    {board.koreanTitle}
+                  </h2>
+                  <p className="mt-4 text-sm leading-7 text-ink/68">{board.description}</p>
+                </div>
+                <span className="mt-8 text-sm font-semibold text-ink underline underline-offset-4">
+                  Open Board
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white/45 py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow="Activity records"

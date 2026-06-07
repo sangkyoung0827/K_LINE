@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { ChevronDown, Menu, ShoppingBag, X } from "lucide-react";
 import { useState } from "react";
+import { activityBoards } from "@/data/activityBoards";
 import { navigation } from "@/data/navigation";
 import { AuthStatus } from "@/components/AuthStatus";
 import { useCart } from "@/components/CartProvider";
@@ -30,6 +31,38 @@ export function Navbar() {
           {navigation.map((item) => {
             const active =
               pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+            const hasBoards = item.href === "/our-activities";
+
+            if (hasBoards) {
+              return (
+                <div key={item.href} className="group relative">
+                  <Link
+                    href={item.href}
+                    className={`inline-flex items-center gap-1 px-3 py-2 text-sm transition ${
+                      active ? "text-ink" : "text-ink/62 hover:text-ink"
+                    }`}
+                  >
+                    {item.label}
+                    <ChevronDown
+                      aria-hidden
+                      className="h-3.5 w-3.5 transition group-hover:rotate-180"
+                    />
+                  </Link>
+                  <div className="absolute left-0 top-full hidden min-w-52 border border-ink/10 bg-paper shadow-soft group-hover:grid group-focus-within:grid">
+                    {activityBoards.map((board) => (
+                      <Link
+                        key={board.id}
+                        href={`/our-activities/${board.slug}`}
+                        className="border-b border-ink/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/10 hover:text-ink"
+                      >
+                        {board.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
@@ -72,16 +105,34 @@ export function Navbar() {
       {open ? (
         <div className="border-t border-ink/10 bg-paper lg:hidden">
           <div className="mx-auto grid max-w-7xl px-5 py-4">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="border-b border-ink/8 py-3 text-sm text-ink/76 last:border-b-0"
-              >
-                {item.label}
-              </Link>
-            ))}
+            {navigation.map((item) => {
+              const hasBoards = item.href === "/our-activities";
+              return (
+                <div key={item.href} className="border-b border-ink/8 last:border-b-0">
+                  <Link
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className="block py-3 text-sm text-ink/76"
+                  >
+                    {item.label}
+                  </Link>
+                  {hasBoards ? (
+                    <div className="grid pb-3 pl-4">
+                      {activityBoards.map((board) => (
+                        <Link
+                          key={board.id}
+                          href={`/our-activities/${board.slug}`}
+                          onClick={() => setOpen(false)}
+                          className="py-2 text-sm font-semibold text-ink/66"
+                        >
+                          {board.label}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}

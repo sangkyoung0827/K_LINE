@@ -61,6 +61,29 @@ export type ActivityPost = {
   tags: string[];
 };
 
+export type FreeBoardId = "ecc" | "hanhwal";
+
+export type FreeBoard = {
+  id: FreeBoardId;
+  slug: string;
+  label: string;
+  title: string;
+  koreanTitle: string;
+  description: string;
+  storageKey: string;
+};
+
+export type FreeBoardPost = {
+  id: string;
+  boardId: FreeBoardId;
+  title: string;
+  author: string;
+  content: string;
+  createdAt: string;
+  imageDataUrl?: string;
+  imageName?: string;
+};
+
 export type CartLine = {
   id: string;
   slug: string;

@@ -1,0 +1,90 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowLeft, MessageSquareText } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { FreeBoard, FreeBoardPost } from "@/types";
+import { readFreeBoardPosts } from "@/lib/freeBoardStorage";
+
+type FreeBoardDetailPageProps = {
+  board: FreeBoard;
+  postId: string;
+};
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+export function FreeBoardDetailPage({ board, postId }: FreeBoardDetailPageProps) {
+  const [posts, setPosts] = useState<FreeBoardPost[]>([]);
+
+  useEffect(() => {
+    setPosts(readFreeBoardPosts(board));
+  }, [board]);
+
+  const post = useMemo(() => posts.find((item) => item.id === postId), [postId, posts]);
+  const boardPath = `/our-activities/${board.slug}`;
+
+  if (!post) {
+    return (
+      <section className="bg-paper py-20">
+        <div className="mx-auto max-w-3xl px-5 text-center md:px-8">
+          <MessageSquareText aria-hidden className="mx-auto h-12 w-12 text-brass" />
+          <h1 className="mt-5 font-serif text-4xl font-semibold text-ink">Post not found</h1>
+          <p className="mt-4 text-sm leading-7 text-ink/62">{board.koreanTitle}</p>
+          <Link
+            href={boardPath}
+            className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 border border-ink/18 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10"
+          >
+            <ArrowLeft aria-hidden className="h-4 w-4" />
+            Back to board
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <section className="bg-ink py-16 text-paper md:py-24">
+        <div className="mx-auto max-w-5xl px-5 md:px-8">
+          <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
+          <h1 className="mt-5 font-serif text-5xl font-semibold md:text-7xl">{post.title}</h1>
+          <p className="mt-5 text-sm text-paper/62">
+            {post.author} / {formatDate(post.createdAt)}
+          </p>
+        </div>
+      </section>
+
+      <section className="bg-paper py-14 md:py-20">
+        <div className="mx-auto max-w-4xl px-5 md:px-8">
+          <article className="paper-panel overflow-hidden">
+            {post.imageDataUrl ? (
+              <img
+                src={post.imageDataUrl}
+                alt={`${post.title} uploaded photo`}
+                className="max-h-[560px] w-full object-cover"
+              />
+            ) : null}
+            <div className="p-6 md:p-8">
+              <p className="whitespace-pre-wrap text-base leading-8 text-ink/74">{post.content}</p>
+            </div>
+          </article>
+          <Link
+            href={boardPath}
+            className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4"
+          >
+            <ArrowLeft aria-hidden className="h-4 w-4" />
+            Back to board
+          </Link>
+        </div>
+      </section>
+    </>
+  );
+}

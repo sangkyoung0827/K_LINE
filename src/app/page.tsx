@@ -4,7 +4,9 @@ import { DashboardCard } from "@/components/DashboardCard";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Home",
+  title: {
+    absolute: siteConfig.name
+  },
   description:
     "K_LINE is a clean three-section dashboard for Korean cultural goods, K-culture projects, and community activity records.",
   keywords: seoKeywords,
