@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Woohyukmon icon source</title>
+  <desc id="desc">A friendly campus AI guide avatar with black hair, glasses, a smile, and global exchange lines.</desc>
+  <rect width="512" height="512" rx="256" fill="#F4EBDD"/>
+  <path d="M88 332 C116 184 232 92 368 122 C452 142 494 244 452 344" fill="none" stroke="#1F2A44" stroke-width="20" stroke-linecap="round"/>
+  <path d="M93 326 C119 246 151 196 198 160" fill="none" stroke="#D6A85A" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="391" cy="168" r="44" fill="#146CB5"/>
+  <path d="M353 168 H429 M391 125 C376 145 376 191 391 213 M391 125 C408 145 408 191 391 213 M365 142 C385 153 407 153 421 142 M365 196 C385 185 407 185 421 196" fill="none" stroke="#F7FAFC" stroke-width="9" stroke-linecap="round"/>
+  <ellipse cx="255" cy="292" rx="137" ry="142" fill="#FFC38F"/>
+  <path d="M124 272 C126 178 189 112 276 104 C341 99 398 139 420 209 C392 178 350 167 310 176 C253 190 206 170 169 190 C146 203 132 226 124 272Z" fill="#111827"/>
+  <path d="M123 263 C160 226 182 181 235 133 C218 182 260 171 299 124 C292 167 336 164 394 211 C367 104 186 73 123 263Z" fill="#1F2937"/>
+  <path d="M165 287 C191 266 223 266 249 287 M295 287 C322 266 354 266 379 287" fill="none" stroke="#111827" stroke-width="10" stroke-linecap="round"/>
+  <rect x="152" y="254" width="104" height="64" rx="24" fill="none" stroke="#111827" stroke-width="14"/>
+  <rect x="286" y="254" width="104" height="64" rx="24" fill="none" stroke="#111827" stroke-width="14"/>
+  <path d="M256 284 H286" fill="none" stroke="#111827" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="207" cy="288" r="13" fill="#111827"/>
+  <circle cx="337" cy="288" r="13" fill="#111827"/>
+  <circle cx="212" cy="283" r="5" fill="#FFFFFF"/>
+  <circle cx="342" cy="283" r="5" fill="#FFFFFF"/>
+  <path d="M248 318 C243 334 242 342 257 345" fill="none" stroke="#E58F5A" stroke-width="8" stroke-linecap="round"/>
+  <path d="M214 371 C249 398 306 396 342 368" fill="#FFFFFF"/>
+  <path d="M214 371 C249 398 306 396 342 368" fill="none" stroke="#8F2F1F" stroke-width="9" stroke-linecap="round"/>
+  <path d="M159 326 C147 318 136 320 129 334 C120 353 132 378 153 380 M412 326 C424 319 435 322 441 337 C448 356 435 380 415 381" fill="#FFC38F"/>
+  <path d="M164 404 C211 447 308 460 376 397" fill="none" stroke="#1F2A44" stroke-width="16" stroke-linecap="round"/>
+</svg>

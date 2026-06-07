@@ -23,6 +23,7 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - TypeScript
 - Tailwind CSS
 - Auth.js / NextAuth Google OAuth login
+- Woohyukmon AI assistant with server-side OpenAI API route
 - Custom K_LINE logo, favicon, and campus K-culture dashboard UI
 - Local goods, project, and activity data
 - localStorage cart, inquiry checkout, project submission, and activity writing flows
@@ -99,7 +100,16 @@ The old route redirects:
 - `public/favicon.svg`
 - `public/k-line-mark.svg`
 - `public/k-line-logo.svg`
+- `public/images/woohyukmon-icon.png`
 - `src/components/Logo.tsx`
+
+Place the Woohyukmon face icon at:
+
+```text
+public/images/woohyukmon-icon.png
+```
+
+If the PNG is not present, the chatbot falls back to a circular avatar with `우`.
 
 ## Components
 
@@ -120,6 +130,7 @@ Reusable UI components include:
 - `AuthProvider`
 - `AuthStatus`
 - `LoginPanel`
+- `WoohyukmonChatbot`
 - `SectionHeader`
 - `EmptyState`
 - `TagBadge`
@@ -187,6 +198,81 @@ then redeploy the project. The login page exists at:
 /login
 ```
 
+## Woohyukmon AI Assistant
+
+Woohyukmon / 우혁몬 is the site-wide K_LINE AI guide. In Phase 1 it appears as a
+floating bottom-right chatbot across every page.
+
+Woohyukmon can answer about:
+
+- K_LINE identity
+- Goods
+- K-Culture Project
+- ECC
+- Han-hwal
+- project submission
+- activity writing
+- Arrow Pen
+- Hanji Calligraphy LED Light Object
+
+Phase 1 uses:
+
+- `src/components/WoohyukmonChatbot.tsx`
+- `src/app/api/woohyukmon/route.ts`
+- `src/data/woohyukmonKnowledge.ts`
+- `src/lib/woohyukmonContext.ts`
+
+The browser calls the local API route. The API route calls OpenAI on the server,
+so `OPENAI_API_KEY` is never exposed to the browser.
+
+Local setup:
+
+```bash
+OPENAI_API_KEY=your-openai-api-key
+```
+
+Or create a local `.env.local`:
+
+```bash
+OPENAI_API_KEY=your-openai-api-key
+```
+
+Then run:
+
+```bash
+npm run dev
+```
+
+Test:
+
+1. Open `http://localhost:3000`
+2. Click the floating `우혁몬` button
+3. Ask about K_LINE, Goods, ECC, Han-hwal, project submission, or activity writing
+
+Vercel setup:
+
+1. Open the K_LINE Vercel project.
+2. Go to Project Settings > Environment Variables.
+3. Add `OPENAI_API_KEY` for Production.
+4. Redeploy:
+
+```bash
+npx vercel deploy --prod
+```
+
+Future Woohyukmon upgrade plan:
+
+- database-backed knowledge
+- admin-managed FAQ
+- project/activity post search
+- uploaded document search
+- vector search
+- image description search
+- answer citation/source display
+- moderation and abuse prevention
+- permanent chat history
+- user-specific memory
+
 ## Deploy To Vercel
 
 Deploy this repository as a new standalone Vercel project.
@@ -200,6 +286,7 @@ Recommended Vercel settings:
 - Output directory: Next.js default
 - Install command: `npm install`
 - Environment variables required for Google login: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
+- Environment variable required for Woohyukmon AI: `OPENAI_API_KEY`
 
 Optional production environment variable:
 
@@ -235,6 +322,7 @@ The following are intentionally placeholder flows:
 - member profile database after Google authentication
 - admin dashboard
 - admin moderation
+- AI moderation and abuse prevention
 - spam protection
 - order management
 - class booking management
@@ -246,6 +334,7 @@ The following are intentionally placeholder flows:
 - custom domain
 - Google Analytics
 - Google Search Console verification
+- Woohyukmon database/vector/document-search integration
 
 ## Google Search Console Setup
 

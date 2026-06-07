@@ -3,6 +3,7 @@ import "@/app/globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { CartProvider } from "@/components/CartProvider";
 import { Layout } from "@/components/Layout";
+import { WoohyukmonChatbot } from "@/components/WoohyukmonChatbot";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <CartProvider>
           <AuthProvider>
             <Layout>{children}</Layout>
+            <WoohyukmonChatbot />
           </AuthProvider>
         </CartProvider>
       </body>
