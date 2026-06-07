@@ -1,4 +1,4 @@
-# K_LINE / korean-lines
+# K_LINE
 
 K_LINE is a standalone public K-culture platform website for Han-hwal, Korean traditional archery classes, Jeonbuk K-culture projects, and cultural goods.
 
@@ -8,6 +8,10 @@ Main message:
 - Connecting Korean Lines to Europe
 
 This project is intentionally independent from any existing Xtudy Universe project.
+
+GitHub repository: `sangkyoung0827/K_LINE`
+
+Default production URL target: `https://kline.vercel.app`
 
 ## Tech Stack
 
@@ -50,9 +54,9 @@ npm run build
 
 ## Deploy To Vercel
 
-1. Push this repository to GitHub as `korean-lines`.
+1. Push this repository to GitHub as `sangkyoung0827/K_LINE`.
 2. In Vercel, choose **Add New Project**.
-3. Import the `korean-lines` repository.
+3. Import the `K_LINE` repository.
 4. Use the default Next.js framework preset.
 5. Add `NEXT_PUBLIC_SITE_URL` with the production domain, for example:
 
