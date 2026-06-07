@@ -1,0 +1,87 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Menu, ShoppingBag, X } from "lucide-react";
+import { useState } from "react";
+import { navigation } from "@/data/navigation";
+import { useCart } from "@/components/CartProvider";
+
+export function Navbar() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const { totalQuantity } = useCart();
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/92 backdrop-blur">
+      <nav className="mx-auto flex h-18 max-w-7xl items-center justify-between px-5 md:px-8">
+        <Link href="/" className="flex items-center gap-3" aria-label="K_LINE home">
+          <span className="flex h-10 w-10 items-center justify-center bg-ink text-sm font-semibold text-paper">
+            KL
+          </span>
+          <span className="leading-tight">
+            <span className="block text-base font-semibold text-ink">K_LINE</span>
+            <span className="block text-xs text-ink/60">Han-hwal Cultural Platform</span>
+          </span>
+        </Link>
+
+        <div className="hidden items-center gap-1 lg:flex">
+          {navigation.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`px-3 py-2 text-sm transition ${
+                  active ? "text-ink" : "text-ink/62 hover:text-ink"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Link
+            href="/cart"
+            aria-label="Open cart"
+            className="relative inline-flex h-10 w-10 items-center justify-center border border-ink/12 text-ink transition hover:border-brass hover:bg-brass/10"
+          >
+            <ShoppingBag aria-hidden className="h-4 w-4" />
+            {totalQuantity > 0 ? (
+              <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-brass px-1 text-xs font-semibold text-ink">
+                {totalQuantity}
+              </span>
+            ) : null}
+          </Link>
+          <button
+            type="button"
+            aria-label="Open navigation menu"
+            onClick={() => setOpen((value) => !value)}
+            className="inline-flex h-10 w-10 items-center justify-center border border-ink/12 text-ink transition hover:border-brass hover:bg-brass/10 lg:hidden"
+          >
+            {open ? <X aria-hidden className="h-5 w-5" /> : <Menu aria-hidden className="h-5 w-5" />}
+          </button>
+        </div>
+      </nav>
+
+      {open ? (
+        <div className="border-t border-ink/10 bg-paper lg:hidden">
+          <div className="mx-auto grid max-w-7xl px-5 py-4">
+            {navigation.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="border-b border-ink/8 py-3 text-sm text-ink/76 last:border-b-0"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </header>
+  );
+}
