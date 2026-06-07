@@ -12,3 +12,4 @@ pnpm-debug.log*
 coverage
 vercel.json
 *.tsbuildinfo
+.vercel
