@@ -22,10 +22,11 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
+- Auth.js / NextAuth Google OAuth login
 - Local goods, project, and activity data
 - localStorage cart, inquiry checkout, project submission, and activity writing flows
 - Inquiry-based commerce first
-- No real payment, authentication, backend, database, image upload, or admin moderation yet
+- No real payment, backend database, image upload, or admin moderation yet
 
 ## New Structure
 
@@ -37,6 +38,10 @@ Top navigation:
 - Our Activities
 - Cart
 - Contact
+
+Header account action:
+
+- Login
 
 Han-hwal is no longer a top-level menu item. It has moved under:
 
@@ -63,6 +68,7 @@ The old route redirects:
 - `/our-activities`
 - `/our-activities/write`
 - `/our-activities/han-hwal-korean-archery-experience-international-students`
+- `/login`
 - `/cart`
 - `/checkout`
 - `/contact`
@@ -86,6 +92,9 @@ Reusable UI components include:
 - `ActivityPostCard`
 - `ProjectSubmitForm`
 - `ActivityWriteForm`
+- `AuthProvider`
+- `AuthStatus`
+- `LoginPanel`
 - `SectionHeader`
 - `EmptyState`
 - `TagBadge`
@@ -117,6 +126,42 @@ npm run build
 npm run typecheck
 ```
 
+## Google Login Setup
+
+The login channel is implemented with Auth.js / NextAuth and Google OAuth.
+
+Create a Google OAuth client in Google Cloud Console, then add these authorized redirect URIs:
+
+```text
+http://localhost:3000/api/auth/callback/google
+https://kline-nine-wheat.vercel.app/api/auth/callback/google
+https://your-custom-domain.example/api/auth/callback/google
+```
+
+Use the custom-domain redirect only after the domain is actually connected.
+
+Create local environment variables from `.env.example`:
+
+```bash
+AUTH_SECRET=generated-secret
+AUTH_GOOGLE_ID=google-client-id
+AUTH_GOOGLE_SECRET=google-client-secret
+NEXT_PUBLIC_SITE_URL=https://kline-nine-wheat.vercel.app
+```
+
+Generate `AUTH_SECRET` with:
+
+```bash
+openssl rand -base64 32
+```
+
+In Vercel, add the same environment variables under Project Settings > Environment Variables,
+then redeploy the project. The login page exists at:
+
+```text
+/login
+```
+
 ## Deploy To Vercel
 
 Deploy this repository as a new standalone Vercel project.
@@ -129,7 +174,7 @@ Recommended Vercel settings:
 - Build command: `npm run build`
 - Output directory: Next.js default
 - Install command: `npm install`
-- Environment variables required now: none
+- Environment variables required for Google login: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
 
 Optional production environment variable:
 
@@ -162,7 +207,7 @@ The following are intentionally placeholder flows:
 - real payment
 - email sending
 - database persistence
-- authentication
+- member profile database after Google authentication
 - admin dashboard
 - admin moderation
 - spam protection

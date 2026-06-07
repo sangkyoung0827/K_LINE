@@ -12,6 +12,7 @@ const staticRoutes = [
   "/k-culture-project/han-hwal",
   "/our-activities",
   "/our-activities/write",
+  "/login",
   "/cart",
   "/checkout",
   "/contact"

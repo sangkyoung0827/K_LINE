@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/app/globals.css";
+import { AuthProvider } from "@/components/AuthProvider";
 import { CartProvider } from "@/components/CartProvider";
 import { Layout } from "@/components/Layout";
 import { seoKeywords, siteConfig } from "@/lib/seo";
@@ -53,7 +54,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
         <CartProvider>
-          <Layout>{children}</Layout>
+          <AuthProvider>
+            <Layout>{children}</Layout>
+          </AuthProvider>
         </CartProvider>
       </body>
     </html>

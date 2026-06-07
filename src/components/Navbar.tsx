@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Menu, ShoppingBag, X } from "lucide-react";
 import { useState } from "react";
 import { navigation } from "@/data/navigation";
+import { AuthStatus } from "@/components/AuthStatus";
 import { useCart } from "@/components/CartProvider";
 
 export function Navbar() {
@@ -44,6 +45,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
+          <AuthStatus />
           <Link
             href="/cart"
             aria-label="Open cart"
