@@ -31,6 +31,11 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: siteConfig.url
+  },
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/k-line-mark.svg"
   }
 };
 

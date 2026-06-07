@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { BookOpenText, Boxes, GalleryVerticalEnd } from "lucide-react";
+import { ActivityPreviewCard } from "@/components/ActivityPreviewCard";
 import { DashboardCard } from "@/components/DashboardCard";
+import { GoodsPreviewCard } from "@/components/GoodsPreviewCard";
+import { HeroSection } from "@/components/HeroSection";
+import { SectionHeader } from "@/components/SectionHeader";
+import { activityBoards } from "@/data/activityBoards";
+import { goods } from "@/data/goods";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -8,12 +14,12 @@ export const metadata: Metadata = {
     absolute: siteConfig.name
   },
   description:
-    "K_LINE is a clean three-section dashboard for Korean cultural goods, K-culture projects, and community activity records.",
+    "K_LINE is a campus K-culture hub connecting Korean cultural projects, goods, and student activities.",
   keywords: seoKeywords,
   openGraph: {
     title: "K_LINE | Goods, K-Culture Projects, and Our Activities",
     description:
-      "A modern Korean cultural platform dashboard for Goods, K-Culture Project, and Our Activities.",
+      "A clean campus K-culture dashboard for Goods, K-Culture Project, and Our Activities.",
     url: siteConfig.url
   }
 };
@@ -50,26 +56,63 @@ const dashboardSections = [
 
 export default function HomePage() {
   return (
-    <section className="bg-paper py-14 md:py-20">
-      <div className="mx-auto max-w-7xl px-5 md:px-8">
-        <div className="max-w-4xl">
-          <p className="text-sm font-semibold uppercase text-brass">K_LINE Dashboard Platform</p>
-          <h1 className="mt-5 font-serif text-5xl font-semibold text-ink md:text-7xl">
-            A clean cultural dashboard for Korean lines.
-          </h1>
-          <p className="mt-5 text-2xl font-semibold text-ink/76">한국의 선, 유럽을 잇다</p>
-          <p className="mt-6 max-w-3xl text-base leading-8 text-ink/68 md:text-lg">
-            K_LINE is organized into three clear sections: Goods, K-Culture Project, and
-            Our Activities. It is a cultural platform and archive, not a crowded online shop.
-          </p>
-        </div>
+    <>
+      <HeroSection />
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-3">
-          {dashboardSections.map((section) => (
-            <DashboardCard key={section.title} {...section} />
-          ))}
+      <section className="bg-paper py-14 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 md:px-8">
+          <SectionHeader
+            eyebrow="Three main tracks"
+            title="A simple dashboard for campus K-culture"
+            description="K_LINE keeps the experience focused on three paths: cultural goods, student-friendly K-culture projects, and community activities."
+            align="center"
+          />
+          <div className="mt-12 grid gap-6 lg:grid-cols-3">
+            {dashboardSections.map((section) => (
+              <DashboardCard key={section.title} {...section} />
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section className="bg-white/55 py-14 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 md:px-8">
+          <SectionHeader
+            eyebrow="Community activities"
+            title="Meet the student activity boards"
+            description="ECC and Han-hwal give students a place to share activity records, photos, questions, and campus stories."
+          />
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
+            {activityBoards.map((board, index) => (
+              <ActivityPreviewCard
+                key={board.id}
+                board={board}
+                accent={index === 0 ? "gold" : "green"}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-paper py-14 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 md:px-8">
+          <div className="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-end">
+            <SectionHeader
+              eyebrow="Featured goods"
+              title="Compact cultural objects for campus life"
+              description="A refined preview of K_LINE goods connected to Hanji, Korean calligraphy, and Han-hwal."
+            />
+            <p className="max-w-xl text-sm leading-7 text-muted md:justify-self-end">
+              Goods remain inquiry-based while payment and inventory systems are prepared.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-6 lg:grid-cols-2">
+            {goods.slice(0, 2).map((item) => (
+              <GoodsPreviewCard key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

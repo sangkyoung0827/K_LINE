@@ -8,6 +8,7 @@ import { activityBoards } from "@/data/activityBoards";
 import { navigation } from "@/data/navigation";
 import { AuthStatus } from "@/components/AuthStatus";
 import { useCart } from "@/components/CartProvider";
+import { Logo } from "@/components/Logo";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -15,16 +16,10 @@ export function Navbar() {
   const { totalQuantity } = useCart();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/92 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-navy/10 bg-paper/94 backdrop-blur">
       <nav className="mx-auto flex h-18 max-w-7xl items-center justify-between px-5 md:px-8">
-        <Link href="/" className="flex items-center gap-3" aria-label="K_LINE home">
-          <span className="flex h-10 w-10 items-center justify-center bg-ink text-sm font-semibold text-paper">
-            KL
-          </span>
-          <span className="leading-tight">
-            <span className="block text-base font-semibold text-ink">K_LINE</span>
-            <span className="block text-xs text-ink/60">Cultural Dashboard Platform</span>
-          </span>
+        <Link href="/" aria-label="K_LINE home">
+          <Logo size="sm" />
         </Link>
 
         <div className="hidden items-center gap-1 lg:flex">
@@ -38,7 +33,7 @@ export function Navbar() {
                 <div key={item.href} className="group relative">
                   <Link
                     href={item.href}
-                    className={`inline-flex items-center gap-1 px-3 py-2 text-sm transition ${
+                    className={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium transition ${
                       active ? "text-ink" : "text-ink/62 hover:text-ink"
                     }`}
                   >
@@ -48,12 +43,12 @@ export function Navbar() {
                       className="h-3.5 w-3.5 transition group-hover:rotate-180"
                     />
                   </Link>
-                  <div className="absolute left-0 top-full hidden min-w-52 border border-ink/10 bg-paper shadow-soft group-hover:grid group-focus-within:grid">
+                  <div className="absolute left-0 top-full hidden min-w-52 border border-navy/10 bg-paper shadow-soft group-hover:grid group-focus-within:grid">
                     {activityBoards.map((board) => (
                       <Link
                         key={board.id}
                         href={`/our-activities/${board.slug}`}
-                        className="border-b border-ink/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/10 hover:text-ink"
+                        className="border-b border-navy/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/15 hover:text-ink"
                       >
                         {board.label}
                       </Link>
@@ -67,7 +62,7 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 text-sm transition ${
+                className={`px-3 py-2 text-sm font-medium transition ${
                   active ? "text-ink" : "text-ink/62 hover:text-ink"
                 }`}
               >
@@ -82,7 +77,7 @@ export function Navbar() {
           <Link
             href="/cart"
             aria-label="Open cart"
-            className="relative inline-flex h-10 w-10 items-center justify-center border border-ink/12 text-ink transition hover:border-brass hover:bg-brass/10"
+            className="relative inline-flex h-10 w-10 items-center justify-center border border-navy/12 text-ink transition hover:border-brass hover:bg-brass/15"
           >
             <ShoppingBag aria-hidden className="h-4 w-4" />
             {totalQuantity > 0 ? (
@@ -95,7 +90,7 @@ export function Navbar() {
             type="button"
             aria-label="Open navigation menu"
             onClick={() => setOpen((value) => !value)}
-            className="inline-flex h-10 w-10 items-center justify-center border border-ink/12 text-ink transition hover:border-brass hover:bg-brass/10 lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center border border-navy/12 text-ink transition hover:border-brass hover:bg-brass/15 lg:hidden"
           >
             {open ? <X aria-hidden className="h-5 w-5" /> : <Menu aria-hidden className="h-5 w-5" />}
           </button>
@@ -103,12 +98,12 @@ export function Navbar() {
       </nav>
 
       {open ? (
-        <div className="border-t border-ink/10 bg-paper lg:hidden">
+        <div className="border-t border-navy/10 bg-paper lg:hidden">
           <div className="mx-auto grid max-w-7xl px-5 py-4">
             {navigation.map((item) => {
               const hasBoards = item.href === "/our-activities";
               return (
-                <div key={item.href} className="border-b border-ink/8 last:border-b-0">
+                <div key={item.href} className="border-b border-navy/8 last:border-b-0">
                   <Link
                     href={item.href}
                     onClick={() => setOpen(false)}

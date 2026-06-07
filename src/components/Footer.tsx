@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { navigation } from "@/data/navigation";
+import { Logo } from "@/components/Logo";
 import { siteConfig } from "@/lib/seo";
 
 export function Footer() {
   return (
-    <footer className="bg-ink text-paper">
+    <footer className="bg-navy text-paper">
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-12 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:px-8">
         <div>
-          <p className="text-xl font-semibold">K_LINE</p>
+          <Logo variant="light" size="sm" />
           <p className="mt-3 max-w-md text-sm leading-7 text-paper/70">
-            한국의 선, 유럽을 잇다. A three-section cultural dashboard for Goods,
-            K-Culture Project, and Our Activities.
+            A campus K-culture hub connecting Korean cultural projects, goods, and
+            student activities for international university communities.
           </p>
         </div>
         <div>

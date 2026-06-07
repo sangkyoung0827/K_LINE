@@ -13,7 +13,7 @@ export function SectionHeader({ eyebrow, title, description, align = "left" }: S
       ) : null}
       <h2 className="font-serif text-3xl font-semibold text-ink md:text-5xl">{title}</h2>
       {description ? (
-        <p className="mt-5 text-base leading-8 text-ink/72 md:text-lg">{description}</p>
+        <p className="mt-5 text-base leading-8 text-muted md:text-lg">{description}</p>
       ) : null}
     </div>
   );

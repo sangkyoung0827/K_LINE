@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" role="img" aria-labelledby="title desc">
+  <title id="title">K_LINE logo</title>
+  <desc id="desc">K_LINE wordmark with a calligraphic connection line and campus globe motif.</desc>
+  <rect width="360" height="96" fill="#F4EBDD"/>
+  <g transform="translate(20 16)">
+    <rect width="64" height="64" fill="#1F2A44"/>
+    <circle cx="45" cy="19" r="8" fill="none" stroke="#6B8F71" stroke-width="3"/>
+    <path d="M12 44 C22 25 35 19 52 14" fill="none" stroke="#D6A85A" stroke-linecap="round" stroke-width="5"/>
+    <path d="M16 18 L16 48 M16 32 L36 18 M21 32 L38 48" fill="none" stroke="#F4EBDD" stroke-linecap="round" stroke-linejoin="round" stroke-width="5"/>
+  </g>
+  <text x="104" y="47" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">K_LINE</text>
+  <text x="106" y="69" fill="#4B5563" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="500">Campus K-Culture Hub</text>
+</svg>

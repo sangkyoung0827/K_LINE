@@ -1,10 +1,10 @@
 export const siteConfig = {
   name: "K_LINE",
   repositoryName: "K_LINE",
-  title: "K_LINE | Korean Cultural Dashboard Platform",
+  title: "K_LINE | Campus K-Culture Hub",
   koreanTitle: "한국의 선, 유럽을 잇다",
   description:
-    "K_LINE is a Korean cultural dashboard platform for cultural goods, K-culture projects, Han-hwal, Hanji, Korean calligraphy, Korean traditional archery, and community activities.",
+    "K_LINE is a campus K-culture platform connecting Korean cultural projects, goods, and student activities for university communities and international students.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://kline-nine-wheat.vercel.app",
   youtube: "https://www.youtube.com/@Weirdsang",
   instagramPlaceholder: "Instagram placeholder to be connected later",
@@ -13,6 +13,10 @@ export const siteConfig = {
 
 export const seoKeywords = [
   "K_LINE",
+  "Campus K-Culture Hub",
+  "international students",
+  "university K-culture",
+  "campus community",
   "K-culture project",
   "Korean traditional archery",
   "Korean archery class",

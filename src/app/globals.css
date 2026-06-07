@@ -19,11 +19,11 @@ html {
 body {
   margin: 0;
   background:
-    linear-gradient(90deg, rgba(17, 17, 17, 0.03) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(17, 17, 17, 0.025) 1px, transparent 1px),
-    #f4efe6;
-  background-size: 44px 44px;
-  color: #111111;
+    linear-gradient(90deg, rgba(31, 42, 68, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(31, 42, 68, 0.028) 1px, transparent 1px),
+    #F4EBDD;
+  background-size: 42px 42px;
+  color: #111827;
   font-family: var(--font-sans);
 }
 
@@ -40,31 +40,31 @@ select {
 }
 
 ::selection {
-  background: #c58b45;
-  color: #111111;
+  background: #D6A85A;
+  color: #111827;
 }
 
 .paper-panel {
-  background: rgba(244, 239, 230, 0.88);
-  border: 1px solid rgba(17, 17, 17, 0.12);
+  background: rgba(255, 252, 246, 0.84);
+  border: 1px solid rgba(31, 42, 68, 0.12);
 }
 
 .ink-rule {
-  background: linear-gradient(90deg, #111111, rgba(17, 17, 17, 0));
+  background: linear-gradient(90deg, #111827, rgba(17, 24, 39, 0));
   height: 1px;
 }
 
 .form-field {
   width: 100%;
-  border: 1px solid rgba(17, 17, 17, 0.16);
+  border: 1px solid rgba(31, 42, 68, 0.16);
   background: rgba(255, 252, 246, 0.88);
   padding: 0.85rem 0.95rem;
-  color: #111111;
+  color: #111827;
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .form-field:focus {
-  border-color: #c58b45;
-  box-shadow: 0 0 0 3px rgba(197, 139, 69, 0.18);
+  border-color: #D6A85A;
+  box-shadow: 0 0 0 3px rgba(214, 168, 90, 0.22);
 }

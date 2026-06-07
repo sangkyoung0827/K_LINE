@@ -23,6 +23,7 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - TypeScript
 - Tailwind CSS
 - Auth.js / NextAuth Google OAuth login
+- Custom K_LINE logo, favicon, and campus K-culture dashboard UI
 - Local goods, project, and activity data
 - localStorage cart, inquiry checkout, project submission, and activity writing flows
 - Inquiry-based commerce first
@@ -93,11 +94,22 @@ The old route redirects:
 - `src/data/activityBoards.ts`
 - `src/data/navigation.ts`
 
+## Brand Assets
+
+- `public/favicon.svg`
+- `public/k-line-mark.svg`
+- `public/k-line-logo.svg`
+- `src/components/Logo.tsx`
+
 ## Components
 
 Reusable UI components include:
 
+- `Logo`
+- `HeroSection`
 - `DashboardCard`
+- `ActivityPreviewCard`
+- `GoodsPreviewCard`
 - `GoodsCard`
 - `ProjectCard`
 - `ActivityPostCard`
