@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogIn, LogOut, UserCircle } from "lucide-react";
+import { LogIn, LogOut, ShieldCheck, UserCircle } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 
 export function AuthStatus() {
@@ -61,6 +61,13 @@ export function AuthStatus() {
         >
           <UserCircle aria-hidden className="h-4 w-4 shrink-0" />
           <span className="truncate">{displayName}</span>
+        </Link>
+        <Link
+          href="/admin"
+          aria-label="Open admin console"
+          className="inline-flex h-10 w-10 items-center justify-center border border-ink/12 text-ink transition hover:border-brass hover:bg-brass/10"
+        >
+          <ShieldCheck aria-hidden className="h-4 w-4" />
         </Link>
         <button
           type="button"

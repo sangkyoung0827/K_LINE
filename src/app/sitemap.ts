@@ -17,7 +17,8 @@ const staticRoutes = [
   "/login",
   "/cart",
   "/checkout",
-  "/contact"
+  "/contact",
+  "/donate"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

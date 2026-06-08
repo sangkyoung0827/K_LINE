@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ContactForm } from "@/components/ContactForm";
 import { SectionHeader } from "@/components/SectionHeader";
 import { siteConfig } from "@/lib/seo";
@@ -38,6 +39,12 @@ export default function ContactPage() {
               <span className="font-semibold text-ink">Instagram:</span> {siteConfig.instagramPlaceholder}
             </p>
           </div>
+          <Link
+            href="/donate"
+            className="mt-8 inline-flex min-h-11 items-center justify-center bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
+          >
+            Support K_LINE
+          </Link>
         </div>
         <ContactForm />
       </div>

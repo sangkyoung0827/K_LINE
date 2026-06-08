@@ -27,8 +27,9 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - Custom K_LINE logo, favicon, and campus K-culture dashboard UI
 - Local goods, project, and activity data
 - localStorage cart, inquiry checkout, project submission, and activity writing flows
+- Super-admin dashboard prototype for local post deletion, member notes, order inquiry metrics, and donation pledges
 - Inquiry-based commerce first
-- No real payment, backend database, image upload, or admin moderation yet
+- No real payment, backend database, image upload, bank API, or shared server-side admin moderation yet
 
 ## New Structure
 
@@ -84,6 +85,8 @@ The old route redirects:
 - `/cart`
 - `/checkout`
 - `/contact`
+- `/donate`
+- `/admin`
 - `/robots.txt`
 - `/sitemap.xml`
 
@@ -131,6 +134,8 @@ Reusable UI components include:
 - `AuthStatus`
 - `LoginPanel`
 - `WoohyukmonChatbot`
+- `AdminDashboard`
+- `DonationPanel`
 - `SectionHeader`
 - `EmptyState`
 - `TagBadge`
@@ -273,6 +278,42 @@ Future Woohyukmon upgrade plan:
 - permanent chat history
 - user-specific memory
 
+## Super Admin And Donation Prototype
+
+The `/admin` route is a gated super-admin console. It uses Google login plus
+`SUPER_ADMIN_EMAILS` to decide who can open the dashboard.
+
+Set the super-admin email list in Vercel:
+
+```bash
+SUPER_ADMIN_EMAILS=your-google-login-email@example.com
+```
+
+The admin dashboard can currently manage browser-local prototype data:
+
+- delete ECC and Han-hwal free-board posts stored in localStorage
+- add, pause, and delete local member notes
+- view order inquiry counts
+- view per-product estimated quantities and estimated EUR revenue
+- view donation pledges saved locally
+- mark donation pledges received
+- save a manual bank/account balance snapshot
+
+The `/donate` route provides a donation pledge page and optional bank transfer
+information. Configure public display values only if they are safe to show:
+
+```bash
+NEXT_PUBLIC_DONATION_BANK_NAME=
+NEXT_PUBLIC_DONATION_ACCOUNT_NUMBER=
+NEXT_PUBLIC_DONATION_ACCOUNT_HOLDER=
+NEXT_PUBLIC_DONATION_BALANCE_KRW=
+```
+
+Important: real bank balance sync is not connected. A live account balance requires
+an official bank/open-banking API, account-owner consent, server-side credentials,
+and security review. Donation pledges are not real payments until a payment gateway,
+bank transfer confirmation flow, database, and receipt/accounting process are connected.
+
 ## Deploy To Vercel
 
 Deploy this repository as a new standalone Vercel project.
@@ -287,6 +328,7 @@ Recommended Vercel settings:
 - Install command: `npm install`
 - Environment variables required for Google login: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
 - Environment variable required for Woohyukmon AI: `OPENAI_API_KEY`
+- Environment variable required for admin access: `SUPER_ADMIN_EMAILS`
 
 Optional production environment variable:
 
@@ -317,11 +359,12 @@ The project includes:
 The following are intentionally placeholder flows:
 
 - real payment
+- real donation payment/receipt processing
+- real bank account balance API integration
 - email sending
 - database persistence
 - member profile database after Google authentication
-- admin dashboard
-- admin moderation
+- server-side admin moderation
 - AI moderation and abuse prevention
 - spam protection
 - order management
