@@ -8,12 +8,12 @@ import { seoKeywords, siteConfig } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "ECC Activity",
   description:
-    "ECC activity management page for member status, activity records, automatic team grouping, and KakaoTalk-ready notice drafts.",
-  keywords: [...seoKeywords, "ECC 활동", "ECC 회원 현황", "ECC 조 편성", "카카오톡 공지"],
+    "Korean and English ECC activity management page for member status, activity records, automatic team grouping, and KakaoTalk-ready notice drafts.",
+  keywords: [...seoKeywords, "ECC 활동", "ECC 회원 현황", "ECC 조 편성", "카카오톡 공지", "ECC activity"],
   openGraph: {
     title: "ECC Activity | K_LINE",
     description:
-      "Manage ECC member status, activity participation, team grouping, and KakaoTalk-ready notices.",
+      "Manage ECC member status, activity participation, team grouping, and Korean or English KakaoTalk-ready notices.",
     url: `${siteConfig.url}/our-activities/ecc/activity`
   },
   alternates: {
@@ -35,7 +35,7 @@ export default function EccActivityPage() {
         <SectionHeader
           eyebrow="ECC activity"
           title="ECC 활동"
-          description="회원 현황을 붙여넣어 활동 참여 내용을 정리하고, 이름 목록으로 조를 자동 편성한 뒤 카카오톡 공지문까지 만들 수 있습니다."
+          description="한국어와 영어를 선택해 회원 현황을 붙여넣고 활동 참여 내용을 정리하며, 이름 목록으로 조를 자동 편성한 뒤 카카오톡 공지문까지 만들 수 있습니다."
         />
         <div className="mt-10">
           <EccActivityPanel />

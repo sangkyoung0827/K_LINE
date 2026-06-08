@@ -57,6 +57,11 @@ ECC now opens a club menu with three choices:
 - ECC activity: `/our-activities/ecc/activity`
 - ECC fund management: `/our-activities/ecc/fund`
 
+The ECC activity page supports a Korean/English language selector. In English
+mode, English Excel headers such as `Name`, `Affiliation`, `Gathering`, `MT`,
+`Special Events`, and `Note` are parsed, team names use `Team 1`, `Team 2`, and
+the KakaoTalk-ready notice draft is generated in English.
+
 ECC and Hanhwal free-board posts, ECC member status, generated teams, and
 KakaoTalk-ready notice drafts are saved in browser localStorage for this prototype.
 Connect a real database and image storage before treating the boards and member
