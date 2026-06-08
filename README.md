@@ -4,7 +4,7 @@ K_LINE is a standalone Korean cultural dashboard platform for:
 
 1. Goods / 상품
 2. K-Culture Project / K-컬처 프로젝트
-3. Our Activities / 우리의 활동들
+3. International Clubs / 국제 학생 클럽
 
 Main message:
 
@@ -25,8 +25,8 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - Auth.js / NextAuth Google OAuth login
 - Woohyukmon AI assistant with server-side OpenAI API route
 - Custom K_LINE logo, favicon, and campus K-culture dashboard UI
-- Local goods, project, and activity data
-- localStorage cart, inquiry checkout, project submission, and activity writing flows
+- Local goods, project, and international club data
+- localStorage cart, inquiry checkout, project submission, and club writing flows
 - Role-aware super-admin prototype inside the same public site pages for local post deletion, donation account editing, donation total display, and account balance display
 - Inquiry-based commerce first
 - No real payment, backend database, image upload, bank API, or shared server-side admin moderation yet
@@ -38,7 +38,7 @@ Top navigation:
 - Home
 - Goods
 - K-Culture Project
-- Our Activities
+- International Clubs
 - Cart
 - Contact
 
@@ -46,12 +46,12 @@ Header account action:
 
 - Login
 
-Our Activities hover menu:
+International Clubs hover menu:
 
 - ECC
 - 한활 Hanhwal
 
-ECC now opens an activity menu with two choices:
+ECC now opens a club menu with two choices:
 
 - ECC free board: `/our-activities/ecc/free-board`
 - ECC fund management: `/our-activities/ecc/fund`
@@ -221,7 +221,7 @@ Woohyukmon can answer about:
 - ECC
 - Han-hwal
 - project submission
-- activity writing
+- club writing
 - Arrow Pen
 - Hanji Calligraphy LED Light Object
 
@@ -257,7 +257,7 @@ Test:
 
 1. Open `http://localhost:3000`
 2. Click the floating `우혁몬` button
-3. Ask about K_LINE, Goods, ECC, Han-hwal, project submission, or activity writing
+3. Ask about K_LINE, Goods, ECC, Han-hwal, project submission, or club writing
 
 Vercel setup:
 
@@ -274,7 +274,7 @@ Future Woohyukmon upgrade plan:
 
 - database-backed knowledge
 - admin-managed FAQ
-- project/activity post search
+- project/club post search
 - uploaded document search
 - vector search
 - image description search
@@ -379,7 +379,7 @@ The following are intentionally placeholder flows:
 - order management
 - class booking management
 - project submission review workflow
-- activity post moderation workflow
+- club post moderation workflow
 - image upload and storage
 - product inventory
 - real product and activity images

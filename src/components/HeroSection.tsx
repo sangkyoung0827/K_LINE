@@ -27,7 +27,7 @@ export function HeroSection() {
           K_LINE
         </h1>
         <p className="mt-6 max-w-3xl text-xl leading-8 text-paper/84 md:text-2xl">
-          A campus platform connecting Korean cultural projects, goods, and student activities.
+          A campus platform connecting Korean cultural projects, goods, and international student clubs.
         </p>
         <p className="mt-4 max-w-3xl text-base leading-8 text-paper/72 md:text-lg">
           외국인 유학생과 한국 학생이 함께 만드는 대학 기반 K-컬처 플랫폼
@@ -37,7 +37,7 @@ export function HeroSection() {
             Explore Projects
           </CTAButton>
           <CTAButton href="/our-activities" variant="lightOutline">
-            View Activities
+            View Clubs
           </CTAButton>
           <CTAButton href="/goods" variant="gold">
             Shop Goods

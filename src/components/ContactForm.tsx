@@ -36,7 +36,7 @@ export function ContactForm() {
         <option>General inquiry</option>
         <option>Goods inquiry</option>
         <option>K-Culture Project inquiry</option>
-        <option>Our Activities inquiry</option>
+        <option>International Clubs inquiry</option>
         <option>Han-hwal project inquiry</option>
       </select>
       <div className="grid gap-4 md:grid-cols-2">

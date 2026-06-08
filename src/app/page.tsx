@@ -14,12 +14,12 @@ export const metadata: Metadata = {
     absolute: siteConfig.name
   },
   description:
-    "K_LINE is a campus K-culture hub connecting Korean cultural projects, goods, and student activities.",
+    "K_LINE is a campus K-culture hub connecting Korean cultural projects, goods, and international student clubs.",
   keywords: seoKeywords,
   openGraph: {
-    title: "K_LINE | Goods, K-Culture Projects, and Our Activities",
+    title: "K_LINE | Goods, K-Culture Projects, and International Clubs",
     description:
-      "A clean campus K-culture dashboard for Goods, K-Culture Project, and Our Activities.",
+      "A clean campus K-culture dashboard for Goods, K-Culture Project, and International Clubs.",
     url: siteConfig.url
   }
 };
@@ -44,12 +44,12 @@ const dashboardSections = [
     icon: GalleryVerticalEnd
   },
   {
-    title: "Our Activities",
-    koreanTitle: "우리의 활동들",
+    title: "International Clubs",
+    koreanTitle: "국제 학생 클럽",
     description:
-      "Read and share activity records, news-style posts, reviews, field notes, and community stories.",
+      "Read and share club records, news-style posts, reviews, field notes, and community stories.",
     href: "/our-activities",
-    action: "Read Activities",
+    action: "View Clubs",
     icon: BookOpenText
   }
 ];
@@ -64,7 +64,7 @@ export default function HomePage() {
           <SectionHeader
             eyebrow="Three main tracks"
             title="A simple dashboard for campus K-culture"
-            description="K_LINE keeps the experience focused on three paths: cultural goods, student-friendly K-culture projects, and community activities."
+            description="K_LINE keeps the experience focused on three paths: cultural goods, student-friendly K-culture projects, and international student clubs."
             align="center"
           />
           <div className="mt-12 grid gap-6 lg:grid-cols-3">
@@ -78,9 +78,9 @@ export default function HomePage() {
       <section className="bg-white/55 py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
-            eyebrow="Community activities"
-            title="Meet the student activity boards"
-            description="ECC and Han-hwal give students a place to share activity records, photos, questions, and campus stories."
+            eyebrow="International clubs"
+            title="Meet the student club boards"
+            description="ECC and Han-hwal give students a place to share club records, photos, questions, and campus stories."
           />
           <div className="mt-10 grid gap-6 md:grid-cols-2">
             {activityBoards.map((board, index) => (

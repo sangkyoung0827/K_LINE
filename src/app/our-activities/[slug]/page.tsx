@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!post) {
     return {
-      title: "Our Activities"
+      title: "International Clubs"
     };
   }
 
@@ -118,7 +118,7 @@ export default async function ActivityDetailPage({ params }: PageProps) {
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow="Related posts"
-            title="More activity records"
+            title="More club records"
             description="Continue reading K_LINE news, reviews, field notes, and community stories."
           />
           <div className="mt-10 grid gap-5">

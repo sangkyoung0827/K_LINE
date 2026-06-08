@@ -26,12 +26,12 @@ const eccTools = [
 ];
 
 export const metadata: Metadata = {
-  title: "ECC Activity Hub",
+  title: "ECC Club Hub",
   description:
-    "ECC menu for the K_LINE free board and fund management page with role-aware super admin controls.",
+    "ECC club menu for the K_LINE free board and fund management page with role-aware super admin controls.",
   keywords: [...seoKeywords, "ECC", "ECC 자유게시판", "ECC 자금관리"],
   openGraph: {
-    title: "ECC Activity Hub | K_LINE",
+    title: "ECC Club Hub | K_LINE",
     description: "Open the ECC free board or fund management page on K_LINE.",
     url: `${siteConfig.url}/our-activities/ecc`
   },
@@ -46,7 +46,9 @@ export default function EccHubPage() {
       <section className="bg-navy py-16 text-paper md:py-24">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-[1fr_auto] md:items-end md:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase text-brass">Our Activities / ECC</p>
+            <p className="text-sm font-semibold uppercase text-brass">
+              International Clubs / ECC
+            </p>
             <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">ECC Menu</h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
               ECC 안에서 자유게시판과 자금관리를 함께 운영합니다. 같은 사이트 주소에서

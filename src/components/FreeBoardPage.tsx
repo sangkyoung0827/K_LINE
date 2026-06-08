@@ -116,7 +116,7 @@ export function FreeBoardPage({
     <>
       <section className="bg-navy py-16 text-paper md:py-24">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
-          <p className="text-sm font-semibold uppercase text-brass">Our Activities</p>
+          <p className="text-sm font-semibold uppercase text-brass">International Clubs</p>
           <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">
             {board.koreanTitle}
           </h1>

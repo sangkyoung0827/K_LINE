@@ -4,7 +4,7 @@ export const siteConfig = {
   title: "K_LINE | Campus K-Culture Hub",
   koreanTitle: "한국의 선, 유럽을 잇다",
   description:
-    "K_LINE is a campus K-culture platform connecting Korean cultural projects, goods, and student activities for university communities and international students.",
+    "K_LINE is a campus K-culture platform connecting Korean cultural projects, goods, and international student clubs for university communities.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://kline-nine-wheat.vercel.app",
   youtube: "https://www.youtube.com/@Weirdsang",
   instagramPlaceholder: "Instagram placeholder to be connected later",

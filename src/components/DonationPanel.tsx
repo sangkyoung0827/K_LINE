@@ -211,7 +211,7 @@ export function DonationPanel() {
           <p className="mt-6 text-sm font-semibold uppercase text-brass">Donation account</p>
           <h2 className="mt-3 font-serif text-4xl font-semibold text-ink">ECC 후원과 자금 현황</h2>
           <p className="mt-5 text-sm leading-7 text-ink/68">
-            후원금은 ECC 활동, K-culture project, student activities, goods prototyping, and
+            후원금은 ECC 활동, K-culture project, international clubs, goods prototyping, and
             community programs 운영 준비에 사용됩니다.
           </p>
 

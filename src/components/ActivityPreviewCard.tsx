@@ -39,7 +39,7 @@ export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps)
         <p className="text-sm font-semibold text-muted">{board.koreanTitle}</p>
         <p className="text-sm leading-7 text-ink/70">{board.description}</p>
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
-          Open Activity Board
+          Open Club Board
           <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
         </span>
       </div>

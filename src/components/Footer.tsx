@@ -11,7 +11,7 @@ export function Footer() {
           <Logo variant="light" size="sm" />
           <p className="mt-3 max-w-md text-sm leading-7 text-paper/70">
             A campus K-culture hub connecting Korean cultural projects, goods, and
-            student activities for international university communities.
+            international student clubs for university communities.
           </p>
         </div>
         <div>

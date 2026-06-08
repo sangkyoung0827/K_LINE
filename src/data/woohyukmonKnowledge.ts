@@ -7,7 +7,7 @@ export const woohyukmonKnowledge = {
     tone: ["friendly", "concise", "accurate", "campus-community oriented", "K-culture themed"]
   },
   tracks: {
-    summary: "K_LINE has three main tracks: Goods, K-Culture Project, and Our Activities.",
+    summary: "K_LINE has three main tracks: Goods, K-Culture Project, and International Clubs.",
     items: [
       {
         name: "Goods",
@@ -20,10 +20,10 @@ export const woohyukmonKnowledge = {
         description: "Student-friendly Korean cultural project sharing and project documentation."
       },
       {
-        name: "Our Activities",
+        name: "International Clubs",
         href: "/our-activities",
         description:
-          "Community activities, ECC, Han-hwal, activity posts, free boards, and ECC fund information."
+          "International student clubs, ECC, Han-hwal, club posts, free boards, and ECC fund information."
       }
     ]
   },
@@ -65,7 +65,7 @@ export const woohyukmonKnowledge = {
   activities: {
     href: "/our-activities",
     summary:
-      "Our Activities includes ECC and Han-hwal activity records, free boards, writing flows, and ECC fund management.",
+      "International Clubs includes ECC and Han-hwal club records, free boards, writing flows, and ECC fund management.",
     writeHref: "/our-activities/write",
     note: "Activity writing is currently a prototype flow. Permanent public publishing needs backend storage and moderation."
   },
@@ -98,7 +98,7 @@ export const woohyukmonKnowledge = {
     {
       question: "What can I do on K_LINE?",
       answer:
-        "You can explore Goods, K-Culture Project, and Our Activities, including ECC free board, ECC fund information, and Han-hwal community boards."
+        "You can explore Goods, K-Culture Project, and International Clubs, including ECC free board, ECC fund information, and Han-hwal community boards."
     },
     {
       question: "Is payment available?",
