@@ -6,7 +6,7 @@ import { seoKeywords } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Submit K-Culture Project",
   description:
-    "Submit a K-culture project to K_LINE for pending review. Authentication, moderation, database, and image upload can be connected later.",
+    "Submit a K-culture project to K_LINE for pending review.",
   keywords: seoKeywords,
   openGraph: {
     title: "Submit K-Culture Project | K_LINE",
@@ -22,7 +22,7 @@ export default function ProjectSubmitPage() {
         <SectionHeader
           eyebrow="Pending review"
           title="Share a cultural project"
-          description="This form is a prototype submission flow. Submissions are not publicly posted until backend moderation, database storage, authentication, and image upload are connected."
+          description="Submissions are saved for super-admin review and are not publicly posted until moderation is complete."
         />
         <ProjectSubmitForm />
       </div>

@@ -77,6 +77,35 @@ type BoardPostRow = {
   post: FreeBoardPost;
 };
 
+type ProjectSubmission = {
+  id: string;
+  createdAt: string;
+  title: string;
+  englishTitle: string;
+  teamOrAuthor: string;
+  category: string;
+  location: string;
+  shortDescription: string;
+  fullDescription: string;
+  contactEmail: string;
+  imageUrl: string;
+  tags: string[];
+  status: string;
+};
+
+type ActivitySubmission = {
+  id: string;
+  createdAt: string;
+  title: string;
+  category: string;
+  authorName: string;
+  email: string;
+  content: string;
+  imageUrl: string;
+  tags: string[];
+  status: string;
+};
+
 const memberInitialState = {
   name: "",
   email: "",
@@ -143,6 +172,40 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
     displayBalanceKrw: String(defaultBankSnapshot.displayBalanceKrw || "")
   });
   const [boardPosts, setBoardPosts] = useState<BoardPostRow[]>([]);
+  const [projectSubmissions, setProjectSubmissions] = useState<ProjectSubmission[]>([]);
+  const [activitySubmissions, setActivitySubmissions] = useState<ActivitySubmission[]>([]);
+  const [submissionError, setSubmissionError] = useState("");
+
+  const loadSupabaseSubmissions = async () => {
+    try {
+      const [projectResponse, activityResponse] = await Promise.all([
+        fetch("/api/project-submissions"),
+        fetch("/api/activity-posts")
+      ]);
+      const projectData = (await projectResponse.json()) as {
+        submissions?: ProjectSubmission[];
+        error?: string;
+      };
+      const activityData = (await activityResponse.json()) as {
+        posts?: ActivitySubmission[];
+        error?: string;
+      };
+
+      if (!projectResponse.ok) {
+        throw new Error(projectData.error || "Project submissions could not be loaded.");
+      }
+
+      if (!activityResponse.ok) {
+        throw new Error(activityData.error || "Activity submissions could not be loaded.");
+      }
+
+      setProjectSubmissions(projectData.submissions ?? []);
+      setActivitySubmissions(activityData.posts ?? []);
+      setSubmissionError("");
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : "Submissions could not be loaded.");
+    }
+  };
 
   const refresh = () => {
     setMembers(readJson<AdminMember[]>(adminStorageKeys.adminMembers, []));
@@ -163,6 +226,7 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
         sortPostsByNewest(readFreeBoardPosts(board)).map((post) => ({ board, post }))
       )
     );
+    void loadSupabaseSubmissions();
   };
 
   useEffect(() => {
@@ -208,6 +272,12 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
   const receivedKrw = donations
     .filter((donation) => donation.status === "received")
     .reduce((total, donation) => total + donation.amountKrw, 0);
+  const pendingProjectSubmissions = projectSubmissions.filter(
+    (submission) => submission.status === "pending"
+  ).length;
+  const pendingActivitySubmissions = activitySubmissions.filter(
+    (submission) => submission.status === "pending"
+  ).length;
 
   const addMember = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -298,12 +368,24 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
       </section>
 
       <section className="bg-paper py-10 md:py-14">
-        <div className="mx-auto grid max-w-7xl gap-5 px-5 md:grid-cols-2 md:px-8 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-7xl gap-5 px-5 md:grid-cols-2 md:px-8 lg:grid-cols-6">
           <MetricCard
             icon={<ClipboardList aria-hidden className="h-5 w-5" />}
             label="Board posts"
             value={`${boardPosts.length}`}
             note="ECC + Han-hwal"
+          />
+          <MetricCard
+            icon={<ClipboardList aria-hidden className="h-5 w-5" />}
+            label="Project submissions"
+            value={`${projectSubmissions.length}`}
+            note={`${pendingProjectSubmissions} pending`}
+          />
+          <MetricCard
+            icon={<ClipboardList aria-hidden className="h-5 w-5" />}
+            label="Activity submissions"
+            value={`${activitySubmissions.length}`}
+            note={`${pendingActivitySubmissions} pending`}
           />
           <MetricCard
             icon={<Package aria-hidden className="h-5 w-5" />}
@@ -396,6 +478,94 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
                 </div>
               ))}
             </div>
+          </AdminPanel>
+
+          <AdminPanel
+            title="K-Culture Project Submissions"
+            icon={<ClipboardList aria-hidden className="h-5 w-5" />}
+          >
+            {submissionError ? (
+              <p className="mb-4 text-sm font-semibold text-red-700">{submissionError}</p>
+            ) : null}
+            {projectSubmissions.length > 0 ? (
+              <div className="grid gap-3">
+                {projectSubmissions.map((submission) => (
+                  <div key={submission.id} className="border border-ink/10 bg-white/60 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-brass">
+                          {submission.status}
+                        </p>
+                        <p className="mt-2 font-serif text-2xl font-semibold text-ink">
+                          {submission.title}
+                        </p>
+                        <p className="mt-1 text-sm text-ink/62">
+                          {submission.teamOrAuthor || "No author"} /{" "}
+                          {submission.contactEmail || "No email"}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold text-ink/46">
+                        {formatDate(submission.createdAt)}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-ink/66">
+                      {submission.shortDescription || submission.fullDescription || "No description"}
+                    </p>
+                    {submission.tags.length > 0 ? (
+                      <p className="mt-3 text-xs font-semibold uppercase text-ink/46">
+                        {submission.tags.join(", ")}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm leading-7 text-ink/62">
+                No Supabase project submissions are stored yet.
+              </p>
+            )}
+          </AdminPanel>
+
+          <AdminPanel
+            title="Activity Post Submissions"
+            icon={<ClipboardList aria-hidden className="h-5 w-5" />}
+          >
+            {activitySubmissions.length > 0 ? (
+              <div className="grid gap-3">
+                {activitySubmissions.map((submission) => (
+                  <div key={submission.id} className="border border-ink/10 bg-white/60 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-brass">
+                          {submission.status} / {submission.category || "Uncategorized"}
+                        </p>
+                        <p className="mt-2 font-serif text-2xl font-semibold text-ink">
+                          {submission.title}
+                        </p>
+                        <p className="mt-1 text-sm text-ink/62">
+                          {submission.authorName || "No author"} / {submission.email || "No email"}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold text-ink/46">
+                        {formatDate(submission.createdAt)}
+                      </span>
+                    </div>
+                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-ink/66">
+                      {submission.content || "No content"}
+                    </p>
+                    {submission.tags.length > 0 ? (
+                      <p className="mt-3 text-xs font-semibold uppercase text-ink/46">
+                        {submission.tags.join(", ")}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm leading-7 text-ink/62">
+                No Supabase activity post submissions are stored yet.
+              </p>
+            )}
           </AdminPanel>
 
           <AdminPanel title="Post Deletion" icon={<Trash2 aria-hidden className="h-5 w-5" />}>

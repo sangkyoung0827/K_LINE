@@ -20,21 +20,44 @@ const initialState = {
 export function ProjectSubmitForm() {
   const [form, setForm] = useState(initialState);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const update = (field: keyof typeof initialState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const payload = { ...form, createdAt: new Date().toISOString(), status: "pending-review" };
-    const key = "k_line_project_submissions";
-    const existing = JSON.parse(window.localStorage.getItem(key) ?? "[]") as typeof payload[];
-    window.localStorage.setItem(key, JSON.stringify([...existing, payload]));
-    // Future integration point: connect database, authentication, admin moderation,
-    // image upload/storage, spam protection, and email notification before public publishing.
-    setForm(initialState);
-    setSuccess(true);
+    setSubmitting(true);
+    setSuccess(false);
+    setError("");
+
+    try {
+      const response = await fetch("/api/project-submissions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(form)
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Project submission could not be saved.");
+      }
+
+      setForm(initialState);
+      setSuccess(true);
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Project submission could not be saved."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -42,8 +65,8 @@ export function ProjectSubmitForm() {
       <div>
         <h2 className="font-serif text-3xl font-semibold text-ink">Submit a K-Culture Project</h2>
         <p className="mt-3 text-sm leading-7 text-ink/68">
-          Submissions are locally saved and marked pending review. Public posting, moderation,
-          image upload, and database storage should be connected later.
+          Submissions are saved for pending review. Public posting, moderation, image upload, and
+          publishing approval are handled separately.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
@@ -60,13 +83,16 @@ export function ProjectSubmitForm() {
       <input className="form-field" placeholder="Tags, separated by commas" value={form.tags} onChange={(event) => update("tags", event.target.value)} />
       <textarea className="form-field min-h-28" placeholder="Message" value={form.message} onChange={(event) => update("message", event.target.value)} />
       <div>
-        <CTAButton type="submit">Submit Pending Project</CTAButton>
+        <CTAButton type="submit" disabled={submitting}>
+          {submitting ? "Submitting..." : "Submit Pending Project"}
+        </CTAButton>
       </div>
       {success ? (
         <p className="text-sm font-semibold text-pine">
-          Project submission saved locally and marked pending review.
+          Project submission saved to Supabase and marked pending review.
         </p>
       ) : null}
+      {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
     </form>
   );
 }

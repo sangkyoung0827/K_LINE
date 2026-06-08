@@ -26,7 +26,8 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - Woohyukmon AI assistant with server-side OpenAI API route
 - Custom K_LINE logo, favicon, and campus K-culture dashboard UI
 - Local goods, project, and international club data
-- localStorage cart, inquiry checkout, project submission, and club writing flows
+- localStorage cart and inquiry checkout flows
+- Supabase-backed K-Culture Project submissions, Our Activities post submissions, and ECC applications
 - Role-aware super-admin prototype inside the same public site pages for local post deletion, donation account editing, donation total display, and account balance display
 - Inquiry-based commerce first
 - No real payment, backend database, image upload, bank API, or shared server-side admin moderation yet
@@ -314,6 +315,8 @@ Current role-aware super-admin controls:
 
 - `/our-activities/ecc`: open the ECC menu for free board, activity, and fund management
 - `/our-activities/ecc/activity`: paste ECC member status, view activity records, generate teams, and generate KakaoTalk-ready notices
+- `/admin`: fetch pending K-Culture Project submissions from Supabase
+- `/admin`: fetch pending Our Activities post submissions from Supabase
 - `/our-activities/ecc/free-board`: delete ECC free-board posts from the same board screen
 - `/our-activities/hanhwal`: delete Han-hwal free-board posts from the same board screen
 - free-board detail pages: delete the current post from the same detail screen
@@ -354,7 +357,7 @@ Recommended Vercel settings:
 - Environment variables required for Google login: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
 - Environment variable required for Woohyukmon AI: `OPENAI_API_KEY`
 - Environment variable required for admin access: `SUPER_ADMIN_EMAILS`
-- Environment variables required for shared ECC applications: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- Environment variables required for shared Supabase storage: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 
 Optional production environment variable:
 
@@ -364,11 +367,17 @@ NEXT_PUBLIC_SITE_URL=https://your-custom-domain.example
 
 Set this only after connecting a real custom domain.
 
-## Supabase ECC Applications
+## Supabase Storage
 
-ECC activity applications are stored server-side in Supabase so applicant counts
-and super-admin applicant lists are shared across accounts, browsers, and devices.
-Do not expose the service role key in client code.
+K-Culture Project submissions, Our Activities post submissions, and ECC activity
+applications are stored server-side in Supabase so data is shared across accounts,
+browsers, and devices. Do not expose the service role key in client code.
+
+The current Supabase-backed tables are:
+
+- `public.project_submissions`
+- `public.activity_posts`
+- `public.ecc_activity_applications`
 
 Create this table in the Supabase SQL editor. The same SQL is saved at
 `supabase/ecc_activity_applications.sql`.
@@ -419,7 +428,8 @@ The following are intentionally placeholder flows:
 - real donation payment/receipt processing
 - real bank account balance API integration
 - email sending
-- database persistence
+- database persistence for remaining local-only flows
+- approval/rejection workflow for Supabase-backed submitted projects and activity posts
 - member profile database after Google authentication
 - ECC member/activity database
 - KakaoTalk API or bot integration for real automatic notice sending

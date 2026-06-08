@@ -8,6 +8,7 @@ type CTAButtonProps = {
   variant?: "dark" | "light" | "outline" | "lightOutline" | "gold" | "green";
   type?: "button" | "submit";
   onClick?: () => void;
+  disabled?: boolean;
 };
 
 const variantClass = {
@@ -24,9 +25,10 @@ export function CTAButton({
   children,
   variant = "dark",
   type = "button",
-  onClick
+  onClick,
+  disabled = false
 }: CTAButtonProps) {
-  const className = `inline-flex min-h-11 items-center justify-center gap-2 px-5 py-3 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 ${variantClass[variant]}`;
+  const className = `inline-flex min-h-11 items-center justify-center gap-2 px-5 py-3 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 ${variantClass[variant]}`;
 
   if (href) {
     return (
@@ -38,7 +40,7 @@ export function CTAButton({
   }
 
   return (
-    <button type={type} onClick={onClick} className={className}>
+    <button type={type} onClick={onClick} disabled={disabled} className={className}>
       {children}
       <ArrowRight aria-hidden className="h-4 w-4" />
     </button>

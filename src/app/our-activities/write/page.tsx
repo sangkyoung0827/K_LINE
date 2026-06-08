@@ -6,7 +6,7 @@ import { seoKeywords } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Write Club Post",
   description:
-    "Write a K_LINE international club post for pending review. Authentication, moderation, database, and image upload can be connected later.",
+    "Write a K_LINE international club post for pending review.",
   keywords: seoKeywords,
   openGraph: {
     title: "Write Club Post | K_LINE",
@@ -22,7 +22,7 @@ export default function ActivityWritePage() {
         <SectionHeader
           eyebrow="Pending review"
           title="Write a community club record"
-          description="This is a prototype writing flow. Posts are locally saved and should be moderated before any real public publishing."
+          description="Submitted posts are saved for super-admin review and stay pending until moderation is complete."
         />
         <ActivityWriteForm />
       </div>

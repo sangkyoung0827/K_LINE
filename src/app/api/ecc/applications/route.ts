@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isSuperAdminEmail } from "@/lib/admin";
+import {
+  cleanText,
+  SupabaseConfigError,
+  SupabaseRequestError,
+  supabaseRequest
+} from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
@@ -28,61 +34,11 @@ type EccApplication = {
   createdAt: string;
 };
 
-type SupabaseConfig = {
-  url: string;
-  serviceRoleKey: string;
-};
-
 const validApplicationTypes: ApplicationType[] = ["gathering", "mt", "special"];
 const validApplicationTypeSet = new Set<ApplicationType>(validApplicationTypes);
 const tableName = "ecc_activity_applications";
 const selectedColumns =
   "id,type,kakao_name,gender,nationality,preferred_food,request,created_at";
-
-class SupabaseConfigError extends Error {}
-
-class SupabaseRequestError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number
-  ) {
-    super(message);
-  }
-}
-
-function getSupabaseConfig(): SupabaseConfig {
-  const url = process.env.SUPABASE_URL?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-
-  if (!url || !serviceRoleKey) {
-    throw new SupabaseConfigError("Supabase environment variables are missing.");
-  }
-
-  return {
-    url: url.replace(/\/+$/, ""),
-    serviceRoleKey
-  };
-}
-
-async function supabaseRequest<T>(path: string, init: RequestInit = {}) {
-  const config = getSupabaseConfig();
-  const headers = new Headers(init.headers);
-  headers.set("apikey", config.serviceRoleKey);
-  headers.set("Authorization", `Bearer ${config.serviceRoleKey}`);
-  headers.set("Content-Type", "application/json");
-
-  const response = await fetch(`${config.url}/rest/v1/${path}`, {
-    ...init,
-    headers
-  });
-
-  if (!response.ok) {
-    throw new SupabaseRequestError(await response.text(), response.status);
-  }
-
-  const responseText = await response.text();
-  return (responseText ? JSON.parse(responseText) : null) as T;
-}
 
 function toClientApplication(row: SupabaseApplicationRow): EccApplication {
   return {
@@ -115,10 +71,6 @@ function countApplications(rows: SupabaseApplicationRow[]) {
   });
 
   return counts;
-}
-
-function cleanText(value: unknown, maxLength = 240) {
-  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
 async function listApplications() {
