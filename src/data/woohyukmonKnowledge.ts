@@ -73,10 +73,11 @@ export const woohyukmonKnowledge = {
     name: "ECC",
     fullName: "English Conversation Club",
     href: "/our-activities/ecc",
+    activityHref: "/our-activities/ecc/activity",
     freeBoardHref: "/our-activities/ecc/free-board",
     fundHref: "/our-activities/ecc/fund",
     description:
-      "ECC is a student community where Korean students and international students interact through English, campus activities, and cultural exchange. Its menu includes an ECC free board and ECC fund management page."
+      "ECC is a student community where Korean students and international students interact through English, campus activities, and cultural exchange. Its menu includes an ECC free board, ECC activity management, and ECC fund management page."
   },
   hanHwal: {
     name: "Han-hwal",

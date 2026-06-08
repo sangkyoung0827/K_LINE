@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Banknote, MessageSquareText, ShieldCheck, Users } from "lucide-react";
+import {
+  ArrowRight,
+  Banknote,
+  ClipboardList,
+  MessageSquareText,
+  ShieldCheck,
+  Users
+} from "lucide-react";
 import { SectionHeader } from "@/components/SectionHeader";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 
@@ -13,6 +20,15 @@ const eccTools = [
     href: "/our-activities/ecc/free-board",
     cta: "Open Free Board",
     icon: MessageSquareText
+  },
+  {
+    eyebrow: "Activity manager",
+    title: "ECC 활동",
+    description:
+      "회원 현황, 활동 참여 기록, 자동 조 편성, 카카오톡 공지문 생성을 한곳에서 관리합니다.",
+    href: "/our-activities/ecc/activity",
+    cta: "Open ECC Activity",
+    icon: ClipboardList
   },
   {
     eyebrow: "Fund management",
@@ -28,11 +44,11 @@ const eccTools = [
 export const metadata: Metadata = {
   title: "ECC Club Hub",
   description:
-    "ECC club menu for the K_LINE free board and fund management page with role-aware super admin controls.",
-  keywords: [...seoKeywords, "ECC", "ECC 자유게시판", "ECC 자금관리"],
+    "ECC club menu for the K_LINE free board, activity management, and fund management pages with role-aware super admin controls.",
+  keywords: [...seoKeywords, "ECC", "ECC 자유게시판", "ECC 활동", "ECC 자금관리"],
   openGraph: {
     title: "ECC Club Hub | K_LINE",
-    description: "Open the ECC free board or fund management page on K_LINE.",
+    description: "Open the ECC free board, activity manager, or fund management page on K_LINE.",
     url: `${siteConfig.url}/our-activities/ecc`
   },
   alternates: {
@@ -51,8 +67,8 @@ export default function EccHubPage() {
             </p>
             <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">ECC Menu</h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
-              ECC 안에서 자유게시판과 자금관리를 함께 운영합니다. 같은 사이트 주소에서
-              로그인한 계정 권한에 따라 보이는 관리 기능만 달라집니다.
+              ECC 안에서 자유게시판, 활동 관리, 자금관리를 함께 운영합니다. 같은 사이트
+              주소에서 로그인한 계정 권한에 따라 보이는 관리 기능만 달라집니다.
             </p>
           </div>
           <div className="hidden h-20 w-20 items-center justify-center border border-paper/20 bg-paper/8 md:flex">
@@ -65,11 +81,11 @@ export default function EccHubPage() {
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow="ECC tools"
-            title="자유게시판과 자금관리"
-            description="일반회원은 게시글과 공개 금액을 확인하고, 슈퍼관리자는 같은 화면에서 삭제와 금액 입력 권한을 사용합니다."
+            title="자유게시판, 활동, 자금관리"
+            description="일반회원은 게시글과 공개 현황을 확인하고, 슈퍼관리자는 같은 화면에서 회원 현황 입력, 조 편성, 공지문 생성, 삭제와 금액 입력 권한을 사용합니다."
           />
 
-          <div className="mt-10 grid gap-5 lg:grid-cols-2">
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
             {eccTools.map((tool) => {
               const Icon = tool.icon;
 
@@ -110,8 +126,8 @@ export default function EccHubPage() {
               </div>
               <h3 className="mt-4 font-serif text-3xl font-semibold text-ink">일반회원 화면</h3>
               <p className="mt-3 text-sm leading-7 text-ink/64">
-                자유게시판에서 글과 사진을 올릴 수 있고, 자금관리에서 공개된 잔액과 후원
-                계좌를 확인할 수 있습니다.
+                자유게시판에서 글과 사진을 올릴 수 있고, ECC 활동에서 공개된 회원 활동
+                현황을 확인하며, 자금관리에서 공개된 잔액과 후원 계좌를 확인할 수 있습니다.
               </p>
             </div>
             <div>
@@ -120,8 +136,9 @@ export default function EccHubPage() {
               </div>
               <h3 className="mt-4 font-serif text-3xl font-semibold text-ink">슈퍼관리자 화면</h3>
               <p className="mt-3 text-sm leading-7 text-ink/64">
-                같은 페이지에 로그인하면 게시글 삭제, 후원 의향 관리, 후원금 총액과 남은
-                계좌 금액 입력 영역이 추가로 표시됩니다.
+                같은 페이지에 로그인하면 게시글 삭제, 회원 현황 붙여넣기, 자동 조 편성,
+                카카오톡 공지문 생성, 후원금 총액과 남은 계좌 금액 입력 영역이 추가로
+                표시됩니다.
               </p>
             </div>
           </div>

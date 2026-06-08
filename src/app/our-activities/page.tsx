@@ -45,7 +45,7 @@ export default function OurActivitiesPage() {
           <SectionHeader
             eyebrow="Club menus"
             title="ECC and Hanhwal community spaces"
-            description="ECC includes a free board and fund management. Hanhwal includes its community free board."
+            description="ECC includes a free board, activity management, and fund management. Hanhwal includes its community free board."
           />
           <div className="mt-10 grid gap-5 md:grid-cols-2">
             {activityBoards.map((board) => (

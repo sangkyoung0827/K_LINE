@@ -12,6 +12,7 @@ const staticRoutes = [
   "/k-culture-project/han-hwal",
   "/our-activities",
   "/our-activities/ecc",
+  "/our-activities/ecc/activity",
   "/our-activities/ecc/free-board",
   "/our-activities/ecc/fund",
   "/our-activities/hanhwal",

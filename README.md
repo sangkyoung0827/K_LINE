@@ -51,13 +51,16 @@ International Clubs hover menu:
 - ECC
 - 한활 Hanhwal
 
-ECC now opens a club menu with two choices:
+ECC now opens a club menu with three choices:
 
 - ECC free board: `/our-activities/ecc/free-board`
+- ECC activity: `/our-activities/ecc/activity`
 - ECC fund management: `/our-activities/ecc/fund`
 
-ECC and Hanhwal free-board posts are saved in browser localStorage for this prototype.
-Connect a real database and image storage before treating the boards as shared public data.
+ECC and Hanhwal free-board posts, ECC member status, generated teams, and
+KakaoTalk-ready notice drafts are saved in browser localStorage for this prototype.
+Connect a real database and image storage before treating the boards and member
+records as shared public data.
 
 Han-hwal is no longer a top-level menu item. It has moved under:
 
@@ -83,6 +86,7 @@ The old route redirects:
 - `/k-culture-project/connecting-korean-lines-to-europe`
 - `/our-activities`
 - `/our-activities/ecc`
+- `/our-activities/ecc/activity`
 - `/our-activities/ecc/free-board`
 - `/our-activities/ecc/fund`
 - `/our-activities/hanhwal`
@@ -297,7 +301,8 @@ SUPER_ADMIN_EMAILS=your-google-login-email@example.com
 
 Current role-aware super-admin controls:
 
-- `/our-activities/ecc`: open the ECC menu for free board and fund management
+- `/our-activities/ecc`: open the ECC menu for free board, activity, and fund management
+- `/our-activities/ecc/activity`: paste ECC member status, view activity records, generate teams, and generate KakaoTalk-ready notices
 - `/our-activities/ecc/free-board`: delete ECC free-board posts from the same board screen
 - `/our-activities/hanhwal`: delete Han-hwal free-board posts from the same board screen
 - free-board detail pages: delete the current post from the same detail screen
@@ -373,6 +378,8 @@ The following are intentionally placeholder flows:
 - email sending
 - database persistence
 - member profile database after Google authentication
+- ECC member/activity database
+- KakaoTalk API or bot integration for real automatic notice sending
 - server-side admin moderation
 - AI moderation and abuse prevention
 - spam protection
