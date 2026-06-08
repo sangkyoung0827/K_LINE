@@ -7,6 +7,11 @@ import { activities } from "@/data/activities";
 import { activityBoards } from "@/data/activityBoards";
 import { seoKeywords } from "@/lib/seo";
 
+const clubDisplayTitles = {
+  ecc: "ECC",
+  hanhwal: "한활 Hanhwal"
+} as const;
+
 export const metadata: Metadata = {
   title: "International Clubs",
   description:
@@ -57,7 +62,7 @@ export default function OurActivitiesPage() {
                 <div>
                   <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
                   <h2 className="mt-4 font-serif text-4xl font-semibold text-ink">
-                    {board.koreanTitle}
+                    {clubDisplayTitles[board.id]}
                   </h2>
                   <p className="mt-4 text-sm leading-7 text-ink/68">{board.description}</p>
                 </div>
