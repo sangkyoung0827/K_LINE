@@ -370,7 +370,8 @@ ECC activity applications are stored server-side in Supabase so applicant counts
 and super-admin applicant lists are shared across accounts, browsers, and devices.
 Do not expose the service role key in client code.
 
-Create this table in the Supabase SQL editor:
+Create this table in the Supabase SQL editor. The same SQL is saved at
+`supabase/ecc_activity_applications.sql`.
 
 ```sql
 create table if not exists public.ecc_activity_applications (
