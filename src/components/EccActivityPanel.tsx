@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  CalendarCheck,
+  CheckCircle2,
   Clipboard,
   Copy,
   FileSpreadsheet,
@@ -42,6 +44,22 @@ type NoticeForm = {
   memo: string;
 };
 
+type ApplicationType = "gathering" | "mt" | "special";
+
+type ApplicationForm = {
+  kakaoName: string;
+  gender: string;
+  nationality: string;
+  preferredFood: string;
+  request: string;
+};
+
+type EccApplication = ApplicationForm & {
+  id: string;
+  type: ApplicationType;
+  createdAt: string;
+};
+
 const sampleMemberPasteByLanguage: Record<Language, string> = {
   ko: `이름\t소속\tGathering\tMT\t특별 이벤트\t비고
 김민수\t전북대\t3\t1\t피크닉, 회화의 밤\t신입
@@ -70,12 +88,88 @@ const initialNoticeForms: Record<Language, NoticeForm> = {
   }
 };
 
+const initialApplicationForm: ApplicationForm = {
+  kakaoName: "",
+  gender: "",
+  nationality: "",
+  preferredFood: "",
+  request: ""
+};
+
+const applicationTypes: Array<{
+  type: ApplicationType;
+  labels: Record<Language, { title: string; description: string }>;
+}> = [
+  {
+    type: "gathering",
+    labels: {
+      ko: {
+        title: "International Gathering 신청",
+        description: "ECC 국제 교류 모임 참여 신청"
+      },
+      en: {
+        title: "International Gathering Application",
+        description: "Apply for the ECC international gathering"
+      }
+    }
+  },
+  {
+    type: "mt",
+    labels: {
+      ko: {
+        title: "MT 신청",
+        description: "ECC MT 참여 신청"
+      },
+      en: {
+        title: "MT Application",
+        description: "Apply for the ECC MT"
+      }
+    }
+  },
+  {
+    type: "special",
+    labels: {
+      ko: {
+        title: "Special Event 신청",
+        description: "ECC 특별 이벤트 참여 신청"
+      },
+      en: {
+        title: "Special Event Application",
+        description: "Apply for an ECC special event"
+      }
+    }
+  }
+];
+
 const copy = {
   ko: {
     languageEyebrow: "Language",
     languageTitle: "언어 선택",
     languageDescription:
       "한국어 또는 영어를 선택하면 회원 현황, 조 편성, 카카오톡 공지문 문구가 해당 언어로 바뀝니다.",
+    applicationEyebrow: "Applications",
+    applicationTitle: "활동 신청",
+    applicationDescription:
+      "구글폼처럼 활동을 선택하고 질문지를 작성하면 신청이 저장됩니다. 신청자 수는 활동별로 누적됩니다.",
+    applicantCount: "누적 신청자",
+    applicationFormTitle: "신청서 작성",
+    kakaoNameLabel: "이름 (카카오톡에 등록된 이름)",
+    genderLabel: "성별",
+    genderPlaceholder: "성별 선택",
+    genderMale: "남성",
+    genderFemale: "여성",
+    genderOther: "기타",
+    genderPreferNot: "밝히고 싶지 않음",
+    nationalityLabel: "국적",
+    preferredFoodLabel: "선호하는 음식",
+    requestLabel: "기타 요청사항",
+    submitApplication: "신청하기",
+    applicationSubmitted: "신청되었습니다.",
+    applicantListTitle: "신청자 명단",
+    applicantListDescription:
+      "슈퍼관리자로 로그인한 경우에만 활동별 신청자 명단을 확인할 수 있습니다.",
+    noApplicants: "아직 신청자가 없습니다.",
+    submittedAt: "신청 시간",
     members: "Members",
     registeredMembers: "등록된 ECC 회원",
     totalGathering: "전체 gathering 참여 합계",
@@ -146,6 +240,29 @@ const copy = {
     languageTitle: "Language",
     languageDescription:
       "Choose Korean or English. Member status, team grouping, and KakaoTalk-ready notices will follow the selected language.",
+    applicationEyebrow: "Applications",
+    applicationTitle: "Activity Applications",
+    applicationDescription:
+      "Choose an activity and submit the form like Google Forms. Applicant counts accumulate by activity.",
+    applicantCount: "Total applicants",
+    applicationFormTitle: "Application Form",
+    kakaoNameLabel: "Name registered on KakaoTalk",
+    genderLabel: "Gender",
+    genderPlaceholder: "Select gender",
+    genderMale: "Male",
+    genderFemale: "Female",
+    genderOther: "Other",
+    genderPreferNot: "Prefer not to say",
+    nationalityLabel: "Nationality",
+    preferredFoodLabel: "Preferred food",
+    requestLabel: "Other requests",
+    submitApplication: "Submit Application",
+    applicationSubmitted: "Application submitted.",
+    applicantListTitle: "Applicant List",
+    applicantListDescription:
+      "Only the super admin can view applicant lists by activity.",
+    noApplicants: "No applicants yet.",
+    submittedAt: "Submitted at",
     members: "Members",
     registeredMembers: "Registered ECC members",
     totalGathering: "Total gathering attendance",
@@ -390,6 +507,15 @@ function readStoredTeams() {
   }
 }
 
+function readStoredApplications() {
+  try {
+    const raw = window.localStorage.getItem(adminStorageKeys.eccActivityApplications);
+    return raw ? (JSON.parse(raw) as EccApplication[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 function readStoredNotice() {
   try {
     return window.localStorage.getItem(adminStorageKeys.eccActivityNotice) ?? "";
@@ -411,9 +537,24 @@ function sameNoticeForm(a: NoticeForm, b: NoticeForm) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function formatApplicationDate(value: string, language: Language) {
+  return new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
 export function EccActivityPanel() {
   const { isSuperAdmin, loading } = useSuperAdmin();
   const [language, setLanguage] = useState<Language>("ko");
+  const [activeApplicationType, setActiveApplicationType] =
+    useState<ApplicationType>("gathering");
+  const [applicationForm, setApplicationForm] = useState(initialApplicationForm);
+  const [applications, setApplications] = useState<EccApplication[]>([]);
+  const [applicationSuccess, setApplicationSuccess] = useState("");
   const [members, setMembers] = useState<EccMember[]>([]);
   const [teams, setTeams] = useState<EccTeam[]>([]);
   const [memberPaste, setMemberPaste] = useState(sampleMemberPasteByLanguage.ko);
@@ -429,9 +570,11 @@ export function EccActivityPanel() {
     const storedLanguage = readStoredLanguage();
     const storedMembers = readStoredMembers();
     const storedTeams = readStoredTeams();
+    const storedApplications = readStoredApplications();
     setLanguage(storedLanguage);
     setMemberPaste(sampleMemberPasteByLanguage[storedLanguage]);
     setNoticeForm(initialNoticeForms[storedLanguage]);
+    setApplications(storedApplications);
     setMembers(storedMembers);
     setTeams(storedTeams);
     setNotice(readStoredNotice());
@@ -449,6 +592,31 @@ export function EccActivityPanel() {
       totalSpecial
     };
   }, [members]);
+
+  const applicationCounts = useMemo(
+    () =>
+      applicationTypes.reduce<Record<ApplicationType, number>>(
+        (counts, item) => ({
+          ...counts,
+          [item.type]: applications.filter((application) => application.type === item.type).length
+        }),
+        {
+          gathering: 0,
+          mt: 0,
+          special: 0
+        }
+      ),
+    [applications]
+  );
+
+  const selectedApplications = useMemo(
+    () => applications.filter((application) => application.type === activeApplicationType),
+    [activeApplicationType, applications]
+  );
+
+  const activeApplication = applicationTypes.find(
+    (application) => application.type === activeApplicationType
+  )!;
 
   const changeLanguage = (nextLanguage: Language) => {
     setLanguage((currentLanguage) => {
@@ -470,6 +638,41 @@ export function EccActivityPanel() {
       window.localStorage.removeItem(adminStorageKeys.eccActivityNotice);
       return nextLanguage;
     });
+  };
+
+  const updateApplicationForm = (field: keyof ApplicationForm, value: string) => {
+    setApplicationForm((current) => ({ ...current, [field]: value }));
+    setApplicationSuccess("");
+  };
+
+  const selectApplicationType = (type: ApplicationType) => {
+    setActiveApplicationType(type);
+    setApplicationSuccess("");
+  };
+
+  const saveApplications = (nextApplications: EccApplication[]) => {
+    window.localStorage.setItem(
+      adminStorageKeys.eccActivityApplications,
+      JSON.stringify(nextApplications)
+    );
+    setApplications(nextApplications);
+  };
+
+  const submitApplication = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextApplication: EccApplication = {
+      id: `ecc-application-${Date.now()}`,
+      type: activeApplicationType,
+      kakaoName: applicationForm.kakaoName.trim(),
+      gender: applicationForm.gender,
+      nationality: applicationForm.nationality.trim(),
+      preferredFood: applicationForm.preferredFood.trim(),
+      request: applicationForm.request.trim(),
+      createdAt: new Date().toISOString()
+    };
+    saveApplications([nextApplication, ...applications]);
+    setApplicationForm(initialApplicationForm);
+    setApplicationSuccess(text.applicationSubmitted);
   };
 
   const saveMembers = (nextMembers: EccMember[]) => {
@@ -552,6 +755,184 @@ export function EccActivityPanel() {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="paper-panel grid gap-6 p-6 md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper">
+              <CalendarCheck aria-hidden className="h-5 w-5" />
+            </div>
+            <p className="mt-5 text-sm font-semibold uppercase text-brass">
+              {text.applicationEyebrow}
+            </p>
+            <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
+              {text.applicationTitle}
+            </h2>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/64">
+              {text.applicationDescription}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {applicationTypes.map((item) => (
+            <button
+              key={item.type}
+              type="button"
+              onClick={() => selectApplicationType(item.type)}
+              className={`paper-panel min-h-44 p-5 text-left transition hover:border-brass hover:bg-white/70 ${
+                activeApplicationType === item.type ? "border-brass bg-white/75 shadow-soft" : ""
+              }`}
+            >
+              <p className="text-sm font-semibold uppercase text-brass">
+                {text.applicantCount}: {applicationCounts[item.type]}
+              </p>
+              <h3 className="mt-4 font-serif text-3xl font-semibold text-ink">
+                {item.labels[language].title}
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-ink/62">
+                {item.labels[language].description}
+              </p>
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={submitApplication} className="grid gap-4 border border-ink/10 bg-white/50 p-5 md:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase text-brass">
+                {activeApplication.labels[language].title}
+              </p>
+              <h3 className="mt-2 font-serif text-3xl font-semibold text-ink">
+                {text.applicationFormTitle}
+              </h3>
+            </div>
+            {applicationSuccess ? (
+              <p className="inline-flex items-center gap-2 text-sm font-semibold text-pine">
+                <CheckCircle2 aria-hidden className="h-4 w-4" />
+                {applicationSuccess}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {text.kakaoNameLabel}
+              <input
+                required
+                className="form-field"
+                value={applicationForm.kakaoName}
+                onChange={(event) => updateApplicationForm("kakaoName", event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {text.genderLabel}
+              <select
+                required
+                className="form-field"
+                value={applicationForm.gender}
+                onChange={(event) => updateApplicationForm("gender", event.target.value)}
+              >
+                <option value="">{text.genderPlaceholder}</option>
+                <option>{text.genderMale}</option>
+                <option>{text.genderFemale}</option>
+                <option>{text.genderOther}</option>
+                <option>{text.genderPreferNot}</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {text.nationalityLabel}
+              <input
+                required
+                className="form-field"
+                value={applicationForm.nationality}
+                onChange={(event) => updateApplicationForm("nationality", event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {text.preferredFoodLabel}
+              <input
+                required
+                className="form-field"
+                value={applicationForm.preferredFood}
+                onChange={(event) => updateApplicationForm("preferredFood", event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
+              {text.requestLabel}
+              <textarea
+                className="form-field min-h-28"
+                value={applicationForm.request}
+                onChange={(event) => updateApplicationForm("request", event.target.value)}
+              />
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            className="inline-flex min-h-11 w-fit items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
+          >
+            <Save aria-hidden className="h-4 w-4" />
+            {text.submitApplication}
+          </button>
+        </form>
+
+        {isSuperAdmin ? (
+          <div className="border border-ink/10 bg-white/50 p-5 md:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase text-brass">
+                  {activeApplication.labels[language].title}
+                </p>
+                <h3 className="mt-2 font-serif text-3xl font-semibold text-ink">
+                  {text.applicantListTitle}
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-ink/62">
+                  {text.applicantListDescription}
+                </p>
+              </div>
+              <span className="text-sm font-semibold text-ink/58">
+                {text.applicantCount}: {selectedApplications.length}
+              </span>
+            </div>
+
+            {selectedApplications.length > 0 ? (
+              <div className="mt-5 overflow-x-auto">
+                <table className="w-full min-w-[920px] border-collapse text-left text-sm">
+                  <thead className="bg-white/70 text-xs uppercase text-ink/58">
+                    <tr>
+                      <th className="border-b border-ink/10 px-4 py-3">{text.kakaoNameLabel}</th>
+                      <th className="border-b border-ink/10 px-4 py-3">{text.genderLabel}</th>
+                      <th className="border-b border-ink/10 px-4 py-3">{text.nationalityLabel}</th>
+                      <th className="border-b border-ink/10 px-4 py-3">{text.preferredFoodLabel}</th>
+                      <th className="border-b border-ink/10 px-4 py-3">{text.requestLabel}</th>
+                      <th className="border-b border-ink/10 px-4 py-3">{text.submittedAt}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedApplications.map((application) => (
+                      <tr key={application.id} className="border-b border-ink/8 last:border-b-0">
+                        <td className="px-4 py-3 font-semibold text-ink">
+                          {application.kakaoName}
+                        </td>
+                        <td className="px-4 py-3 text-ink/70">{application.gender}</td>
+                        <td className="px-4 py-3 text-ink/70">{application.nationality}</td>
+                        <td className="px-4 py-3 text-ink/70">{application.preferredFood}</td>
+                        <td className="px-4 py-3 text-ink/62">{application.request || "-"}</td>
+                        <td className="px-4 py-3 text-ink/58">
+                          {formatApplicationDate(application.createdAt, language)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="mt-5 text-sm leading-7 text-ink/62">{text.noApplicants}</p>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section className="grid gap-5 md:grid-cols-4">

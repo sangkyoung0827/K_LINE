@@ -62,6 +62,11 @@ mode, English Excel headers such as `Name`, `Affiliation`, `Gathering`, `MT`,
 `Special Events`, and `Note` are parsed, team names use `Team 1`, `Team 2`, and
 the KakaoTalk-ready notice draft is generated in English.
 
+The ECC activity page also includes Google-Forms-style applications for
+International Gathering, MT, and Special Event. Applicants answer KakaoTalk name,
+gender, nationality, preferred food, and other requests. Applicant counts are
+stored cumulatively, and applicant lists are visible only to the super admin.
+
 ECC and Hanhwal free-board posts, ECC member status, generated teams, and
 KakaoTalk-ready notice drafts are saved in browser localStorage for this prototype.
 Connect a real database and image storage before treating the boards and member
