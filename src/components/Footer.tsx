@@ -25,9 +25,6 @@ export function Footer() {
             <Link href="/donate" className="text-sm text-paper/68 hover:text-paper">
               Donate
             </Link>
-            <Link href="/admin" className="text-sm text-paper/68 hover:text-paper">
-              Admin
-            </Link>
           </div>
         </div>
         <div>

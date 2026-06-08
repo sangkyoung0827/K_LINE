@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ImagePlus, MessageSquareText, Send, SquarePen } from "lucide-react";
+import { ImagePlus, MessageSquareText, Send, SquarePen, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import type { FreeBoard, FreeBoardPost } from "@/types";
 import {
   readFreeBoardPosts,
@@ -36,6 +37,7 @@ export function FreeBoardPage({ board }: FreeBoardPageProps) {
   const [posts, setPosts] = useState<FreeBoardPost[]>([]);
   const [form, setForm] = useState(initialForm);
   const [imageError, setImageError] = useState("");
+  const { isSuperAdmin } = useSuperAdmin();
 
   useEffect(() => {
     setPosts(readFreeBoardPosts(board));
@@ -96,6 +98,12 @@ export function FreeBoardPage({ board }: FreeBoardPageProps) {
     setPosts(nextPosts);
     setForm(initialForm);
     setImageError("");
+  };
+
+  const deletePost = (postId: string) => {
+    const nextPosts = posts.filter((post) => post.id !== postId);
+    writeFreeBoardPosts(board, nextPosts);
+    setPosts(nextPosts);
   };
 
   return (
@@ -190,35 +198,48 @@ export function FreeBoardPage({ board }: FreeBoardPageProps) {
             {sortedPosts.length > 0 ? (
               <div className="mt-8 grid gap-5 md:grid-cols-2">
                 {sortedPosts.map((post) => (
-                  <Link
+                  <article
                     key={post.id}
-                    href={`${basePath}/${post.id}`}
                     className="paper-panel grid overflow-hidden transition hover:border-brass hover:bg-white/70"
                   >
-                    <div className="aspect-[4/3] bg-hanji">
-                      {post.imageDataUrl ? (
-                        <img
-                          src={post.imageDataUrl}
-                          alt={`${post.title} uploaded photo`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-ink/38">
-                          <MessageSquareText aria-hidden className="h-10 w-10" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="grid gap-3 p-5">
-                      <p className="text-xs font-semibold uppercase text-brass">{board.label}</p>
-                      <h3 className="line-clamp-2 font-serif text-2xl font-semibold text-ink">
-                        {post.title}
-                      </h3>
-                      <p className="text-sm text-ink/58">
-                        {post.author} / {formatDate(post.createdAt)}
-                      </p>
-                      <p className="line-clamp-3 text-sm leading-7 text-ink/68">{post.content}</p>
-                    </div>
-                  </Link>
+                    <Link href={`${basePath}/${post.id}`} className="grid">
+                      <div className="aspect-[4/3] bg-hanji">
+                        {post.imageDataUrl ? (
+                          <img
+                            src={post.imageDataUrl}
+                            alt={`${post.title} uploaded photo`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-ink/38">
+                            <MessageSquareText aria-hidden className="h-10 w-10" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="grid gap-3 p-5">
+                        <p className="text-xs font-semibold uppercase text-brass">{board.label}</p>
+                        <h3 className="line-clamp-2 font-serif text-2xl font-semibold text-ink">
+                          {post.title}
+                        </h3>
+                        <p className="text-sm text-ink/58">
+                          {post.author} / {formatDate(post.createdAt)}
+                        </p>
+                        <p className="line-clamp-3 text-sm leading-7 text-ink/68">{post.content}</p>
+                      </div>
+                    </Link>
+                    {isSuperAdmin ? (
+                      <div className="border-t border-red-900/10 p-4">
+                        <button
+                          type="button"
+                          onClick={() => deletePost(post.id)}
+                          className="inline-flex min-h-10 w-full items-center justify-center gap-2 border border-red-900/20 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                        >
+                          <Trash2 aria-hidden className="h-4 w-4" />
+                          Delete Post
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
                 ))}
               </div>
             ) : (

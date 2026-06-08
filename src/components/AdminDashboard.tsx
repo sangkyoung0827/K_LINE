@@ -67,6 +67,7 @@ type BankSnapshot = {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
+  totalDonationKrw: number;
   displayBalanceKrw: number;
   updatedAt: string;
 };
@@ -86,6 +87,7 @@ const defaultBankSnapshot: BankSnapshot = {
   bankName: process.env.NEXT_PUBLIC_DONATION_BANK_NAME ?? "",
   accountNumber: process.env.NEXT_PUBLIC_DONATION_ACCOUNT_NUMBER ?? "",
   accountHolder: process.env.NEXT_PUBLIC_DONATION_ACCOUNT_HOLDER ?? "",
+  totalDonationKrw: Number(process.env.NEXT_PUBLIC_DONATION_TOTAL_KRW ?? 0),
   displayBalanceKrw: Number(process.env.NEXT_PUBLIC_DONATION_BALANCE_KRW ?? 0),
   updatedAt: ""
 };
@@ -137,6 +139,7 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
   const [bankSnapshot, setBankSnapshot] = useState(defaultBankSnapshot);
   const [bankForm, setBankForm] = useState({
     ...defaultBankSnapshot,
+    totalDonationKrw: String(defaultBankSnapshot.totalDonationKrw || ""),
     displayBalanceKrw: String(defaultBankSnapshot.displayBalanceKrw || "")
   });
   const [boardPosts, setBoardPosts] = useState<BoardPostRow[]>([]);
@@ -152,6 +155,7 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
     setBankSnapshot(nextBankSnapshot);
     setBankForm({
       ...nextBankSnapshot,
+      totalDonationKrw: String(nextBankSnapshot.totalDonationKrw || ""),
       displayBalanceKrw: String(nextBankSnapshot.displayBalanceKrw || "")
     });
     setBoardPosts(
@@ -268,6 +272,7 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
       bankName: bankForm.bankName.trim(),
       accountNumber: bankForm.accountNumber.trim(),
       accountHolder: bankForm.accountHolder.trim(),
+      totalDonationKrw: Number(bankForm.totalDonationKrw || 0),
       displayBalanceKrw: Number(bankForm.displayBalanceKrw || 0),
       updatedAt: new Date().toISOString()
     };
@@ -484,6 +489,18 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
                 value={bankForm.accountNumber}
                 onChange={(event) =>
                   setBankForm((current) => ({ ...current, accountNumber: event.target.value }))
+                }
+              />
+              <input
+                className="form-field"
+                inputMode="numeric"
+                placeholder="Total donations KRW"
+                value={bankForm.totalDonationKrw}
+                onChange={(event) =>
+                  setBankForm((current) => ({
+                    ...current,
+                    totalDonationKrw: event.target.value.replace(/[^0-9]/g, "")
+                  }))
                 }
               />
               <input

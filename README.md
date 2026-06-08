@@ -27,7 +27,7 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - Custom K_LINE logo, favicon, and campus K-culture dashboard UI
 - Local goods, project, and activity data
 - localStorage cart, inquiry checkout, project submission, and activity writing flows
-- Super-admin dashboard prototype for local post deletion, member notes, order inquiry metrics, and donation pledges
+- Role-aware super-admin prototype inside the same public site pages for local post deletion, donation account editing, donation total display, and account balance display
 - Inquiry-based commerce first
 - No real payment, backend database, image upload, bank API, or shared server-side admin moderation yet
 
@@ -86,7 +86,6 @@ The old route redirects:
 - `/checkout`
 - `/contact`
 - `/donate`
-- `/admin`
 - `/robots.txt`
 - `/sitemap.xml`
 
@@ -280,8 +279,9 @@ Future Woohyukmon upgrade plan:
 
 ## Super Admin And Donation Prototype
 
-The `/admin` route is a gated super-admin console. It uses Google login plus
-`SUPER_ADMIN_EMAILS` to decide who can open the dashboard.
+K_LINE uses the same Google login channel for general members and the super admin.
+The public site URL is the same. If the logged-in email is listed in
+`SUPER_ADMIN_EMAILS`, extra management controls appear inside the same pages.
 
 Set the super-admin email list in Vercel:
 
@@ -289,30 +289,31 @@ Set the super-admin email list in Vercel:
 SUPER_ADMIN_EMAILS=your-google-login-email@example.com
 ```
 
-The admin dashboard can currently manage browser-local prototype data:
+Current role-aware super-admin controls:
 
-- delete ECC and Han-hwal free-board posts stored in localStorage
-- add, pause, and delete local member notes
-- view order inquiry counts
-- view per-product estimated quantities and estimated EUR revenue
-- view donation pledges saved locally
-- mark donation pledges received
-- save a manual bank/account balance snapshot
+- `/our-activities/ecc`: delete ECC free-board posts from the same board screen
+- `/our-activities/hanhwal`: delete Han-hwal free-board posts from the same board screen
+- free-board detail pages: delete the current post from the same detail screen
+- `/donate`: edit the displayed donation account, total donation amount, and account balance
+- `/donate`: view, mark received, or delete locally saved donation pledges
 
 The `/donate` route provides a donation pledge page and optional bank transfer
-information. Configure public display values only if they are safe to show:
+information. Configure public initial display values only if they are safe to show:
 
 ```bash
 NEXT_PUBLIC_DONATION_BANK_NAME=
 NEXT_PUBLIC_DONATION_ACCOUNT_NUMBER=
 NEXT_PUBLIC_DONATION_ACCOUNT_HOLDER=
+NEXT_PUBLIC_DONATION_TOTAL_KRW=
 NEXT_PUBLIC_DONATION_BALANCE_KRW=
 ```
 
 Important: real bank balance sync is not connected. A live account balance requires
 an official bank/open-banking API, account-owner consent, server-side credentials,
-and security review. Donation pledges are not real payments until a payment gateway,
-bank transfer confirmation flow, database, and receipt/accounting process are connected.
+and security review. The donation total and account balance can be typed manually
+by the super admin on `/donate`. Donation pledges are not real payments until a
+payment gateway, bank transfer confirmation flow, database, and receipt/accounting
+process are connected.
 
 ## Deploy To Vercel
 

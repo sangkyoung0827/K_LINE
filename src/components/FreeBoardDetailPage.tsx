@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, MessageSquareText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, MessageSquareText, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import type { FreeBoard, FreeBoardPost } from "@/types";
-import { readFreeBoardPosts } from "@/lib/freeBoardStorage";
+import { readFreeBoardPosts, writeFreeBoardPosts } from "@/lib/freeBoardStorage";
 
 type FreeBoardDetailPageProps = {
   board: FreeBoard;
@@ -23,6 +25,8 @@ function formatDate(value: string) {
 
 export function FreeBoardDetailPage({ board, postId }: FreeBoardDetailPageProps) {
   const [posts, setPosts] = useState<FreeBoardPost[]>([]);
+  const { isSuperAdmin } = useSuperAdmin();
+  const router = useRouter();
 
   useEffect(() => {
     setPosts(readFreeBoardPosts(board));
@@ -30,6 +34,13 @@ export function FreeBoardDetailPage({ board, postId }: FreeBoardDetailPageProps)
 
   const post = useMemo(() => posts.find((item) => item.id === postId), [postId, posts]);
   const boardPath = `/our-activities/${board.slug}`;
+
+  const deletePost = () => {
+    const nextPosts = posts.filter((item) => item.id !== postId);
+    writeFreeBoardPosts(board, nextPosts);
+    setPosts(nextPosts);
+    router.push(boardPath);
+  };
 
   if (!post) {
     return (
@@ -83,6 +94,16 @@ export function FreeBoardDetailPage({ board, postId }: FreeBoardDetailPageProps)
             <ArrowLeft aria-hidden className="h-4 w-4" />
             Back to board
           </Link>
+          {isSuperAdmin ? (
+            <button
+              type="button"
+              onClick={deletePost}
+              className="ml-4 mt-8 inline-flex min-h-10 items-center justify-center gap-2 border border-red-900/20 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+            >
+              <Trash2 aria-hidden className="h-4 w-4" />
+              Delete Post
+            </button>
+          ) : null}
         </div>
       </section>
     </>
