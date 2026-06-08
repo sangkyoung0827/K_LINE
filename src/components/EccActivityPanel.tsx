@@ -60,6 +60,14 @@ type EccApplication = ApplicationForm & {
   createdAt: string;
 };
 
+type ApplicationCounts = Record<ApplicationType, number>;
+
+type ApplicationsApiResponse = {
+  counts?: Partial<ApplicationCounts>;
+  applications?: EccApplication[];
+  error?: string;
+};
+
 const sampleMemberPasteByLanguage: Record<Language, string> = {
   ko: `이름\t소속\tGathering\tMT\t특별 이벤트\t비고
 김민수\t전북대\t3\t1\t피크닉, 회화의 밤\t신입
@@ -165,6 +173,9 @@ const copy = {
     requestLabel: "기타 요청사항",
     submitApplication: "신청하기",
     applicationSubmitted: "신청되었습니다.",
+    applicationLoading: "신청 정보를 불러오는 중입니다.",
+    applicationStorageError:
+      "신청 저장소 연결에 문제가 있습니다. 잠시 후 다시 시도해 주세요.",
     applicantListTitle: "신청자 명단",
     applicantListDescription:
       "슈퍼관리자로 로그인한 경우에만 활동별 신청자 명단을 확인할 수 있습니다.",
@@ -258,6 +269,9 @@ const copy = {
     requestLabel: "Other requests",
     submitApplication: "Submit Application",
     applicationSubmitted: "Application submitted.",
+    applicationLoading: "Loading application data.",
+    applicationStorageError:
+      "There is a problem connecting to the application storage. Please try again later.",
     applicantListTitle: "Applicant List",
     applicantListDescription:
       "Only the super admin can view applicant lists by activity.",
@@ -507,15 +521,6 @@ function readStoredTeams() {
   }
 }
 
-function readStoredApplications() {
-  try {
-    const raw = window.localStorage.getItem(adminStorageKeys.eccActivityApplications);
-    return raw ? (JSON.parse(raw) as EccApplication[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 function readStoredNotice() {
   try {
     return window.localStorage.getItem(adminStorageKeys.eccActivityNotice) ?? "";
@@ -547,6 +552,24 @@ function formatApplicationDate(value: string, language: Language) {
   }).format(new Date(value));
 }
 
+function emptyApplicationCounts(): ApplicationCounts {
+  return {
+    gathering: 0,
+    mt: 0,
+    special: 0
+  };
+}
+
+function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): ApplicationCounts {
+  const empty = emptyApplicationCounts();
+
+  return {
+    gathering: Number(counts?.gathering ?? empty.gathering),
+    mt: Number(counts?.mt ?? empty.mt),
+    special: Number(counts?.special ?? empty.special)
+  };
+}
+
 export function EccActivityPanel() {
   const { isSuperAdmin, loading } = useSuperAdmin();
   const [language, setLanguage] = useState<Language>("ko");
@@ -554,6 +577,11 @@ export function EccActivityPanel() {
     useState<ApplicationType>("gathering");
   const [applicationForm, setApplicationForm] = useState(initialApplicationForm);
   const [applications, setApplications] = useState<EccApplication[]>([]);
+  const [applicationCounts, setApplicationCounts] = useState<ApplicationCounts>(
+    emptyApplicationCounts
+  );
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const [applicationError, setApplicationError] = useState("");
   const [applicationSuccess, setApplicationSuccess] = useState("");
   const [members, setMembers] = useState<EccMember[]>([]);
   const [teams, setTeams] = useState<EccTeam[]>([]);
@@ -570,15 +598,56 @@ export function EccActivityPanel() {
     const storedLanguage = readStoredLanguage();
     const storedMembers = readStoredMembers();
     const storedTeams = readStoredTeams();
-    const storedApplications = readStoredApplications();
     setLanguage(storedLanguage);
     setMemberPaste(sampleMemberPasteByLanguage[storedLanguage]);
     setNoticeForm(initialNoticeForms[storedLanguage]);
-    setApplications(storedApplications);
     setMembers(storedMembers);
     setTeams(storedTeams);
     setNotice(readStoredNotice());
   }, []);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadApplications = async () => {
+      setApplicationsLoading(true);
+
+      try {
+        const response = await fetch("/api/ecc/applications", {
+          signal: controller.signal
+        });
+        const data = (await response.json()) as ApplicationsApiResponse;
+
+        if (!response.ok) {
+          throw new Error(data.error || text.applicationStorageError);
+        }
+
+        setApplicationCounts(normalizeApplicationCounts(data.counts));
+        setApplications(Array.isArray(data.applications) ? data.applications : []);
+        setApplicationError("");
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setApplicationError(
+            error instanceof Error ? error.message : text.applicationStorageError
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setApplicationsLoading(false);
+        }
+      }
+    };
+
+    void loadApplications();
+
+    return () => {
+      controller.abort();
+    };
+  }, [isSuperAdmin, loading, text.applicationStorageError]);
 
   const summary = useMemo(() => {
     const totalGathering = members.reduce((total, member) => total + member.gatheringCount, 0);
@@ -592,22 +661,6 @@ export function EccActivityPanel() {
       totalSpecial
     };
   }, [members]);
-
-  const applicationCounts = useMemo(
-    () =>
-      applicationTypes.reduce<Record<ApplicationType, number>>(
-        (counts, item) => ({
-          ...counts,
-          [item.type]: applications.filter((application) => application.type === item.type).length
-        }),
-        {
-          gathering: 0,
-          mt: 0,
-          special: 0
-        }
-      ),
-    [applications]
-  );
 
   const selectedApplications = useMemo(
     () => applications.filter((application) => application.type === activeApplicationType),
@@ -643,36 +696,50 @@ export function EccActivityPanel() {
   const updateApplicationForm = (field: keyof ApplicationForm, value: string) => {
     setApplicationForm((current) => ({ ...current, [field]: value }));
     setApplicationSuccess("");
+    setApplicationError("");
   };
 
   const selectApplicationType = (type: ApplicationType) => {
     setActiveApplicationType(type);
     setApplicationSuccess("");
+    setApplicationError("");
   };
 
-  const saveApplications = (nextApplications: EccApplication[]) => {
-    window.localStorage.setItem(
-      adminStorageKeys.eccActivityApplications,
-      JSON.stringify(nextApplications)
-    );
-    setApplications(nextApplications);
-  };
-
-  const submitApplication = (event: React.FormEvent<HTMLFormElement>) => {
+  const submitApplication = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const nextApplication: EccApplication = {
-      id: `ecc-application-${Date.now()}`,
-      type: activeApplicationType,
-      kakaoName: applicationForm.kakaoName.trim(),
-      gender: applicationForm.gender,
-      nationality: applicationForm.nationality.trim(),
-      preferredFood: applicationForm.preferredFood.trim(),
-      request: applicationForm.request.trim(),
-      createdAt: new Date().toISOString()
-    };
-    saveApplications([nextApplication, ...applications]);
-    setApplicationForm(initialApplicationForm);
-    setApplicationSuccess(text.applicationSubmitted);
+    setApplicationsLoading(true);
+    setApplicationError("");
+
+    try {
+      const response = await fetch("/api/ecc/applications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          type: activeApplicationType,
+          kakaoName: applicationForm.kakaoName.trim(),
+          gender: applicationForm.gender,
+          nationality: applicationForm.nationality.trim(),
+          preferredFood: applicationForm.preferredFood.trim(),
+          request: applicationForm.request.trim()
+        })
+      });
+      const data = (await response.json()) as ApplicationsApiResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error || text.applicationStorageError);
+      }
+
+      setApplicationCounts(normalizeApplicationCounts(data.counts));
+      setApplications(Array.isArray(data.applications) ? data.applications : []);
+      setApplicationForm(initialApplicationForm);
+      setApplicationSuccess(text.applicationSubmitted);
+    } catch (error) {
+      setApplicationError(error instanceof Error ? error.message : text.applicationStorageError);
+    } finally {
+      setApplicationsLoading(false);
+    }
   };
 
   const saveMembers = (nextMembers: EccMember[]) => {
@@ -786,7 +853,7 @@ export function EccActivityPanel() {
               }`}
             >
               <p className="text-sm font-semibold uppercase text-brass">
-                {text.applicantCount}: {applicationCounts[item.type]}
+                {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
               </p>
               <h3 className="mt-4 font-serif text-3xl font-semibold text-ink">
                 {item.labels[language].title}
@@ -871,11 +938,15 @@ export function EccActivityPanel() {
 
           <button
             type="submit"
+            disabled={applicationsLoading}
             className="inline-flex min-h-11 w-fit items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
           >
             <Save aria-hidden className="h-4 w-4" />
             {text.submitApplication}
           </button>
+          {applicationError ? (
+            <p className="text-sm font-semibold text-red-700">{applicationError}</p>
+          ) : null}
         </form>
 
         {isSuperAdmin ? (
@@ -893,11 +964,13 @@ export function EccActivityPanel() {
                 </p>
               </div>
               <span className="text-sm font-semibold text-ink/58">
-                {text.applicantCount}: {selectedApplications.length}
+                {text.applicantCount}: {applicationCounts[activeApplicationType]}
               </span>
             </div>
 
-            {selectedApplications.length > 0 ? (
+            {applicationsLoading ? (
+              <p className="mt-5 text-sm leading-7 text-ink/62">{text.applicationLoading}</p>
+            ) : selectedApplications.length > 0 ? (
               <div className="mt-5 overflow-x-auto">
                 <table className="w-full min-w-[920px] border-collapse text-left text-sm">
                   <thead className="bg-white/70 text-xs uppercase text-ink/58">

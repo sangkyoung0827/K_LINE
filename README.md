@@ -65,7 +65,8 @@ the KakaoTalk-ready notice draft is generated in English.
 The ECC activity page also includes Google-Forms-style applications for
 International Gathering, MT, and Special Event. Applicants answer KakaoTalk name,
 gender, nationality, preferred food, and other requests. Applicant counts are
-stored cumulatively, and applicant lists are visible only to the super admin.
+stored cumulatively in Supabase, and applicant lists are visible only to the
+super admin.
 
 ECC and Hanhwal free-board posts, ECC member status, generated teams, and
 KakaoTalk-ready notice drafts are saved in browser localStorage for this prototype.
@@ -353,6 +354,7 @@ Recommended Vercel settings:
 - Environment variables required for Google login: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
 - Environment variable required for Woohyukmon AI: `OPENAI_API_KEY`
 - Environment variable required for admin access: `SUPER_ADMIN_EMAILS`
+- Environment variables required for shared ECC applications: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 
 Optional production environment variable:
 
@@ -361,6 +363,36 @@ NEXT_PUBLIC_SITE_URL=https://your-custom-domain.example
 ```
 
 Set this only after connecting a real custom domain.
+
+## Supabase ECC Applications
+
+ECC activity applications are stored server-side in Supabase so applicant counts
+and super-admin applicant lists are shared across accounts, browsers, and devices.
+Do not expose the service role key in client code.
+
+Create this table in the Supabase SQL editor:
+
+```sql
+create table if not exists public.ecc_activity_applications (
+  id uuid primary key default gen_random_uuid(),
+  type text not null check (type in ('gathering', 'mt', 'special')),
+  kakao_name text not null,
+  gender text not null,
+  nationality text not null,
+  preferred_food text not null,
+  request text default '',
+  created_at timestamptz not null default now()
+);
+
+alter table public.ecc_activity_applications enable row level security;
+```
+
+Add these Vercel environment variables for Production:
+
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
 
 ## SEO And Search
 
