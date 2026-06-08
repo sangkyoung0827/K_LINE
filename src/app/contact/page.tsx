@@ -40,10 +40,10 @@ export default function ContactPage() {
             </p>
           </div>
           <Link
-            href="/donate"
+            href="/our-activities/ecc/fund"
             className="mt-8 inline-flex min-h-11 items-center justify-center bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
           >
-            Support K_LINE
+            ECC Fund Management
           </Link>
         </div>
         <ContactForm />

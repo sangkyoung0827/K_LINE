@@ -11,6 +11,7 @@ import { readFreeBoardPosts, writeFreeBoardPosts } from "@/lib/freeBoardStorage"
 type FreeBoardDetailPageProps = {
   board: FreeBoard;
   postId: string;
+  boardPath?: string;
 };
 
 function formatDate(value: string) {
@@ -23,7 +24,11 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export function FreeBoardDetailPage({ board, postId }: FreeBoardDetailPageProps) {
+export function FreeBoardDetailPage({
+  board,
+  postId,
+  boardPath = `/our-activities/${board.slug}`
+}: FreeBoardDetailPageProps) {
   const [posts, setPosts] = useState<FreeBoardPost[]>([]);
   const { isSuperAdmin } = useSuperAdmin();
   const router = useRouter();
@@ -33,8 +38,6 @@ export function FreeBoardDetailPage({ board, postId }: FreeBoardDetailPageProps)
   }, [board]);
 
   const post = useMemo(() => posts.find((item) => item.id === postId), [postId, posts]);
-  const boardPath = `/our-activities/${board.slug}`;
-
   const deletePost = () => {
     const nextPosts = posts.filter((item) => item.id !== postId);
     writeFreeBoardPosts(board, nextPosts);

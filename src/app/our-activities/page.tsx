@@ -41,9 +41,9 @@ export default function OurActivitiesPage() {
       <section className="bg-paper py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
-            eyebrow="Free boards"
-            title="ECC and Hanhwal community boards"
-            description="Open boards for activity posts, photos, questions, and community records."
+            eyebrow="Activity menus"
+            title="ECC and Hanhwal community spaces"
+            description="ECC includes a free board and fund management. Hanhwal includes its community free board."
           />
           <div className="mt-10 grid gap-5 md:grid-cols-2">
             {activityBoards.map((board) => (
@@ -60,7 +60,7 @@ export default function OurActivitiesPage() {
                   <p className="mt-4 text-sm leading-7 text-ink/68">{board.description}</p>
                 </div>
                 <span className="mt-8 text-sm font-semibold text-ink underline underline-offset-4">
-                  Open Board
+                  {board.id === "ecc" ? "Open ECC Menu" : "Open Board"}
                 </span>
               </Link>
             ))}

@@ -22,7 +22,8 @@ export const woohyukmonKnowledge = {
       {
         name: "Our Activities",
         href: "/our-activities",
-        description: "Community activities, ECC, Han-hwal, activity posts, and free boards."
+        description:
+          "Community activities, ECC, Han-hwal, activity posts, free boards, and ECC fund information."
       }
     ]
   },
@@ -63,7 +64,8 @@ export const woohyukmonKnowledge = {
   },
   activities: {
     href: "/our-activities",
-    summary: "Our Activities includes ECC and Han-hwal activity records, free boards, and writing flows.",
+    summary:
+      "Our Activities includes ECC and Han-hwal activity records, free boards, writing flows, and ECC fund management.",
     writeHref: "/our-activities/write",
     note: "Activity writing is currently a prototype flow. Permanent public publishing needs backend storage and moderation."
   },
@@ -71,8 +73,10 @@ export const woohyukmonKnowledge = {
     name: "ECC",
     fullName: "English Conversation Club",
     href: "/our-activities/ecc",
+    freeBoardHref: "/our-activities/ecc/free-board",
+    fundHref: "/our-activities/ecc/fund",
     description:
-      "ECC is a student community where Korean students and international students interact through English, campus activities, and cultural exchange."
+      "ECC is a student community where Korean students and international students interact through English, campus activities, and cultural exchange. Its menu includes an ECC free board and ECC fund management page."
   },
   hanHwal: {
     name: "Han-hwal",
@@ -94,7 +98,7 @@ export const woohyukmonKnowledge = {
     {
       question: "What can I do on K_LINE?",
       answer:
-        "You can explore Goods, K-Culture Project, and Our Activities, including ECC and Han-hwal community boards."
+        "You can explore Goods, K-Culture Project, and Our Activities, including ECC free board, ECC fund information, and Han-hwal community boards."
     },
     {
       question: "Is payment available?",

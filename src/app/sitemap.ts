@@ -12,13 +12,14 @@ const staticRoutes = [
   "/k-culture-project/han-hwal",
   "/our-activities",
   "/our-activities/ecc",
+  "/our-activities/ecc/free-board",
+  "/our-activities/ecc/fund",
   "/our-activities/hanhwal",
   "/our-activities/write",
   "/login",
   "/cart",
   "/checkout",
-  "/contact",
-  "/donate"
+  "/contact"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

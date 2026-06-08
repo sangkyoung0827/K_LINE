@@ -51,6 +51,11 @@ Our Activities hover menu:
 - ECC
 - 한활 Hanhwal
 
+ECC now opens an activity menu with two choices:
+
+- ECC free board: `/our-activities/ecc/free-board`
+- ECC fund management: `/our-activities/ecc/fund`
+
 ECC and Hanhwal free-board posts are saved in browser localStorage for this prototype.
 Connect a real database and image storage before treating the boards as shared public data.
 
@@ -78,6 +83,8 @@ The old route redirects:
 - `/k-culture-project/connecting-korean-lines-to-europe`
 - `/our-activities`
 - `/our-activities/ecc`
+- `/our-activities/ecc/free-board`
+- `/our-activities/ecc/fund`
 - `/our-activities/hanhwal`
 - `/our-activities/write`
 - `/our-activities/han-hwal-korean-archery-experience-international-students`
@@ -85,7 +92,6 @@ The old route redirects:
 - `/cart`
 - `/checkout`
 - `/contact`
-- `/donate`
 - `/robots.txt`
 - `/sitemap.xml`
 
@@ -291,14 +297,16 @@ SUPER_ADMIN_EMAILS=your-google-login-email@example.com
 
 Current role-aware super-admin controls:
 
-- `/our-activities/ecc`: delete ECC free-board posts from the same board screen
+- `/our-activities/ecc`: open the ECC menu for free board and fund management
+- `/our-activities/ecc/free-board`: delete ECC free-board posts from the same board screen
 - `/our-activities/hanhwal`: delete Han-hwal free-board posts from the same board screen
 - free-board detail pages: delete the current post from the same detail screen
-- `/donate`: edit the displayed donation account, total donation amount, and account balance
-- `/donate`: view, mark received, or delete locally saved donation pledges
+- `/our-activities/ecc/fund`: edit the displayed donation account, total donation amount, and account balance
+- `/our-activities/ecc/fund`: view, mark received, or delete locally saved donation pledges
 
-The `/donate` route provides a donation pledge page and optional bank transfer
-information. Configure public initial display values only if they are safe to show:
+The `/our-activities/ecc/fund` route provides a donation pledge page and optional
+bank transfer information. The old `/donate` route redirects to the ECC fund
+management page. Configure public initial display values only if they are safe to show:
 
 ```bash
 NEXT_PUBLIC_DONATION_BANK_NAME=
@@ -311,9 +319,9 @@ NEXT_PUBLIC_DONATION_BALANCE_KRW=
 Important: real bank balance sync is not connected. A live account balance requires
 an official bank/open-banking API, account-owner consent, server-side credentials,
 and security review. The donation total and account balance can be typed manually
-by the super admin on `/donate`. Donation pledges are not real payments until a
-payment gateway, bank transfer confirmation flow, database, and receipt/accounting
-process are connected.
+by the super admin on `/our-activities/ecc/fund`. Donation pledges are not real
+payments until a payment gateway, bank transfer confirmation flow, database, and
+receipt/accounting process are connected.
 
 ## Deploy To Vercel
 

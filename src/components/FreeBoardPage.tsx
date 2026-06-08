@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ImagePlus, MessageSquareText, Send, SquarePen, Trash2 } from "lucide-react";
+import { ArrowLeft, ImagePlus, MessageSquareText, Send, SquarePen, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import type { FreeBoard, FreeBoardPost } from "@/types";
@@ -13,6 +13,8 @@ import {
 
 type FreeBoardPageProps = {
   board: FreeBoard;
+  returnHref?: string;
+  returnLabel?: string;
 };
 
 const initialForm = {
@@ -33,7 +35,11 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export function FreeBoardPage({ board }: FreeBoardPageProps) {
+export function FreeBoardPage({
+  board,
+  returnHref,
+  returnLabel = "Back"
+}: FreeBoardPageProps) {
   const [posts, setPosts] = useState<FreeBoardPost[]>([]);
   const [form, setForm] = useState(initialForm);
   const [imageError, setImageError] = useState("");
@@ -115,6 +121,15 @@ export function FreeBoardPage({ board }: FreeBoardPageProps) {
             {board.koreanTitle}
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">{board.description}</p>
+          {returnHref ? (
+            <Link
+              href={returnHref}
+              className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 border border-paper/22 px-5 text-sm font-semibold text-paper transition hover:border-brass hover:bg-brass/15"
+            >
+              <ArrowLeft aria-hidden className="h-4 w-4" />
+              {returnLabel}
+            </Link>
+          ) : null}
         </div>
       </section>
 

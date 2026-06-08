@@ -209,10 +209,10 @@ export function DonationPanel() {
             <Banknote aria-hidden className="h-5 w-5" />
           </div>
           <p className="mt-6 text-sm font-semibold uppercase text-brass">Donation account</p>
-          <h2 className="mt-3 font-serif text-4xl font-semibold text-ink">Support K_LINE</h2>
+          <h2 className="mt-3 font-serif text-4xl font-semibold text-ink">ECC 후원과 자금 현황</h2>
           <p className="mt-5 text-sm leading-7 text-ink/68">
-            후원금은 K-culture project, student activities, goods prototyping, and community
-            programs 운영 준비에 사용됩니다.
+            후원금은 ECC 활동, K-culture project, student activities, goods prototyping, and
+            community programs 운영 준비에 사용됩니다.
           </p>
 
           <div className="mt-7 grid gap-3 border border-ink/10 bg-white/60 p-5 text-sm text-ink/70">
@@ -248,12 +248,12 @@ export function DonationPanel() {
               </p>
             </div>
             <div className="border border-brass/30 bg-brass/10 p-5">
-              <p className="text-xs font-semibold uppercase text-ink/60">Account balance</p>
+              <p className="text-xs font-semibold uppercase text-ink/60">Remaining amount</p>
               <p className="mt-2 font-serif text-3xl font-semibold text-ink">
                 {formatKrw(displayedBalance)}
               </p>
               <p className="mt-2 text-xs leading-6 text-ink/58">
-                실제 은행 API가 아니라 슈퍼관리자가 직접 입력한 표시 금액입니다.
+                일반회원에게 공개되는 남은 금액이며, 슈퍼관리자가 직접 입력합니다.
               </p>
             </div>
           </div>
@@ -331,8 +331,8 @@ export function DonationPanel() {
             후원 계좌와 표시 금액 관리
           </h2>
           <p className="mt-4 text-sm leading-7 text-ink/64">
-            같은 `/donate` 주소에서 슈퍼관리자로 로그인한 경우에만 보이는 관리 영역입니다.
-            후원금 총액과 계좌 잔액은 여기서 직접 입력해 표시할 수 있습니다.
+            같은 ECC 자금관리 주소에서 슈퍼관리자로 로그인한 경우에만 보이는 관리
+            영역입니다. 후원금 총액과 계좌 잔액은 여기서 직접 입력해 표시할 수 있습니다.
           </p>
 
           <form onSubmit={saveBankDisplay} className="mt-6 grid gap-4">
@@ -369,7 +369,7 @@ export function DonationPanel() {
               <input
                 className="form-field"
                 inputMode="numeric"
-                placeholder="Account balance KRW"
+                placeholder="Remaining amount KRW"
                 value={bankForm.displayedBalance}
                 onChange={(event) =>
                   updateBankForm("displayedBalance", event.target.value.replace(/[^0-9]/g, ""))

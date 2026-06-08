@@ -22,5 +22,11 @@ export const metadata: Metadata = {
 
 export default async function EccFreeBoardDetailPage({ params }: PageProps) {
   const { postId } = await params;
-  return <FreeBoardDetailPage board={board!} postId={postId} />;
+  return (
+    <FreeBoardDetailPage
+      board={board!}
+      postId={postId}
+      boardPath="/our-activities/ecc/free-board"
+    />
+  );
 }
