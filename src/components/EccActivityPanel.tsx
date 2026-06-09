@@ -47,16 +47,18 @@ type NoticeForm = {
 type ApplicationType = "gathering" | "mt" | "special";
 
 type ApplicationForm = {
-  kakaoName: string;
+  name: string;
   gender: string;
   nationality: string;
   preferredFood: string;
-  request: string;
+  otherRequests: string;
 };
 
 type EccApplication = ApplicationForm & {
   id: string;
   type: ApplicationType;
+  activityTitle: string;
+  status: string;
   createdAt: string;
 };
 
@@ -97,11 +99,11 @@ const initialNoticeForms: Record<Language, NoticeForm> = {
 };
 
 const initialApplicationForm: ApplicationForm = {
-  kakaoName: "",
+  name: "",
   gender: "",
   nationality: "",
   preferredFood: "",
-  request: ""
+  otherRequests: ""
 };
 
 const applicationTypes: Array<{
@@ -717,12 +719,13 @@ export function EccActivityPanel() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          type: activeApplicationType,
-          kakaoName: applicationForm.kakaoName.trim(),
+          activity_id: activeApplicationType,
+          activity_title: activeApplication.labels[language].title,
+          name: applicationForm.name.trim(),
           gender: applicationForm.gender,
           nationality: applicationForm.nationality.trim(),
-          preferredFood: applicationForm.preferredFood.trim(),
-          request: applicationForm.request.trim()
+          preferred_food: applicationForm.preferredFood.trim(),
+          other_requests: applicationForm.otherRequests.trim()
         })
       });
       const data = (await response.json()) as ApplicationsApiResponse;
@@ -889,8 +892,8 @@ export function EccActivityPanel() {
               <input
                 required
                 className="form-field"
-                value={applicationForm.kakaoName}
-                onChange={(event) => updateApplicationForm("kakaoName", event.target.value)}
+                value={applicationForm.name}
+                onChange={(event) => updateApplicationForm("name", event.target.value)}
               />
             </label>
             <label className="grid gap-2 text-sm font-semibold text-ink">
@@ -930,8 +933,8 @@ export function EccActivityPanel() {
               {text.requestLabel}
               <textarea
                 className="form-field min-h-28"
-                value={applicationForm.request}
-                onChange={(event) => updateApplicationForm("request", event.target.value)}
+                value={applicationForm.otherRequests}
+                onChange={(event) => updateApplicationForm("otherRequests", event.target.value)}
               />
             </label>
           </div>
@@ -987,12 +990,14 @@ export function EccActivityPanel() {
                     {selectedApplications.map((application) => (
                       <tr key={application.id} className="border-b border-ink/8 last:border-b-0">
                         <td className="px-4 py-3 font-semibold text-ink">
-                          {application.kakaoName}
+                          {application.name}
                         </td>
                         <td className="px-4 py-3 text-ink/70">{application.gender}</td>
                         <td className="px-4 py-3 text-ink/70">{application.nationality}</td>
                         <td className="px-4 py-3 text-ink/70">{application.preferredFood}</td>
-                        <td className="px-4 py-3 text-ink/62">{application.request || "-"}</td>
+                        <td className="px-4 py-3 text-ink/62">
+                          {application.otherRequests || "-"}
+                        </td>
                         <td className="px-4 py-3 text-ink/58">
                           {formatApplicationDate(application.createdAt, language)}
                         </td>
