@@ -13,7 +13,7 @@ export const activityBoards: FreeBoard[] = [
   {
     id: "hanhwal",
     slug: "hanhwal",
-    label: "한활 Hanhwal",
+    label: "Hanhwal",
     title: "Hanhwal Free Board",
     koreanTitle: "한활 Hanhwal 자유게시판",
     description:

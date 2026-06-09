@@ -132,13 +132,25 @@ export const woohyukmonKnowledge = {
   }
 } as const;
 
-export const woohyukmonQuickPrompts = [
-  "What is K_LINE?",
-  "Tell me about Goods",
-  "What is ECC?",
-  "What is Han-hwal?",
-  "프로젝트는 어떻게 올리나요?",
-  "활동 글은 어떻게 쓰나요?",
-  "화살펜이 뭐예요?",
-  "한지 오브제가 뭐예요?"
-] as const;
+export const woohyukmonQuickPrompts = {
+  en: [
+    "What is K_LINE?",
+    "Tell me about Goods",
+    "What is ECC?",
+    "What is Han-hwal?",
+    "How do I submit a project?",
+    "How do I write an activity post?",
+    "What is the Arrow Pen?",
+    "What is the Hanji LED object?"
+  ],
+  ko: [
+    "K_LINE이 뭐예요?",
+    "굿즈에 대해 알려줘",
+    "ECC가 뭐예요?",
+    "한활이 뭐예요?",
+    "프로젝트는 어떻게 올리나요?",
+    "활동 글은 어떻게 쓰나요?",
+    "화살펜이 뭐예요?",
+    "한지 오브제가 뭐예요?"
+  ]
+} as const;

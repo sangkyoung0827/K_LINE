@@ -1,10 +1,14 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { GoodsItem } from "@/types";
 
 export function GoodsPreviewCard({ item }: { item: GoodsItem }) {
   const image = item.images[0];
+  const { language } = useLanguage();
 
   return (
     <Link
@@ -22,13 +26,17 @@ export function GoodsPreviewCard({ item }: { item: GoodsItem }) {
       </div>
       <div className="grid content-between gap-5 p-6">
         <div>
-          <p className="text-sm font-semibold uppercase text-brass">{item.category}</p>
+          <p className="text-sm font-semibold uppercase text-brass">
+            {language === "ko" ? "문화 상품" : item.category}
+          </p>
           <h3 className="mt-3 font-serif text-3xl font-semibold text-ink">{item.name}</h3>
-          <p className="mt-2 text-sm font-semibold text-muted">{item.koreanName}</p>
+          {language === "ko" ? (
+            <p className="mt-2 text-sm font-semibold text-muted">{item.koreanName}</p>
+          ) : null}
           <p className="mt-4 text-sm leading-7 text-ink/68">{item.shortDescription}</p>
         </div>
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
-          View Goods
+          <I18nText en="View Goods" ko="상품 보기" />
           <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
         </span>
       </div>

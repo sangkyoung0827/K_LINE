@@ -10,7 +10,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type ApplicationType = "gathering" | "mt" | "special";
+type ApplicationType = "gathering" | "mt" | "special" | "opening" | "farewell";
 
 type SupabaseApplicationRow = {
   id: string;
@@ -38,12 +38,20 @@ type EccApplication = {
   createdAt: string;
 };
 
-const validApplicationTypes: ApplicationType[] = ["gathering", "mt", "special"];
+const validApplicationTypes: ApplicationType[] = [
+  "gathering",
+  "mt",
+  "special",
+  "opening",
+  "farewell"
+];
 const validApplicationTypeSet = new Set<ApplicationType>(validApplicationTypes);
 const activityTitles: Record<ApplicationType, string> = {
   gathering: "International Gathering",
   mt: "MT",
-  special: "Special Event"
+  special: "Special Event",
+  opening: "Semester Opening Party",
+  farewell: "Farewell Party"
 };
 const tableName = "ecc_activity_applications";
 const selectedColumns =
@@ -102,7 +110,9 @@ function emptyCounts(): Record<ApplicationType, number> {
   return {
     gathering: 0,
     mt: 0,
-    special: 0
+    special: 0,
+    opening: 0,
+    farewell: 0
   };
 }
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { EccActivityPanel } from "@/components/EccActivityPanel";
+import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 
@@ -30,12 +31,17 @@ export default function EccActivityPage() {
           className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" />
-          Back to ECC Menu
+          <I18nText en="Back to ECC Menu" ko="ECC 메뉴로 돌아가기" />
         </Link>
         <SectionHeader
-          eyebrow="ECC activity"
-          title="ECC 활동"
-          description="한국어와 영어를 선택해 회원 현황을 붙여넣고 활동 참여 내용을 정리하며, 이름 목록으로 조를 자동 편성한 뒤 카카오톡 공지문까지 만들 수 있습니다."
+          eyebrow={<I18nText en="ECC activity" ko="ECC 활동" />}
+          title={<I18nText en="ECC Activity" ko="ECC 활동" />}
+          description={
+            <I18nText
+              en="Choose a language, manage member status and activity participation, create balanced teams from name lists, and generate KakaoTalk-ready notices."
+              ko="한국어와 영어를 선택해 회원 현황을 붙여넣고 활동 참여 내용을 정리하며, 이름 목록으로 조를 자동 편성한 뒤 카카오톡 공지문까지 만들 수 있습니다."
+            />
+          }
         />
         <div className="mt-10">
           <EccActivityPanel />

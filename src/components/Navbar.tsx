@@ -8,12 +8,27 @@ import { activityBoards } from "@/data/activityBoards";
 import { navigation } from "@/data/navigation";
 import { AuthStatus } from "@/components/AuthStatus";
 import { useCart } from "@/components/CartProvider";
+import { LanguageSwitcher, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
+
+const navigationLabels = {
+  "/": { en: "Home", ko: "홈" },
+  "/goods": { en: "Goods", ko: "상품" },
+  "/k-culture-project": { en: "K-Culture Project", ko: "K-컬처 프로젝트" },
+  "/our-activities": { en: "International Clubs", ko: "국제 학생 클럽" },
+  "/contact": { en: "Contact", ko: "문의" }
+} as const;
+
+const boardLabels = {
+  ecc: { en: "ECC", ko: "ECC" },
+  hanhwal: { en: "Hanhwal", ko: "한활" }
+} as const;
 
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { totalQuantity } = useCart();
+  const { language, pick } = useLanguage();
 
   return (
     <header className="sticky top-0 z-50 border-b border-navy/10 bg-paper/94 backdrop-blur">
@@ -37,7 +52,9 @@ export function Navbar() {
                       active ? "text-ink" : "text-ink/62 hover:text-ink"
                     }`}
                   >
-                    {item.label}
+                    {navigationLabels[item.href as keyof typeof navigationLabels]
+                      ? pick(navigationLabels[item.href as keyof typeof navigationLabels])
+                      : item.label}
                     <ChevronDown
                       aria-hidden
                       className="h-3.5 w-3.5 transition group-hover:rotate-180"
@@ -50,7 +67,7 @@ export function Navbar() {
                         href={`/our-activities/${board.slug}`}
                         className="border-b border-navy/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/15 hover:text-ink"
                       >
-                        {board.label}
+                        {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
                       </Link>
                     ))}
                   </div>
@@ -66,17 +83,20 @@ export function Navbar() {
                   active ? "text-ink" : "text-ink/62 hover:text-ink"
                 }`}
               >
-                {item.label}
+                {navigationLabels[item.href as keyof typeof navigationLabels]
+                  ? pick(navigationLabels[item.href as keyof typeof navigationLabels])
+                  : item.label}
               </Link>
             );
           })}
         </div>
 
         <div className="flex items-center gap-2">
+          <LanguageSwitcher />
           <AuthStatus />
           <Link
             href="/cart"
-            aria-label="Open cart"
+            aria-label={language === "ko" ? "장바구니 열기" : "Open cart"}
             className="relative inline-flex h-10 w-10 items-center justify-center border border-navy/12 text-ink transition hover:border-brass hover:bg-brass/15"
           >
             <ShoppingBag aria-hidden className="h-4 w-4" />
@@ -88,7 +108,7 @@ export function Navbar() {
           </Link>
           <button
             type="button"
-            aria-label="Open navigation menu"
+            aria-label={language === "ko" ? "메뉴 열기" : "Open navigation menu"}
             onClick={() => setOpen((value) => !value)}
             className="inline-flex h-10 w-10 items-center justify-center border border-navy/12 text-ink transition hover:border-brass hover:bg-brass/15 lg:hidden"
           >
@@ -109,7 +129,9 @@ export function Navbar() {
                     onClick={() => setOpen(false)}
                     className="block py-3 text-sm text-ink/76"
                   >
-                    {item.label}
+                    {navigationLabels[item.href as keyof typeof navigationLabels]
+                      ? pick(navigationLabels[item.href as keyof typeof navigationLabels])
+                      : item.label}
                   </Link>
                   {hasBoards ? (
                     <div className="grid pb-3 pl-4">
@@ -120,7 +142,7 @@ export function Navbar() {
                           onClick={() => setOpen(false)}
                           className="py-2 text-sm font-semibold text-ink/66"
                         >
-                          {board.label}
+                          {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
                         </Link>
                       ))}
                     </div>

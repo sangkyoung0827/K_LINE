@@ -1,10 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import type { ProjectItem } from "@/types";
 import { CategoryBadge } from "@/components/CategoryBadge";
+import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { TagBadge } from "@/components/TagBadge";
 
 export function ProjectCard({ project }: { project: ProjectItem }) {
+  const { language } = useLanguage();
+
   return (
     <article className="paper-panel overflow-hidden transition hover:border-brass hover:bg-white/65">
       <Link
@@ -26,12 +31,18 @@ export function ProjectCard({ project }: { project: ProjectItem }) {
         </div>
         <div>
           <h2 className="font-serif text-3xl font-semibold text-ink">{project.title}</h2>
-          <p className="mt-1 text-sm font-semibold text-ink/62">{project.englishTitle}</p>
+          {language === "ko" ? (
+            <p className="mt-1 text-sm font-semibold text-ink/62">{project.englishTitle}</p>
+          ) : null}
         </div>
         <p className="text-sm leading-7 text-ink/70">{project.shortDescription}</p>
         <dl className="grid gap-1 text-xs text-ink/58">
-          <div>Author/team: {project.teamOrAuthor}</div>
-          <div>Location: {project.location}</div>
+          <div>
+            <I18nText en="Author/team" ko="작성자/팀" />: {project.teamOrAuthor}
+          </div>
+          <div>
+            <I18nText en="Location" ko="장소" />: {project.location}
+          </div>
         </dl>
         <div className="flex flex-wrap gap-2">
           {project.tags.slice(0, 3).map((tag) => (
@@ -42,7 +53,7 @@ export function ProjectCard({ project }: { project: ProjectItem }) {
           href={`/k-culture-project/${project.slug}`}
           className="inline-flex min-h-10 w-fit items-center border border-ink/18 px-4 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10"
         >
-          View Project
+          <I18nText en="View Project" ko="프로젝트 보기" />
         </Link>
       </div>
     </article>

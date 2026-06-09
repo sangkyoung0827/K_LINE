@@ -7,11 +7,13 @@ import { useState } from "react";
 import type { GoodsItem } from "@/types";
 import { useCart } from "@/components/CartProvider";
 import { CTAButton } from "@/components/CTAButton";
+import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
 export function GoodsDetail({ item }: { item: GoodsItem }) {
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const { addItem } = useCart();
+  const { language } = useLanguage();
 
   const add = () => {
     addItem(item, quantity);
@@ -35,11 +37,13 @@ export function GoodsDetail({ item }: { item: GoodsItem }) {
 
         <div className="grid content-start gap-7">
           <div>
-            <p className="text-sm font-semibold uppercase text-brass">{item.category}</p>
+            <p className="text-sm font-semibold uppercase text-brass">
+              {language === "ko" ? "문화 상품" : item.category}
+            </p>
             <h1 className="mt-3 font-serif text-4xl font-semibold text-ink md:text-6xl">
               {item.name}
             </h1>
-            <p className="mt-2 text-lg text-ink/62">{item.koreanName}</p>
+            {language === "ko" ? <p className="mt-2 text-lg text-ink/62">{item.koreanName}</p> : null}
           </div>
 
           <p className="text-base leading-8 text-ink/72">{item.fullDescription}</p>
@@ -71,27 +75,31 @@ export function GoodsDetail({ item }: { item: GoodsItem }) {
               className="inline-flex min-h-12 items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
             >
               <ShoppingBag aria-hidden className="h-4 w-4" />
-              Add to Cart
+              <I18nText en="Add to Cart" ko="장바구니 담기" />
             </button>
             <CTAButton href="/contact" variant="outline">
-              Inquiry
+              <I18nText en="Inquiry" ko="문의하기" />
             </CTAButton>
           </div>
 
-          {added ? <p className="text-sm font-semibold text-pine">Added to cart.</p> : null}
+          {added ? (
+            <p className="text-sm font-semibold text-pine">
+              <I18nText en="Added to cart." ko="장바구니에 담았습니다." />
+            </p>
+          ) : null}
 
           <div className="grid gap-5 border-t border-ink/12 pt-7">
-            <InfoBlock title="Product Story" items={[item.story]} />
+            <InfoBlock title={language === "ko" ? "상품 이야기" : "Product Story"} items={[item.story]} />
             <InfoBlock
-              title="Specification"
+              title={language === "ko" ? "상세 정보" : "Specification"}
               items={Object.entries(item.specifications).map(([key, value]) => `${key}: ${value}`)}
             />
-            <InfoBlock title="Materials" items={item.materials} />
-            <InfoBlock title="Use Cases" items={item.useCases} />
+            <InfoBlock title={language === "ko" ? "재료" : "Materials"} items={item.materials} />
+            <InfoBlock title={language === "ko" ? "사용 장면" : "Use Cases"} items={item.useCases} />
           </div>
 
           <Link href="/goods" className="text-sm font-semibold text-ink underline underline-offset-4">
-            Back to Goods
+            <I18nText en="Back to Goods" ko="상품 목록으로 돌아가기" />
           </Link>
         </div>
       </div>

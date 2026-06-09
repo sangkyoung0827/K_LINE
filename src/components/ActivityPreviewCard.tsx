@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, UsersRound } from "lucide-react";
+import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard } from "@/types";
 
 type ActivityPreviewCardProps = {
@@ -13,6 +16,17 @@ const accentClass = {
 };
 
 export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps) {
+  const { language } = useLanguage();
+  const title = board.id === "ecc" ? "ECC" : language === "ko" ? "한활" : "Hanhwal";
+  const description =
+    board.id === "ecc"
+      ? language === "ko"
+        ? "ECC 활동 기록, 사진, 질문, 자유로운 글을 공유하는 커뮤니티 공간입니다."
+        : "A community space for ECC activity notes, photos, questions, and open posts."
+      : language === "ko"
+        ? "한활 연습 기록, 국궁 사진, 질문, 자유로운 글을 공유하는 커뮤니티 공간입니다."
+        : "A community space for Hanhwal practice records, Korean archery photos, questions, and open posts.";
+
   return (
     <Link
       href={`/our-activities/${board.slug}`}
@@ -27,8 +41,10 @@ export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps)
         </div>
         <div className="relative flex h-full min-h-48 items-end justify-between p-6 text-paper">
           <div>
-            <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
-            <h3 className="mt-3 font-serif text-4xl font-semibold">{board.title}</h3>
+            <p className="text-sm font-semibold uppercase text-brass">{title}</p>
+            <h3 className="mt-3 font-serif text-4xl font-semibold">
+              {language === "ko" ? `${title} 게시판` : `${title} Board`}
+            </h3>
           </div>
           <span className={`flex h-12 w-12 items-center justify-center ${accentClass[accent]}`}>
             <UsersRound aria-hidden className="h-5 w-5" />
@@ -36,10 +52,12 @@ export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps)
         </div>
       </div>
       <div className="grid gap-4 p-6">
-        <p className="text-sm font-semibold text-muted">{board.koreanTitle}</p>
-        <p className="text-sm leading-7 text-ink/70">{board.description}</p>
+        <p className="text-sm font-semibold text-muted">
+          <I18nText en="International club board" ko="국제 학생 클럽 게시판" />
+        </p>
+        <p className="text-sm leading-7 text-ink/70">{description}</p>
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
-          Open Club Board
+          <I18nText en="Open Club Board" ko="게시판 열기" />
           <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
         </span>
       </div>

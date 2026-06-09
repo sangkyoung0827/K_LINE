@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { Bot, Loader2, MessageCircle, Minus, Send, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLanguage } from "@/components/LanguageProvider";
 import { woohyukmonQuickPrompts } from "@/data/woohyukmonKnowledge";
 
 type ChatMessage = {
@@ -11,14 +12,28 @@ type ChatMessage = {
   content: string;
 };
 
-const welcomeMessage: ChatMessage = {
-  id: "welcome",
-  role: "assistant",
-  content:
-    "안녕하세요! 저는 K_LINE의 AI 안내자 우혁몬입니다. 굿즈, K-Culture Project, ECC, 한활, 활동 글쓰기까지 무엇이든 물어보세요."
+const welcomeMessages: Record<"en" | "ko", ChatMessage> = {
+  en: {
+    id: "welcome",
+    role: "assistant",
+    content:
+      "Hi! I am Woohyukmon, the K_LINE AI guide. Ask me about Goods, K-Culture Project, ECC, Han-hwal, or activity posts."
+  },
+  ko: {
+    id: "welcome",
+    role: "assistant",
+    content:
+      "안녕하세요! 저는 K_LINE의 AI 안내자 우혁몬입니다. 굿즈, K-Culture Project, ECC, 한활, 활동 글쓰기까지 무엇이든 물어보세요."
+  }
 };
 
-function WoohyukmonAvatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+function WoohyukmonAvatar({
+  language,
+  size = "md"
+}: {
+  language: "en" | "ko";
+  size?: "sm" | "md" | "lg";
+}) {
   const [failed, setFailed] = useState(false);
   const sizeClass = size === "lg" ? "h-16 w-16" : size === "sm" ? "h-9 w-9" : "h-11 w-11";
 
@@ -27,11 +42,11 @@ function WoohyukmonAvatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
       className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-brass/60 bg-navy text-paper shadow-soft ${sizeClass}`}
     >
       {failed ? (
-        <span className="text-sm font-bold">우</span>
+        <span className="text-sm font-bold">{language === "ko" ? "우" : "W"}</span>
       ) : (
         <Image
           src="/images/woohyukmon-icon.png"
-          alt="우혁몬 Woohyukmon icon"
+          alt={language === "ko" ? "우혁몬 아이콘" : "Woohyukmon AI guide icon"}
           fill
           sizes="64px"
           className="object-cover"
@@ -43,9 +58,10 @@ function WoohyukmonAvatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 }
 
 export function WoohyukmonChatbot() {
+  const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
+  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessages[language]]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +73,12 @@ export function WoohyukmonChatbot() {
         .map((message) => ({ role: message.role, content: message.content })),
     [messages]
   );
+
+  useEffect(() => {
+    setMessages((current) =>
+      current.length === 1 && current[0]?.id === "welcome" ? [welcomeMessages[language]] : current
+    );
+  }, [language]);
 
   const sendMessage = async (content: string) => {
     const trimmed = content.trim();
@@ -88,7 +110,12 @@ export function WoohyukmonChatbot() {
       const data = (await response.json()) as { answer?: string; error?: string };
 
       if (!response.ok || !data.answer) {
-        throw new Error(data.error ?? "우혁몬이 잠시 대답하지 못했습니다.");
+        throw new Error(
+          data.error ??
+            (language === "ko"
+              ? "우혁몬이 잠시 대답하지 못했습니다."
+              : "Woohyukmon could not answer for a moment.")
+        );
       }
 
       setMessages((current) => [
@@ -103,7 +130,9 @@ export function WoohyukmonChatbot() {
       const message =
         requestError instanceof Error
           ? requestError.message
-          : "우혁몬이 잠시 대답하지 못했습니다.";
+          : language === "ko"
+            ? "우혁몬이 잠시 대답하지 못했습니다."
+            : "Woohyukmon could not answer for a moment.";
       setError(message);
     } finally {
       setLoading(false);
@@ -122,9 +151,11 @@ export function WoohyukmonChatbot() {
         <section className="mb-4 flex h-[min(680px,calc(100svh-7rem))] w-[calc(100vw-2.5rem)] max-w-md flex-col overflow-hidden border border-navy/12 bg-paper shadow-lift md:w-[420px]">
           <header className="flex items-center justify-between gap-3 bg-navy p-4 text-paper">
             <div className="flex items-center gap-3">
-              <WoohyukmonAvatar size="sm" />
+              <WoohyukmonAvatar language={language} size="sm" />
               <div>
-                <p className="text-base font-semibold">우혁몬</p>
+                <p className="text-base font-semibold">
+                  {language === "ko" ? "우혁몬" : "Woohyukmon"}
+                </p>
                 <p className="text-xs text-paper/70">K_LINE AI Assistant</p>
               </div>
             </div>
@@ -145,7 +176,9 @@ export function WoohyukmonChatbot() {
                   key={message.id}
                   className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  {message.role === "assistant" ? <WoohyukmonAvatar size="sm" /> : null}
+                  {message.role === "assistant" ? (
+                    <WoohyukmonAvatar language={language} size="sm" />
+                  ) : null}
                   <div
                     className={`max-w-[82%] whitespace-pre-wrap px-4 py-3 text-sm leading-7 ${
                       message.role === "user"
@@ -159,17 +192,17 @@ export function WoohyukmonChatbot() {
               ))}
               {loading ? (
                 <div className="flex items-center gap-2 text-sm text-muted">
-                  <WoohyukmonAvatar size="sm" />
+                  <WoohyukmonAvatar language={language} size="sm" />
                   <span className="inline-flex items-center gap-2 border border-navy/10 bg-white/78 px-4 py-3">
                     <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-                    우혁몬이 생각 중입니다...
+                    {language === "ko" ? "우혁몬이 생각 중입니다..." : "Woohyukmon is thinking..."}
                   </span>
                 </div>
               ) : null}
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              {woohyukmonQuickPrompts.map((prompt) => (
+              {woohyukmonQuickPrompts[language].map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
@@ -193,7 +226,7 @@ export function WoohyukmonChatbot() {
               ref={inputRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="우혁몬에게 물어보기"
+              placeholder={language === "ko" ? "우혁몬에게 물어보기" : "Ask Woohyukmon"}
               className="min-h-11 flex-1 border border-navy/14 bg-paper px-3 text-sm text-ink outline-none transition focus:border-brass focus:ring-2 focus:ring-brass/20"
             />
             <button
@@ -214,12 +247,14 @@ export function WoohyukmonChatbot() {
         className="group flex items-center gap-3 bg-navy p-2 pr-4 text-paper shadow-lift transition hover:-translate-y-1 hover:bg-ink"
         aria-label="Open Woohyukmon chat"
       >
-        <WoohyukmonAvatar size="lg" />
+        <WoohyukmonAvatar language={language} size="lg" />
         <span className="grid text-left">
-          <span className="text-sm font-semibold">우혁몬</span>
+          <span className="text-sm font-semibold">
+            {language === "ko" ? "우혁몬" : "Woohyukmon"}
+          </span>
           <span className="inline-flex items-center gap-1 text-xs text-paper/70">
             <MessageCircle aria-hidden className="h-3 w-3" />
-            AI 안내자
+            {language === "ko" ? "AI 안내자" : "AI Guide"}
           </span>
         </span>
         {open ? <X aria-hidden className="h-4 w-4" /> : <Bot aria-hidden className="h-4 w-4" />}

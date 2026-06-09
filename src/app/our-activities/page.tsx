@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CTAButton } from "@/components/CTAButton";
 import { ActivityPostCard } from "@/components/ActivityPostCard";
+import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { activities } from "@/data/activities";
 import { activityBoards } from "@/data/activityBoards";
@@ -9,7 +10,7 @@ import { seoKeywords } from "@/lib/seo";
 
 const clubDisplayTitles = {
   ecc: "ECC",
-  hanhwal: "한활 Hanhwal"
+  hanhwal: "Hanhwal"
 } as const;
 
 export const metadata: Metadata = {
@@ -30,17 +31,21 @@ export default function OurActivitiesPage() {
       <section className="bg-navy py-16 text-paper md:py-24">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-[1fr_auto] md:items-end md:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase text-brass">Club community board</p>
+            <p className="text-sm font-semibold uppercase text-brass">
+              <I18nText en="Club community board" ko="클럽 커뮤니티 게시판" />
+            </p>
             <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">
-              International Clubs
+              <I18nText en="International Clubs" ko="국제 학생 클럽" />
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
-              Read and share news, club logs, reviews, field notes, and free community posts
-              connected to K_LINE.
+              <I18nText
+                en="Read and share news, club logs, reviews, field notes, and free community posts connected to K_LINE."
+                ko="K_LINE과 연결된 소식, 클럽 기록, 후기, 현장 노트, 자유로운 커뮤니티 글을 읽고 공유합니다."
+              />
             </p>
           </div>
           <CTAButton href="/our-activities/write" variant="light">
-            Write Post
+            <I18nText en="Write Post" ko="글쓰기" />
           </CTAButton>
         </div>
       </section>
@@ -48,9 +53,14 @@ export default function OurActivitiesPage() {
       <section className="bg-paper py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
-            eyebrow="Club menus"
-            title="ECC and Hanhwal community spaces"
-            description="ECC includes a free board, activity management, and fund management. Hanhwal includes its community free board."
+            eyebrow={<I18nText en="Club menus" ko="클럽 메뉴" />}
+            title={<I18nText en="ECC and Hanhwal community spaces" ko="ECC와 한활 커뮤니티 공간" />}
+            description={
+              <I18nText
+                en="ECC includes a free board, activity management, and fund management. Hanhwal includes its community free board."
+                ko="ECC에는 게시판, 활동 관리, 자금관리가 있고, 한활에는 커뮤니티 게시판이 있습니다."
+              />
+            }
           />
           <div className="mt-10 grid gap-5 md:grid-cols-2">
             {activityBoards.map((board) => (
@@ -64,10 +74,26 @@ export default function OurActivitiesPage() {
                   <h2 className="mt-4 font-serif text-4xl font-semibold text-ink">
                     {clubDisplayTitles[board.id]}
                   </h2>
-                  <p className="mt-4 text-sm leading-7 text-ink/68">{board.description}</p>
+                  <p className="mt-4 text-sm leading-7 text-ink/68">
+                    {board.id === "ecc" ? (
+                      <I18nText
+                        en="A community board for ECC activity notes, photos, questions, and open posts."
+                        ko="ECC 활동 기록, 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
+                      />
+                    ) : (
+                      <I18nText
+                        en="A community board for Hanhwal practice records, Korean archery photos, questions, and open posts."
+                        ko="한활 연습 기록, 국궁 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
+                      />
+                    )}
+                  </p>
                 </div>
                 <span className="mt-8 text-sm font-semibold text-ink underline underline-offset-4">
-                  {board.id === "ecc" ? "Open ECC Menu" : "Open Board"}
+                  {board.id === "ecc" ? (
+                    <I18nText en="Open ECC Menu" ko="ECC 메뉴 열기" />
+                  ) : (
+                    <I18nText en="Open Board" ko="게시판 열기" />
+                  )}
                 </span>
               </Link>
             ))}
@@ -78,9 +104,14 @@ export default function OurActivitiesPage() {
       <section className="bg-white/45 py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
-            eyebrow="Club records"
-            title="News, reviews, field notes, and community stories"
-            description="These sample posts show the intended public article style. User submissions are pending review until backend moderation is connected."
+            eyebrow={<I18nText en="Club records" ko="클럽 기록" />}
+            title={<I18nText en="News, reviews, field notes, and community stories" ko="소식, 후기, 현장 노트, 커뮤니티 이야기" />}
+            description={
+              <I18nText
+                en="These sample posts show the intended public article style. User submissions are pending review until moderation is complete."
+                ko="샘플 글은 공개 글 스타일을 보여줍니다. 사용자가 제출한 글은 검토가 끝날 때까지 대기 상태로 유지됩니다."
+              />
+            }
           />
           <div className="mt-10 grid gap-5">
             {activities.map((post) => (

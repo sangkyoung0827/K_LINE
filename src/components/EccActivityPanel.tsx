@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { adminStorageKeys } from "@/lib/adminStorageKeys";
+import { useLanguage } from "@/components/LanguageProvider";
 
 type Language = "ko" | "en";
 
@@ -44,7 +45,7 @@ type NoticeForm = {
   memo: string;
 };
 
-type ApplicationType = "gathering" | "mt" | "special";
+type ApplicationType = "gathering" | "mt" | "special" | "opening" | "farewell";
 
 type ApplicationForm = {
   name: string;
@@ -148,6 +149,32 @@ const applicationTypes: Array<{
         description: "Apply for an ECC special event"
       }
     }
+  },
+  {
+    type: "opening",
+    labels: {
+      ko: {
+        title: "개강총회 신청",
+        description: "ECC 개강총회 참여 신청"
+      },
+      en: {
+        title: "Semester Opening Party Application",
+        description: "Apply for the ECC semester opening party"
+      }
+    }
+  },
+  {
+    type: "farewell",
+    labels: {
+      ko: {
+        title: "종강총회 신청",
+        description: "ECC 종강총회 참여 신청"
+      },
+      en: {
+        title: "Farewell Party Application",
+        description: "Apply for the ECC farewell party"
+      }
+    }
   }
 ];
 
@@ -181,6 +208,8 @@ const copy = {
     applicantListTitle: "신청자 명단",
     applicantListDescription:
       "슈퍼관리자로 로그인한 경우에만 활동별 신청자 명단을 확인할 수 있습니다.",
+    copyNamesTitle: "이름 복사용 목록",
+    copyNamesDescription: "아래 영역은 드래그 선택과 복사가 쉽도록 이름만 줄바꿈으로 정리합니다.",
     noApplicants: "아직 신청자가 없습니다.",
     submittedAt: "신청 시간",
     members: "Members",
@@ -277,6 +306,8 @@ const copy = {
     applicantListTitle: "Applicant List",
     applicantListDescription:
       "Only the super admin can view applicant lists by activity.",
+    copyNamesTitle: "Copy-friendly name list",
+    copyNamesDescription: "This area lists names line by line so they are easy to drag-select and copy.",
     noApplicants: "No applicants yet.",
     submittedAt: "Submitted at",
     members: "Members",
@@ -558,7 +589,9 @@ function emptyApplicationCounts(): ApplicationCounts {
   return {
     gathering: 0,
     mt: 0,
-    special: 0
+    special: 0,
+    opening: 0,
+    farewell: 0
   };
 }
 
@@ -568,12 +601,15 @@ function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): Applic
   return {
     gathering: Number(counts?.gathering ?? empty.gathering),
     mt: Number(counts?.mt ?? empty.mt),
-    special: Number(counts?.special ?? empty.special)
+    special: Number(counts?.special ?? empty.special),
+    opening: Number(counts?.opening ?? empty.opening),
+    farewell: Number(counts?.farewell ?? empty.farewell)
   };
 }
 
 export function EccActivityPanel() {
   const { isSuperAdmin, loading } = useSuperAdmin();
+  const { language: siteLanguage, setLanguage: setSiteLanguage } = useLanguage();
   const [language, setLanguage] = useState<Language>("ko");
   const [activeApplicationType, setActiveApplicationType] =
     useState<ApplicationType>("gathering");
@@ -607,6 +643,10 @@ export function EccActivityPanel() {
     setTeams(storedTeams);
     setNotice(readStoredNotice());
   }, []);
+
+  useEffect(() => {
+    setLanguage(siteLanguage);
+  }, [siteLanguage]);
 
   useEffect(() => {
     if (loading) {
@@ -674,6 +714,7 @@ export function EccActivityPanel() {
   )!;
 
   const changeLanguage = (nextLanguage: Language) => {
+    setSiteLanguage(nextLanguage);
     setLanguage((currentLanguage) => {
       const currentSample = sampleMemberPasteByLanguage[currentLanguage];
       const currentDefaults = initialNoticeForms[currentLanguage];
@@ -845,27 +886,34 @@ export function EccActivityPanel() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          {applicationTypes.map((item) => (
-            <button
-              key={item.type}
-              type="button"
-              onClick={() => selectApplicationType(item.type)}
-              className={`paper-panel min-h-44 p-5 text-left transition hover:border-brass hover:bg-white/70 ${
-                activeApplicationType === item.type ? "border-brass bg-white/75 shadow-soft" : ""
-              }`}
-            >
-              <p className="text-sm font-semibold uppercase text-brass">
-                {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
-              </p>
-              <h3 className="mt-4 font-serif text-3xl font-semibold text-ink">
-                {item.labels[language].title}
-              </h3>
-              <p className="mt-3 text-sm leading-7 text-ink/62">
-                {item.labels[language].description}
-              </p>
-            </button>
-          ))}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {applicationTypes.map((item) => {
+            const selected = activeApplicationType === item.type;
+
+            return (
+              <button
+                key={item.type}
+                type="button"
+                onClick={() => selectApplicationType(item.type)}
+                aria-pressed={selected}
+                className={`paper-panel min-h-44 p-5 text-left transition hover:border-brass hover:bg-white/70 ${
+                  selected
+                    ? "bg-navy text-paper shadow-lift ring-2 ring-brass ring-offset-2 ring-offset-paper"
+                    : ""
+                }`}
+              >
+                <p className={`text-sm font-semibold uppercase ${selected ? "text-brass" : "text-brass"}`}>
+                  {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
+                </p>
+                <h3 className={`mt-4 font-serif text-3xl font-semibold ${selected ? "text-paper" : "text-ink"}`}>
+                  {item.labels[language].title}
+                </h3>
+                <p className={`mt-3 text-sm leading-7 ${selected ? "text-paper/72" : "text-ink/62"}`}>
+                  {item.labels[language].description}
+                </p>
+              </button>
+            );
+          })}
         </div>
 
         <form onSubmit={submitApplication} className="grid gap-4 border border-ink/10 bg-white/50 p-5 md:p-6">
@@ -974,38 +1022,47 @@ export function EccActivityPanel() {
             {applicationsLoading ? (
               <p className="mt-5 text-sm leading-7 text-ink/62">{text.applicationLoading}</p>
             ) : selectedApplications.length > 0 ? (
-              <div className="mt-5 overflow-x-auto">
-                <table className="w-full min-w-[920px] border-collapse text-left text-sm">
-                  <thead className="bg-white/70 text-xs uppercase text-ink/58">
-                    <tr>
-                      <th className="border-b border-ink/10 px-4 py-3">{text.kakaoNameLabel}</th>
-                      <th className="border-b border-ink/10 px-4 py-3">{text.genderLabel}</th>
-                      <th className="border-b border-ink/10 px-4 py-3">{text.nationalityLabel}</th>
-                      <th className="border-b border-ink/10 px-4 py-3">{text.preferredFoodLabel}</th>
-                      <th className="border-b border-ink/10 px-4 py-3">{text.requestLabel}</th>
-                      <th className="border-b border-ink/10 px-4 py-3">{text.submittedAt}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedApplications.map((application) => (
-                      <tr key={application.id} className="border-b border-ink/8 last:border-b-0">
-                        <td className="px-4 py-3 font-semibold text-ink">
-                          {application.name}
-                        </td>
-                        <td className="px-4 py-3 text-ink/70">{application.gender}</td>
-                        <td className="px-4 py-3 text-ink/70">{application.nationality}</td>
-                        <td className="px-4 py-3 text-ink/70">{application.preferredFood}</td>
-                        <td className="px-4 py-3 text-ink/62">
-                          {application.otherRequests || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-ink/58">
-                          {formatApplicationDate(application.createdAt, language)}
-                        </td>
+              <>
+                <div className="mt-5 border border-ink/10 bg-white/65 p-4">
+                  <p className="text-sm font-semibold text-ink">{text.copyNamesTitle}</p>
+                  <p className="mt-1 text-xs leading-6 text-ink/54">{text.copyNamesDescription}</p>
+                  <pre className="mt-3 select-text whitespace-pre-wrap border border-ink/8 bg-paper/65 p-3 font-sans text-sm leading-7 text-ink cursor-text">
+                    {selectedApplications.map((application) => application.name).join("\n")}
+                  </pre>
+                </div>
+                <div className="mt-5 overflow-x-auto">
+                  <table className="w-full min-w-[920px] select-text border-collapse text-left text-sm">
+                    <thead className="bg-white/70 text-xs uppercase text-ink/58">
+                      <tr>
+                        <th className="border-b border-ink/10 px-4 py-3">{text.kakaoNameLabel}</th>
+                        <th className="border-b border-ink/10 px-4 py-3">{text.genderLabel}</th>
+                        <th className="border-b border-ink/10 px-4 py-3">{text.nationalityLabel}</th>
+                        <th className="border-b border-ink/10 px-4 py-3">{text.preferredFoodLabel}</th>
+                        <th className="border-b border-ink/10 px-4 py-3">{text.requestLabel}</th>
+                        <th className="border-b border-ink/10 px-4 py-3">{text.submittedAt}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {selectedApplications.map((application) => (
+                        <tr key={application.id} className="cursor-text border-b border-ink/8 last:border-b-0">
+                          <td className="px-4 py-3 font-semibold text-ink">
+                            {application.name}
+                          </td>
+                          <td className="px-4 py-3 text-ink/70">{application.gender}</td>
+                          <td className="px-4 py-3 text-ink/70">{application.nationality}</td>
+                          <td className="px-4 py-3 text-ink/70">{application.preferredFood}</td>
+                          <td className="px-4 py-3 text-ink/62">
+                            {application.otherRequests || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-ink/58">
+                            {formatApplicationDate(application.createdAt, language)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
               <p className="mt-5 text-sm leading-7 text-ink/62">{text.noApplicants}</p>
             )}

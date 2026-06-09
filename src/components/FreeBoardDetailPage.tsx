@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, MessageSquareText, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard, FreeBoardPost } from "@/types";
 import { readFreeBoardPosts, writeFreeBoardPosts } from "@/lib/freeBoardStorage";
 
@@ -14,8 +15,8 @@ type FreeBoardDetailPageProps = {
   boardPath?: string;
 };
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ko-KR", {
+function formatDate(value: string, locale: "en" | "ko") {
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -31,6 +32,7 @@ export function FreeBoardDetailPage({
 }: FreeBoardDetailPageProps) {
   const [posts, setPosts] = useState<FreeBoardPost[]>([]);
   const { isSuperAdmin } = useSuperAdmin();
+  const { language } = useLanguage();
   const router = useRouter();
 
   useEffect(() => {
@@ -38,6 +40,9 @@ export function FreeBoardDetailPage({
   }, [board]);
 
   const post = useMemo(() => posts.find((item) => item.id === postId), [postId, posts]);
+  const boardDisplayTitle = language === "ko" ? board.koreanTitle : board.title;
+  const boardDisplayLabel =
+    language === "ko" && board.id === "hanhwal" ? "한활" : board.label;
   const deletePost = () => {
     const nextPosts = posts.filter((item) => item.id !== postId);
     writeFreeBoardPosts(board, nextPosts);
@@ -50,14 +55,16 @@ export function FreeBoardDetailPage({
       <section className="bg-paper py-20">
         <div className="mx-auto max-w-3xl px-5 text-center md:px-8">
           <MessageSquareText aria-hidden className="mx-auto h-12 w-12 text-brass" />
-          <h1 className="mt-5 font-serif text-4xl font-semibold text-ink">Post not found</h1>
-          <p className="mt-4 text-sm leading-7 text-ink/62">{board.koreanTitle}</p>
+          <h1 className="mt-5 font-serif text-4xl font-semibold text-ink">
+            <I18nText en="Post not found" ko="게시글을 찾을 수 없습니다" />
+          </h1>
+          <p className="mt-4 text-sm leading-7 text-ink/62">{boardDisplayTitle}</p>
           <Link
             href={boardPath}
             className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 border border-ink/18 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10"
           >
             <ArrowLeft aria-hidden className="h-4 w-4" />
-            Back to board
+            <I18nText en="Back to board" ko="게시판으로 돌아가기" />
           </Link>
         </div>
       </section>
@@ -68,10 +75,10 @@ export function FreeBoardDetailPage({
     <>
       <section className="bg-ink py-16 text-paper md:py-24">
         <div className="mx-auto max-w-5xl px-5 md:px-8">
-          <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
+          <p className="text-sm font-semibold uppercase text-brass">{boardDisplayLabel}</p>
           <h1 className="mt-5 font-serif text-5xl font-semibold md:text-7xl">{post.title}</h1>
           <p className="mt-5 text-sm text-paper/62">
-            {post.author} / {formatDate(post.createdAt)}
+            {post.author} / {formatDate(post.createdAt, language)}
           </p>
         </div>
       </section>
@@ -95,7 +102,7 @@ export function FreeBoardDetailPage({
             className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4"
           >
             <ArrowLeft aria-hidden className="h-4 w-4" />
-            Back to board
+            <I18nText en="Back to board" ko="게시판으로 돌아가기" />
           </Link>
           {isSuperAdmin ? (
             <button
@@ -104,7 +111,7 @@ export function FreeBoardDetailPage({
               className="ml-4 mt-8 inline-flex min-h-10 items-center justify-center gap-2 border border-red-900/20 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
             >
               <Trash2 aria-hidden className="h-4 w-4" />
-              Delete Post
+              <I18nText en="Delete Post" ko="게시글 삭제" />
             </button>
           ) : null}
         </div>

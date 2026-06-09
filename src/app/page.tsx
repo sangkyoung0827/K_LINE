@@ -4,6 +4,7 @@ import { ActivityPreviewCard } from "@/components/ActivityPreviewCard";
 import { DashboardCard } from "@/components/DashboardCard";
 import { GoodsPreviewCard } from "@/components/GoodsPreviewCard";
 import { HeroSection } from "@/components/HeroSection";
+import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { activityBoards } from "@/data/activityBoards";
 import { goods } from "@/data/goods";
@@ -27,29 +28,38 @@ export const metadata: Metadata = {
 const dashboardSections = [
   {
     title: "Goods",
-    koreanTitle: "상품",
+    eyebrow: <I18nText en="Goods" ko="상품" />,
     description:
-      "Explore and purchase cultural goods based on Korean traditional aesthetics, Hanji, calligraphy, and Korean archery.",
+      <I18nText
+        en="Explore cultural goods based on Korean traditional aesthetics, Hanji, calligraphy, and Korean archery."
+        ko="한지, 서예, 국궁 등 한국적 미감을 바탕으로 한 문화 상품을 살펴봅니다."
+      />,
     href: "/goods",
-    action: "Explore Goods",
+    action: <I18nText en="Explore Goods" ko="상품 보기" />,
     icon: Boxes
   },
   {
     title: "K-Culture Project",
-    koreanTitle: "K-컬처 프로젝트",
+    eyebrow: <I18nText en="K-Culture Project" ko="K-컬처 프로젝트" />,
     description:
-      "Discover and share cultural projects connecting Korea, Jeonbuk, Hanji, calligraphy, Korean archery, and global exchange.",
+      <I18nText
+        en="Discover and share cultural projects connecting Korea, Jeonbuk, Hanji, calligraphy, Korean archery, and global exchange."
+        ko="한국, 전북, 한지, 서예, 국궁, 국제 교류를 연결하는 문화 프로젝트를 공유합니다."
+      />,
     href: "/k-culture-project",
-    action: "View Projects",
+    action: <I18nText en="View Projects" ko="프로젝트 보기" />,
     icon: GalleryVerticalEnd
   },
   {
     title: "International Clubs",
-    koreanTitle: "국제 학생 클럽",
+    eyebrow: <I18nText en="International Clubs" ko="국제 학생 클럽" />,
     description:
-      "Read and share club records, news-style posts, reviews, field notes, and community stories.",
+      <I18nText
+        en="Read and share club records, news-style posts, reviews, field notes, and community stories."
+        ko="클럽 기록, 소식, 후기, 현장 노트, 커뮤니티 이야기를 읽고 공유합니다."
+      />,
     href: "/our-activities",
-    action: "View Clubs",
+    action: <I18nText en="View Clubs" ko="클럽 보기" />,
     icon: BookOpenText
   }
 ];
@@ -62,9 +72,14 @@ export default function HomePage() {
       <section className="bg-paper py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
-            eyebrow="Three main tracks"
-            title="A simple dashboard for campus K-culture"
-            description="K_LINE keeps the experience focused on three paths: cultural goods, student-friendly K-culture projects, and international student clubs."
+            eyebrow={<I18nText en="Three main tracks" ko="세 가지 주요 흐름" />}
+            title={<I18nText en="A simple dashboard for campus K-culture" ko="캠퍼스 K-컬처를 위한 간결한 대시보드" />}
+            description={
+              <I18nText
+                en="K_LINE keeps the experience focused on three paths: cultural goods, student-friendly K-culture projects, and international student clubs."
+                ko="K_LINE은 문화 상품, 학생 친화형 K-컬처 프로젝트, 국제 학생 클럽이라는 세 가지 길에 집중합니다."
+              />
+            }
             align="center"
           />
           <div className="mt-12 grid gap-6 lg:grid-cols-3">
@@ -78,9 +93,14 @@ export default function HomePage() {
       <section className="bg-white/55 py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
-            eyebrow="International clubs"
-            title="Meet the student club boards"
-            description="ECC and Han-hwal give students a place to share club records, photos, questions, and campus stories."
+            eyebrow={<I18nText en="International clubs" ko="국제 학생 클럽" />}
+            title={<I18nText en="Meet the student club boards" ko="학생 클럽 게시판을 만나보세요" />}
+            description={
+              <I18nText
+                en="ECC and Hanhwal give students a place to share club records, photos, questions, and campus stories."
+                ko="ECC와 한활은 학생들이 활동 기록, 사진, 질문, 캠퍼스 이야기를 나누는 공간입니다."
+              />
+            }
           />
           <div className="mt-10 grid gap-6 md:grid-cols-2">
             {activityBoards.map((board, index) => (
@@ -98,12 +118,20 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <div className="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-end">
             <SectionHeader
-              eyebrow="Featured goods"
-              title="Compact cultural objects for campus life"
-              description="A refined preview of K_LINE goods connected to Hanji, Korean calligraphy, and Han-hwal."
+              eyebrow={<I18nText en="Featured goods" ko="대표 상품" />}
+              title={<I18nText en="Compact cultural objects for campus life" ko="캠퍼스 생활을 위한 작은 문화 오브젝트" />}
+              description={
+                <I18nText
+                  en="A refined preview of K_LINE goods connected to Hanji, Korean calligraphy, and Hanhwal."
+                  ko="한지, 서예, 한활과 연결된 K_LINE 상품을 간결하게 소개합니다."
+                />
+              }
             />
             <p className="max-w-xl text-sm leading-7 text-muted md:justify-self-end">
-              Goods remain inquiry-based while payment and inventory systems are prepared.
+              <I18nText
+                en="Goods remain inquiry-based while payment and inventory systems are prepared."
+                ko="결제와 재고 시스템이 준비되기 전까지 상품은 문의 기반으로 운영됩니다."
+              />
             </p>
           </div>
           <div className="mt-10 grid gap-6 lg:grid-cols-2">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, ImagePlus, MessageSquareText, Send, SquarePen, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard, FreeBoardPost } from "@/types";
 import {
   readFreeBoardPosts,
@@ -25,8 +26,8 @@ const initialForm = {
   imageName: ""
 };
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ko-KR", {
+function formatDate(value: string, locale: "en" | "ko") {
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -44,6 +45,7 @@ export function FreeBoardPage({
   const [form, setForm] = useState(initialForm);
   const [imageError, setImageError] = useState("");
   const { isSuperAdmin } = useSuperAdmin();
+  const { language } = useLanguage();
 
   useEffect(() => {
     setPosts(readFreeBoardPosts(board));
@@ -51,6 +53,23 @@ export function FreeBoardPage({
 
   const sortedPosts = useMemo(() => sortPostsByNewest(posts), [posts]);
   const basePath = `/our-activities/${board.slug}`;
+  const boardDisplayTitle = language === "ko" ? board.koreanTitle : board.title;
+  const boardDisplayLabel =
+    language === "ko" && board.id === "hanhwal" ? "한활" : board.label;
+  const boardDisplayDescription =
+    language === "ko"
+      ? board.id === "ecc"
+        ? "ECC 활동 기록, 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
+        : "한활 연습 기록, 국궁 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
+      : board.description;
+  const backLabel =
+    language === "ko"
+      ? returnLabel === "Back to ECC Menu"
+        ? "ECC 메뉴로 돌아가기"
+        : returnLabel === "Back"
+          ? "돌아가기"
+          : returnLabel
+      : returnLabel;
 
   const update = (field: keyof typeof initialForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -67,13 +86,19 @@ export function FreeBoardPage({
     }
 
     if (!file.type.startsWith("image/")) {
-      setImageError("이미지 파일만 업로드할 수 있습니다.");
+      setImageError(
+        language === "ko" ? "이미지 파일만 업로드할 수 있습니다." : "Only image files can be uploaded."
+      );
       event.target.value = "";
       return;
     }
 
     if (file.size > 1_800_000) {
-      setImageError("사진은 1.8MB 이하 파일을 선택해 주세요.");
+      setImageError(
+        language === "ko"
+          ? "사진은 1.8MB 이하 파일을 선택해 주세요."
+          : "Please choose a photo under 1.8MB."
+      );
       event.target.value = "";
       return;
     }
@@ -118,16 +143,18 @@ export function FreeBoardPage({
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <p className="text-sm font-semibold uppercase text-brass">International Clubs</p>
           <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">
-            {board.koreanTitle}
+            {boardDisplayTitle}
           </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">{board.description}</p>
+          <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
+            {boardDisplayDescription}
+          </p>
           {returnHref ? (
             <Link
               href={returnHref}
               className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 border border-paper/22 px-5 text-sm font-semibold text-paper transition hover:border-brass hover:bg-brass/15"
             >
               <ArrowLeft aria-hidden className="h-4 w-4" />
-              {returnLabel}
+              {backLabel}
             </Link>
           ) : null}
         </div>
@@ -141,29 +168,31 @@ export function FreeBoardPage({
                 <SquarePen aria-hidden className="h-5 w-5 text-brass" />
               </span>
               <div>
-                <h2 className="font-serif text-3xl font-semibold text-ink">Write Post</h2>
-                <p className="text-sm text-ink/58">{board.label}</p>
+                <h2 className="font-serif text-3xl font-semibold text-ink">
+                  <I18nText en="Write Post" ko="게시글 작성" />
+                </h2>
+                <p className="text-sm text-ink/58">{boardDisplayLabel}</p>
               </div>
             </div>
 
             <input
               required
               className="form-field"
-              placeholder="Title"
+              placeholder={language === "ko" ? "제목" : "Title"}
               value={form.title}
               onChange={(event) => update("title", event.target.value)}
             />
             <input
               required
               className="form-field"
-              placeholder="Name"
+              placeholder={language === "ko" ? "이름" : "Name"}
               value={form.author}
               onChange={(event) => update("author", event.target.value)}
             />
             <textarea
               required
               className="form-field min-h-44"
-              placeholder="Content"
+              placeholder={language === "ko" ? "내용" : "Content"}
               value={form.content}
               onChange={(event) => update("content", event.target.value)}
             />
@@ -171,7 +200,7 @@ export function FreeBoardPage({
             <label className="grid cursor-pointer gap-3 border border-dashed border-ink/18 bg-white/35 p-4 transition hover:border-brass hover:bg-brass/10">
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
                 <ImagePlus aria-hidden className="h-4 w-4" />
-                Photo
+                <I18nText en="Photo" ko="사진" />
               </span>
               <input type="file" accept="image/*" onChange={selectImage} className="text-sm" />
               {form.imageName ? (
@@ -195,19 +224,23 @@ export function FreeBoardPage({
               className="inline-flex min-h-11 items-center justify-center gap-2 bg-ink px-5 py-3 text-sm font-semibold text-paper transition hover:bg-navy"
             >
               <Send aria-hidden className="h-4 w-4" />
-              Post
+              <I18nText en="Post" ko="게시하기" />
             </button>
           </form>
 
           <div>
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold uppercase text-brass">Free board</p>
+                <p className="text-sm font-semibold uppercase text-brass">
+                  <I18nText en="Board" ko="게시판" />
+                </p>
                 <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
-                  {board.label} posts
+                  {boardDisplayLabel} <I18nText en="posts" ko="글" />
                 </h2>
               </div>
-              <span className="text-sm text-ink/54">{sortedPosts.length} posts</span>
+              <span className="text-sm text-ink/54">
+                {sortedPosts.length} <I18nText en="posts" ko="개 글" />
+              </span>
             </div>
 
             {sortedPosts.length > 0 ? (
@@ -232,12 +265,14 @@ export function FreeBoardPage({
                         )}
                       </div>
                       <div className="grid gap-3 p-5">
-                        <p className="text-xs font-semibold uppercase text-brass">{board.label}</p>
+                        <p className="text-xs font-semibold uppercase text-brass">
+                          {boardDisplayLabel}
+                        </p>
                         <h3 className="line-clamp-2 font-serif text-2xl font-semibold text-ink">
                           {post.title}
                         </h3>
                         <p className="text-sm text-ink/58">
-                          {post.author} / {formatDate(post.createdAt)}
+                          {post.author} / {formatDate(post.createdAt, language)}
                         </p>
                         <p className="line-clamp-3 text-sm leading-7 text-ink/68">{post.content}</p>
                       </div>
@@ -250,7 +285,7 @@ export function FreeBoardPage({
                           className="inline-flex min-h-10 w-full items-center justify-center gap-2 border border-red-900/20 text-sm font-semibold text-red-700 transition hover:bg-red-50"
                         >
                           <Trash2 aria-hidden className="h-4 w-4" />
-                          Delete Post
+                          <I18nText en="Delete Post" ko="게시글 삭제" />
                         </button>
                       </div>
                     ) : null}
@@ -261,8 +296,10 @@ export function FreeBoardPage({
               <div className="paper-panel mt-8 flex min-h-64 items-center justify-center p-8 text-center">
                 <div>
                   <MessageSquareText aria-hidden className="mx-auto h-10 w-10 text-brass" />
-                  <p className="mt-4 text-lg font-semibold text-ink">No posts yet</p>
-                  <p className="mt-2 text-sm text-ink/60">{board.koreanTitle}</p>
+                  <p className="mt-4 text-lg font-semibold text-ink">
+                    <I18nText en="No posts yet" ko="아직 게시글이 없습니다" />
+                  </p>
+                  <p className="mt-2 text-sm text-ink/60">{boardDisplayTitle}</p>
                 </div>
               </div>
             )}

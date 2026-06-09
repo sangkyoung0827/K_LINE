@@ -1,18 +1,19 @@
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { CTAButton } from "@/components/CTAButton";
 
 type DashboardCardProps = {
-  title: string;
-  koreanTitle: string;
-  description: string;
+  title: ReactNode;
+  eyebrow: ReactNode;
+  description: ReactNode;
   href: string;
-  action: string;
+  action: ReactNode;
   icon: LucideIcon;
 };
 
 export function DashboardCard({
   title,
-  koreanTitle,
+  eyebrow,
   description,
   href,
   action,
@@ -27,7 +28,7 @@ export function DashboardCard({
         <div className="relative flex h-12 w-12 items-center justify-center bg-navy text-paper">
           <Icon aria-hidden className="h-5 w-5" />
         </div>
-        <p className="mt-8 text-sm font-semibold uppercase text-brass">{koreanTitle}</p>
+        <p className="mt-8 text-sm font-semibold uppercase text-brass">{eyebrow}</p>
         <h2 className="mt-3 font-serif text-4xl font-semibold text-ink">{title}</h2>
         <p className="mt-5 text-base leading-8 text-ink/68">{description}</p>
       </div>
