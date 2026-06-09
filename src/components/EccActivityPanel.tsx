@@ -562,15 +562,6 @@ function readStoredNotice() {
   }
 }
 
-function readStoredLanguage(): Language {
-  try {
-    const stored = window.localStorage.getItem(adminStorageKeys.eccActivityLanguage);
-    return stored === "en" ? "en" : "ko";
-  } catch {
-    return "ko";
-  }
-}
-
 function sameNoticeForm(a: NoticeForm, b: NoticeForm) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
@@ -610,7 +601,7 @@ function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): Applic
 export function EccActivityPanel() {
   const { isSuperAdmin, loading } = useSuperAdmin();
   const { language: siteLanguage, setLanguage: setSiteLanguage } = useLanguage();
-  const [language, setLanguage] = useState<Language>("ko");
+  const [language, setLanguage] = useState<Language>("en");
   const [activeApplicationType, setActiveApplicationType] =
     useState<ApplicationType>("gathering");
   const [applicationForm, setApplicationForm] = useState(initialApplicationForm);
@@ -623,22 +614,18 @@ export function EccActivityPanel() {
   const [applicationSuccess, setApplicationSuccess] = useState("");
   const [members, setMembers] = useState<EccMember[]>([]);
   const [teams, setTeams] = useState<EccTeam[]>([]);
-  const [memberPaste, setMemberPaste] = useState(sampleMemberPasteByLanguage.ko);
+  const [memberPaste, setMemberPaste] = useState(sampleMemberPasteByLanguage.en);
   const [teamNamePaste, setTeamNamePaste] = useState("");
   const [teamSize, setTeamSize] = useState(4);
-  const [noticeForm, setNoticeForm] = useState(initialNoticeForms.ko);
+  const [noticeForm, setNoticeForm] = useState(initialNoticeForms.en);
   const [notice, setNotice] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
 
   const text = copy[language];
 
   useEffect(() => {
-    const storedLanguage = readStoredLanguage();
     const storedMembers = readStoredMembers();
     const storedTeams = readStoredTeams();
-    setLanguage(storedLanguage);
-    setMemberPaste(sampleMemberPasteByLanguage[storedLanguage]);
-    setNoticeForm(initialNoticeForms[storedLanguage]);
     setMembers(storedMembers);
     setTeams(storedTeams);
     setNotice(readStoredNotice());
@@ -646,6 +633,18 @@ export function EccActivityPanel() {
 
   useEffect(() => {
     setLanguage(siteLanguage);
+    setMemberPaste((currentPaste) =>
+      currentPaste === sampleMemberPasteByLanguage.ko ||
+      currentPaste === sampleMemberPasteByLanguage.en
+        ? sampleMemberPasteByLanguage[siteLanguage]
+        : currentPaste
+    );
+    setNoticeForm((currentNoticeForm) =>
+      sameNoticeForm(currentNoticeForm, initialNoticeForms.ko) ||
+      sameNoticeForm(currentNoticeForm, initialNoticeForms.en)
+        ? initialNoticeForms[siteLanguage]
+        : currentNoticeForm
+    );
   }, [siteLanguage]);
 
   useEffect(() => {
