@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { LockKeyhole, ShieldCheck } from "lucide-react";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { auth } from "@/auth";
-import { getSuperAdminEmails, isSuperAdminEmail } from "@/lib/admin";
+import { getAdminAccess, getSuperAdminEmails } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,7 @@ export default async function AdminPage() {
   const email = session?.user?.email ?? "";
   const name = session?.user?.name ?? email ?? "K_LINE admin";
   const configuredAdmins = getSuperAdminEmails();
+  const access = await getAdminAccess(email);
 
   if (!session?.user) {
     return (
@@ -35,7 +36,7 @@ export default async function AdminPage() {
     );
   }
 
-  if (!isSuperAdminEmail(email)) {
+  if (!access.isSuperAdmin) {
     return (
       <AdminGate
         icon={<ShieldCheck aria-hidden className="h-12 w-12 text-brass" />}

@@ -3,6 +3,7 @@ import { Users } from "lucide-react";
 import { EccToolGrid } from "@/components/EccToolGrid";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
+import { SuperAdminRequestPanel } from "@/components/SuperAdminRequestPanel";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -59,6 +60,7 @@ export default function EccHubPage() {
           />
 
           <EccToolGrid />
+          <SuperAdminRequestPanel />
         </div>
       </section>
     </>

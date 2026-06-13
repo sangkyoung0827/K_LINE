@@ -5,16 +5,20 @@ import { useEffect, useState } from "react";
 type SuperAdminState = {
   email: string;
   isLoggedIn: boolean;
+  isDeveloper: boolean;
   isSuperAdmin: boolean;
   loading: boolean;
+  role: "member" | "super_admin" | "developer";
 };
 
 export function useSuperAdmin() {
   const [state, setState] = useState<SuperAdminState>({
     email: "",
     isLoggedIn: false,
+    isDeveloper: false,
     isSuperAdmin: false,
-    loading: true
+    loading: true,
+    role: "member"
   });
 
   useEffect(() => {
@@ -29,8 +33,10 @@ export function useSuperAdmin() {
         setState({
           email: data.email ?? "",
           isLoggedIn: Boolean(data.isLoggedIn),
+          isDeveloper: Boolean(data.isDeveloper),
           isSuperAdmin: Boolean(data.isSuperAdmin),
-          loading: false
+          loading: false,
+          role: data.role ?? "member"
         });
       })
       .catch(() => {

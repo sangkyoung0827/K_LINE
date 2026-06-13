@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isSuperAdminEmail } from "@/lib/admin";
+import { hasSuperAdminAccess } from "@/lib/admin";
 import {
   cleanText,
   SupabaseConfigError,
@@ -145,7 +145,7 @@ async function getSuperAdminEmail() {
   const session = await auth();
   const email = session?.user?.email ?? "";
 
-  return isSuperAdminEmail(email) ? email : "";
+  return (await hasSuperAdminAccess(email)) ? email : "";
 }
 
 function apiErrorResponse(error: unknown) {
@@ -211,7 +211,7 @@ export async function GET() {
     const session = await auth();
     const email = session?.user?.email ?? "";
 
-    return NextResponse.json(await buildApplicationsResponse(isSuperAdminEmail(email)));
+    return NextResponse.json(await buildApplicationsResponse(await hasSuperAdminAccess(email)));
   } catch (error) {
     return apiErrorResponse(error);
   }
@@ -267,7 +267,7 @@ export async function POST(request: Request) {
     const session = await auth();
     const email = session?.user?.email ?? "";
 
-    return NextResponse.json(await buildApplicationsResponse(isSuperAdminEmail(email)), {
+    return NextResponse.json(await buildApplicationsResponse(await hasSuperAdminAccess(email)), {
       status: 201
     });
   } catch (error) {

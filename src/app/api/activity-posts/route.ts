@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isSuperAdminEmail } from "@/lib/admin";
+import { hasSuperAdminAccess } from "@/lib/admin";
 import {
   cleanTags,
   cleanText,
@@ -68,7 +68,7 @@ export async function GET() {
     const session = await auth();
     const email = session?.user?.email ?? "";
 
-    if (!isSuperAdminEmail(email)) {
+    if (!(await hasSuperAdminAccess(email))) {
       return NextResponse.json({ error: "Super-admin access required." }, { status: 403 });
     }
 
