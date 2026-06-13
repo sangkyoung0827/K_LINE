@@ -300,7 +300,7 @@ async function buildResponse() {
   }
 
   const requests = await listRequestsFor(context.email, context.access.isSuperAdmin);
-  const admins = context.access.isSuperAdmin ? await listAdmins() : [];
+  const admins = context.access.isDeveloper ? await listAdmins() : [];
 
   return {
     admins,

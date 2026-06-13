@@ -112,8 +112,7 @@ export function SuperAdminRequestPanel() {
         ? {
             activeAdmins: "현재 권한 계정",
             approve: "승인",
-            approveHelp:
-              "슈퍼관리자는 대기 중인 요청을 승인할 수 있습니다. 개발자는 승인뿐 아니라 직접 등록과 삭제도 할 수 있습니다.",
+            approveHelp: "슈퍼관리자는 대기 중인 요청을 승인할 수 있습니다.",
             developerOnly: "개발자 전용",
             directEmail: "등록할 이메일",
             emptyAdmins: "아직 표시할 슈퍼관리자 계정이 없습니다.",
@@ -126,7 +125,7 @@ export function SuperAdminRequestPanel() {
               "슈퍼관리자 권한을 요청하려면 먼저 Google 계정으로 로그인해야 합니다.",
             name: "이름",
             panelDescription:
-              "신규 임원은 이곳에서 슈퍼관리자 권한을 요청할 수 있습니다. 승인된 슈퍼관리자는 다른 요청을 승인할 수 있고, 개발자는 슈퍼관리자를 등록 또는 삭제할 수 있습니다.",
+              "신규 임원은 이곳에서 슈퍼관리자 권한을 요청할 수 있습니다. 승인된 슈퍼관리자는 다른 요청을 승인 할 수 있습니다.",
             panelEyebrow: "Role request",
             panelTitle: "슈퍼관리자 권한 요청",
             reason: "요청 사유",
@@ -148,8 +147,7 @@ export function SuperAdminRequestPanel() {
         : {
             activeAdmins: "Current role accounts",
             approve: "Approve",
-            approveHelp:
-              "Super admins can approve pending requests. Developers can also directly add or remove super admins.",
+            approveHelp: "Super admins can approve pending requests.",
             developerOnly: "Developer only",
             directEmail: "Email to register",
             emptyAdmins: "No super-admin accounts to show yet.",
@@ -162,7 +160,7 @@ export function SuperAdminRequestPanel() {
               "Please log in with Google before requesting super-admin access.",
             name: "Name",
             panelDescription:
-              "New officers can request super-admin access here. Approved super admins can approve future requests, and the developer can register or remove super admins.",
+              "New officers can request super-admin access here. Approved super admins can approve future requests.",
             panelEyebrow: "Role request",
             panelTitle: "Super-admin Access Request",
             reason: "Reason",
@@ -335,7 +333,7 @@ export function SuperAdminRequestPanel() {
           </Link>
         </div>
       ) : data.me.isSuperAdmin ? (
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className={`grid gap-6 ${data.me.isDeveloper ? "lg:grid-cols-[1.1fr_0.9fr]" : ""}`}>
           <div className="border border-ink/10 bg-white/55 p-5">
             <div className="flex items-start gap-3">
               <ShieldCheck aria-hidden className="mt-1 h-5 w-5 text-brass" />
@@ -379,44 +377,44 @@ export function SuperAdminRequestPanel() {
             </div>
           </div>
 
-          <div className="border border-ink/10 bg-white/55 p-5">
-            <h3 className="font-serif text-3xl font-semibold text-ink">{text.activeAdmins}</h3>
-            <div className="mt-5 grid gap-3">
-              {data.admins.length > 0 ? (
-                data.admins.map((admin) => (
-                  <div key={admin.id} className="border border-ink/10 bg-paper/55 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-ink">{admin.email}</p>
-                        <p className="mt-1 text-xs uppercase text-ink/48">
-                          {admin.role === "developer" ? text.roleDeveloper : text.roleSuperAdmin}
-                        </p>
+          {data.me.isDeveloper ? (
+            <div className="border border-ink/10 bg-white/55 p-5">
+              <h3 className="font-serif text-3xl font-semibold text-ink">{text.activeAdmins}</h3>
+              <div className="mt-5 grid gap-3">
+                {data.admins.length > 0 ? (
+                  data.admins.map((admin) => (
+                    <div key={admin.id} className="border border-ink/10 bg-paper/55 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-ink">{admin.email}</p>
+                          <p className="mt-1 text-xs uppercase text-ink/48">
+                            {admin.role === "developer" ? text.roleDeveloper : text.roleSuperAdmin}
+                          </p>
+                        </div>
+                        {admin.source !== "developer" ? (
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => updateRole({ action: "revoke", email: admin.email })}
+                            className="inline-flex min-h-9 items-center justify-center gap-2 border border-red-900/20 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                          >
+                            <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                            {text.revoke}
+                          </button>
+                        ) : null}
                       </div>
-                      {data.me.isDeveloper && admin.source !== "developer" ? (
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={() => updateRole({ action: "revoke", email: admin.email })}
-                          className="inline-flex min-h-9 items-center justify-center gap-2 border border-red-900/20 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
-                        >
-                          <Trash2 aria-hidden className="h-3.5 w-3.5" />
-                          {text.revoke}
-                        </button>
+                      {admin.grantedBy ? (
+                        <p className="mt-3 text-xs text-ink/48">
+                          {text.grantedBy}: {admin.grantedBy}
+                        </p>
                       ) : null}
                     </div>
-                    {admin.grantedBy ? (
-                      <p className="mt-3 text-xs text-ink/48">
-                        {text.grantedBy}: {admin.grantedBy}
-                      </p>
-                    ) : null}
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-ink/62">{text.emptyAdmins}</p>
-              )}
-            </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-ink/62">{text.emptyAdmins}</p>
+                )}
+              </div>
 
-            {data.me.isDeveloper ? (
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -444,8 +442,8 @@ export function SuperAdminRequestPanel() {
                   {text.grantSuperAdmin}
                 </button>
               </form>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <form onSubmit={submitRequest} className="grid gap-4 border border-ink/10 bg-white/55 p-5">
