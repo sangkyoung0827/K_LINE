@@ -44,6 +44,7 @@ export type ProjectItem = {
   shortDescription: string;
   fullDescription: string;
   image: ImageAsset;
+  detailImage?: ImageAsset;
   tags: string[];
   date: string;
 };

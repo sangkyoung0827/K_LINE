@@ -32,7 +32,7 @@ export default function OurActivitiesPage() {
         <div className="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-[1fr_auto] md:items-end md:px-8">
           <div>
             <p className="text-sm font-semibold uppercase text-brass">
-              <I18nText en="Club community board" ko="클럽 커뮤니티 게시판" />
+              <I18nText en="International clubs" ko="국제 학생 클럽" />
             </p>
             <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">
               <I18nText en="International Clubs" ko="국제 학생 클럽" />
@@ -54,11 +54,11 @@ export default function OurActivitiesPage() {
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow={<I18nText en="Club menus" ko="클럽 메뉴" />}
-            title={<I18nText en="ECC and Hanhwal community spaces" ko="ECC와 한활 커뮤니티 공간" />}
+            title={<I18nText en="ECC and Hanhwal overview" ko="ECC 전체와 한활 전체" />}
             description={
               <I18nText
-                en="ECC includes a free board, activity management, and fund management. Hanhwal includes its community free board."
-                ko="ECC에는 게시판, 활동 관리, 자금관리가 있고, 한활에는 커뮤니티 게시판이 있습니다."
+                en="Open the full ECC menu or the full Hanhwal space."
+                ko="ECC 전체 메뉴와 한활 전체 공간으로 이동합니다."
               />
             }
           />
@@ -77,22 +77,22 @@ export default function OurActivitiesPage() {
                   <p className="mt-4 text-sm leading-7 text-ink/68">
                     {board.id === "ecc" ? (
                       <I18nText
-                        en="A community board for ECC activity notes, photos, questions, and open posts."
-                        ko="ECC 활동 기록, 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
+                        en="Open the full ECC space with activities, posts, and fund management."
+                        ko="ECC 활동, 글, 자금관리를 포함한 ECC 전체 공간입니다."
                       />
                     ) : (
                       <I18nText
-                        en="A community board for Hanhwal practice records, Korean archery photos, questions, and open posts."
-                        ko="한활 연습 기록, 국궁 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
+                        en="Open the full Hanhwal space for practice records, photos, and club stories."
+                        ko="한활 연습 기록, 사진, 클럽 이야기를 볼 수 있는 한활 전체 공간입니다."
                       />
                     )}
                   </p>
                 </div>
                 <span className="mt-8 text-sm font-semibold text-ink underline underline-offset-4">
                   {board.id === "ecc" ? (
-                    <I18nText en="Open ECC Menu" ko="ECC 메뉴 열기" />
+                    <I18nText en="Open ECC Overview" ko="ECC 전체 열기" />
                   ) : (
-                    <I18nText en="Open Board" ko="게시판 열기" />
+                    <I18nText en="Open Hanhwal Overview" ko="한활 전체 열기" />
                   )}
                 </span>
               </Link>

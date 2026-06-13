@@ -6,6 +6,7 @@ export const adminStorageKeys = {
   eccActivityLanguage: "k_line_ecc_activity_language",
   eccActivityNotice: "k_line_ecc_activity_notice",
   eccActivityTeams: "k_line_ecc_activity_teams",
+  eccActivityTeamsText: "k_line_ecc_activity_teams_text",
   generalInquiries: "k_line_general_inquiries",
   orderInquiries: "k_line_order_inquiries"
 } as const;

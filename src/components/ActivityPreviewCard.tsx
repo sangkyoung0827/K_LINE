@@ -43,7 +43,7 @@ export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps)
           <div>
             <p className="text-sm font-semibold uppercase text-brass">{title}</p>
             <h3 className="mt-3 font-serif text-4xl font-semibold">
-              {language === "ko" ? `${title} 게시판` : `${title} Board`}
+              {language === "ko" ? `${title} 전체` : `${title} Overview`}
             </h3>
           </div>
           <span className={`flex h-12 w-12 items-center justify-center ${accentClass[accent]}`}>
@@ -53,11 +53,11 @@ export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps)
       </div>
       <div className="grid gap-4 p-6">
         <p className="text-sm font-semibold text-muted">
-          <I18nText en="International club board" ko="국제 학생 클럽 게시판" />
+          <I18nText en="International club overview" ko="국제 학생 클럽 전체" />
         </p>
         <p className="text-sm leading-7 text-ink/70">{description}</p>
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
-          <I18nText en="Open Club Board" ko="게시판 열기" />
+          <I18nText en="Open Club Overview" ko="전체 열기" />
           <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
         </span>
       </div>

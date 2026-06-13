@@ -51,11 +51,11 @@ export const woohyukmonKnowledge = {
   kCultureProjects: {
     href: "/k-culture-project",
     featured: {
-      title: "한국의 선, 유럽을 잇다",
-      englishTitle: "Connecting Korean Lines to Europe",
-      href: "/k-culture-project/connecting-korean-lines-to-europe",
+      title: "London",
+      englishTitle: "London",
+      href: "/k-culture-project/london",
       description:
-        "A K-culture project connecting Hanji, Korean calligraphy, 3D printing, LED object design, and Korea-Europe cultural exchange."
+        "A student-led international project where students can upload London project notes and related photos."
     },
     submission: {
       href: "/k-culture-project/submit",
@@ -82,7 +82,7 @@ export const woohyukmonKnowledge = {
   hanHwal: {
     name: "Han-hwal",
     koreanName: "한활",
-    projectHref: "/k-culture-project/han-hwal",
+    projectHref: "/our-activities/hanhwal",
     activityHref: "/our-activities/hanhwal",
     keySentence: "우리는 국궁으로 심신을 수련하는 한활입니다.",
     englishVersion:

@@ -27,6 +27,18 @@ export const metadata: Metadata = {
 
 const dashboardSections = [
   {
+    title: "International Clubs",
+    eyebrow: <I18nText en="International Clubs" ko="국제 학생 클럽" />,
+    description:
+      <I18nText
+        en="Read and share club records, news-style posts, reviews, field notes, and community stories."
+        ko="클럽 기록, 소식, 후기, 현장 노트, 커뮤니티 이야기를 읽고 공유합니다."
+      />,
+    href: "/our-activities",
+    action: <I18nText en="View Clubs" ko="클럽 보기" />,
+    icon: BookOpenText
+  },
+  {
     title: "Goods",
     eyebrow: <I18nText en="Goods" ko="상품" />,
     description:
@@ -43,24 +55,12 @@ const dashboardSections = [
     eyebrow: <I18nText en="K-Culture Project" ko="K-컬처 프로젝트" />,
     description:
       <I18nText
-        en="Discover and share cultural projects connecting Korea, Jeonbuk, Hanji, calligraphy, Korean archery, and global exchange."
-        ko="한국, 전북, 한지, 서예, 국궁, 국제 교류를 연결하는 문화 프로젝트를 공유합니다."
+        en="Student-made international projects."
+        ko="학생들이 만들어나가는 국제적 프로젝트들"
       />,
     href: "/k-culture-project",
     action: <I18nText en="View Projects" ko="프로젝트 보기" />,
     icon: GalleryVerticalEnd
-  },
-  {
-    title: "International Clubs",
-    eyebrow: <I18nText en="International Clubs" ko="국제 학생 클럽" />,
-    description:
-      <I18nText
-        en="Read and share club records, news-style posts, reviews, field notes, and community stories."
-        ko="클럽 기록, 소식, 후기, 현장 노트, 커뮤니티 이야기를 읽고 공유합니다."
-      />,
-    href: "/our-activities",
-    action: <I18nText en="View Clubs" ko="클럽 보기" />,
-    icon: BookOpenText
   }
 ];
 
@@ -94,7 +94,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow={<I18nText en="International clubs" ko="국제 학생 클럽" />}
-            title={<I18nText en="Meet the student club boards" ko="학생 클럽 게시판을 만나보세요" />}
+            title={<I18nText en="Meet the student clubs" ko="학생 클럽 전체를 만나보세요" />}
             description={
               <I18nText
                 en="ECC and Hanhwal give students a place to share club records, photos, questions, and campus stories."

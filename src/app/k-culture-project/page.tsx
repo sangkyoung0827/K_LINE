@@ -8,13 +8,12 @@ import { seoKeywords } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "K-Culture Project",
-  description:
-    "Explore K_LINE K-culture projects including Connecting Korean Lines to Europe and Han-hwal.",
+  description: "학생들이 만들어나가는 국제적 프로젝트들",
   keywords: seoKeywords,
   openGraph: {
     title: "K-Culture Project | K_LINE",
     description:
-      "A project platform for Jeonbuk K-culture, Hanji, Korean calligraphy, Korean traditional archery, and global exchange."
+      "학생들이 만들어나가는 국제적 프로젝트들"
   }
 };
 
@@ -32,8 +31,8 @@ export default function KCultureProjectPage() {
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
               <I18nText
-                en="Discover and share cultural projects connecting Korea, Jeonbuk, Hanji, Korean calligraphy, Korean traditional archery, and global exchange."
-                ko="한국, 전북, 한지, 서예, 국궁, 국제 교류를 연결하는 문화 프로젝트를 발견하고 공유합니다."
+                en="Student-made international projects."
+                ko="학생들이 만들어나가는 국제적 프로젝트들"
               />
             </p>
           </div>
@@ -50,8 +49,8 @@ export default function KCultureProjectPage() {
             title={<I18nText en="Cultural projects and community bases" ko="문화 프로젝트와 커뮤니티 기반" />}
             description={
               <I18nText
-                en="Hanhwal has moved from the top-level menu into this K-Culture Project section as a project page."
-                ko="한활은 상단 단독 메뉴가 아니라 K-컬처 프로젝트 안의 프로젝트 페이지로 이동했습니다."
+                en="Student-made international projects."
+                ko="학생들이 만들어나가는 국제적 프로젝트들"
               />
             }
           />

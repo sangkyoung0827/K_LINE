@@ -9,7 +9,6 @@ const staticRoutes = [
   "/goods",
   "/k-culture-project",
   "/k-culture-project/submit",
-  "/k-culture-project/han-hwal",
   "/our-activities",
   "/our-activities/ecc",
   "/our-activities/ecc/activity",
@@ -39,14 +38,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7
   }));
 
-  const projectEntries = projects
-    .filter((project) => project.slug !== "han-hwal")
-    .map((project) => ({
-      url: `${siteConfig.url}/k-culture-project/${project.slug}`,
-      lastModified: now,
-      changeFrequency: "weekly" as const,
-      priority: 0.7
-    }));
+  const projectEntries = projects.map((project) => ({
+    url: `${siteConfig.url}/k-culture-project/${project.slug}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.7
+  }));
 
   const activityEntries = activities.map((post) => ({
     url: `${siteConfig.url}/our-activities/${post.slug}`,

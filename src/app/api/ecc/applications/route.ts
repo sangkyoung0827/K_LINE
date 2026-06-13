@@ -141,6 +141,13 @@ async function buildApplicationsResponse(includeApplications: boolean) {
   };
 }
 
+async function getSuperAdminEmail() {
+  const session = await auth();
+  const email = session?.user?.email ?? "";
+
+  return isSuperAdminEmail(email) ? email : "";
+}
+
 function apiErrorResponse(error: unknown) {
   if (error instanceof SupabaseConfigError) {
     console.error("ECC applications Supabase config error", {
@@ -263,6 +270,82 @@ export async function POST(request: Request) {
     return NextResponse.json(await buildApplicationsResponse(isSuperAdminEmail(email)), {
       status: 201
     });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const email = await getSuperAdminEmail();
+
+    if (!email) {
+      return NextResponse.json(
+        {
+          error: "Only the super admin can update application payment status.",
+          debugCode: "ECC_APPLICATION_PAYMENT_FORBIDDEN"
+        },
+        { status: 403 }
+      );
+    }
+
+    const body = (await request.json()) as { payments?: Record<string, boolean> };
+    const payments = body.payments ?? {};
+    const entries = Object.entries(payments)
+      .map(([id, paid]) => [cleanText(id, 120), Boolean(paid)] as const)
+      .filter(([id]) => Boolean(id));
+
+    await Promise.all(
+      entries.map(([id, paid]) =>
+        supabaseRequest<SupabaseApplicationRow[]>(
+          `${tableName}?id=eq.${encodeURIComponent(id)}&select=${selectedColumns}`,
+          {
+            method: "PATCH",
+            headers: {
+              Prefer: "return=representation"
+            },
+            body: JSON.stringify({
+              status: paid ? "paid" : "pending"
+            })
+          }
+        )
+      )
+    );
+
+    return NextResponse.json(await buildApplicationsResponse(true));
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const email = await getSuperAdminEmail();
+
+    if (!email) {
+      return NextResponse.json(
+        {
+          error: "Only the super admin can reset applicants.",
+          debugCode: "ECC_APPLICATION_RESET_FORBIDDEN"
+        },
+        { status: 403 }
+      );
+    }
+
+    const url = new URL(request.url);
+    const type = normalizeApplicationType(url.searchParams.get("activity_id"));
+
+    await supabaseRequest<null>(
+      `${tableName}?activity_id=eq.${encodeURIComponent(type)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Prefer: "return=minimal"
+        }
+      }
+    );
+
+    return NextResponse.json(await buildApplicationsResponse(true));
   } catch (error) {
     return apiErrorResponse(error);
   }
