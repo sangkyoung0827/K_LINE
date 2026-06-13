@@ -77,8 +77,8 @@ export default function OurActivitiesPage() {
                   <p className="mt-4 text-sm leading-7 text-ink/68">
                     {board.id === "ecc" ? (
                       <I18nText
-                        en="Open the full ECC space with activities, posts, and fund management."
-                        ko="ECC 활동, 글, 자금관리를 포함한 ECC 전체 공간입니다."
+                        en="Open the full ECC space with board posts and activity applications."
+                        ko="ECC 게시판과 활동 신청을 볼 수 있는 ECC 전체 공간입니다."
                       />
                     ) : (
                       <I18nText

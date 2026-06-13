@@ -171,7 +171,7 @@ const copy = {
     languageEyebrow: "Language",
     languageTitle: "언어 선택",
     languageDescription:
-      "한국어 또는 영어를 선택하면 회원 현황, 조 편성, 카카오톡 공지문 문구가 해당 언어로 바뀝니다.",
+      "한국어 또는 영어를 선택하면 활동 신청 화면의 언어가 바뀝니다.",
     applicationEyebrow: "Applications",
     applicationTitle: "활동 신청",
     applicationDescription:
@@ -279,7 +279,7 @@ const copy = {
     languageEyebrow: "Language",
     languageTitle: "Language",
     languageDescription:
-      "Choose Korean or English. Member status, team grouping, and KakaoTalk-ready notices will follow the selected language.",
+      "Choose Korean or English for the activity application screen.",
     applicationEyebrow: "Applications",
     applicationTitle: "Activity Applications",
     applicationDescription:
@@ -1203,19 +1203,19 @@ export function EccActivityPanel() {
         ) : null}
       </section>
 
-      <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="paper-panel p-6 md:p-8">
-          <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper">
-            <Shuffle aria-hidden className="h-5 w-5" />
-          </div>
-          <p className="mt-5 text-sm font-semibold uppercase text-brass">{text.teamMaker}</p>
-          <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
-            {text.teamMakerTitle}
-          </h2>
-          <p className="mt-4 text-sm leading-7 text-ink/64">{text.teamMakerDescription}</p>
+      {isSuperAdmin ? (
+        <>
+          <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="paper-panel p-6 md:p-8">
+              <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper">
+                <Shuffle aria-hidden className="h-5 w-5" />
+              </div>
+              <p className="mt-5 text-sm font-semibold uppercase text-brass">{text.teamMaker}</p>
+              <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
+                {text.teamMakerTitle}
+              </h2>
+              <p className="mt-4 text-sm leading-7 text-ink/64">{text.teamMakerDescription}</p>
 
-          {isSuperAdmin ? (
-            <>
               <textarea
                 className="form-field mt-6 min-h-36"
                 value={teamNamePaste}
@@ -1239,116 +1239,113 @@ export function EccActivityPanel() {
                 <Shuffle aria-hidden className="h-4 w-4" />
                 {text.makeTeams}
               </button>
-            </>
-          ) : null}
-        </div>
+            </div>
 
-        <div className="paper-panel p-6 md:p-8">
-          <p className="text-sm font-semibold uppercase text-brass">{text.generatedTeams}</p>
-          <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
-            {text.generatedTeamsTitle}
-          </h2>
-          {teamText ? (
-            <>
-              <p className="mt-4 text-sm leading-7 text-ink/62">{text.teamManualEdit}</p>
-              <textarea
-                className="form-field mt-5 min-h-72 select-text whitespace-pre-wrap font-mono text-sm"
-                value={teamText}
-                readOnly={!isSuperAdmin}
-                onChange={(event) => updateTeamText(event.target.value)}
+            <div className="paper-panel p-6 md:p-8">
+              <p className="text-sm font-semibold uppercase text-brass">{text.generatedTeams}</p>
+              <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
+                {text.generatedTeamsTitle}
+              </h2>
+              {teamText ? (
+                <>
+                  <p className="mt-4 text-sm leading-7 text-ink/62">{text.teamManualEdit}</p>
+                  <textarea
+                    className="form-field mt-5 min-h-72 select-text whitespace-pre-wrap font-mono text-sm"
+                    value={teamText}
+                    onChange={(event) => updateTeamText(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={copyTeamText}
+                    className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 border border-ink/15 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10"
+                  >
+                    <Copy aria-hidden className="h-4 w-4" />
+                    {text.copyTeams}
+                  </button>
+                </>
+              ) : (
+                <p className="mt-6 text-sm leading-7 text-ink/62">{text.emptyTeams}</p>
+              )}
+            </div>
+          </section>
+
+          <section className="paper-panel grid gap-6 p-6 md:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper">
+                  <Megaphone aria-hidden className="h-5 w-5" />
+                </div>
+                <p className="mt-5 text-sm font-semibold uppercase text-brass">{text.kakaoNotice}</p>
+                <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
+                  {text.kakaoNoticeTitle}
+                </h2>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/64">
+                  {text.kakaoNoticeDescription}
+                </p>
+              </div>
+              <Clipboard aria-hidden className="h-10 w-10 text-brass" />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <input
+                className="form-field"
+                placeholder={text.activityTitlePlaceholder}
+                value={noticeForm.title}
+                onChange={(event) => updateNoticeForm("title", event.target.value)}
               />
-              <button
-                type="button"
-                onClick={copyTeamText}
-                className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 border border-ink/15 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10"
-              >
-                <Copy aria-hidden className="h-4 w-4" />
-                {text.copyTeams}
-              </button>
-            </>
-          ) : (
-            <p className="mt-6 text-sm leading-7 text-ink/62">{text.emptyTeams}</p>
-          )}
-        </div>
-      </section>
-
-      <section className="paper-panel grid gap-6 p-6 md:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper">
-              <Megaphone aria-hidden className="h-5 w-5" />
+              <input
+                className="form-field"
+                placeholder={text.dateTimePlaceholder}
+                value={noticeForm.dateTime}
+                onChange={(event) => updateNoticeForm("dateTime", event.target.value)}
+              />
+              <input
+                className="form-field"
+                placeholder={text.locationPlaceholder}
+                value={noticeForm.location}
+                onChange={(event) => updateNoticeForm("location", event.target.value)}
+              />
+              <input
+                className="form-field"
+                placeholder={text.preparationPlaceholder}
+                value={noticeForm.preparation}
+                onChange={(event) => updateNoticeForm("preparation", event.target.value)}
+              />
+              <textarea
+                className="form-field min-h-28 md:col-span-2"
+                placeholder={text.memoPlaceholder}
+                value={noticeForm.memo}
+                onChange={(event) => updateNoticeForm("memo", event.target.value)}
+              />
+              <div className="flex flex-wrap gap-3 md:col-span-2">
+                <button
+                  type="button"
+                  onClick={generateNotice}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
+                >
+                  <Megaphone aria-hidden className="h-4 w-4" />
+                  {text.generateNotice}
+                </button>
+                <button
+                  type="button"
+                  onClick={copyNotice}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 border border-ink/15 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10"
+                >
+                  <Copy aria-hidden className="h-4 w-4" />
+                  {text.copyButton}
+                </button>
+              </div>
             </div>
-            <p className="mt-5 text-sm font-semibold uppercase text-brass">{text.kakaoNotice}</p>
-            <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
-              {text.kakaoNoticeTitle}
-            </h2>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/64">
-              {text.kakaoNoticeDescription}
-            </p>
-          </div>
-          <Clipboard aria-hidden className="h-10 w-10 text-brass" />
-        </div>
 
-        {isSuperAdmin ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <input
-              className="form-field"
-              placeholder={text.activityTitlePlaceholder}
-              value={noticeForm.title}
-              onChange={(event) => updateNoticeForm("title", event.target.value)}
-            />
-            <input
-              className="form-field"
-              placeholder={text.dateTimePlaceholder}
-              value={noticeForm.dateTime}
-              onChange={(event) => updateNoticeForm("dateTime", event.target.value)}
-            />
-            <input
-              className="form-field"
-              placeholder={text.locationPlaceholder}
-              value={noticeForm.location}
-              onChange={(event) => updateNoticeForm("location", event.target.value)}
-            />
-            <input
-              className="form-field"
-              placeholder={text.preparationPlaceholder}
-              value={noticeForm.preparation}
-              onChange={(event) => updateNoticeForm("preparation", event.target.value)}
-            />
             <textarea
-              className="form-field min-h-28 md:col-span-2"
-              placeholder={text.memoPlaceholder}
-              value={noticeForm.memo}
-              onChange={(event) => updateNoticeForm("memo", event.target.value)}
+              readOnly
+              className="form-field min-h-72 whitespace-pre-wrap"
+              value={notice || text.noNotice}
             />
-            <div className="flex flex-wrap gap-3 md:col-span-2">
-              <button
-                type="button"
-                onClick={generateNotice}
-                className="inline-flex min-h-11 items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
-              >
-                <Megaphone aria-hidden className="h-4 w-4" />
-                {text.generateNotice}
-              </button>
-              <button
-                type="button"
-                onClick={copyNotice}
-                className="inline-flex min-h-11 items-center justify-center gap-2 border border-ink/15 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10"
-              >
-                <Copy aria-hidden className="h-4 w-4" />
-                {text.copyButton}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <textarea
-          readOnly
-          className="form-field min-h-72 whitespace-pre-wrap"
-          value={notice || text.noNotice}
-        />
-        {copyMessage ? <p className="text-sm font-semibold text-pine">{copyMessage}</p> : null}
-      </section>
+            {copyMessage ? <p className="text-sm font-semibold text-pine">{copyMessage}</p> : null}
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

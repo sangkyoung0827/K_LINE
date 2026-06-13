@@ -73,7 +73,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow={<I18nText en="Three main tracks" ko="세 가지 주요 흐름" />}
-            title={<I18nText en="A simple dashboard for campus K-culture" ko="캠퍼스 K-컬처를 위한 간결한 대시보드" />}
+            title={<I18nText en="Dashboard" ko="Dashboard" />}
             description={
               <I18nText
                 en="K_LINE keeps the experience focused on three paths: cultural goods, student-friendly K-culture projects, and international student clubs."
@@ -119,7 +119,7 @@ export default function HomePage() {
           <div className="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-end">
             <SectionHeader
               eyebrow={<I18nText en="Featured goods" ko="대표 상품" />}
-              title={<I18nText en="Compact cultural objects for campus life" ko="캠퍼스 생활을 위한 작은 문화 오브젝트" />}
+              title={<I18nText en="Cultural Objects" ko="문화 오브젝트" />}
               description={
                 <I18nText
                   en="A refined preview of K_LINE goods connected to Hanji, Korean calligraphy, and Hanhwal."
