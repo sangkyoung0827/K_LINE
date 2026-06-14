@@ -41,6 +41,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: siteConfig.url
   },
+  verification: {
+    google: ["googlefd1a14b874829389.html", "fd1a14b874829389"]
+  },
   robots: {
     index: true,
     follow: true
