@@ -1,17 +1,42 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CTAButton } from "@/components/CTAButton";
-import { ActivityPostCard } from "@/components/ActivityPostCard";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { activities } from "@/data/activities";
 import { activityBoards } from "@/data/activityBoards";
+import { projects } from "@/data/projects";
 import { createPublicMetadata } from "@/lib/seo";
 
 const clubDisplayTitles = {
   ecc: "ECC",
   hanhwal: "Hanhwal"
 } as const;
+
+const latestClubRecords = [
+  ...projects.map((project) => ({
+    id: project.id,
+    title: project.englishTitle,
+    category: "Project",
+    date: project.date,
+    author: project.teamOrAuthor,
+    excerpt: project.shortDescription,
+    href: `/k-culture-project/${project.slug}`,
+    image: project.image,
+    tags: project.tags
+  })),
+  ...activities.map((post) => ({
+    id: post.id,
+    title: post.title,
+    category: post.category,
+    date: post.date,
+    author: post.author,
+    excerpt: post.excerpt,
+    href: `/our-activities/${post.slug}`,
+    image: post.image,
+    tags: post.tags
+  }))
+].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 export const metadata: Metadata = createPublicMetadata({
   title: "International Clubs",
@@ -101,17 +126,55 @@ export default function OurActivitiesPage() {
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow={<I18nText en="Club records" ko="클럽 기록" />}
-            title={<I18nText en="News, reviews, field notes, and community stories" ko="소식, 후기, 현장 노트, 커뮤니티 이야기" />}
+            title={<I18nText en="Latest posts and projects" ko="최신 등록 게시글과 프로젝트" />}
             description={
               <I18nText
-                en="These sample posts show the intended public article style. User submissions are pending review until moderation is complete."
-                ko="샘플 글은 공개 글 스타일을 보여줍니다. 사용자가 제출한 글은 검토가 끝날 때까지 대기 상태로 유지됩니다."
+                en="Recently registered public posts, activity records, reviews, field notes, and projects appear first."
+                ko="최근 등록된 공개 게시글, 활동 기록, 후기, 현장 노트, 프로젝트가 최신순으로 먼저 표시됩니다."
               />
             }
           />
           <div className="mt-10 grid gap-5">
-            {activities.map((post) => (
-              <ActivityPostCard key={post.id} post={post} />
+            {latestClubRecords.map((record) => (
+              <article
+                key={record.id}
+                className="paper-panel grid gap-5 overflow-hidden p-4 transition hover:border-brass hover:bg-white/65 md:grid-cols-[220px_1fr]"
+              >
+                <Link href={record.href} className="relative aspect-[4/3] overflow-hidden bg-hanji">
+                  <img
+                    src={record.image.src}
+                    alt={record.image.alt}
+                    className="h-full w-full object-cover transition duration-500 hover:scale-105"
+                  />
+                </Link>
+                <div className="grid content-start gap-3 p-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex border border-brass/35 bg-brass/15 px-2.5 py-1 text-xs font-semibold uppercase text-ink">
+                      {record.category}
+                    </span>
+                    <span className="text-xs text-ink/52">{record.date}</span>
+                  </div>
+                  <h2 className="font-serif text-3xl font-semibold text-ink">{record.title}</h2>
+                  <p className="text-sm text-ink/58">By {record.author}</p>
+                  <p className="text-sm leading-7 text-ink/70">{record.excerpt}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {record.tags.slice(0, 3).map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex border border-ink/10 bg-white/50 px-2.5 py-1 text-xs font-semibold text-ink/62"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <Link
+                    href={record.href}
+                    className="mt-2 inline-flex min-h-10 w-fit items-center border border-ink/18 px-4 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10"
+                  >
+                    <I18nText en="Open Record" ko="기록 보기" />
+                  </Link>
+                </div>
+              </article>
             ))}
           </div>
         </div>

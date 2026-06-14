@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Users } from "lucide-react";
+import { EccMembershipCards } from "@/components/EccMembershipCards";
 import { EccToolGrid } from "@/components/EccToolGrid";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -52,6 +53,7 @@ export default function EccHubPage() {
             }
           />
 
+          <EccMembershipCards />
           <EccToolGrid />
           <SuperAdminRequestPanel />
         </div>

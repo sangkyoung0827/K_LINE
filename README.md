@@ -27,10 +27,10 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - Custom K_LINE logo, favicon, and campus K-culture dashboard UI
 - Local goods, project, and international club data
 - localStorage cart and inquiry checkout flows
-- Supabase-backed K-Culture Project submissions, Our Activities post submissions, and ECC applications
+- Supabase-backed K-Culture Project submissions, Our Activities post submissions, ECC applications, and ECC member registration
 - Role-aware super-admin prototype inside the same public site pages for local post deletion, donation account editing, donation total display, and account balance display
 - Inquiry-based commerce first
-- No real payment, backend database, image upload, bank API, or shared server-side admin moderation yet
+- No real payment, image upload, bank API, KakaoTalk auto-send API, or shared server-side admin moderation yet
 
 ## New Structure
 
@@ -58,21 +58,30 @@ ECC now opens a club menu with three choices:
 - ECC activity: `/our-activities/ecc/activity`
 - ECC fund management: `/our-activities/ecc/fund`
 
+Above those ECC tools, the ECC menu also shows:
+
+- New member registration: `/our-activities/ecc/register`
+- Member management: `/our-activities/ecc/members`
+
+New member registration is visible to everyone. Member management is visible
+only to super-admin or developer-level accounts.
+
 The ECC activity page supports a Korean/English language selector. In English
 mode, English Excel headers such as `Name`, `Affiliation`, `Gathering`, `MT`,
 `Special Events`, and `Note` are parsed, team names use `Team 1`, `Team 2`, and
 the KakaoTalk-ready notice draft is generated in English.
 
 The ECC activity page also includes Google-Forms-style applications for
-International Gathering, MT, and Special Event. Applicants answer KakaoTalk name,
-gender, nationality, preferred food, and other requests. Applicant counts are
-stored cumulatively in Supabase, and applicant lists are visible only to the
-super admin.
+International Gathering, MT, Special Event, Semester Opening Party, and Farewell
+Party. Applicants answer KakaoTalk name, gender, nationality, preferred food, and
+other requests. Applicant counts are stored cumulatively in Supabase, and
+applicant lists are visible only to the super admin.
 
-ECC and Hanhwal free-board posts, ECC member status, generated teams, and
-KakaoTalk-ready notice drafts are saved in browser localStorage for this prototype.
-Connect a real database and image storage before treating the boards and member
-records as shared public data.
+ECC and Hanhwal free-board posts, generated teams, and KakaoTalk-ready notice
+drafts are saved in browser localStorage for this prototype. ECC member
+registration and membership-fee confirmation are stored in Supabase through
+server-side API routes. Connect real image storage and moderation before treating
+free-board uploads as shared public data.
 
 Han-hwal is no longer a top-level menu item. It has moved under:
 
@@ -98,6 +107,8 @@ The old route redirects:
 - `/k-culture-project/connecting-korean-lines-to-europe`
 - `/our-activities`
 - `/our-activities/ecc`
+- `/our-activities/ecc/register`
+- `/our-activities/ecc/members`
 - `/our-activities/ecc/activity`
 - `/our-activities/ecc/free-board`
 - `/our-activities/ecc/fund`
@@ -151,6 +162,9 @@ Reusable UI components include:
 - `ActivityWriteForm`
 - `FreeBoardPage`
 - `FreeBoardDetailPage`
+- `EccMembershipCards`
+- `EccMemberRegistrationForm`
+- `EccMemberManagementPanel`
 - `AuthProvider`
 - `AuthStatus`
 - `LoginPanel`
@@ -314,6 +328,7 @@ SUPER_ADMIN_EMAILS=your-google-login-email@example.com
 Current role-aware super-admin controls:
 
 - `/our-activities/ecc`: open the ECC menu for free board, activity, and fund management
+- `/our-activities/ecc/members`: confirm ECC membership-fee payment, prepare team chat links, show QR codes, and track invitation status
 - `/our-activities/ecc/activity`: paste ECC member status, view activity records, generate teams, and generate KakaoTalk-ready notices
 - `/admin`: fetch pending K-Culture Project submissions from Supabase
 - `/admin`: fetch pending Our Activities post submissions from Supabase
@@ -371,13 +386,16 @@ Set this only after connecting a real custom domain.
 
 K-Culture Project submissions, Our Activities post submissions, and ECC activity
 applications are stored server-side in Supabase so data is shared across accounts,
-browsers, and devices. Do not expose the service role key in client code.
+browsers, and devices. ECC new member registration and membership-fee confirmation
+are also stored server-side in Supabase. Do not expose the service role key in
+client code.
 
 The current Supabase-backed tables are:
 
 - `public.project_submissions`
 - `public.activity_posts`
 - `public.ecc_activity_applications`
+- `public.ecc_members`
 
 Create this table in the Supabase SQL editor. The same SQL is saved at
 `supabase/ecc_activity_applications.sql`.
@@ -403,6 +421,36 @@ Add these Vercel environment variables for Production:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
+
+Create the ECC member table in the Supabase SQL editor before using
+`/our-activities/ecc/register` and `/our-activities/ecc/members`. The SQL is
+saved at `supabase/ecc_members.sql`.
+
+```sql
+create table if not exists public.ecc_members (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  name text not null,
+  kakao_id text not null,
+  email text default '',
+  phone text default '',
+  nationality text default '',
+  note text default '',
+  membership_fee_paid boolean not null default false,
+  team_chat_sent boolean not null default false,
+  team_chat_url text default '',
+  qr_code_url text default '',
+  payment_note text default '',
+  status text not null default 'pending'
+);
+
+alter table public.ecc_members enable row level security;
+```
+
+Important: KakaoTalk automatic sending is not connected yet. The current member
+management page prepares the invite message, team chat URL, QR code, and sent
+status. Real automatic sending requires Kakao API or Kakao business channel setup,
+user consent, server-side credentials, and a production message policy review.
 
 ## SEO And Search
 
@@ -458,6 +506,8 @@ The following routes are intentionally blocked or marked noindex where applicabl
 - `/our-activities/write`
 - `/our-activities/ecc/activity`
 - `/our-activities/ecc/fund`
+- `/our-activities/ecc/register`
+- `/our-activities/ecc/members`
 
 ## Placeholder / Future Integration Checklist
 
@@ -470,7 +520,7 @@ The following are intentionally placeholder flows:
 - database persistence for remaining local-only flows
 - approval/rejection workflow for Supabase-backed submitted projects and activity posts
 - member profile database after Google authentication
-- ECC member/activity database
+- broader ECC activity/member database beyond the Supabase member registration and activity application tables
 - KakaoTalk API or bot integration for real automatic notice sending
 - server-side admin moderation
 - AI moderation and abuse prevention
