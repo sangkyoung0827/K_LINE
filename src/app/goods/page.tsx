@@ -27,22 +27,26 @@ export default function GoodsPage() {
   return (
     <>
       <section className="relative isolate overflow-hidden bg-hanji text-ink">
-        <img
-          src="/images/goods-hero-reference.jpg"
-          alt="K_LINE goods banner with Korean heritage cultural objects"
-          fetchPriority="high"
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-hanji via-hanji/76 to-hanji/18" />
+        <div className="absolute inset-y-0 right-0 hidden w-[58%] md:block">
+          <img
+            src="/images/goods-hero-clean.jpg"
+            alt="Korean heritage lifestyle goods including a dancheong mug, calligraphy light object, najeonchilgi plate, fan, blanket, and keyrings"
+            fetchPriority="high"
+            decoding="async"
+            className="h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-y-0 left-0 w-52 bg-gradient-to-r from-hanji to-transparent" />
+          <div className="absolute inset-0 bg-hanji/10" />
+        </div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(214,168,90,0.18),transparent_34%),linear-gradient(90deg,#F4EBDD_0%,#F4EBDD_42%,rgba(244,235,221,0.78)_62%,rgba(244,235,221,0.18)_100%)]" />
         <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-hanji to-transparent" />
         <div className="relative mx-auto flex min-h-[460px] max-w-7xl items-center px-5 py-16 md:min-h-[560px] md:px-8">
-          <div className="max-w-xl">
+          <div className="max-w-2xl">
             <p className="text-sm font-semibold uppercase text-brass">
               <I18nText en="K_LINE Goods" ko="K_LINE 상품" />
             </p>
-            <h1 className="mt-4 font-serif text-5xl font-semibold leading-none text-ink md:text-7xl">
-              <I18nText en="Korean Heritage, Reimagined" ko="한국의 유산을 오늘의 물건으로" />
+            <h1 className="mt-4 break-keep font-serif text-4xl font-semibold leading-tight text-ink sm:text-5xl md:text-6xl">
+              <I18nText en="Korean Heritage for Everyday Life" ko="한국의 유산을 일상과 함께" />
             </h1>
             <p className="mt-6 max-w-lg text-base leading-8 text-ink/72 md:text-lg">
               <I18nText
@@ -60,6 +64,14 @@ export default function GoodsPage() {
               <span className="border border-brass/35 bg-white/45 px-3 py-2">
                 <I18nText en="Made for everyday" ko="일상을 위한 굿즈" />
               </span>
+            </div>
+            <div className="mt-10 overflow-hidden border border-brass/25 bg-white/35 shadow-soft md:hidden">
+              <img
+                src="/images/goods-hero-clean.jpg"
+                alt="Korean heritage lifestyle goods"
+                decoding="async"
+                className="h-auto w-full"
+              />
             </div>
           </div>
         </div>
