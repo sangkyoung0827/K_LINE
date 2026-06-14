@@ -2,19 +2,15 @@ import type { Metadata } from "next";
 import { BookingForm } from "@/components/BookingForm";
 import { SectionHeader } from "@/components/SectionHeader";
 import { classes } from "@/data/classes";
-import { seoKeywords } from "@/lib/seo";
+import { createPublicMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicMetadata({
   title: "Archery Class",
   description:
     "Book Korean traditional archery classes with K_LINE and Han-hwal for students, visitors, and cultural groups.",
-  keywords: seoKeywords,
-  openGraph: {
-    title: "Korean Archery Class | K_LINE",
-    description:
-      "Inquiry-based Korean traditional archery lessons for international students, foreign visitors, Korean students, and cultural groups."
-  }
-};
+  path: "/archery-class",
+  keywords: ["Korean traditional archery", "Han-hwal", "Korean archery class"]
+});
 
 const learnItems = [
   "Basic safety rules",

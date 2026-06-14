@@ -12,16 +12,38 @@ import { seoKeywords, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: {
-    absolute: siteConfig.name
+    absolute: siteConfig.title
   },
-  description:
-    "K_LINE is a campus K-culture hub connecting Korean cultural projects, goods, and international student clubs.",
+  description: siteConfig.description,
   keywords: seoKeywords,
   openGraph: {
-    title: "K_LINE | Goods, K-Culture Projects, and International Clubs",
-    description:
-      "A clean campus K-culture dashboard for Goods, K-Culture Project, and International Clubs.",
-    url: siteConfig.url
+    title: siteConfig.title,
+    description: siteConfig.description,
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    images: [
+      {
+        url: "/images/k-line-hero.png",
+        width: 1792,
+        height: 1024,
+        alt: "K_LINE campus K-culture hub"
+      }
+    ],
+    locale: "en_US",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.title,
+    description: siteConfig.description,
+    images: ["/images/k-line-hero.png"]
+  },
+  alternates: {
+    canonical: siteConfig.url
+  },
+  robots: {
+    index: true,
+    follow: true
   }
 };
 

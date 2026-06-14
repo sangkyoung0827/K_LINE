@@ -3,19 +3,15 @@ import { GoodsCard } from "@/components/GoodsCard";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { goods } from "@/data/goods";
-import { seoKeywords } from "@/lib/seo";
+import { createPublicMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicMetadata({
   title: "Goods",
   description:
-    "Shop K_LINE Goods including Hanji Calligraphy LED Light Object and Arrow Pen through inquiry-based commerce.",
-  keywords: seoKeywords,
-  openGraph: {
-    title: "Goods | K_LINE",
-    description:
-      "K-culture goods and Korean traditional goods connected to Hanji, Korean calligraphy, 국궁, 한활, and Jeonbuk K-culture."
-  }
-};
+    "Explore K_LINE K-culture goods connected to Hanji, Korean calligraphy, Korean traditional archery, Han-hwal, and campus culture.",
+  path: "/goods",
+  keywords: ["K-culture goods", "Hanji", "Korean calligraphy", "Korean traditional goods"]
+});
 
 export default function GoodsPage() {
   return (

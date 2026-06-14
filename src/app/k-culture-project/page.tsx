@@ -4,18 +4,15 @@ import { I18nText } from "@/components/LanguageProvider";
 import { ProjectCard } from "@/components/ProjectCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { projects } from "@/data/projects";
-import { seoKeywords } from "@/lib/seo";
+import { createPublicMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicMetadata({
   title: "K-Culture Project",
-  description: "학생들이 만들어나가는 국제적 프로젝트들",
-  keywords: seoKeywords,
-  openGraph: {
-    title: "K-Culture Project | K_LINE",
-    description:
-      "학생들이 만들어나가는 국제적 프로젝트들"
-  }
-};
+  description:
+    "K_LINE K-Culture Project introduces student-made international Korean culture projects and campus cultural exchange.",
+  path: "/k-culture-project",
+  keywords: ["Korean culture project", "K-Culture Project", "international students"]
+});
 
 export default function KCultureProjectPage() {
   return (

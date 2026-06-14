@@ -4,23 +4,14 @@ import { ArrowLeft } from "lucide-react";
 import { DonationPanel } from "@/components/DonationPanel";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
-import { seoKeywords, siteConfig } from "@/lib/seo";
+import { createNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createNoIndexMetadata({
   title: "ECC Fund Management",
   description:
     "ECC fund management page where members can view displayed balance and super admins can edit fund information.",
-  keywords: [...seoKeywords, "ECC 자금관리", "ECC 후원", "K_LINE 후원"],
-  openGraph: {
-    title: "ECC Fund Management | K_LINE",
-    description:
-      "View ECC fund information and role-aware super admin controls on the K_LINE website.",
-    url: `${siteConfig.url}/our-activities/ecc/fund`
-  },
-  alternates: {
-    canonical: `${siteConfig.url}/our-activities/ecc/fund`
-  }
-};
+  path: "/our-activities/ecc/fund"
+});
 
 export default function EccFundPage() {
   return (

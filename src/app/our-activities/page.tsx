@@ -6,24 +6,20 @@ import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { activities } from "@/data/activities";
 import { activityBoards } from "@/data/activityBoards";
-import { seoKeywords } from "@/lib/seo";
+import { createPublicMetadata } from "@/lib/seo";
 
 const clubDisplayTitles = {
   ecc: "ECC",
   hanhwal: "Hanhwal"
 } as const;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicMetadata({
   title: "International Clubs",
   description:
-    "Read K_LINE international club records, news-style posts, reviews, field notes, and community stories.",
-  keywords: seoKeywords,
-  openGraph: {
-    title: "International Clubs | K_LINE",
-    description:
-      "A public article and community board for K_LINE international clubs, reviews, and field notes."
-  }
-};
+    "K_LINE International Clubs connects ECC, Han-hwal, international students, campus culture, and Korean cultural activities.",
+  path: "/our-activities",
+  keywords: ["ECC", "Han-hwal", "international students", "campus culture"]
+});
 
 export default function OurActivitiesPage() {
   return (

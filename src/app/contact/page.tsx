@@ -3,18 +3,15 @@ import Link from "next/link";
 import { ContactForm } from "@/components/ContactForm";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
-import { siteConfig } from "@/lib/seo";
+import { createPublicMetadata, siteConfig } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicMetadata({
   title: "Contact",
   description:
-    "Contact K_LINE for Goods, K-Culture Project, International Clubs, Han-hwal project, or general inquiries.",
-  openGraph: {
-    title: "Contact | K_LINE",
-    description:
-      "General inquiry, Goods inquiry, K-Culture Project inquiry, and International Clubs inquiry for K_LINE."
-  }
-};
+    "Contact K_LINE for K-culture goods, Korean culture projects, ECC, Han-hwal, international student activities, and campus culture inquiries.",
+  path: "/contact",
+  keywords: ["K_LINE contact", "K-Culture", "ECC", "Han-hwal", "international students"]
+});
 
 export default function ContactPage() {
   return (

@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
 import { CartView } from "@/components/CartView";
+import { createNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createNoIndexMetadata({
   title: "Cart",
   description: "Review selected K_LINE cultural goods before proceeding to inquiry checkout.",
-  openGraph: {
-    title: "Cart | K_LINE",
-    description: "Inquiry cart for K_LINE Goods. Payment is not connected yet."
-  }
-};
+  path: "/cart"
+});
 
 export default function CartPage() {
   return (

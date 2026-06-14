@@ -31,15 +31,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: post.title,
     description: post.excerpt,
     keywords: seoKeywords,
+    alternates: {
+      canonical: `${siteConfig.url}/our-activities/${post.slug}`
+    },
     openGraph: {
       title: `${post.title} | ${siteConfig.name}`,
       description: post.excerpt,
+      url: `${siteConfig.url}/our-activities/${post.slug}`,
+      siteName: siteConfig.name,
       images: [
         {
           url: post.image.src,
           alt: post.image.alt
         }
-      ]
+      ],
+      type: "article"
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${post.title} | ${siteConfig.name}`,
+      description: post.excerpt,
+      images: [post.image.src]
     }
   };
 }

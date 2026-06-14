@@ -3,10 +3,34 @@ import { siteConfig } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {
-      userAgent: "*",
-      allow: "/"
-    },
+    rules: [
+      {
+        userAgent: "*",
+        allow: [
+          "/",
+          "/goods",
+          "/k-culture-project",
+          "/our-activities",
+          "/our-activities/ecc",
+          "/our-activities/hanhwal",
+          "/contact"
+        ],
+        disallow: [
+          "/admin",
+          "/api/",
+          "/developer/",
+          "/login",
+          "/request-admin",
+          "/cart",
+          "/checkout",
+          "/donate",
+          "/k-culture-project/submit",
+          "/our-activities/write",
+          "/our-activities/ecc/activity",
+          "/our-activities/ecc/fund"
+        ]
+      }
+    ],
     sitemap: `${siteConfig.url}/sitemap.xml`
   };
 }

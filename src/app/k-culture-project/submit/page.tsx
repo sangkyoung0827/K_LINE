@@ -2,19 +2,14 @@ import type { Metadata } from "next";
 import { I18nText } from "@/components/LanguageProvider";
 import { ProjectSubmitForm } from "@/components/ProjectSubmitForm";
 import { SectionHeader } from "@/components/SectionHeader";
-import { seoKeywords } from "@/lib/seo";
+import { createNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createNoIndexMetadata({
   title: "Submit K-Culture Project",
   description:
     "Submit a K-culture project to K_LINE for pending review.",
-  keywords: seoKeywords,
-  openGraph: {
-    title: "Submit K-Culture Project | K_LINE",
-    description:
-      "Inquiry-based project submission for Korean cultural projects and global exchange."
-  }
-};
+  path: "/k-culture-project/submit"
+});
 
 export default function ProjectSubmitPage() {
   return (

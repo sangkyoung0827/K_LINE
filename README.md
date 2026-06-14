@@ -409,7 +409,9 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 The project includes:
 
 - page metadata title and description
+- canonical URLs for public pages
 - Open Graph metadata
+- Twitter card metadata
 - semantic headings
 - clean URL slugs
 - image alt text
@@ -419,6 +421,43 @@ The project includes:
 - Product JSON-LD
 - Project CreativeWork JSON-LD
 - Activity Article JSON-LD
+
+Primary sitemap URL:
+
+```text
+https://kline-nine-wheat.vercel.app/sitemap.xml
+```
+
+Robots URL:
+
+```text
+https://kline-nine-wheat.vercel.app/robots.txt
+```
+
+The sitemap intentionally includes only the main public discovery pages:
+
+- `/`
+- `/goods`
+- `/k-culture-project`
+- `/our-activities`
+- `/our-activities/ecc`
+- `/our-activities/hanhwal`
+- `/contact`
+
+The following routes are intentionally blocked or marked noindex where applicable:
+
+- `/admin`
+- `/login`
+- `/api/*`
+- `/developer/*`
+- `/request-admin`
+- `/cart`
+- `/checkout`
+- `/donate`
+- `/k-culture-project/submit`
+- `/our-activities/write`
+- `/our-activities/ecc/activity`
+- `/our-activities/ecc/fund`
 
 ## Placeholder / Future Integration Checklist
 
@@ -452,16 +491,32 @@ The following are intentionally placeholder flows:
 
 After Vercel deployment:
 
-1. Connect a custom domain in Vercel if needed.
-2. Set `NEXT_PUBLIC_SITE_URL` to the final domain.
-3. Redeploy.
-4. Add the site to Google Search Console.
-5. Verify ownership with DNS TXT or Vercel-supported verification.
-6. Submit:
+1. Open Google Search Console.
+2. Add a URL-prefix property for:
 
 ```text
-https://your-domain.example/sitemap.xml
+https://kline-nine-wheat.vercel.app
 ```
 
-7. Use URL Inspection to request indexing for the home page and important section pages.
-8. Confirm Google can crawl the site by checking URL Inspection and robots/sitemap status.
+3. If a custom domain is connected later, add that final domain as a separate property.
+4. Verify ownership. DNS TXT verification is preferred for custom domains. For the Vercel URL, use an HTML tag or DNS verification method that Google offers for the property.
+5. Submit this sitemap:
+
+```text
+https://kline-nine-wheat.vercel.app/sitemap.xml
+```
+
+6. Use URL Inspection to request indexing for:
+
+```text
+https://kline-nine-wheat.vercel.app/
+https://kline-nine-wheat.vercel.app/goods
+https://kline-nine-wheat.vercel.app/k-culture-project
+https://kline-nine-wheat.vercel.app/our-activities
+https://kline-nine-wheat.vercel.app/our-activities/ecc
+https://kline-nine-wheat.vercel.app/our-activities/hanhwal
+https://kline-nine-wheat.vercel.app/contact
+```
+
+7. Confirm Google can crawl the site by checking URL Inspection, robots.txt status, and sitemap status.
+8. Do not submit private routes such as `/admin`, `/login`, `/api/*`, `/developer/*`, or role-management/action pages.

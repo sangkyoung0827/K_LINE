@@ -4,22 +4,15 @@ import { EccToolGrid } from "@/components/EccToolGrid";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { SuperAdminRequestPanel } from "@/components/SuperAdminRequestPanel";
-import { seoKeywords, siteConfig } from "@/lib/seo";
+import { createPublicMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicMetadata({
   title: "ECC Club Hub",
   description:
-    "ECC club menu for the K_LINE board and activity application pages with role-aware super admin controls.",
-  keywords: [...seoKeywords, "ECC", "ECC 자유게시판", "ECC 활동", "ECC 자금관리"],
-  openGraph: {
-    title: "ECC Club Hub | K_LINE",
-    description: "Open the ECC board and activity page on K_LINE. Super-admin tools appear by role.",
-    url: `${siteConfig.url}/our-activities/ecc`
-  },
-  alternates: {
-    canonical: `${siteConfig.url}/our-activities/ecc`
-  }
-};
+    "ECC on K_LINE is an international student club hub for campus English conversation, student activities, board posts, and cultural exchange.",
+  path: "/our-activities/ecc",
+  keywords: ["ECC", "international students", "campus culture", "student activities"]
+});
 
 export default function EccHubPage() {
   return (

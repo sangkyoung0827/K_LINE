@@ -31,6 +31,12 @@ export const metadata: Metadata = {
     locale: "en_US",
     type: "website"
   },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.title,
+    description: siteConfig.description,
+    images: ["/images/k-line-hero.png"]
+  },
   alternates: {
     canonical: siteConfig.url
   },

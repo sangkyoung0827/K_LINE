@@ -2,19 +2,14 @@ import type { Metadata } from "next";
 import { ActivityWriteForm } from "@/components/ActivityWriteForm";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
-import { seoKeywords } from "@/lib/seo";
+import { createNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createNoIndexMetadata({
   title: "Write Club Post",
   description:
     "Write a K_LINE international club post for pending review.",
-  keywords: seoKeywords,
-  openGraph: {
-    title: "Write Club Post | K_LINE",
-    description:
-      "Submit news, activity logs, reviews, field notes, or free board posts for pending review."
-  }
-};
+  path: "/our-activities/write"
+});
 
 export default function ActivityWritePage() {
   return (

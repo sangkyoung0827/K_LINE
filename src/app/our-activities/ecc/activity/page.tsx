@@ -4,23 +4,14 @@ import { ArrowLeft } from "lucide-react";
 import { EccActivityPanel } from "@/components/EccActivityPanel";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
-import { seoKeywords, siteConfig } from "@/lib/seo";
+import { createNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createNoIndexMetadata({
   title: "ECC Activity",
   description:
     "Korean and English ECC activity application page with super-admin-only applicant, team, and notice management tools.",
-  keywords: [...seoKeywords, "ECC 활동", "ECC 신청", "ECC 신청자 관리", "ECC activity"],
-  openGraph: {
-    title: "ECC Activity | K_LINE",
-    description:
-      "Submit ECC activity applications in Korean or English. Super-admin management tools appear only for the super admin.",
-    url: `${siteConfig.url}/our-activities/ecc/activity`
-  },
-  alternates: {
-    canonical: `${siteConfig.url}/our-activities/ecc/activity`
-  }
-};
+  path: "/our-activities/ecc/activity"
+});
 
 export default function EccActivityPage() {
   return (

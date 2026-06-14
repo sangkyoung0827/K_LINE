@@ -5,17 +5,15 @@ import { LockKeyhole, ShieldCheck } from "lucide-react";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { auth } from "@/auth";
 import { getAdminAccess, getSuperAdminEmails } from "@/lib/admin";
+import { createNoIndexMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createNoIndexMetadata({
   title: "Admin",
   description: "K_LINE super admin console.",
-  robots: {
-    index: false,
-    follow: false
-  }
-};
+  path: "/admin"
+});
 
 export default async function AdminPage() {
   const session = await auth();

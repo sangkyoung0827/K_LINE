@@ -33,15 +33,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: project.englishTitle,
     description: project.shortDescription,
     keywords: seoKeywords,
+    alternates: {
+      canonical: `${siteConfig.url}/k-culture-project/${project.slug}`
+    },
     openGraph: {
       title: `${project.englishTitle} | ${siteConfig.name}`,
       description: project.shortDescription,
+      url: `${siteConfig.url}/k-culture-project/${project.slug}`,
+      siteName: siteConfig.name,
       images: [
         {
           url: project.image.src,
           alt: project.image.alt
         }
-      ]
+      ],
+      type: "website"
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${project.englishTitle} | ${siteConfig.name}`,
+      description: project.shortDescription,
+      images: [project.image.src]
     }
   };
 }

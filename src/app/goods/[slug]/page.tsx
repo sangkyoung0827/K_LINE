@@ -25,15 +25,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: item.name,
     description: item.fullDescription,
     keywords: seoKeywords,
+    alternates: {
+      canonical: `${siteConfig.url}/goods/${item.slug}`
+    },
     openGraph: {
       title: `${item.name} | ${siteConfig.name}`,
       description: item.shortDescription,
+      url: `${siteConfig.url}/goods/${item.slug}`,
+      siteName: siteConfig.name,
       images: [
         {
           url: item.images[0].src,
           alt: item.images[0].alt
         }
-      ]
+      ],
+      type: "website"
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${item.name} | ${siteConfig.name}`,
+      description: item.shortDescription,
+      images: [item.images[0].src]
     }
   };
 }

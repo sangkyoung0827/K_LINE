@@ -2,16 +2,14 @@ import type { Metadata } from "next";
 import { InquiryForm } from "@/components/InquiryForm";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
+import { createNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createNoIndexMetadata({
   title: "Inquiry Checkout",
   description:
     "Submit an inquiry-based order for K_LINE Goods. Real payment is intentionally not integrated yet.",
-  openGraph: {
-    title: "Inquiry Checkout | K_LINE",
-    description: "Send selected goods, quantity, contact, country, address, and message as an inquiry."
-  }
-};
+  path: "/checkout"
+});
 
 export default function CheckoutPage() {
   return (
