@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Users } from "lucide-react";
+import { ClubMark } from "@/components/ClubMark";
 import { EccMembershipCards } from "@/components/EccMembershipCards";
 import { EccToolGrid } from "@/components/EccToolGrid";
 import { I18nText } from "@/components/LanguageProvider";
@@ -34,9 +34,7 @@ export default function EccHubPage() {
               />
             </p>
           </div>
-          <div className="hidden h-20 w-20 items-center justify-center border border-paper/20 bg-paper/8 md:flex">
-            <Users aria-hidden className="h-9 w-9 text-brass" />
-          </div>
+          <ClubMark id="ecc" size="xl" className="hidden border-4 border-white/70 shadow-lift md:inline-flex" />
         </div>
       </section>
 

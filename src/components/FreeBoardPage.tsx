@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, ImagePlus, MessageSquareText, Send, SquarePen, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard, FreeBoardPost } from "@/types";
 import {
@@ -140,23 +141,26 @@ export function FreeBoardPage({
   return (
     <>
       <section className="bg-navy py-16 text-paper md:py-24">
-        <div className="mx-auto max-w-7xl px-5 md:px-8">
-          <p className="text-sm font-semibold uppercase text-brass">International Clubs</p>
-          <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">
-            {boardDisplayTitle}
-          </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
-            {boardDisplayDescription}
-          </p>
-          {returnHref ? (
-            <Link
-              href={returnHref}
-              className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 border border-paper/22 px-5 text-sm font-semibold text-paper transition hover:border-brass hover:bg-brass/15"
-            >
-              <ArrowLeft aria-hidden className="h-4 w-4" />
-              {backLabel}
-            </Link>
-          ) : null}
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-[1fr_auto] md:items-end md:px-8">
+          <div>
+            <p className="text-sm font-semibold uppercase text-brass">International Clubs</p>
+            <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">
+              {boardDisplayTitle}
+            </h1>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
+              {boardDisplayDescription}
+            </p>
+            {returnHref ? (
+              <Link
+                href={returnHref}
+                className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 border border-paper/22 px-5 text-sm font-semibold text-paper transition hover:border-brass hover:bg-brass/15"
+              >
+                <ArrowLeft aria-hidden className="h-4 w-4" />
+                {backLabel}
+              </Link>
+            ) : null}
+          </div>
+          <ClubMark id={board.id} size="xl" className="hidden border-4 border-white/70 shadow-lift md:inline-flex" />
         </div>
       </section>
 

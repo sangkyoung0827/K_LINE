@@ -7,6 +7,7 @@ import { useState } from "react";
 import { activityBoards } from "@/data/activityBoards";
 import { navigation } from "@/data/navigation";
 import { AuthStatus } from "@/components/AuthStatus";
+import { ClubMark } from "@/components/ClubMark";
 import { useCart } from "@/components/CartProvider";
 import { LanguageSwitcher, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
@@ -65,8 +66,9 @@ export function Navbar() {
                       <Link
                         key={board.id}
                         href={`/our-activities/${board.slug}`}
-                        className="border-b border-navy/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/15 hover:text-ink"
+                        className="inline-flex items-center gap-3 border-b border-navy/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/15 hover:text-ink"
                       >
+                        <ClubMark id={board.id} size="xs" className="border-ink/10" />
                         {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
                       </Link>
                     ))}
@@ -140,8 +142,9 @@ export function Navbar() {
                           key={board.id}
                           href={`/our-activities/${board.slug}`}
                           onClick={() => setOpen(false)}
-                          className="py-2 text-sm font-semibold text-ink/66"
+                          className="inline-flex items-center gap-3 py-2 text-sm font-semibold text-ink/66"
                         >
+                          <ClubMark id={board.id} size="xs" className="border-ink/10" />
                           {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
                         </Link>
                       ))}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, MessageSquareText, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard, FreeBoardPost } from "@/types";
 import { readFreeBoardPosts, writeFreeBoardPosts } from "@/lib/freeBoardStorage";
@@ -74,12 +75,15 @@ export function FreeBoardDetailPage({
   return (
     <>
       <section className="bg-ink py-16 text-paper md:py-24">
-        <div className="mx-auto max-w-5xl px-5 md:px-8">
-          <p className="text-sm font-semibold uppercase text-brass">{boardDisplayLabel}</p>
-          <h1 className="mt-5 font-serif text-5xl font-semibold md:text-7xl">{post.title}</h1>
-          <p className="mt-5 text-sm text-paper/62">
-            {post.author} / {formatDate(post.createdAt, language)}
-          </p>
+        <div className="mx-auto grid max-w-5xl gap-8 px-5 md:grid-cols-[1fr_auto] md:items-end md:px-8">
+          <div>
+            <p className="text-sm font-semibold uppercase text-brass">{boardDisplayLabel}</p>
+            <h1 className="mt-5 font-serif text-5xl font-semibold md:text-7xl">{post.title}</h1>
+            <p className="mt-5 text-sm text-paper/62">
+              {post.author} / {formatDate(post.createdAt, language)}
+            </p>
+          </div>
+          <ClubMark id={board.id} size="lg" className="hidden border-4 border-white/70 shadow-lift md:inline-flex" />
         </div>
       </section>
 

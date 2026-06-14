@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Hanhwal tiger archer logo</title>
+  <desc id="desc">A stylized tiger drawing a Korean traditional bow inside a circular emblem.</desc>
+  <circle cx="256" cy="256" r="238" fill="#1F2A44"/>
+  <circle cx="256" cy="256" r="216" fill="#F4EBDD"/>
+  <path d="M88 332C132 230 207 145 336 105" fill="none" stroke="#D6A85A" stroke-width="18" stroke-linecap="round"/>
+  <path d="M120 368C176 313 274 234 397 175" fill="none" stroke="#1F2A44" stroke-width="8" stroke-linecap="round"/>
+  <path d="M165 323c-8-45 4-88 35-121 35-38 91-51 139-30 51 22 84 71 83 127-1 75-66 135-148 135-55 0-99-25-109-111Z" fill="#D6A85A" stroke="#111827" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M191 238c28-29 73-43 115-31 44 13 75 52 78 100 3 49-27 88-73 102" fill="none" stroke="#F4EBDD" stroke-width="14" stroke-linecap="round"/>
+  <path d="M218 195c18 36 36 68 55 96M272 179c14 39 34 77 61 114M335 196c-2 34 8 67 31 99M181 273c31 21 65 34 101 39M174 327c35 19 75 28 119 26" fill="none" stroke="#111827" stroke-width="10" stroke-linecap="round"/>
+  <path d="M177 196c-27-28-52-45-82-56 8 31 22 57 48 82" fill="#D6A85A" stroke="#111827" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M225 168c-3-34-14-63-37-91-13 30-16 59-8 90" fill="#D6A85A" stroke="#111827" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M259 227c-12 1-22 10-22 22 0 13 11 23 24 22 13-1 23-11 22-24-1-12-11-21-24-20Z" fill="#111827"/>
+  <path d="M265 238c-5 1-9 4-10 9" fill="none" stroke="#F4EBDD" stroke-width="4" stroke-linecap="round"/>
+  <path d="M319 274c21 4 39 11 55 23-17 9-35 13-56 12" fill="#F4EBDD" stroke="#111827" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M318 307c24 15 45 32 63 54-31 3-57-3-82-18" fill="#D6A85A" stroke="#111827" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M229 351c-26 31-50 58-87 80 4-35 17-66 43-94" fill="#D6A85A" stroke="#111827" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M344 124c55 76 71 165 45 267" fill="none" stroke="#111827" stroke-width="11" stroke-linecap="round"/>
+  <path d="M344 124c24 93 20 183-13 271" fill="none" stroke="#6B8F71" stroke-width="6" stroke-linecap="round"/>
+  <path d="M135 352h252" fill="none" stroke="#111827" stroke-width="8" stroke-linecap="round"/>
+  <path d="M388 352l-35-17 9 17-9 17Z" fill="#111827"/>
+  <path d="M134 352l28-13M134 352l28 13" fill="none" stroke="#111827" stroke-width="7" stroke-linecap="round"/>
+  <path d="M178 430c31 20 68 31 109 29 47-2 88-21 120-53" fill="none" stroke="#D6A85A" stroke-width="13" stroke-linecap="round"/>
+  <path d="M114 121c-23 28-41 61-51 97" fill="none" stroke="#6B8F71" stroke-width="12" stroke-linecap="round"/>
+</svg>

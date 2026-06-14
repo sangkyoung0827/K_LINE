@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, UserPlus, UsersRound } from "lucide-react";
+import { ClubMark } from "@/components/ClubMark";
 import { I18nText } from "@/components/LanguageProvider";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
@@ -54,8 +55,11 @@ export function EccMembershipCards() {
             className="paper-panel group grid min-h-44 content-between p-6 transition hover:border-brass hover:bg-white/70 hover:shadow-soft md:p-8"
           >
             <div className="flex gap-5">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
-                <Icon aria-hidden className="h-5 w-5" />
+              <div className="grid shrink-0 gap-3">
+                <div className="flex h-12 w-12 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
+                  <Icon aria-hidden className="h-5 w-5" />
+                </div>
+                <ClubMark id="ecc" size="sm" className="border-ink/10" />
               </div>
               <div>
                 <p className="text-sm font-semibold uppercase text-brass">

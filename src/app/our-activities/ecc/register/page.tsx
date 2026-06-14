@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { ClubMark } from "@/components/ClubMark";
 import { EccMemberRegistrationForm } from "@/components/EccMemberRegistrationForm";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -23,6 +24,7 @@ export default function EccMemberRegistrationPage() {
           <ArrowLeft aria-hidden className="h-4 w-4" />
           <I18nText en="Back to ECC Menu" ko="ECC 메뉴로 돌아가기" />
         </Link>
+        <ClubMark id="ecc" size="lg" className="mb-6 border-ink/10" />
         <SectionHeader
           eyebrow={<I18nText en="ECC membership" ko="ECC 회원" />}
           title={<I18nText en="New Member Registration" ko="신규 회원 등록" />}

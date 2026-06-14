@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, Banknote, ClipboardList, MessageSquareText } from "lucide-react";
+import { ClubMark } from "@/components/ClubMark";
 import { I18nText } from "@/components/LanguageProvider";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
@@ -64,8 +65,11 @@ export function EccToolGrid() {
             className="paper-panel group grid min-h-72 content-between p-6 transition hover:border-brass hover:bg-white/70 hover:shadow-soft md:p-8"
           >
             <div>
-              <div className="flex h-12 w-12 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
-                <Icon aria-hidden className="h-5 w-5" />
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex h-12 w-12 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
+                  <Icon aria-hidden className="h-5 w-5" />
+                </div>
+                <ClubMark id="ecc" size="sm" className="border-ink/10" />
               </div>
               <p className="mt-6 text-sm font-semibold uppercase text-brass">
                 <I18nText en={tool.eyebrow} ko={tool.eyebrow} />

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, UsersRound } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard } from "@/types";
 
@@ -11,9 +12,19 @@ type ActivityPreviewCardProps = {
 };
 
 const accentClass = {
-  gold: "bg-brass text-ink",
-  green: "bg-pine text-paper"
+  gold: "border-brass/60 bg-brass/15",
+  green: "border-pine/45 bg-pine/12"
 };
+
+const bannerClass = {
+  ecc: "bg-[#5547a3]",
+  hanhwal: "bg-navy"
+} as const;
+
+const glowClass = {
+  ecc: "bg-[#f45055]",
+  hanhwal: "bg-brass"
+} as const;
 
 export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps) {
   const { language } = useLanguage();
@@ -32,23 +43,30 @@ export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps)
       href={`/our-activities/${board.slug}`}
       className="paper-panel group grid overflow-hidden shadow-soft transition hover:-translate-y-1 hover:border-brass hover:bg-white/78 hover:shadow-lift"
     >
-      <div className="relative min-h-48 overflow-hidden bg-navy">
-        <div className="absolute inset-0 opacity-80">
-          <div className="absolute left-8 top-10 h-px w-48 origin-left -rotate-12 bg-paper/24" />
-          <div className="absolute right-8 top-8 h-px w-28 origin-left rotate-12 bg-paper/18" />
-          <div className="absolute bottom-8 left-8 h-1 w-48 origin-left -rotate-12 bg-brass" />
-          <div className="absolute bottom-14 left-14 h-1 w-32 origin-left -rotate-12 bg-pine" />
+      <div className={`relative min-h-56 overflow-hidden ${bannerClass[board.id]}`}>
+        <div className="absolute inset-0">
+          <div className={`absolute -right-20 -top-24 h-64 w-64 rounded-full ${glowClass[board.id]} opacity-90`} />
+          <div className="absolute -left-24 bottom-4 h-72 w-72 rounded-full border-[38px] border-paper/12" />
+          <div className="absolute left-8 top-12 h-px w-56 origin-left -rotate-12 bg-paper/24" />
+          <div className="absolute bottom-10 left-8 h-1 w-52 origin-left -rotate-12 bg-brass" />
+          <div className="absolute bottom-16 left-14 h-1 w-36 origin-left -rotate-12 bg-pine" />
         </div>
-        <div className="relative flex h-full min-h-48 items-end justify-between p-6 text-paper">
+        <ClubMark
+          id={board.id}
+          size="xl"
+          className="absolute right-6 top-6 border-4 border-white/70 shadow-lift transition duration-500 group-hover:scale-105"
+        />
+        {board.id === "hanhwal" ? (
+          <div className="absolute right-20 top-24 h-36 w-36 rounded-full border border-brass/45" />
+        ) : null}
+        <div className="relative flex h-full min-h-56 items-end justify-between p-6 text-paper">
           <div>
             <p className="text-sm font-semibold uppercase text-brass">{title}</p>
             <h3 className="mt-3 font-serif text-4xl font-semibold">
               {language === "ko" ? `${title} 전체` : `${title} Overview`}
             </h3>
           </div>
-          <span className={`flex h-12 w-12 items-center justify-center ${accentClass[accent]}`}>
-            <UsersRound aria-hidden className="h-5 w-5" />
-          </span>
+          <span className={`hidden h-12 w-12 rounded-full border md:block ${accentClass[accent]}`} />
         </div>
       </div>
       <div className="grid gap-4 p-6">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Lock } from "lucide-react";
 import { auth } from "@/auth";
+import { ClubMark } from "@/components/ClubMark";
 import { EccMemberManagementPanel } from "@/components/EccMemberManagementPanel";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -29,6 +30,7 @@ export default async function EccMemberManagementPage() {
           <ArrowLeft aria-hidden className="h-4 w-4" />
           <I18nText en="Back to ECC Menu" ko="ECC 메뉴로 돌아가기" />
         </Link>
+        <ClubMark id="ecc" size="lg" className="mb-6 border-ink/10" />
         <SectionHeader
           eyebrow={<I18nText en="ECC member management" ko="ECC 회원 관리" />}
           title={<I18nText en="Member Management" ko="회원 관리" />}

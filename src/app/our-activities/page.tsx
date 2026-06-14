@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ClubMark } from "@/components/ClubMark";
 import { CTAButton } from "@/components/CTAButton";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -11,6 +12,16 @@ import { createPublicMetadata } from "@/lib/seo";
 const clubDisplayTitles = {
   ecc: "ECC",
   hanhwal: "Hanhwal"
+} as const;
+
+const clubBannerClass = {
+  ecc: "bg-[#5547a3]",
+  hanhwal: "bg-navy"
+} as const;
+
+const clubGlowClass = {
+  ecc: "bg-[#f45055]",
+  hanhwal: "bg-brass"
 } as const;
 
 const latestClubRecords = [
@@ -88,14 +99,29 @@ export default function OurActivitiesPage() {
               <Link
                 key={board.id}
                 href={`/our-activities/${board.slug}`}
-                className="paper-panel grid min-h-56 content-between p-6 transition hover:border-brass hover:bg-white/65"
+                className="paper-panel group grid min-h-80 overflow-hidden transition hover:border-brass hover:bg-white/65 hover:shadow-lift"
               >
-                <div>
-                  <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
-                  <h2 className="mt-4 font-serif text-4xl font-semibold text-ink">
-                    {clubDisplayTitles[board.id]}
-                  </h2>
-                  <p className="mt-4 text-sm leading-7 text-ink/68">
+                <div className={`relative min-h-48 overflow-hidden ${clubBannerClass[board.id]}`}>
+                  <div className={`absolute -right-16 -top-20 h-56 w-56 rounded-full ${clubGlowClass[board.id]} opacity-90`} />
+                  <div className="absolute -left-24 bottom-4 h-64 w-64 rounded-full border-[34px] border-paper/12" />
+                  <div className="absolute bottom-10 left-8 h-1 w-56 origin-left -rotate-12 bg-brass" />
+                  <div className="absolute left-8 top-12 h-px w-56 origin-left -rotate-12 bg-paper/24" />
+                  <ClubMark
+                    id={board.id}
+                    size="xl"
+                    className="absolute right-6 top-6 border-4 border-white/70 shadow-lift transition duration-500 group-hover:scale-105"
+                  />
+                  <div className="relative flex min-h-48 items-end p-6 text-paper">
+                    <div>
+                      <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
+                      <h2 className="mt-3 font-serif text-4xl font-semibold">
+                        {clubDisplayTitles[board.id]}
+                      </h2>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid gap-4 p-6">
+                  <p className="text-sm leading-7 text-ink/68">
                     {board.id === "ecc" ? (
                       <I18nText
                         en="Open the full ECC space with board posts and activity applications."
@@ -108,14 +134,14 @@ export default function OurActivitiesPage() {
                       />
                     )}
                   </p>
+                  <span className="text-sm font-semibold text-ink underline underline-offset-4">
+                    {board.id === "ecc" ? (
+                      <I18nText en="Open ECC Overview" ko="ECC 전체 열기" />
+                    ) : (
+                      <I18nText en="Open Hanhwal Overview" ko="한활 전체 열기" />
+                    )}
+                  </span>
                 </div>
-                <span className="mt-8 text-sm font-semibold text-ink underline underline-offset-4">
-                  {board.id === "ecc" ? (
-                    <I18nText en="Open ECC Overview" ko="ECC 전체 열기" />
-                  ) : (
-                    <I18nText en="Open Hanhwal Overview" ko="한활 전체 열기" />
-                  )}
-                </span>
               </Link>
             ))}
           </div>
