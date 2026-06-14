@@ -31,6 +31,8 @@ export default function GoodsPage() {
           <img
             src="/images/goods-hero-clean.jpg"
             alt="Korean heritage lifestyle goods including a dancheong mug, calligraphy light object, najeonchilgi plate, fan, blanket, and keyrings"
+            width={780}
+            height={600}
             fetchPriority="high"
             decoding="async"
             className="h-full w-full object-cover object-center"
@@ -69,6 +71,9 @@ export default function GoodsPage() {
               <img
                 src="/images/goods-hero-clean.jpg"
                 alt="Korean heritage lifestyle goods"
+                width={780}
+                height={600}
+                loading="lazy"
                 decoding="async"
                 className="h-auto w-full"
               />

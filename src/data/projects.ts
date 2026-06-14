@@ -18,7 +18,7 @@ export const projects: ProjectItem[] = [
       alt: "London city view for the K_LINE London project"
     },
     detailImage: {
-      src: "/images/london-project-object.png",
+      src: "/images/london-project-object.jpg",
       alt: "Korean calligraphy LED object prepared for the K_LINE London project"
     },
     tags: ["London", "K-culture", "Student project", "Cultural exchange"],

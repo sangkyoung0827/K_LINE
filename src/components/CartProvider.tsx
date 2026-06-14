@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { goods } from "@/data/goods";
 import type { CartLine, GoodsItem } from "@/types";
 
 type CartContextValue = {
@@ -29,6 +30,18 @@ function toCartLine(item: GoodsItem, quantity: number): CartLine {
   };
 }
 
+function normalizeCartLines(lines: CartLine[]): CartLine[] {
+  return lines.map((line) => {
+    const latestItem = goods.find((item) => item.slug === line.slug);
+
+    if (!latestItem) {
+      return line;
+    }
+
+    return toCartLine(latestItem, Math.max(1, line.quantity));
+  });
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartLine[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -37,7 +50,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const stored = window.localStorage.getItem(CART_KEY);
     if (stored) {
       try {
-        setItems(JSON.parse(stored) as CartLine[]);
+        setItems(normalizeCartLines(JSON.parse(stored) as CartLine[]));
       } catch {
         setItems([]);
       }

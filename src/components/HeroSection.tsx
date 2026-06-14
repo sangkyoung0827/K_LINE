@@ -7,7 +7,7 @@ export function HeroSection() {
   return (
     <section className="relative isolate overflow-hidden bg-navy text-paper">
       <Image
-        src="/images/k-line-hero.png"
+        src="/images/k-line-hero.jpg"
         alt="K_LINE campus K-culture platform visual"
         fill
         priority

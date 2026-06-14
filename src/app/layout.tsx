@@ -22,9 +22,9 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     images: [
       {
-        url: "/images/k-line-hero.png",
-        width: 1792,
-        height: 1024,
+        url: "/images/k-line-hero.jpg",
+        width: 1600,
+        height: 840,
         alt: "K_LINE Korean cultural platform hero image"
       }
     ],
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteConfig.title,
     description: siteConfig.description,
-    images: ["/images/k-line-hero.png"]
+    images: ["/images/k-line-hero.jpg"]
   },
   alternates: {
     canonical: siteConfig.url

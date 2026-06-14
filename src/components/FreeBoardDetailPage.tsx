@@ -94,6 +94,8 @@ export function FreeBoardDetailPage({
               <img
                 src={post.imageDataUrl}
                 alt={`${post.title} uploaded photo`}
+                loading="lazy"
+                decoding="async"
                 className="max-h-[560px] w-full object-cover"
               />
             ) : null}

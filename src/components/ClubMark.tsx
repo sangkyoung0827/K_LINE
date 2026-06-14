@@ -33,7 +33,7 @@ export function ClubMark({ id, size = "md", className = "" }: ClubMarkProps) {
       className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/45 bg-white shadow-sm ${sizeClass[size]} ${className}`}
       aria-hidden="true"
     >
-      <img src={mark.src} alt="" className="h-full w-full object-cover" />
+      <img src={mark.src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
     </span>
   );
 }

@@ -170,6 +170,8 @@ export default function OurActivitiesPage() {
                   <img
                     src={record.image.src}
                     alt={record.image.alt}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover transition duration-500 hover:scale-105"
                   />
                 </Link>

@@ -47,9 +47,9 @@ export function absoluteUrl(path: string) {
 }
 
 const defaultOgImage = {
-  url: "/images/k-line-hero.png",
-  width: 1792,
-  height: 1024,
+  url: "/images/k-line-hero.jpg",
+  width: 1600,
+  height: 840,
   alt: "K_LINE campus K-culture platform"
 };
 

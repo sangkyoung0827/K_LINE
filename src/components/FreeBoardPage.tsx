@@ -218,6 +218,7 @@ export function FreeBoardPage({
                 <img
                   src={form.imageDataUrl}
                   alt="Selected upload preview"
+                  decoding="async"
                   className="h-48 w-full object-cover"
                 />
               </div>
@@ -260,6 +261,8 @@ export function FreeBoardPage({
                           <img
                             src={post.imageDataUrl}
                             alt={`${post.title} uploaded photo`}
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                           />
                         ) : (

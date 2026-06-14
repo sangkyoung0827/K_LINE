@@ -20,8 +20,8 @@ export const goods: GoodsItem[] = [
     category: "K-culture goods",
     images: [
       {
-        src: "/images/hanji-calligraphy-led-light-object.png",
-        alt: "Hanji Calligraphy LED Light Object with warm light and Korean calligraphy-inspired lines"
+        src: "/images/hanji-calligraphy-led-light-object.jpg",
+        alt: "Hanji Calligraphy LED Light Object with dancheong frame, warm light, and Korean calligraphy"
       }
     ],
     specifications: {
@@ -50,8 +50,8 @@ export const goods: GoodsItem[] = [
     category: "Korean traditional goods",
     images: [
       {
-        src: "/images/arrow-pen.png",
-        alt: "Arrow Pen inspired by Korean traditional archery on Hanji paper"
+        src: "/images/arrow-pen.jpg",
+        alt: "Arrow Pen heritage collectible package inspired by Korean traditional archery"
       }
     ],
     specifications: {
@@ -80,7 +80,7 @@ export const goods: GoodsItem[] = [
     category: "K-culture cultural object",
     images: [
       {
-        src: "/images/dangun-myth-mug-set.png",
+        src: "/images/dangun-myth-mug-set.jpg",
         alt: "Dangun Myth storytelling mug set with bear, tiger, Dangun, and heavenly realm ceramic mugs"
       }
     ],
@@ -110,7 +110,7 @@ export const goods: GoodsItem[] = [
     category: "Korean heritage goods",
     images: [
       {
-        src: "/images/dancheong-mug-set.png",
+        src: "/images/dancheong-mug-set.jpg",
         alt: "Dancheong heritage mug set with traditional Korean palace pattern designs"
       }
     ],
@@ -140,7 +140,7 @@ export const goods: GoodsItem[] = [
     category: "Korean craft goods",
     images: [
       {
-        src: "/images/najeonchilgi-plate.png",
+        src: "/images/najeonchilgi-plate.jpg",
         alt: "Najeonchilgi plate collection inspired by Korean mother-of-pearl lacquerware"
       }
     ],
@@ -170,7 +170,7 @@ export const goods: GoodsItem[] = [
     category: "Korean art goods",
     images: [
       {
-        src: "/images/kim-hongdo-blanket.png",
+        src: "/images/kim-hongdo-blanket.jpg",
         alt: "Kim Hongdo genre painting inspired Korean heritage blanket with soft woven texture"
       }
     ],

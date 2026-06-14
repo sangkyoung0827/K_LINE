@@ -273,6 +273,8 @@ export function EccMemberManagementPanel() {
               <img
                 src={inviteQrUrl}
                 alt="ECC team chat QR code"
+                loading="lazy"
+                decoding="async"
                 className="aspect-square w-full border border-ink/10 bg-white object-contain p-2"
               />
             ) : (

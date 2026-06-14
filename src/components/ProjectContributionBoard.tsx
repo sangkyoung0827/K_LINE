@@ -180,6 +180,8 @@ export function ProjectContributionBoard({ projectId }: { projectId: string }) {
               <img
                 src={contribution.imageDataUrl}
                 alt={`${contribution.title} uploaded project photo`}
+                loading="lazy"
+                decoding="async"
                 className="h-56 w-full object-cover"
               />
             ) : null}

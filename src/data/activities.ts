@@ -13,7 +13,7 @@ export const activities: ActivityPost[] = [
     content:
       "This activity note records a Han-hwal Korean archery experience for international students. The session focused on safety rules, posture, breath, concentration, and the cultural meaning of Korean traditional archery as body-mind training.",
     image: {
-      src: "/images/k-line-hero.png",
+      src: "/images/k-line-hero.jpg",
       alt: "Han-hwal Korean archery experience activity image"
     },
     tags: ["Han-hwal", "Korean traditional archery", "International students"]
@@ -30,7 +30,7 @@ export const activities: ActivityPost[] = [
     content:
       "This planning note outlines how K_LINE can connect Jeonbuk Hanji, Korean calligraphy, digital fabrication, warm LED lighting, and European cultural exchange through project documentation and public participation.",
     image: {
-      src: "/images/hanji-calligraphy-led-light-object.png",
+      src: "/images/hanji-calligraphy-led-light-object.jpg",
       alt: "Jeonbuk K-culture project planning note image"
     },
     tags: ["Jeonbuk K-culture", "Hanji", "Korean calligraphy"]
@@ -47,7 +47,7 @@ export const activities: ActivityPost[] = [
     content:
       "The Hanji LED Object prototype review focuses on paper texture, calligraphy rhythm, frame scale, warm lighting, and whether the object works as a desk lamp, cultural gift, and K-culture souvenir.",
     image: {
-      src: "/images/hanji-calligraphy-led-light-object.png",
+      src: "/images/hanji-calligraphy-led-light-object.jpg",
       alt: "Hanji LED object prototype review image"
     },
     tags: ["Hanji", "LED object", "Prototype"]
@@ -64,7 +64,7 @@ export const activities: ActivityPost[] = [
     content:
       "The Arrow Pen design development log records decisions around arrow-inspired silhouette, writing usability, transparent cap protection, packaging, and its role as a Korean traditional archery souvenir.",
     image: {
-      src: "/images/arrow-pen.png",
+      src: "/images/arrow-pen.jpg",
       alt: "Arrow Pen design development log image"
     },
     tags: ["Arrow Pen", "화살펜", "Goods"]
