@@ -8,9 +8,19 @@ import { createPublicMetadata } from "@/lib/seo";
 export const metadata: Metadata = createPublicMetadata({
   title: "Goods",
   description:
-    "Explore K_LINE K-culture goods connected to Hanji, Korean calligraphy, Korean traditional archery, Han-hwal, and campus culture.",
+    "Explore K_LINE K-culture goods and cultural objects connected to Hanji, Korean calligraphy, Dangun myth, dancheong, najeonchilgi, Kim Hongdo, Korean traditional archery, and campus culture.",
   path: "/goods",
-  keywords: ["K-culture goods", "Hanji", "Korean calligraphy", "Korean traditional goods"]
+  keywords: [
+    "K-culture goods",
+    "Korean cultural objects",
+    "Dangun myth mug set",
+    "Dancheong mug set",
+    "Najeonchilgi plate",
+    "Kim Hongdo blanket",
+    "Hanji",
+    "Korean calligraphy",
+    "Korean traditional goods"
+  ]
 });
 
 export default function GoodsPage() {
@@ -36,16 +46,16 @@ export default function GoodsPage() {
       <section className="bg-paper py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
-            eyebrow={<I18nText en="Initial goods" ko="초기 상품" />}
+            eyebrow={<I18nText en="Cultural objects" ko="문화 오브젝트" />}
             title={<I18nText en="Cultural objects with a Korean line" ko="한국의 선을 담은 문화 오브젝트" />}
             description={
               <I18nText
-                en="Each card includes a product image, description, price placeholder, details, and cart inquiry action."
-                ko="각 카드에는 상품 이미지, 설명, 가격 안내, 상세 보기, 장바구니 문의 기능이 포함됩니다."
+                en="Each card includes the product image, story, inquiry price placeholder, detail page, and cart inquiry action."
+                ko="각 카드에는 상품 이미지, 이야기, 가격 안내, 상세 보기, 장바구니 문의 기능이 포함됩니다."
               />
             }
           />
-          <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {goods.map((item) => (
               <GoodsCard key={item.id} item={item} />
             ))}

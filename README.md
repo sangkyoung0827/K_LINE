@@ -101,6 +101,10 @@ The old route redirects:
 - `/goods`
 - `/goods/hanji-calligraphy-led-light-object`
 - `/goods/arrow-pen`
+- `/goods/dangun-myth-mug-set`
+- `/goods/dancheong-mug-set`
+- `/goods/najeonchilgi-plate`
+- `/goods/kim-hongdo-blanket`
 - `/k-culture-project`
 - `/k-culture-project/submit`
 - `/k-culture-project/han-hwal`

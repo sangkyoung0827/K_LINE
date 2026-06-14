@@ -147,8 +147,8 @@ export default function HomePage() {
               title={<I18nText en="Cultural Objects" ko="문화 오브젝트" />}
               description={
                 <I18nText
-                  en="A refined preview of K_LINE goods connected to Hanji, Korean calligraphy, and Hanhwal."
-                  ko="한지, 서예, 한활과 연결된 K_LINE 상품을 간결하게 소개합니다."
+                  en="A refined preview of K_LINE goods connected to Hanji, Korean calligraphy, Dangun myth, dancheong, najeonchilgi, Kim Hongdo, and Hanhwal."
+                  ko="한지, 서예, 단군신화, 단청, 나전칠기, 김홍도, 한활과 연결된 K_LINE 상품을 소개합니다."
                 />
               }
             />
@@ -160,7 +160,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
-            {goods.slice(0, 2).map((item) => (
+            {goods.map((item) => (
               <GoodsPreviewCard key={item.id} item={item} />
             ))}
           </div>

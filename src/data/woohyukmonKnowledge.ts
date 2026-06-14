@@ -45,6 +45,38 @@ export const woohyukmonKnowledge = {
         description:
           "A functional pen inspired by Korean traditional archery. It has the visual form of an arrow while containing a usable pen inside. A transparent cap protects the pen tip.",
         dimensions: "approx. 22 cm length x 0.8 cm diameter"
+      },
+      {
+        name: "Dangun Myth Mug Set",
+        koreanName: "단군신화 머그세트",
+        href: "/goods/dangun-myth-mug-set",
+        description:
+          "A storytelling mug set inspired by the Dangun myth, with bear, tiger, Dangun, and heavenly realm motifs.",
+        dimensions: "4-piece mug set"
+      },
+      {
+        name: "Dancheong Mug Set",
+        koreanName: "단청 머그세트",
+        href: "/goods/dancheong-mug-set",
+        description:
+          "A mug collection inspired by Korean dancheong patterns, palace and temple colors, floral medallions, and refined gold details.",
+        dimensions: "3-design mug set concept"
+      },
+      {
+        name: "Najeonchilgi Plate",
+        koreanName: "나전칠기 접시",
+        href: "/goods/najeonchilgi-plate",
+        description:
+          "A decorative plate inspired by Korean mother-of-pearl lacquerware with crane, peony, cloud, and floral border motifs.",
+        dimensions: "decorative plate collection concept"
+      },
+      {
+        name: "Kim Hongdo Genre Painting Blanket",
+        koreanName: "역사 속 유명 화가 김홍도 담요",
+        href: "/goods/kim-hongdo-blanket",
+        description:
+          "A soft heritage blanket inspired by Kim Hongdo's genre painting atmosphere and traditional Korean daily-life scenes.",
+        dimensions: "approx. 130 cm x 160 cm"
       }
     ]
   },
