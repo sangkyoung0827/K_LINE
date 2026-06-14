@@ -26,20 +26,42 @@ export const metadata: Metadata = createPublicMetadata({
 export default function GoodsPage() {
   return (
     <>
-      <section className="bg-navy py-16 text-paper md:py-24">
-        <div className="mx-auto max-w-7xl px-5 md:px-8">
-          <p className="text-sm font-semibold uppercase text-brass">
-            <I18nText en="Goods" ko="상품" />
-          </p>
-          <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">
-            <I18nText en="K_LINE Goods" ko="K_LINE 상품" />
-          </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
-            <I18nText
-              en="Goods are presented as cultural products connected to Hanji, Korean calligraphy, Korean traditional archery, and Jeonbuk K-culture. This is inquiry-based commerce before real payment integration."
-              ko="상품은 한지, 서예, 국궁, 전북 K-컬처와 연결된 문화 상품으로 소개됩니다. 실제 결제 연동 전까지 문의 기반으로 운영됩니다."
-            />
-          </p>
+      <section className="relative isolate overflow-hidden bg-hanji text-ink">
+        <img
+          src="/images/goods-hero-reference.jpg"
+          alt="K_LINE goods banner with Korean heritage cultural objects"
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-hanji via-hanji/76 to-hanji/18" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-hanji to-transparent" />
+        <div className="relative mx-auto flex min-h-[460px] max-w-7xl items-center px-5 py-16 md:min-h-[560px] md:px-8">
+          <div className="max-w-xl">
+            <p className="text-sm font-semibold uppercase text-brass">
+              <I18nText en="K_LINE Goods" ko="K_LINE 상품" />
+            </p>
+            <h1 className="mt-4 font-serif text-5xl font-semibold leading-none text-ink md:text-7xl">
+              <I18nText en="Korean Heritage, Reimagined" ko="한국의 유산을 오늘의 물건으로" />
+            </h1>
+            <p className="mt-6 max-w-lg text-base leading-8 text-ink/72 md:text-lg">
+              <I18nText
+                en="Hanji, dancheong, najeonchilgi, traditional motifs, and modern lifestyle goods."
+                ko="한지, 단청, 나전칠기, 전통 문양을 오늘의 라이프스타일 굿즈로 소개합니다."
+              />
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-normal text-ink/64">
+              <span className="border border-brass/35 bg-white/45 px-3 py-2">
+                <I18nText en="Korean heritage" ko="한국 유산" />
+              </span>
+              <span className="border border-brass/35 bg-white/45 px-3 py-2">
+                <I18nText en="Crafted objects" ko="문화 오브젝트" />
+              </span>
+              <span className="border border-brass/35 bg-white/45 px-3 py-2">
+                <I18nText en="Made for everyday" ko="일상을 위한 굿즈" />
+              </span>
+            </div>
+          </div>
         </div>
       </section>
 
