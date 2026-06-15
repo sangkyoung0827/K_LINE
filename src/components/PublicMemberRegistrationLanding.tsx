@@ -46,8 +46,6 @@ export function PublicMemberRegistrationLanding({
             <div className="mt-8 flex flex-wrap gap-3">
               <a
                 href={openChatUrl}
-                target="_blank"
-                rel="noreferrer"
                 className="inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
               >
                 <ExternalLink aria-hidden className="h-4 w-4" />
