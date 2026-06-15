@@ -7,6 +7,7 @@ const publicRoutes = [
   "/k-culture-project",
   "/our-activities",
   "/our-activities/ecc",
+  "/our-activities/ecc/register",
   "/our-activities/hanhwal",
   "/contact"
 ];

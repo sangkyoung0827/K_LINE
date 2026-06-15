@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Copy, ExternalLink, MessageCircle, QrCode } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Copy, ExternalLink, FileSpreadsheet, MessageCircle, QrCode } from "lucide-react";
 import { CTAButton } from "@/components/CTAButton";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
@@ -217,6 +218,13 @@ export function EccMemberManagementPanel() {
               />
             </p>
           </div>
+          <Link
+            href="/admin/member-registrations"
+            className="inline-flex min-h-11 items-center gap-2 border border-navy/20 px-4 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
+          >
+            <FileSpreadsheet aria-hidden className="h-4 w-4" />
+            <I18nText en="Google Form Registration Manager" ko="구글폼 신규회원 등록 관리" />
+          </Link>
           <div className="grid min-w-40 gap-2 border border-ink/10 bg-white/45 p-4 text-sm">
             <span className="font-semibold text-ink">
               <I18nText en="Paid members" ko="납부 회원" />: {paidMembers.length}

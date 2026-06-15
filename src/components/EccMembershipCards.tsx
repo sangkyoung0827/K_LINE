@@ -12,9 +12,9 @@ const membershipCards = [
     title: "New Member Registration",
     titleKo: "신규 회원 등록",
     description:
-      "New ECC members can leave their name, KakaoTalk ID, and contact information here.",
+      "Potential ECC members first enter the KakaoTalk Open Chat room for the guide, fee information, and official form.",
     descriptionKo:
-      "신규 ECC 회원은 이곳에서 이름, 카카오톡 ID, 연락처 정보를 등록할 수 있습니다.",
+      "ECC 신규 회원은 먼저 카카오톡 오픈채팅방에 입장해 안내, 회비 정보, 정식 구글폼을 확인합니다.",
     href: "/our-activities/ecc/register",
     cta: "Register as Member",
     ctaKo: "신규 회원 등록하기",
