@@ -42,7 +42,13 @@ type NoticeForm = {
   memo: string;
 };
 
-type ApplicationType = "gathering" | "mt" | "special" | "opening" | "farewell";
+type ApplicationType =
+  | "gathering"
+  | "mt"
+  | "special"
+  | "opening"
+  | "farewell"
+  | "english-class";
 
 type ApplicationForm = {
   name: string;
@@ -161,6 +167,19 @@ const applicationTypes: Array<{
       en: {
         title: "Farewell Party Application",
         description: "Apply for the ECC farewell party"
+      }
+    }
+  },
+  {
+    type: "english-class",
+    labels: {
+      ko: {
+        title: "English Class 신청",
+        description: "ECC English Class 참여 신청"
+      },
+      en: {
+        title: "English Class Application",
+        description: "Apply for the ECC English Class"
       }
     }
   }
@@ -593,7 +612,8 @@ function emptyApplicationCounts(): ApplicationCounts {
     mt: 0,
     special: 0,
     opening: 0,
-    farewell: 0
+    farewell: 0,
+    "english-class": 0
   };
 }
 
@@ -605,7 +625,8 @@ function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): Applic
     mt: Number(counts?.mt ?? empty.mt),
     special: Number(counts?.special ?? empty.special),
     opening: Number(counts?.opening ?? empty.opening),
-    farewell: Number(counts?.farewell ?? empty.farewell)
+    farewell: Number(counts?.farewell ?? empty.farewell),
+    "english-class": Number(counts?.["english-class"] ?? empty["english-class"])
   };
 }
 
@@ -982,7 +1003,7 @@ export function EccActivityPanel() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {applicationTypes.map((item) => {
             const selected = activeApplicationType === item.type;
 
