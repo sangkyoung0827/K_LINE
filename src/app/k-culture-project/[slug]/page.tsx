@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CTAButton } from "@/components/CTAButton";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { ProjectCard } from "@/components/ProjectCard";
 import { ProjectContributionBoard } from "@/components/ProjectContributionBoard";
@@ -114,7 +113,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       </section>
 
       <section className="bg-paper py-14 md:py-20">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 md:grid-cols-[1fr_320px] md:px-8">
+        <div className="mx-auto max-w-7xl px-5 md:px-8">
           <div className="grid gap-8">
             <article className="paper-panel overflow-hidden">
               {project.detailImage ? (
@@ -131,30 +130,10 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               <div className="p-6 md:p-8">
                 <h2 className="font-serif text-4xl font-semibold text-ink">London Project Space</h2>
                 <p className="mt-6 text-base leading-8 text-ink/72">{project.fullDescription}</p>
-                <div className="mt-8">
-                  <CTAButton href="/contact">Contact or Inquiry</CTAButton>
-                </div>
               </div>
             </article>
             <ProjectContributionBoard projectId={project.id} />
           </div>
-          <aside className="paper-panel h-fit p-6">
-            <h2 className="font-serif text-2xl font-semibold text-ink">Project Info</h2>
-            <dl className="mt-5 grid gap-3 text-sm text-ink/68">
-              <div>
-                <dt className="font-semibold text-ink">Team / Author</dt>
-                <dd>{project.teamOrAuthor}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-ink">Location</dt>
-                <dd>{project.location}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-ink">Date</dt>
-                <dd>{project.date}</dd>
-              </div>
-            </dl>
-          </aside>
         </div>
       </section>
 
