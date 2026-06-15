@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { hasSuperAdminAccess } from "@/lib/admin";
+import { hasDeveloperAccess } from "@/lib/admin";
 import { getSiteAnalyticsDashboard } from "@/lib/siteAnalytics";
 import { SupabaseConfigError, SupabaseRequestError } from "@/lib/supabaseServer";
 
@@ -10,9 +10,9 @@ export async function GET() {
   const session = await auth();
   const email = session?.user?.email ?? "";
 
-  if (!(await hasSuperAdminAccess(email))) {
+  if (!(await hasDeveloperAccess(email))) {
     return NextResponse.json(
-      { error: "Super-admin access required.", debugCode: "SITE_ANALYTICS_FORBIDDEN" },
+      { error: "Developer access required.", debugCode: "SITE_ANALYTICS_FORBIDDEN" },
       { status: 403 }
     );
   }

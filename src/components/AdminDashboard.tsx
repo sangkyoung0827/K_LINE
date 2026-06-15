@@ -2,17 +2,13 @@
 
 import {
   Banknote,
-  BarChart3,
   CheckCircle2,
   CircleDollarSign,
   ClipboardList,
-  Eye,
-  Globe2,
   HeartHandshake,
   Package,
   ShieldCheck,
   Trash2,
-  UserCheck,
   Users
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -110,41 +106,6 @@ type ActivitySubmission = {
   status: string;
 };
 
-type SiteAnalyticsMember = {
-  id: string;
-  createdAt: string;
-  email: string;
-  firstLoginAt: string;
-  imageUrl: string;
-  lastLoginAt: string;
-  loginCount: number;
-  name: string;
-  provider: string;
-  role: string;
-  status: string;
-};
-
-type SiteAnalyticsVisit = {
-  id: string;
-  createdAt: string;
-  path: string;
-  referrer: string;
-  userEmail: string;
-  visitorId: string;
-};
-
-type SiteAnalytics = {
-  members: SiteAnalyticsMember[];
-  recentVisits: SiteAnalyticsVisit[];
-  summary: {
-    activeMembers: number;
-    todayVisits: number;
-    totalMembers: number;
-    totalVisits: number;
-    uniqueVisitors: number;
-  };
-};
-
 const memberInitialState = {
   name: "",
   email: "",
@@ -158,18 +119,6 @@ const defaultBankSnapshot: BankSnapshot = {
   totalDonationKrw: Number(process.env.NEXT_PUBLIC_DONATION_TOTAL_KRW ?? 0),
   displayBalanceKrw: Number(process.env.NEXT_PUBLIC_DONATION_BALANCE_KRW ?? 0),
   updatedAt: ""
-};
-
-const emptySiteAnalytics: SiteAnalytics = {
-  members: [],
-  recentVisits: [],
-  summary: {
-    activeMembers: 0,
-    todayVisits: 0,
-    totalMembers: 0,
-    totalVisits: 0,
-    uniqueVisitors: 0
-  }
 };
 
 function readJson<T>(key: string, fallback: T): T {
@@ -225,32 +174,7 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
   const [boardPosts, setBoardPosts] = useState<BoardPostRow[]>([]);
   const [projectSubmissions, setProjectSubmissions] = useState<ProjectSubmission[]>([]);
   const [activitySubmissions, setActivitySubmissions] = useState<ActivitySubmission[]>([]);
-  const [siteAnalytics, setSiteAnalytics] = useState<SiteAnalytics>(emptySiteAnalytics);
   const [submissionError, setSubmissionError] = useState("");
-  const [siteAnalyticsError, setSiteAnalyticsError] = useState("");
-
-  const loadSiteAnalytics = async () => {
-    try {
-      const response = await fetch("/api/admin/site-analytics");
-      const data = (await response.json()) as SiteAnalytics & { error?: string };
-
-      if (!response.ok) {
-        throw new Error(data.error || "Site analytics could not be loaded.");
-      }
-
-      setSiteAnalytics({
-        members: data.members ?? [],
-        recentVisits: data.recentVisits ?? [],
-        summary: data.summary ?? emptySiteAnalytics.summary
-      });
-      setSiteAnalyticsError("");
-    } catch (error) {
-      setSiteAnalytics(emptySiteAnalytics);
-      setSiteAnalyticsError(
-        error instanceof Error ? error.message : "Site analytics could not be loaded."
-      );
-    }
-  };
 
   const loadSupabaseSubmissions = async () => {
     try {
@@ -303,7 +227,6 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
       )
     );
     void loadSupabaseSubmissions();
-    void loadSiteAnalytics();
   };
 
   useEffect(() => {
@@ -445,25 +368,7 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
       </section>
 
       <section className="bg-paper py-10 md:py-14">
-        <div className="mx-auto grid max-w-7xl gap-5 px-5 md:grid-cols-2 md:px-8 lg:grid-cols-6">
-          <MetricCard
-            icon={<UserCheck aria-hidden className="h-5 w-5" />}
-            label="Google members"
-            value={`${siteAnalytics.summary.totalMembers}`}
-            note={`${siteAnalytics.summary.activeMembers} active`}
-          />
-          <MetricCard
-            icon={<Globe2 aria-hidden className="h-5 w-5" />}
-            label="Unique visitors"
-            value={`${siteAnalytics.summary.uniqueVisitors}`}
-            note={`${siteAnalytics.summary.todayVisits} visits today`}
-          />
-          <MetricCard
-            icon={<Eye aria-hidden className="h-5 w-5" />}
-            label="Page visits"
-            value={`${siteAnalytics.summary.totalVisits}`}
-            note="Public page tracking"
-          />
+        <div className="mx-auto grid max-w-7xl gap-5 px-5 md:grid-cols-2 md:px-8 lg:grid-cols-3">
           <MetricCard
             icon={<ClipboardList aria-hidden className="h-5 w-5" />}
             label="Board posts"
@@ -505,57 +410,6 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
 
       <section className="bg-white/55 py-12 md:py-16">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 md:px-8 xl:grid-cols-[1fr_1fr]">
-          <AdminPanel
-            title="Google Login Members"
-            icon={<BarChart3 aria-hidden className="h-5 w-5" />}
-          >
-            {siteAnalyticsError ? (
-              <p className="mb-4 text-sm font-semibold text-red-700">{siteAnalyticsError}</p>
-            ) : null}
-            {siteAnalytics.members.length > 0 ? (
-              <div className="grid gap-3">
-                {siteAnalytics.members.map((member) => (
-                  <div key={member.id} className="border border-ink/10 bg-white/60 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-ink">{member.name || "No name"}</p>
-                        <p className="mt-1 text-sm text-ink/62">{member.email}</p>
-                        <p className="mt-1 text-xs font-semibold uppercase text-brass">
-                          {member.provider || "google"} / {member.status} / {member.loginCount} logins
-                        </p>
-                      </div>
-                      <span className="text-xs font-semibold text-ink/46">
-                        Last login {formatDate(member.lastLoginAt)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm leading-7 text-ink/62">
-                No Google login members are stored yet. They will appear here after signing in.
-              </p>
-            )}
-
-            <div className="mt-6 border-t border-ink/10 pt-5">
-              <p className="mb-3 text-sm font-semibold uppercase text-brass">Recent visits</p>
-              {siteAnalytics.recentVisits.length > 0 ? (
-                <div className="grid gap-2">
-                  {siteAnalytics.recentVisits.slice(0, 8).map((visit) => (
-                    <div key={visit.id} className="border border-ink/10 bg-white/45 p-3 text-sm">
-                      <p className="font-semibold text-ink">{visit.path || "/"}</p>
-                      <p className="mt-1 text-xs text-ink/52">
-                        {visit.userEmail || "anonymous"} / {formatDate(visit.createdAt)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm leading-7 text-ink/62">No visits are tracked yet.</p>
-              )}
-            </div>
-          </AdminPanel>
-
           <AdminPanel title="Member Management" icon={<Users aria-hidden className="h-5 w-5" />}>
             <form onSubmit={addMember} className="grid gap-3 md:grid-cols-[1fr_1fr_0.8fr_auto]">
               <input

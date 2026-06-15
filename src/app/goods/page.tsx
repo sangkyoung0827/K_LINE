@@ -246,17 +246,7 @@ export default function GoodsPage() {
 
       <section className="bg-paper py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
-          <SectionHeader
-            eyebrow={<I18nText en="Cultural objects" ko="문화 오브젝트" />}
-            title={<I18nText en="Cultural objects with a Korean line" ko="한국의 선을 담은 문화 오브젝트" />}
-            description={
-              <I18nText
-                en="Each card includes the product image, story, inquiry price placeholder, detail page, and cart inquiry action."
-                ko="각 카드에는 상품 이미지, 이야기, 가격 안내, 상세 보기, 장바구니 문의 기능이 포함됩니다."
-              />
-            }
-          />
-          <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {goods.map((item) => (
               <GoodsCard key={item.id} item={item} />
             ))}

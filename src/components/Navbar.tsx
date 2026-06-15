@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Menu, ShoppingBag, X } from "lucide-react";
+import { ChevronDown, Code2, Menu, ShoppingBag, X } from "lucide-react";
 import { useState } from "react";
 import { activityBoards } from "@/data/activityBoards";
 import { navigation } from "@/data/navigation";
@@ -11,6 +11,7 @@ import { ClubMark } from "@/components/ClubMark";
 import { useCart } from "@/components/CartProvider";
 import { LanguageSwitcher, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
 const navigationLabels = {
   "/": { en: "Home", ko: "홈" },
@@ -30,6 +31,7 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const { totalQuantity } = useCart();
   const { language, pick } = useLanguage();
+  const { isDeveloper } = useSuperAdmin();
 
   return (
     <header className="sticky top-0 z-50 border-b border-navy/10 bg-paper/94 backdrop-blur">
@@ -91,6 +93,17 @@ export function Navbar() {
               </Link>
             );
           })}
+          {isDeveloper ? (
+            <Link
+              href="/developer"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition ${
+                pathname.startsWith("/developer") ? "text-ink" : "text-brass hover:text-ink"
+              }`}
+            >
+              <Code2 aria-hidden className="h-4 w-4" />
+              {language === "ko" ? "개발자 전용" : "Developer"}
+            </Link>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2">
@@ -153,6 +166,16 @@ export function Navbar() {
                 </div>
               );
             })}
+            {isDeveloper ? (
+              <Link
+                href="/developer"
+                onClick={() => setOpen(false)}
+                className="inline-flex items-center gap-2 border-b border-navy/8 py-3 text-sm font-semibold text-brass"
+              >
+                <Code2 aria-hidden className="h-4 w-4" />
+                {language === "ko" ? "개발자 전용" : "Developer"}
+              </Link>
+            ) : null}
           </div>
         </div>
       ) : null}
