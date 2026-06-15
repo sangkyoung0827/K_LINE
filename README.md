@@ -34,7 +34,7 @@ Default production URL target: `https://kline-nine-wheat.vercel.app`
 - Custom K_LINE logo, favicon, and campus K-culture dashboard UI
 - Local goods, project, and international club data
 - localStorage cart and inquiry checkout flows
-- Supabase-backed K-Culture Project submissions, Our Activities post submissions, ECC applications, and ECC member registration
+- Supabase-backed K-Culture Project submissions, Our Activities post submissions, ECC applications, ECC member registration, Google login members, and visitor analytics
 - Role-aware super-admin prototype inside the same public site pages for local post deletion, donation account editing, donation total display, and account balance display
 - Inquiry-based commerce first
 - No real payment, image upload, bank API, KakaoTalk auto-send API, or shared server-side admin moderation yet
@@ -273,6 +273,18 @@ then redeploy the project. The login page exists at:
 /login
 ```
 
+When Supabase is configured, every successful Google login is saved or updated
+in `public.site_members`. The admin console can then show total Google-login
+members, active members, each member's email/name/provider, first login, last
+login, and login count. The login callback never exposes `SUPABASE_SERVICE_ROLE_KEY`
+to client code.
+
+Visitor analytics are recorded by a small client tracker that posts an anonymous
+visitor id, page path, and referrer to a server-side API. The server stores this
+in `public.site_visitors` and `public.site_visits`. Admin pages are not tracked.
+The super-admin console shows unique visitors, total page visits, today's visits,
+and recent visits.
+
 ## Woohyukmon AI Assistant
 
 Woohyukmon / 우혁몬 is the site-wide K_LINE AI guide. In Phase 1 it appears as a
@@ -424,9 +436,10 @@ button and generated QR code use this value.
 
 K-Culture Project submissions, Our Activities post submissions, and ECC activity
 applications are stored server-side in Supabase so data is shared across accounts,
-browsers, and devices. ECC member management, membership-fee confirmation, and
-official Google Form campaign applicant status are also stored server-side in
-Supabase. Do not expose the service role key in client code.
+browsers, and devices. ECC member management, membership-fee confirmation,
+official Google Form campaign applicant status, Google login members, and visitor
+analytics are also stored server-side in Supabase. Do not expose the service role
+key in client code.
 
 The current Supabase-backed tables are:
 
@@ -436,6 +449,9 @@ The current Supabase-backed tables are:
 - `public.ecc_members`
 - `public.member_registration_campaigns`
 - `public.member_registration_applicant_statuses`
+- `public.site_members`
+- `public.site_visitors`
+- `public.site_visits`
 
 Create this table in the Supabase SQL editor. The same SQL is saved at
 `supabase/ecc_activity_applications.sql`.
@@ -496,6 +512,19 @@ The campaign manager stores the official Google Form URL for people who have
 already paid the membership fee. Public campaign links and generated QR codes
 guide potential members to ECC Open Chat first; private Google Form responses or
 applicant status lists are visible only to super-admin accounts.
+
+Create the Google login member and visitor analytics tables before relying on
+admin member counts or visitor counts. The SQL is saved at
+`supabase/site_members_and_visits.sql`.
+
+These tables support:
+
+- automatic Google-login member registration
+- total member count and active member count
+- first login, last login, and login count
+- anonymous unique visitor count
+- total page visit count and today's visit count
+- recent public-page visit list for the super-admin console
 
 Important: KakaoTalk automatic sending is not connected yet. The current member
 management page prepares the invite message, team chat URL, QR code, and sent
@@ -569,7 +598,8 @@ The following are intentionally placeholder flows:
 - email sending
 - database persistence for remaining local-only flows
 - approval/rejection workflow for Supabase-backed submitted projects and activity posts
-- member profile database after Google authentication
+- editable member profiles beyond the automatic Google-login member table
+- advanced analytics dashboard beyond member counts and basic visitor counts
 - broader ECC activity/member database beyond the Supabase member registration and activity application tables
 - KakaoTalk API or bot integration for real automatic notice sending
 - server-side admin moderation
