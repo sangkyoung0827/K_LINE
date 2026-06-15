@@ -1,5 +1,12 @@
 # K_LINE
 
+K_LINE Production Site:
+https://kline-nine-wheat.vercel.app
+
+K_LINE is a campus-based K-culture platform for Korean heritage goods, cultural projects, ECC, Han-hwal, and international student activities.
+
+K_LINE Goods introduces Korean heritage-inspired lifestyle goods such as Hanji mood lamps, Dancheong mugs, Najeonchilgi plates, Korean native dog keyrings, Hanji fans, Arrow Pen, and other K-culture gift concepts.
+
 K_LINE is a standalone Korean cultural dashboard platform for:
 
 1. Goods / 상품
