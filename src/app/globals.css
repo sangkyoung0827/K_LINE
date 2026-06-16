@@ -68,3 +68,25 @@ select {
   border-color: #D6A85A;
   box-shadow: 0 0 0 3px rgba(214, 168, 90, 0.22);
 }
+
+@keyframes feedback-drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-0.4deg);
+  }
+  50% {
+    transform: translate3d(10px, -12px, 0) rotate(0.5deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-0.4deg);
+  }
+}
+
+.feedback-float {
+  animation: feedback-drift 7.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feedback-float {
+    animation: none;
+  }
+}
