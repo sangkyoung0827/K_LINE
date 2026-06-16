@@ -4,7 +4,7 @@
 
 :root {
   color-scheme: light;
-  --font-sans: "Inter", "Noto Sans KR", system-ui, sans-serif;
+  --font-sans: "Helvetica Neue", Helvetica, Arial, "Noto Sans KR", system-ui, sans-serif;
   --font-serif: "Georgia", "Noto Serif KR", serif;
 }
 
@@ -85,8 +85,25 @@ select {
   animation: feedback-drift 7.5s ease-in-out infinite;
 }
 
+@keyframes hanji-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1.04);
+  }
+}
+
+.hanji-object-glow {
+  animation: hanji-pulse 5.5s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .feedback-float {
+  .feedback-float,
+  .hanji-object-glow {
     animation: none;
   }
 }

@@ -4,24 +4,24 @@ export const projects: ProjectItem[] = [
   {
     id: "project-london",
     slug: "london",
-    title: "London",
-    englishTitle: "London",
+    title: "From Word to Light",
+    englishTitle: "From Word to Light",
     teamOrAuthor: "K_LINE project team",
-    category: "International Project",
+    category: "Online Exhibition",
     location: "London, United Kingdom",
     shortDescription:
-      "A student-led international project connecting Korean cultural objects, London, and campus communities.",
+      "A hands-on K-Culture exhibition where Hangul, Jeonju Hanji, 3D printing, and light become one personal object.",
     fullDescription:
-      "London is a K_LINE international project space where students can upload project notes, field records, photos, and ideas connected to Korean cultural objects, London, and global exchange. The project starts from a Korean calligraphy LED object and grows through student contributions.",
+      "Participants choose a Korean word, use a detachable 3D printed Hangul guide plate, trace or press the word onto Jeonju Hanji, and place the Hanji inside a 3D printed frame to create a personal Hanji light object.",
     image: {
-      src: "/images/london-dashboard.jpg",
-      alt: "London city view for the K_LINE London project"
+      src: "/images/london-project-object.jpg",
+      alt: "Hanji light object prototype for the From Word to Light exhibition"
     },
     detailImage: {
       src: "/images/london-project-object.jpg",
       alt: "Korean calligraphy LED object prepared for the K_LINE London project"
     },
-    tags: ["London", "K-culture", "Student project", "Cultural exchange"],
+    tags: ["Hanji", "Hangul", "3D printing", "K-Culture workshop", "Light object"],
     date: "2026-06-14"
   }
 ];

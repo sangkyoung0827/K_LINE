@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageCircle, Send } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
@@ -8,6 +9,8 @@ type HomeComment = {
   id: string;
   text: string;
   createdAt: string;
+  profileImage?: string;
+  profileName?: string;
 };
 
 const storageKey = "k_line_home_feedback_comments";
@@ -16,16 +19,19 @@ const starterComments: HomeComment[] = [
   {
     id: "starter-1",
     text: "London project 과정이 더 궁금해요.",
+    profileName: "Min",
     createdAt: "2026-06-16T00:00:00.000Z"
   },
   {
     id: "starter-2",
     text: "ECC 활동 신청이 한눈에 보여서 좋아요.",
+    profileName: "Sora",
     createdAt: "2026-06-16T00:01:00.000Z"
   },
   {
     id: "starter-3",
     text: "상품 사진이 실제 프로젝트처럼 보여요.",
+    profileName: "Alex",
     createdAt: "2026-06-16T00:02:00.000Z"
   }
 ];
@@ -45,6 +51,7 @@ function writeComments(comments: HomeComment[]) {
 
 export function HomeFeedbackCloud() {
   const { language } = useLanguage();
+  const { data: session } = useSession();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [text, setText] = useState("");
   const [comments, setComments] = useState<HomeComment[]>([]);
@@ -77,6 +84,8 @@ export function HomeFeedbackCloud() {
     const nextComment: HomeComment = {
       id: `home-comment-${Date.now()}`,
       text: trimmed,
+      profileImage: session?.user?.image ?? "",
+      profileName: session?.user?.name ?? session?.user?.email ?? "Visitor",
       createdAt: new Date().toISOString()
     };
     const nextComments = [nextComment, ...comments].slice(0, 18);
@@ -158,19 +167,43 @@ function FloatingComment({
 
   return (
     <div
-      className={`feedback-float absolute ${positions[index % positions.length]} rounded-none border border-paper/20 bg-white/82 px-3 py-2 text-xs leading-5 text-ink shadow-soft`}
+      className={`feedback-float absolute ${positions[index % positions.length]} rounded-full border border-paper/20 bg-white/85 px-2.5 py-2 text-xs leading-5 text-ink shadow-soft`}
       style={{ animationDelay: delays[index % delays.length] }}
     >
-      <div className="flex items-start gap-2">
-        <MessageCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brass" />
+      <div className="flex items-start gap-2.5">
+        <ProfileBubble name={comment.profileName} image={comment.profileImage} />
         <div>
           <p className="whitespace-pre-wrap break-keep">{comment.text}</p>
-          <p className="mt-1 text-[10px] font-semibold uppercase text-ink/42">
-            {language === "ko" ? "방문자 메모" : "Visitor note"}
+          <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase text-ink/42">
+            <MessageCircle aria-hidden className="h-3 w-3 text-brass" />
+            {comment.profileName || (language === "ko" ? "방문자" : "Visitor")}
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+function ProfileBubble({ image, name }: { image?: string; name?: string }) {
+  const initial = (name ?? "V").trim().charAt(0).toUpperCase() || "V";
+
+  if (image) {
+    return (
+      <img
+        src={image}
+        alt={`${name ?? "Visitor"} profile`}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className="h-8 w-8 shrink-0 rounded-full border border-brass/35 bg-hanji object-cover"
+      />
+    );
+  }
+
+  return (
+    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-brass/35 bg-navy text-[11px] font-semibold text-paper">
+      {initial}
+    </span>
   );
 }
 
