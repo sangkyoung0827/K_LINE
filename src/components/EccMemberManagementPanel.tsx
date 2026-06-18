@@ -212,7 +212,7 @@ export function EccMemberManagementPanel() {
               <I18nText en="Create ECC Team Chat Invitation" ko="ECC 팀채팅 초대 만들기" />
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/68">
-              <I18nText
+            <I18nText
                 en="Check the membership fee box, save, then paid members become team chat invite targets. KakaoTalk auto-send requires a future Kakao API connection; until then, copy the prepared invitation message or use the QR/link."
                 ko="회비 납부 체크 후 저장하면 납부 회원이 팀채팅 초대 대상이 됩니다. 카카오톡 자동 발송은 향후 Kakao API 연결이 필요하므로, 현재는 생성된 초대문/링크/QR을 복사해 사용할 수 있습니다."
               />
@@ -223,7 +223,7 @@ export function EccMemberManagementPanel() {
             className="inline-flex min-h-11 items-center gap-2 border border-navy/20 px-4 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
           >
             <FileSpreadsheet aria-hidden className="h-4 w-4" />
-            <I18nText en="Google Form Registration Manager" ko="구글폼 신규회원 등록 관리" />
+            <I18nText en="Legacy Campaign Manager" ko="기존 캠페인 관리" />
           </Link>
           <div className="grid min-w-40 gap-2 border border-ink/10 bg-white/45 p-4 text-sm">
             <span className="font-semibold text-ink">

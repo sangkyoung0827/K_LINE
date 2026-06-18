@@ -56,8 +56,8 @@ export default async function EccOfficialPage() {
           }
           description={
             <I18nText
-              en="Please complete the official registration form and membership fee payment. After an officer confirms payment, ECC OFFICIAL will open for this account."
-              ko="정식회원 등록 구글폼과 회비 납부를 완료해 주세요. 운영진이 납부를 확인하면 이 계정에서 ECC OFFICIAL이 열립니다."
+              en="Please submit the K_LINE new member registration form and complete the membership fee payment. After an officer confirms payment, ECC OFFICIAL will open for this account."
+              ko="K_LINE 신규회원 등록폼 제출과 회비 납부를 완료해 주세요. 운영진이 납부를 확인하면 이 계정에서 ECC OFFICIAL이 열립니다."
             />
           }
           href="/our-activities/ecc/register"

@@ -10,7 +10,6 @@ export default function robots(): MetadataRoute.Robots {
           "/",
           "/our-activities",
           "/our-activities/ecc",
-          "/our-activities/ecc/register",
           "/our-activities/hanhwal",
           "/contact"
         ],
@@ -25,8 +24,11 @@ export default function robots(): MetadataRoute.Robots {
           "/cart",
           "/checkout",
           "/donate",
+          "/ecc-join",
+          "/ecc-official",
           "/k-culture-project/submit",
           "/our-activities/write",
+          "/our-activities/ecc/register",
           "/our-activities/ecc/activity",
           "/our-activities/ecc/fund",
           "/our-activities/ecc/members"

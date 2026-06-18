@@ -70,14 +70,16 @@ Above those ECC tools, the ECC menu also shows:
 - New member registration: `/our-activities/ecc/register`
 - Member management: `/our-activities/ecc/members`
 
-New member registration is visible to everyone. Member management is visible
-only to super-admin or developer-level accounts.
+New member registration is visible to non-official users, but the K_LINE
+registration form requires Google login. Member management is visible only to
+admin, super-admin, or developer-level accounts.
 
-ECC new member registration now starts with KakaoTalk Open Chat instead of a
-public personal-information form:
+ECC new member registration starts with KakaoTalk Open Chat and then continues
+inside K_LINE instead of using a public Google Form as the first registration
+step:
 
 ```text
-QR / Link -> ECC Open Chat -> Bot guide -> Membership fee payment -> Official Google Form -> Officer confirmation
+QR / Link -> ECC Open Chat -> Bot guide -> Google login -> K_LINE registration form -> Membership fee payment -> Officer confirmation -> ECC OFFICIAL
 ```
 
 Default ECC Open Chat URL:
@@ -92,9 +94,11 @@ To change the Open Chat link and the generated QR code, set:
 NEXT_PUBLIC_ECC_OPEN_CHAT_URL=https://open.kakao.com/o/your-new-room
 ```
 
-The public page `/our-activities/ecc/register` guides potential members to the
-Open Chat room first. The official Google Form is only for people who decide to
-become official members and pay the membership fee.
+The private noindex page `/our-activities/ecc/register` guides potential
+members to the Open Chat room first, then stores the K_LINE internal registration
+form against the user's Google account. Officers confirm payment from member
+management; approved accounts can access `/ecc-official` and its protected
+official team chat link/QR.
 
 The ECC activity page supports a Korean/English language selector. In English
 mode, English Excel headers such as `Name`, `Affiliation`, `Gathering`, `MT`,
@@ -108,11 +112,11 @@ other requests. Applicant counts are stored cumulatively in Supabase, and
 applicant lists are visible only to the super admin.
 
 ECC and Hanhwal free-board posts, generated teams, and KakaoTalk-ready notice
-drafts are saved in browser localStorage for this prototype. ECC member
-management, membership-fee confirmation, and official Google Form campaign
-response status are stored in Supabase through server-side API routes. Connect
-real image storage and moderation before treating free-board uploads as shared
-public data.
+drafts are saved in browser localStorage for this prototype. K_LINE internal ECC
+new member registrations, role approvals, member management, membership-fee
+confirmation, and legacy campaign response status are stored in Supabase through
+server-side API routes. Connect real image storage and moderation before treating
+free-board uploads as shared public data.
 
 Han-hwal is no longer a top-level menu item. It has moved under:
 
@@ -406,6 +410,8 @@ Protected ECC routes:
 
 - `/ecc-official`: official member lounge with the protected team chat link and QR
 - `/api/ecc/official-team-qr`: returns the uploaded QR image only to official members or higher
+- `/api/ecc/member-registration`: logged-in user's private K_LINE ECC registration form status and submit endpoint
+- `/api/ecc/member-registrations`: admin-only K_LINE ECC registration approval endpoint
 - `/our-activities/ecc/free-board`: official member or higher
 - `/our-activities/ecc/activity`: official member or higher; admin tools only for admin or higher
 - `/our-activities/ecc/members`: admin or higher
@@ -424,6 +430,8 @@ Role-management behavior:
 Current role-aware super-admin controls:
 
 - `/our-activities/ecc`: open the ECC menu for free board, activity, and fund management
+- `/our-activities/ecc/register`: non-official users submit K_LINE internal ECC new member registration after Google login
+- `/our-activities/ecc/members`: approve K_LINE internal ECC new member registrations and grant official member access after payment confirmation
 - `/our-activities/ecc/members`: confirm ECC membership-fee payment, prepare team chat links, show QR codes, and track invitation status
 - `/our-activities/ecc/activity`: paste ECC member status, view activity records, generate teams, and generate KakaoTalk-ready notices
 - `/admin`: fetch pending K-Culture Project submissions from Supabase
@@ -530,9 +538,8 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 Create the ECC member table in the Supabase SQL editor before using
-`/our-activities/ecc/members`. The public `/our-activities/ecc/register` page
-now guides users to KakaoTalk Open Chat first and does not expose a public
-applicant list. The SQL is saved at `supabase/ecc_members.sql`.
+`/our-activities/ecc/members`. The legacy SQL is saved at
+`supabase/ecc_members.sql`.
 
 ```sql
 create table if not exists public.ecc_members (
@@ -553,6 +560,54 @@ create table if not exists public.ecc_members (
 );
 
 alter table public.ecc_members enable row level security;
+```
+
+Create the internal ECC new member registration table before using the current
+K_LINE registration flow. The SQL is saved at
+`supabase/ecc_member_registrations.sql`.
+
+This table stores each Google-login user's ECC form submission, payment
+confirmation status, official member approval status, and admin notes. Normal
+users can submit and read only their own status through the server API; admin
+accounts can list and approve registrations through member management.
+
+```sql
+create table if not exists public.ecc_member_registrations (
+  id uuid primary key default gen_random_uuid(),
+  site_member_id uuid references public.site_members(id) on delete set null,
+  google_email text not null,
+  google_name text default '',
+  google_avatar_url text default '',
+  full_name text not null,
+  student_id text not null,
+  department_or_major text not null,
+  nationality text not null,
+  gender text not null,
+  kakao_display_name text not null,
+  kakao_id text not null,
+  payment_confirmed boolean not null default false,
+  payment_confirmed_by text default '',
+  payment_confirmed_at timestamptz,
+  official_member boolean not null default false,
+  official_member_approved_by text default '',
+  official_member_approved_at timestamptz,
+  status text not null default 'payment_pending'
+    check (status in ('submitted', 'payment_pending', 'approved', 'rejected')),
+  admin_note text default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists ecc_member_registrations_google_email_key
+  on public.ecc_member_registrations (lower(google_email));
+
+alter table public.ecc_member_registrations enable row level security;
+
+create policy "Service role manages ECC member registrations"
+  on public.ecc_member_registrations
+  for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
 ```
 
 Create the Google Form campaign management tables before using
@@ -619,7 +674,6 @@ The sitemap intentionally includes only the main public discovery pages:
 - `/k-culture-project`
 - `/our-activities`
 - `/our-activities/ecc`
-- `/our-activities/ecc/register`
 - `/our-activities/hanhwal`
 - `/contact`
 
@@ -633,11 +687,15 @@ The following routes are intentionally blocked or marked noindex where applicabl
 - `/cart`
 - `/checkout`
 - `/donate`
+- `/ecc-join`
+- `/ecc-official`
 - `/k-culture-project/submit`
 - `/our-activities/write`
+- `/our-activities/ecc/register`
 - `/our-activities/ecc/activity`
 - `/our-activities/ecc/fund`
 - `/our-activities/ecc/members`
+- `/admin/ecc-members`
 
 ## Placeholder / Future Integration Checklist
 

@@ -245,3 +245,84 @@ export async function ensureEccRoleRow(input: {
 
   return rows[0] ?? null;
 }
+
+export async function patchEccRole(email: string, body: Record<string, unknown>) {
+  const existing = await ensureEccRoleRow({ email });
+
+  if (!existing) {
+    throw new Error("ECC role row could not be created.");
+  }
+
+  const rows = await supabaseRequest<EccRoleRow[]>(
+    `${eccRolesTable}?id=eq.${encodeURIComponent(existing.id)}&select=${eccRoleColumns}`,
+    {
+      method: "PATCH",
+      headers: {
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({
+        ...body,
+        updated_at: new Date().toISOString()
+      })
+    }
+  );
+
+  return rows[0] ?? existing;
+}
+
+export async function approveEccOfficialMember(input: {
+  approvedBy: string;
+  avatarUrl?: string;
+  email: string;
+  name?: string;
+}) {
+  const now = new Date().toISOString();
+  const currentAccess = await getEccAccessForEmail(input.email);
+  const nextRole =
+    currentAccess.role === "user" || currentAccess.role === "official_member"
+      ? "official_member"
+      : currentAccess.role;
+
+  await ensureEccRoleRow({
+    avatarUrl: input.avatarUrl,
+    email: input.email,
+    name: input.name
+  });
+
+  return patchEccRole(input.email, {
+    avatar_url: input.avatarUrl || "",
+    is_official_member: true,
+    name: input.name || "",
+    official_member_status: "approved",
+    payment_confirmed: true,
+    payment_confirmed_at: now,
+    payment_confirmed_by: input.approvedBy,
+    role: nextRole
+  });
+}
+
+export async function revokeEccOfficialMember(input: {
+  revokedBy: string;
+  email: string;
+  keepAdminRole?: boolean;
+}) {
+  const currentAccess = await getEccAccessForEmail(input.email);
+
+  if (input.keepAdminRole || currentAccess.isAdmin) {
+    return patchEccRole(input.email, {
+      is_official_member: false,
+      official_member_status: "rejected",
+      payment_confirmed: false,
+      payment_confirmed_by: input.revokedBy
+    });
+  }
+
+  return patchEccRole(input.email, {
+    admin_status: "none",
+    is_official_member: false,
+    official_member_status: "rejected",
+    payment_confirmed: false,
+    payment_confirmed_by: input.revokedBy,
+    role: "user"
+  });
+}

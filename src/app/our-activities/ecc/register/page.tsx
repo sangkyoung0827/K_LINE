@@ -7,23 +7,13 @@ import { EccMemberRegistrationForm } from "@/components/EccMemberRegistrationFor
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
-import { createPublicMetadata } from "@/lib/seo";
+import { createNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = createPublicMetadata({
+export const metadata: Metadata = createNoIndexMetadata({
   title: "ECC New Member Registration",
   description:
-    "ECC New Member Registration starts with ECC KakaoTalk Open Chat for 전북대 ECC, English Conversation Club, international students, and campus club guidance.",
-  path: "/our-activities/ecc/register",
-  keywords: [
-    "ECC New Member Registration",
-    "ECC 신규회원 등록",
-    "ECC Open Chat",
-    "전북대 ECC",
-    "English Conversation Club",
-    "international students",
-    "campus club",
-    "KakaoTalk Open Chat"
-  ]
+    "Private K_LINE internal ECC New Member Registration form connected to Google login.",
+  path: "/our-activities/ecc/register"
 });
 
 export default async function EccMemberRegistrationPage() {
@@ -49,8 +39,8 @@ export default async function EccMemberRegistrationPage() {
           title={<I18nText en="ECC New Member Registration" ko="ECC 신규회원 등록" />}
           description={
             <I18nText
-              en="ECC uses KakaoTalk Open Chat as the first step for new member guidance. Please enter the Open Chat room first to check ECC information, membership fee instructions, official registration form, and contact information."
-              ko="ECC 신규회원 등록은 먼저 오픈채팅방 입장 후 안내를 확인하는 방식으로 진행됩니다. 아직 회비를 납부하지 않은 경우 정식회원이 아니므로, 구체적인 개인정보는 정식회원 등록 구글폼에서만 수집합니다."
+              en="Enter the ECC Open Chat first, then log in with Google and submit the K_LINE internal registration form. Officers approve official membership after payment confirmation."
+              ko="ECC 오픈채팅방에 먼저 입장한 뒤 Google로 로그인하고 K_LINE 내부 등록폼을 제출해 주세요. 운영진이 회비 납부를 확인하면 정식회원 권한이 승인됩니다."
             />
           }
         />
