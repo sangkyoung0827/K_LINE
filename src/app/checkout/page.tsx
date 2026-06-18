@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { InquiryForm } from "@/components/InquiryForm";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
+import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
@@ -11,7 +12,9 @@ export const metadata: Metadata = createNoIndexMetadata({
   path: "/checkout"
 });
 
-export default function CheckoutPage() {
+export default async function CheckoutPage() {
+  await requirePrivilegedAccess();
+
   return (
     <section className="bg-paper py-14 md:py-20">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 md:px-8">

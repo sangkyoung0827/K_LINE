@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { CTAButton } from "@/components/CTAButton";
+import { HeroActions } from "@/components/HeroActions";
 import { HomeFeedbackCloud } from "@/components/HomeFeedbackCloud";
 import { I18nText } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
@@ -41,17 +41,7 @@ export function HeroSection() {
               ko="외국인 유학생과 한국 학생이 함께 만드는 대학 기반 K-컬처 플랫폼"
             />
           </p>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <CTAButton href="/k-culture-project" variant="light">
-              <I18nText en="Explore Projects" ko="프로젝트 보기" />
-            </CTAButton>
-            <CTAButton href="/our-activities" variant="lightOutline">
-              <I18nText en="View Clubs" ko="클럽 보기" />
-            </CTAButton>
-            <CTAButton href="/goods" variant="gold">
-              <I18nText en="Shop Goods" ko="상품 보기" />
-            </CTAButton>
-          </div>
+          <HeroActions />
         </div>
         <div className="lg:justify-self-end">
           <HomeFeedbackCloud />

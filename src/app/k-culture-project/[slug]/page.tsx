@@ -3,6 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ProjectContributionBoard } from "@/components/ProjectContributionBoard";
 import { getProjectBySlug, projects } from "@/data/projects";
+import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
 import { absoluteUrl, seoKeywords, siteConfig } from "@/lib/seo";
 
 type PageProps = {
@@ -169,6 +170,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ProjectDetailPage({ params }: PageProps) {
+  await requirePrivilegedAccess();
+
   const { slug } = await params;
   const project = getProjectBySlug(slug);
 

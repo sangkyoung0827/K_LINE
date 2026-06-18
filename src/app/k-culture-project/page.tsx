@@ -4,6 +4,7 @@ import { I18nText } from "@/components/LanguageProvider";
 import { ProjectCard } from "@/components/ProjectCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { projects } from "@/data/projects";
+import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
 import { createPublicMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createPublicMetadata({
@@ -14,7 +15,9 @@ export const metadata: Metadata = createPublicMetadata({
   keywords: ["Korean culture project", "K-Culture Project", "international students"]
 });
 
-export default function KCultureProjectPage() {
+export default async function KCultureProjectPage() {
+  await requirePrivilegedAccess();
+
   return (
     <>
       <section className="bg-navy py-16 text-paper md:py-24">

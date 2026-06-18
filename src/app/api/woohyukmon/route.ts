@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { getAdminAccess } from "@/lib/admin";
 import { buildWoohyukmonContext } from "@/lib/woohyukmonContext";
 
 type ClientMessage = {
@@ -7,7 +9,7 @@ type ClientMessage = {
   content: string;
 };
 
-const systemPrompt = `You are 우혁몬, the core AI assistant for the K_LINE website. K_LINE is a campus-based K-culture platform for university students, especially international students and student communities. The site has three main tracks: International Clubs, Goods, and K-Culture Project. Goods includes Hanji Calligraphy LED Light Object and Arrow Pen. K-Culture Project currently features London, a student-led international project where students can upload project notes and related photos. International Clubs includes ECC and Han-hwal club records. ECC is an English Conversation Club for Korean and international student exchange, with an ECC menu for posts, activity management, and fund management. Han-hwal is a Korean traditional archery community described as ‘우리는 국궁으로 심신을 수련하는 한활입니다.’ Use the provided K_LINE knowledge base and site data first. Answer in the same language as the user. Be friendly, concise, accurate, and helpful. Do not invent facts. If the information is not available, say so and guide the user to the relevant page or Contact.`;
+const systemPrompt = `You are 우혁몬, the core AI assistant for the K_LINE website. K_LINE is a campus-based community platform for university students, especially international students and student communities. Use the provided K_LINE knowledge base and site data first. Answer in the same language as the user. Be friendly, concise, accurate, and helpful. Do not invent facts. If the information is not available, say so and guide the user to the relevant visible page or Contact.`;
 
 function cleanMessages(history: unknown): ClientMessage[] {
   if (!Array.isArray(history)) {
@@ -55,7 +57,9 @@ export async function POST(request: Request) {
     }
 
     const client = new OpenAI({ apiKey });
-    const context = buildWoohyukmonContext();
+    const session = await auth();
+    const access = await getAdminAccess(session?.user?.email ?? "");
+    const context = buildWoohyukmonContext(access.isSuperAdmin);
     const history = cleanMessages(body.history);
 
     const response = await client.chat.completions.create({

@@ -8,8 +8,6 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: [
           "/",
-          "/goods",
-          "/k-culture-project",
           "/our-activities",
           "/our-activities/ecc",
           "/our-activities/ecc/register",
@@ -22,6 +20,8 @@ export default function robots(): MetadataRoute.Robots {
           "/developer/",
           "/login",
           "/request-admin",
+          "/goods",
+          "/k-culture-project",
           "/cart",
           "/checkout",
           "/donate",

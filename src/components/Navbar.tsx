@@ -31,7 +31,12 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const { totalQuantity } = useCart();
   const { language, pick } = useLanguage();
-  const { isDeveloper } = useSuperAdmin();
+  const { isDeveloper, isSuperAdmin } = useSuperAdmin();
+  const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
+  const visibleNavigation = navigation.filter(
+    (item) =>
+      canSeeRestrictedTracks || (item.href !== "/goods" && item.href !== "/k-culture-project")
+  );
 
   return (
     <header className="sticky top-0 z-50 border-b border-navy/10 bg-paper/94 backdrop-blur">
@@ -41,7 +46,7 @@ export function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-1 lg:flex">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const active =
               pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
             const hasBoards = item.href === "/our-activities";
@@ -109,18 +114,20 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
           <AuthStatus />
-          <Link
-            href="/cart"
-            aria-label={language === "ko" ? "장바구니 열기" : "Open cart"}
-            className="relative inline-flex h-10 w-10 items-center justify-center border border-navy/12 text-ink transition hover:border-brass hover:bg-brass/15"
-          >
-            <ShoppingBag aria-hidden className="h-4 w-4" />
-            {totalQuantity > 0 ? (
-              <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-brass px-1 text-xs font-semibold text-ink">
-                {totalQuantity}
-              </span>
-            ) : null}
-          </Link>
+          {canSeeRestrictedTracks ? (
+            <Link
+              href="/cart"
+              aria-label={language === "ko" ? "장바구니 열기" : "Open cart"}
+              className="relative inline-flex h-10 w-10 items-center justify-center border border-navy/12 text-ink transition hover:border-brass hover:bg-brass/15"
+            >
+              <ShoppingBag aria-hidden className="h-4 w-4" />
+              {totalQuantity > 0 ? (
+                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-brass px-1 text-xs font-semibold text-ink">
+                  {totalQuantity}
+                </span>
+              ) : null}
+            </Link>
+          ) : null}
           <button
             type="button"
             aria-label={language === "ko" ? "메뉴 열기" : "Open navigation menu"}
@@ -135,7 +142,7 @@ export function Navbar() {
       {open ? (
         <div className="border-t border-navy/10 bg-paper lg:hidden">
           <div className="mx-auto grid max-w-7xl px-5 py-4">
-            {navigation.map((item) => {
+            {visibleNavigation.map((item) => {
               const hasBoards = item.href === "/our-activities";
               return (
                 <div key={item.href} className="border-b border-navy/8 last:border-b-0">

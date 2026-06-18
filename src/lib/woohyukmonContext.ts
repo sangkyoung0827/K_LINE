@@ -4,7 +4,7 @@ import { goods } from "@/data/goods";
 import { projects } from "@/data/projects";
 import { woohyukmonKnowledge } from "@/data/woohyukmonKnowledge";
 
-export function buildWoohyukmonContext() {
+export function buildWoohyukmonContext(includeRestrictedTracks = false) {
   const goodsSummary = goods
     .map(
       (item) =>
@@ -30,22 +30,21 @@ export function buildWoohyukmonContext() {
 
   // TODO: merge database-backed knowledge, admin-managed FAQ, uploaded document search,
   // vector retrieval, and public post search into this compact context.
-  return [
+  const publicContext = [
     "K_LINE KNOWLEDGE BASE",
     `Identity: ${woohyukmonKnowledge.identity.description}`,
-    `Tracks: ${woohyukmonKnowledge.tracks.summary}`,
+    includeRestrictedTracks
+      ? `Tracks: ${woohyukmonKnowledge.tracks.summary}`
+      : "Visible track for regular members: International Clubs.",
     "",
     "Track URLs:",
-    ...woohyukmonKnowledge.tracks.items.map(
-      (track) => `- ${track.name}: ${track.description} URL: ${track.href}`
-    ),
-    "",
-    "Goods:",
-    goodsSummary,
-    "",
-    "K-Culture Projects:",
-    projectSummary,
-    `Submission URL: ${woohyukmonKnowledge.kCultureProjects.submission.href}`,
+    ...(includeRestrictedTracks
+      ? woohyukmonKnowledge.tracks.items.map(
+          (track) => `- ${track.name}: ${track.description} URL: ${track.href}`
+        )
+      : woohyukmonKnowledge.tracks.items
+          .filter((track) => track.href === "/our-activities")
+          .map((track) => `- ${track.name}: ${track.description} URL: ${track.href}`)),
     "",
     "International Clubs:",
     woohyukmonKnowledge.activities.summary,
@@ -72,5 +71,25 @@ export function buildWoohyukmonContext() {
     "",
     `Contact URL: ${woohyukmonKnowledge.contact.href}`,
     "Rule: If information is missing, say it is not available yet and guide users to Contact."
+  ];
+
+  if (!includeRestrictedTracks) {
+    publicContext.push(
+      "Rule: Goods and K-Culture Project pages are hidden from regular member accounts. Do not guide regular members to those pages."
+    );
+    return publicContext.join("\n");
+  }
+
+  return [
+    ...publicContext.slice(0, 8),
+    "",
+    "Goods:",
+    goodsSummary,
+    "",
+    "K-Culture Projects:",
+    projectSummary,
+    `Submission URL: ${woohyukmonKnowledge.kCultureProjects.submission.href}`,
+    "",
+    ...publicContext.slice(8)
   ].join("\n");
 }

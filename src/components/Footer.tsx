@@ -4,6 +4,7 @@ import Link from "next/link";
 import { navigation } from "@/data/navigation";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { siteConfig } from "@/lib/seo";
 
 const navigationLabels = {
@@ -16,6 +17,12 @@ const navigationLabels = {
 
 export function Footer() {
   const { pick } = useLanguage();
+  const { isDeveloper, isSuperAdmin } = useSuperAdmin();
+  const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
+  const visibleNavigation = navigation.filter(
+    (item) =>
+      canSeeRestrictedTracks || (item.href !== "/goods" && item.href !== "/k-culture-project")
+  );
 
   return (
     <footer className="bg-navy text-paper">
@@ -23,10 +30,17 @@ export function Footer() {
         <div>
           <Logo variant="light" size="sm" />
           <p className="mt-3 max-w-md text-sm leading-7 text-paper/70">
-            <I18nText
-              en="A campus K-culture hub connecting Korean cultural projects, goods, and international student clubs for university communities."
-              ko="한국 문화 프로젝트, 상품, 국제 학생 클럽을 대학 커뮤니티 안에서 연결하는 캠퍼스 K-컬처 허브입니다."
-            />
+            {canSeeRestrictedTracks ? (
+              <I18nText
+                en="A campus K-culture hub connecting Korean cultural projects, goods, and international student clubs for university communities."
+                ko="한국 문화 프로젝트, 상품, 국제 학생 클럽을 대학 커뮤니티 안에서 연결하는 캠퍼스 K-컬처 허브입니다."
+              />
+            ) : (
+              <I18nText
+                en="A campus community hub for international student clubs and university activities."
+                ko="국제 학생 클럽과 대학 활동을 위한 캠퍼스 커뮤니티 허브입니다."
+              />
+            )}
           </p>
         </div>
         <div>
@@ -34,7 +48,7 @@ export function Footer() {
             <I18nText en="Menu" ko="메뉴" />
           </p>
           <div className="grid gap-2">
-            {navigation.map((item) => (
+            {visibleNavigation.map((item) => (
               <Link key={item.href} href={item.href} className="text-sm text-paper/68 hover:text-paper">
                 {navigationLabels[item.href as keyof typeof navigationLabels]
                   ? pick(navigationLabels[item.href as keyof typeof navigationLabels])
@@ -58,10 +72,17 @@ export function Footer() {
       </div>
       <div className="border-t border-paper/12 px-5 py-5 text-center text-xs text-paper/50">
         © {new Date().getFullYear()} K_LINE.{" "}
-        <I18nText
-          en="Inquiry-based commerce. No payment integration yet."
-          ko="문의 기반 상품 흐름입니다. 실제 결제 연동은 아직 연결되지 않았습니다."
-        />
+        {canSeeRestrictedTracks ? (
+          <I18nText
+            en="Inquiry-based commerce. No payment integration yet."
+            ko="문의 기반 상품 흐름입니다. 실제 결제 연동은 아직 연결되지 않았습니다."
+          />
+        ) : (
+          <I18nText
+            en="International student club community."
+            ko="국제 학생 클럽 커뮤니티입니다."
+          />
+        )}
       </div>
     </footer>
   );

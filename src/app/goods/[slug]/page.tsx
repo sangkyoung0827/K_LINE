@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { GoodsDetail } from "@/components/GoodsDetail";
 import { getGoodsBySlug, goods } from "@/data/goods";
+import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
 import { absoluteUrl, seoKeywords, siteConfig } from "@/lib/seo";
 
 type PageProps = {
@@ -51,6 +52,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function GoodsDetailPage({ params }: PageProps) {
+  await requirePrivilegedAccess();
+
   const { slug } = await params;
   const item = getGoodsBySlug(slug);
 

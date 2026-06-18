@@ -5,6 +5,7 @@ import { Bot, Loader2, MessageCircle, Minus, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { woohyukmonQuickPrompts } from "@/data/woohyukmonKnowledge";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
 type ChatMessage = {
   id: string;
@@ -17,13 +18,13 @@ const welcomeMessages: Record<"en" | "ko", ChatMessage> = {
     id: "welcome",
     role: "assistant",
     content:
-      "Hi! I am Woohyukmon, the K_LINE AI guide. Ask me about Goods, K-Culture Project, ECC, Han-hwal, or activity posts."
+      "Hi! I am Woohyukmon, the K_LINE AI guide. Ask me about International Clubs, ECC, Han-hwal, or activity posts."
   },
   ko: {
     id: "welcome",
     role: "assistant",
     content:
-      "안녕하세요! 저는 K_LINE의 AI 안내자 우혁몬입니다. 굿즈, K-Culture Project, ECC, 한활, 활동 글쓰기까지 무엇이든 물어보세요."
+      "안녕하세요! 저는 K_LINE의 AI 안내자 우혁몬입니다. 국제 학생 클럽, ECC, 한활, 활동 글쓰기까지 무엇이든 물어보세요."
   }
 };
 
@@ -59,6 +60,8 @@ function WoohyukmonAvatar({
 
 export function WoohyukmonChatbot() {
   const { language } = useLanguage();
+  const { isDeveloper, isSuperAdmin } = useSuperAdmin();
+  const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessages[language]]);
@@ -202,10 +205,19 @@ export function WoohyukmonChatbot() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              {woohyukmonQuickPrompts[language].map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
+              {woohyukmonQuickPrompts[language]
+                .filter((prompt) => {
+                  if (canSeeRestrictedTracks) {
+                    return true;
+                  }
+                  return !/(goods|project|arrow pen|hanji led|굿즈|프로젝트|화살펜|한지 오브제)/i.test(
+                    prompt
+                  );
+                })
+                .map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
                   onClick={() => void sendMessage(prompt)}
                   className="border border-navy/12 bg-white/70 px-3 py-2 text-xs font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
                 >
