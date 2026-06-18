@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { FreeBoardDetailPage } from "@/components/FreeBoardDetailPage";
 import { getActivityBoardById } from "@/data/activityBoards";
+import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 type PageProps = {
@@ -16,6 +18,12 @@ export const metadata: Metadata = createNoIndexMetadata({
 });
 
 export default async function EccFreeBoardDetailPage({ params }: PageProps) {
+  const access = await getCurrentEccAccess();
+
+  if (!access.isOfficialMember) {
+    notFound();
+  }
+
   const { postId } = await params;
   return (
     <FreeBoardDetailPage

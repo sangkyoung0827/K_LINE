@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, UserPlus, UsersRound } from "lucide-react";
 import { I18nText } from "@/components/LanguageProvider";
-import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import type { EccRole } from "@/lib/eccAccess";
 
 const membershipCards = [
   {
@@ -19,7 +19,7 @@ const membershipCards = [
     cta: "Register as Member",
     ctaKo: "신규 회원 등록하기",
     icon: UserPlus,
-    public: true
+    visibility: "general"
   },
   {
     eyebrow: "Member management",
@@ -27,20 +27,37 @@ const membershipCards = [
     title: "Member Management",
     titleKo: "회원 관리",
     description:
-      "Super admins can confirm fee payment, prepare team chat invitations, and manage invite status.",
+      "Admins can confirm fee payment, prepare team chat invitations, and manage invite status.",
     descriptionKo:
-      "슈퍼관리자는 회비 납부를 확인하고 팀채팅 초대 링크, QR, 초대 상태를 관리할 수 있습니다.",
+      "관리자는 회비 납부를 확인하고 팀채팅 초대 링크, QR, 초대 상태를 관리할 수 있습니다.",
     href: "/our-activities/ecc/members",
     cta: "Open Member Management",
     ctaKo: "회원 관리 열기",
     icon: UsersRound,
-    public: false
+    visibility: "admin"
   }
 ] as const;
 
-export function EccMembershipCards() {
-  const { isSuperAdmin } = useSuperAdmin();
-  const visibleCards = membershipCards.filter((card) => card.public || isSuperAdmin);
+const roleRank: Record<EccRole, number> = {
+  admin: 3,
+  developer: 5,
+  official_member: 2,
+  super_admin: 4,
+  user: 1
+};
+
+export function EccMembershipCards({ role }: { role: EccRole }) {
+  const visibleCards = membershipCards.filter((card) => {
+    if (card.visibility === "general") {
+      return roleRank[role] < roleRank.official_member;
+    }
+
+    return roleRank[role] >= roleRank.admin;
+  });
+
+  if (visibleCards.length === 0) {
+    return null;
+  }
 
   return (
     <div className="mt-10 grid gap-5">

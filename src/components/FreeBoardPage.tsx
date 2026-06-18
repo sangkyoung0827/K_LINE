@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, ImagePlus, MessageSquareText, Send, SquarePen, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { useEccAccess } from "@/hooks/useEccAccess";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard, FreeBoardPost } from "@/types";
@@ -45,7 +45,7 @@ export function FreeBoardPage({
   const [posts, setPosts] = useState<FreeBoardPost[]>([]);
   const [form, setForm] = useState(initialForm);
   const [imageError, setImageError] = useState("");
-  const { isSuperAdmin } = useSuperAdmin();
+  const { isAdmin } = useEccAccess();
   const { language } = useLanguage();
 
   useEffect(() => {
@@ -284,7 +284,7 @@ export function FreeBoardPage({
                         <p className="line-clamp-3 text-sm leading-7 text-ink/68">{post.content}</p>
                       </div>
                     </Link>
-                    {isSuperAdmin ? (
+                        {isAdmin ? (
                       <div className="border-t border-red-900/10 p-4">
                         <button
                           type="button"

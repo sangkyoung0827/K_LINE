@@ -126,6 +126,51 @@ export function EccMemberRegistrationForm() {
         </div>
       </section>
 
+      <section className="grid gap-5 md:grid-cols-2">
+        <div className="paper-panel p-5 md:p-6">
+          <p className="text-sm font-semibold uppercase text-brass">
+            <I18nText en="Official Google Form" ko="정식회원 구글폼" />
+          </p>
+          <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
+            <I18nText en="Fill it out after payment" ko="회비 납부 후 작성" />
+          </h2>
+          <p className="mt-3 text-sm leading-7 text-ink/66">
+            <I18nText
+              en="The official Google Form is shared inside the Open Chat guide. Please fill it out only after you decide to become an official member and complete the membership fee payment."
+              ko="정식회원 구글폼은 오픈채팅방 안내를 통해 공유됩니다. 정식회원 가입을 결정하고 회비 납부를 완료한 뒤 작성해 주세요."
+            />
+          </p>
+        </div>
+        <div className="paper-panel p-5 md:p-6">
+          <p className="text-sm font-semibold uppercase text-brass">
+            <I18nText en="Payment guide" ko="회비 납부 안내" />
+          </p>
+          <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
+            <I18nText en="Bank transfer or cash" ko="계좌이체 또는 현금 납부" />
+          </h2>
+          <p className="mt-3 text-sm leading-7 text-ink/66">
+            <I18nText
+              en="The Open Chat bot explains the membership fee account and the cash payment method for international students without a Korean bank account."
+              ko="오픈채팅 방장봇이 회비 납부 계좌와 한국 계좌가 없는 외국인 학생을 위한 현금 납부 방법을 안내합니다."
+            />
+          </p>
+        </div>
+        <div className="paper-panel p-5 md:p-6 md:col-span-2">
+          <p className="text-sm font-semibold uppercase text-brass">
+            <I18nText en="K_LINE login guidance" ko="K_LINE 로그인 안내" />
+          </p>
+          <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
+            <I18nText en="Use the same Google account" ko="같은 Google 계정을 사용해 주세요" />
+          </h2>
+          <p className="mt-3 text-sm leading-7 text-ink/66">
+            <I18nText
+              en="Your official ECC membership is confirmed by the Google account you use on K_LINE. Please log in with the same account when officers check your payment."
+              ko="ECC 정식회원 권한은 K_LINE에서 사용하는 Google 계정을 기준으로 확인됩니다. 운영진이 회비 납부를 확인할 때 사용하는 계정과 같은 계정으로 로그인해 주세요."
+            />
+          </p>
+        </div>
+      </section>
+
       <section className="paper-panel p-5 md:p-8">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-pine text-paper">

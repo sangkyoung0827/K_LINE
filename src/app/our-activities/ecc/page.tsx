@@ -4,7 +4,7 @@ import { EccMembershipCards } from "@/components/EccMembershipCards";
 import { EccToolGrid } from "@/components/EccToolGrid";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
-import { SuperAdminRequestPanel } from "@/components/SuperAdminRequestPanel";
+import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { createPublicMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createPublicMetadata({
@@ -15,7 +15,9 @@ export const metadata: Metadata = createPublicMetadata({
   keywords: ["ECC", "international students", "campus culture", "student activities"]
 });
 
-export default function EccHubPage() {
+export default async function EccHubPage() {
+  const access = await getCurrentEccAccess();
+
   return (
     <>
       <section className="bg-navy py-16 text-paper md:py-24">
@@ -29,8 +31,8 @@ export default function EccHubPage() {
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
               <I18nText
-                en="ECC keeps its board and activity application flow in one place. Management controls change according to the logged-in account role."
-                ko="ECC 게시판과 활동 신청 흐름을 한곳에서 운영합니다. 같은 사이트 주소에서 로그인한 계정 권한에 따라 보이는 관리 기능만 달라집니다."
+              en="ECC menus change according to your confirmed role: general user, official member, admin, super admin, or developer."
+              ko="ECC 메뉴는 일반회원, 정식회원, 관리자, 슈퍼관리자, 개발자 권한에 따라 다르게 표시됩니다."
               />
             </p>
           </div>
@@ -45,15 +47,14 @@ export default function EccHubPage() {
             title={<I18nText en="ECC Board and Activity" ko="ECC 게시판과 ECC 활동" />}
             description={
               <I18nText
-                en="General members see the ECC board and activity application flow. Super-admin tools appear only for the super admin."
-                ko="일반회원에게는 ECC 게시판과 ECC 활동 신청 흐름만 보입니다. 슈퍼관리자 도구는 슈퍼관리자에게만 표시됩니다."
+                en="General logged-in users see only new member registration. Official members and officers see the protected ECC OFFICIAL area."
+                ko="일반 로그인 사용자는 신규 회원 등록만 볼 수 있고, 정식회원과 임원은 보호된 ECC OFFICIAL 영역을 볼 수 있습니다."
               />
             }
           />
 
-          <EccMembershipCards />
-          <EccToolGrid />
-          <SuperAdminRequestPanel />
+          <EccMembershipCards role={access.role} />
+          <EccToolGrid role={access.role} />
         </div>
       </section>
     </>

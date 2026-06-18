@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { hasSuperAdminAccess } from "@/lib/admin";
+import { getCurrentEccAccess } from "@/lib/eccAccess";
 import {
   cleanText,
   SupabaseConfigError,
@@ -150,11 +149,10 @@ async function buildApplicationsResponse(includeApplications: boolean) {
   };
 }
 
-async function getSuperAdminEmail() {
-  const session = await auth();
-  const email = session?.user?.email ?? "";
+async function getAdminEmail() {
+  const access = await getCurrentEccAccess();
 
-  return (await hasSuperAdminAccess(email)) ? email : "";
+  return access.isAdmin ? access.email : "";
 }
 
 function apiErrorResponse(error: unknown) {
@@ -217,10 +215,9 @@ function apiErrorResponse(error: unknown) {
 
 export async function GET() {
   try {
-    const session = await auth();
-    const email = session?.user?.email ?? "";
+    const access = await getCurrentEccAccess();
 
-    return NextResponse.json(await buildApplicationsResponse(await hasSuperAdminAccess(email)));
+    return NextResponse.json(await buildApplicationsResponse(access.isAdmin));
   } catch (error) {
     return apiErrorResponse(error);
   }
@@ -228,6 +225,18 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const access = await getCurrentEccAccess();
+
+    if (!access.isOfficialMember) {
+      return NextResponse.json(
+        {
+          error: "ECC official membership is required before applying for activities.",
+          debugCode: "ECC_APPLICATION_OFFICIAL_MEMBER_REQUIRED"
+        },
+        { status: access.isLoggedIn ? 403 : 401 }
+      );
+    }
+
     const body = (await request.json()) as Record<string, unknown>;
     const type = normalizeApplicationType(
       cleanText(body.activity_id ?? body.activityId ?? body.type)
@@ -273,10 +282,7 @@ export async function POST(request: Request) {
       }
     );
 
-    const session = await auth();
-    const email = session?.user?.email ?? "";
-
-    return NextResponse.json(await buildApplicationsResponse(await hasSuperAdminAccess(email)), {
+    return NextResponse.json(await buildApplicationsResponse(access.isAdmin), {
       status: 201
     });
   } catch (error) {
@@ -286,12 +292,12 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const email = await getSuperAdminEmail();
+    const email = await getAdminEmail();
 
     if (!email) {
       return NextResponse.json(
         {
-          error: "Only the super admin can update application payment status.",
+          error: "Only ECC admins can update application payment status.",
           debugCode: "ECC_APPLICATION_PAYMENT_FORBIDDEN"
         },
         { status: 403 }
@@ -329,12 +335,12 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const email = await getSuperAdminEmail();
+    const email = await getAdminEmail();
 
     if (!email) {
       return NextResponse.json(
         {
-          error: "Only the super admin can reset applicants.",
+          error: "Only ECC admins can reset applicants.",
           debugCode: "ECC_APPLICATION_RESET_FORBIDDEN"
         },
         { status: 403 }

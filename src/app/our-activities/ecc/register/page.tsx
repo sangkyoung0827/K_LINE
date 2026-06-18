@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { EccMemberRegistrationForm } from "@/components/EccMemberRegistrationForm";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
+import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { createPublicMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createPublicMetadata({
@@ -24,7 +26,13 @@ export const metadata: Metadata = createPublicMetadata({
   ]
 });
 
-export default function EccMemberRegistrationPage() {
+export default async function EccMemberRegistrationPage() {
+  const access = await getCurrentEccAccess();
+
+  if (access.isOfficialMember) {
+    redirect("/ecc-official");
+  }
+
   return (
     <section className="bg-paper py-14 md:py-20">
       <div className="mx-auto max-w-5xl px-5 md:px-8">

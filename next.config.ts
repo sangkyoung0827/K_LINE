@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/api/ecc/official-team-qr": ["./private/ecc-official-team-qr.png"]
+  },
   poweredByHeader: false,
   async headers() {
     const staticImageCache = "public, max-age=86400, stale-while-revalidate=604800";

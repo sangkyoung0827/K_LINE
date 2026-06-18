@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { hasSuperAdminAccess } from "@/lib/admin";
+import { getCurrentEccAccess } from "@/lib/eccAccess";
 import {
   cleanText,
   SupabaseConfigError,
@@ -50,11 +49,10 @@ function toClientMember(row: EccMemberRow) {
   };
 }
 
-async function requireSuperAdmin() {
-  const session = await auth();
-  const email = session?.user?.email ?? "";
+async function requireEccAdmin() {
+  const access = await getCurrentEccAccess();
 
-  return (await hasSuperAdminAccess(email)) ? email : "";
+  return access.isAdmin ? access.email : "";
 }
 
 function apiErrorResponse(error: unknown) {
@@ -95,11 +93,11 @@ function apiErrorResponse(error: unknown) {
 
 export async function GET() {
   try {
-    const email = await requireSuperAdmin();
+    const email = await requireEccAdmin();
 
     if (!email) {
       return NextResponse.json(
-        { error: "Super-admin access required.", debugCode: "ECC_MEMBERS_FORBIDDEN" },
+        { error: "Admin access required.", debugCode: "ECC_MEMBERS_FORBIDDEN" },
         { status: 403 }
       );
     }
@@ -165,11 +163,11 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const email = await requireSuperAdmin();
+    const email = await requireEccAdmin();
 
     if (!email) {
       return NextResponse.json(
-        { error: "Super-admin access required.", debugCode: "ECC_MEMBERS_FORBIDDEN" },
+        { error: "Admin access required.", debugCode: "ECC_MEMBERS_FORBIDDEN" },
         { status: 403 }
       );
     }

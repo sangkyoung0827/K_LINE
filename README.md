@@ -372,6 +372,55 @@ Set the super-admin email list in Vercel:
 SUPER_ADMIN_EMAILS=your-google-login-email@example.com
 ```
 
+## ECC Permission And Access Control
+
+The ECC / International Student Club area uses this role hierarchy:
+
+1. `user`
+2. `official_member`
+3. `admin`
+4. `super_admin`
+5. `developer`
+
+The effective role is calculated server-side. Higher roles inherit lower-role
+permissions unless the UI explicitly hides sensitive information. Developer
+accounts come from `DEVELOPER_EMAILS`. Super-admin compatibility with the older
+system remains through `SUPER_ADMIN_EMAILS` and active `admin_roles` rows.
+
+Create the ECC role table in Supabase before using the new role-management UI.
+The SQL is saved at:
+
+```text
+supabase/ecc_roles.sql
+```
+
+Add these environment variables in Vercel when appropriate:
+
+```bash
+DEVELOPER_EMAILS=developer@example.com
+SUPER_ADMIN_EMAILS=superadmin@example.com
+ECC_OFFICIAL_TEAM_CHAT_URL=https://invite.kakao.com/tc/d3m2UO008Y
+```
+
+Protected ECC routes:
+
+- `/ecc-official`: official member lounge with the protected team chat link and QR
+- `/api/ecc/official-team-qr`: returns the uploaded QR image only to official members or higher
+- `/our-activities/ecc/free-board`: official member or higher
+- `/our-activities/ecc/activity`: official member or higher; admin tools only for admin or higher
+- `/our-activities/ecc/members`: admin or higher
+- `/our-activities/ecc/fund`: super admin or developer only
+
+Role-management behavior:
+
+- General Google-login users see only ECC New Member Registration.
+- Admins, super admins, and developers can approve users as official members after payment confirmation.
+- Official members can request admin permission.
+- Super admins and developers can approve admin requests.
+- Admins can request super-admin permission.
+- Only developers can approve or revoke super-admin permission.
+- Developer-only role acquisition account information is returned only to developer accounts.
+
 Current role-aware super-admin controls:
 
 - `/our-activities/ecc`: open the ECC menu for free board, activity, and fund management
@@ -419,6 +468,8 @@ Recommended Vercel settings:
 - Environment variables required for Google login: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
 - Environment variable required for Woohyukmon AI: `OPENAI_API_KEY`
 - Environment variable required for admin access: `SUPER_ADMIN_EMAILS`
+- Environment variable required for developer access: `DEVELOPER_EMAILS`
+- Environment variable for protected ECC team chat: `ECC_OFFICIAL_TEAM_CHAT_URL`
 - Environment variables required for shared Supabase storage: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 
 Optional production environment variable:

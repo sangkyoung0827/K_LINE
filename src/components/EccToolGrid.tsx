@@ -1,11 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Banknote, ClipboardList, MessageSquareText } from "lucide-react";
+import {
+  ArrowRight,
+  Banknote,
+  ClipboardList,
+  MessageCircle,
+  MessageSquareText,
+  ShieldCheck,
+  UserCog
+} from "lucide-react";
 import { I18nText } from "@/components/LanguageProvider";
-import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import type { EccRole } from "@/lib/eccAccess";
 
-const publicEccTools = [
+const officialEccTools = [
+  {
+    eyebrow: "Official lounge",
+    title: "ECC OFFICIAL",
+    titleKo: "ECC OFFICIAL",
+    description:
+      "Official ECC members can enter the protected lounge, team chat, board, and activity flow.",
+    descriptionKo:
+      "ECC 정식회원은 보호된 라운지, 공식 팀채팅, 게시판, 활동 신청 흐름을 이용할 수 있습니다.",
+    href: "/ecc-official",
+    cta: "Open ECC OFFICIAL",
+    ctaKo: "ECC OFFICIAL 열기",
+    icon: MessageCircle,
+    minimumRole: "official_member"
+  },
   {
     eyebrow: "Free board",
     title: "ECC Board",
@@ -17,24 +39,40 @@ const publicEccTools = [
     href: "/our-activities/ecc/free-board",
     cta: "Open ECC Board",
     ctaKo: "ECC 게시판 열기",
-    icon: MessageSquareText
+    icon: MessageSquareText,
+    minimumRole: "official_member"
   },
   {
     eyebrow: "Activity",
     title: "ECC Activity",
     titleKo: "ECC 활동",
     description:
-      "Choose an ECC activity and submit the application form. Applicant management appears only for the super admin.",
+      "Choose an ECC activity and submit the application form. Applicant management appears only for admins.",
     descriptionKo:
-      "ECC 활동을 선택하고 신청서를 제출합니다. 신청자 관리는 슈퍼관리자에게만 표시됩니다.",
+      "ECC 활동을 선택하고 신청서를 제출합니다. 신청자 관리는 관리자 이상에게만 표시됩니다.",
     href: "/our-activities/ecc/activity",
     cta: "Open ECC Activity",
     ctaKo: "ECC 활동 열기",
-    icon: ClipboardList
+    icon: ClipboardList,
+    minimumRole: "official_member"
+  },
+  {
+    eyebrow: "Member management",
+    title: "Member Management",
+    titleKo: "회원 관리",
+    description:
+      "Admins can approve official members and manage ECC applications.",
+    descriptionKo:
+      "관리자는 정식회원을 승인하고 ECC 신청 내역을 관리할 수 있습니다.",
+    href: "/our-activities/ecc/members",
+    cta: "Open Management",
+    ctaKo: "관리 열기",
+    icon: UserCog,
+    minimumRole: "admin"
   }
 ] as const;
 
-const adminOnlyTool = {
+const superAdminOnlyTool = {
   eyebrow: "Fund management",
   title: "ECC Fund",
   titleKo: "ECC 자금관리",
@@ -45,15 +83,44 @@ const adminOnlyTool = {
   href: "/our-activities/ecc/fund",
   cta: "Open Fund Page",
   ctaKo: "자금관리 열기",
-  icon: Banknote
+  icon: Banknote,
+  minimumRole: "super_admin"
 } as const;
 
-export function EccToolGrid() {
-  const { isSuperAdmin } = useSuperAdmin();
-  const tools = isSuperAdmin ? [...publicEccTools, adminOnlyTool] : publicEccTools;
+const developerOnlyTool = {
+  eyebrow: "Developer",
+  title: "Developer Menu",
+  titleKo: "개발자 메뉴",
+  description:
+    "Developer-only system dashboard, member data, and role acquisition account information.",
+  descriptionKo:
+    "개발자 전용 시스템 대시보드, 회원 데이터, 권한 계정 정보를 확인합니다.",
+  href: "/developer",
+  cta: "Open Developer Page",
+  ctaKo: "개발자 페이지 열기",
+  icon: ShieldCheck,
+  minimumRole: "developer"
+} as const;
+
+const roleRank: Record<EccRole, number> = {
+  admin: 3,
+  developer: 5,
+  official_member: 2,
+  super_admin: 4,
+  user: 1
+};
+
+export function EccToolGrid({ role }: { role: EccRole }) {
+  const tools = [...officialEccTools, superAdminOnlyTool, developerOnlyTool].filter(
+    (tool) => roleRank[role] >= roleRank[tool.minimumRole]
+  );
+
+  if (tools.length === 0) {
+    return null;
+  }
 
   return (
-    <div className={`mt-10 grid gap-5 ${isSuperAdmin ? "lg:grid-cols-3" : "md:grid-cols-2"}`}>
+    <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {tools.map((tool) => {
         const Icon = tool.icon;
 

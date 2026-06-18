@@ -11,7 +11,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { useEccAccess } from "@/hooks/useEccAccess";
 import { adminStorageKeys } from "@/lib/adminStorageKeys";
 import { useLanguage } from "@/components/LanguageProvider";
 
@@ -214,7 +214,7 @@ const copy = {
       "신청 저장소 연결에 문제가 있습니다. 잠시 후 다시 시도해 주세요.",
     applicantListTitle: "신청자 명단",
     applicantListDescription:
-      "슈퍼관리자로 로그인한 경우에만 활동별 신청자 명단을 확인할 수 있습니다.",
+      "관리자 이상으로 로그인한 경우에만 활동별 신청자 명단을 확인할 수 있습니다.",
     paidHeader: "활동비",
     paidLabel: "납부",
     savePayments: "저장",
@@ -239,9 +239,9 @@ const copy = {
     saveMemberStatus: "Save Member Status",
     clear: "Clear",
     readOnly: "Read-only view",
-    readOnlyTitle: "회원 현황 입력은 슈퍼관리자 전용입니다",
+    readOnlyTitle: "회원 현황 입력은 관리자 전용입니다",
     readOnlyDescription:
-      "일반 회원은 공개된 ECC 회원 현황과 활동 내용을 확인할 수 있습니다. 붙여넣기, 조 편성, 공지문 생성은 슈퍼관리자로 로그인한 경우에만 표시됩니다.",
+      "일반 회원은 공개된 ECC 회원 현황과 활동 내용을 확인할 수 있습니다. 붙여넣기, 조 편성, 공지문 생성은 관리자 이상으로 로그인한 경우에만 표시됩니다.",
     checkingRole: "권한을 확인하는 중입니다.",
     memberStatus: "Member status",
     memberStatusTitle: "회원 현황",
@@ -252,7 +252,7 @@ const copy = {
     participation: "회 참여",
     notJoined: "미참여",
     emptyMembersTitle: "아직 회원 현황이 없습니다",
-    emptyMembersDescription: "슈퍼관리자로 로그인한 뒤 회원 명단을 붙여넣어 주세요.",
+    emptyMembersDescription: "관리자 이상으로 로그인한 뒤 회원 명단을 붙여넣어 주세요.",
     teamMaker: "Team maker",
     teamMakerTitle: "자동 조 편성",
     teamMakerDescription:
@@ -262,7 +262,7 @@ const copy = {
     generatedTeams: "Generated teams",
     generatedTeamsTitle: "조 편성 결과",
     emptyTeams:
-      "아직 생성된 조가 없습니다. 슈퍼관리자가 이름을 붙여넣거나 신청자 명단을 불러온 뒤 조를 만들 수 있습니다.",
+      "아직 생성된 조가 없습니다. 관리자가 이름을 붙여넣거나 신청자 명단을 불러온 뒤 조를 만들 수 있습니다.",
     teamManualEdit: "조 편성 결과를 직접 수정할 수 있습니다.",
     copyTeams: "조 편성 복사",
     copiedTeams: "조 편성 결과를 클립보드에 복사했습니다.",
@@ -322,7 +322,7 @@ const copy = {
       "There is a problem connecting to the application storage. Please try again later.",
     applicantListTitle: "Applicant List",
     applicantListDescription:
-      "Only the super admin can view applicant lists by activity.",
+      "Only admins and higher roles can view applicant lists by activity.",
     paidHeader: "Fee",
     paidLabel: "Paid",
     savePayments: "Save",
@@ -347,9 +347,9 @@ const copy = {
     saveMemberStatus: "Save Member Status",
     clear: "Clear",
     readOnly: "Read-only view",
-    readOnlyTitle: "Member status editing is for the super admin",
+    readOnlyTitle: "Member status editing is for admins",
     readOnlyDescription:
-      "General members can view the public ECC member status and activity records. Pasting data, making teams, and generating notices appear only for the super admin.",
+      "General members can view the public ECC member status and activity records. Pasting data, making teams, and generating notices appear only for admins and higher roles.",
     checkingRole: "Checking your role.",
     memberStatus: "Member status",
     memberStatusTitle: "Member Status",
@@ -360,7 +360,7 @@ const copy = {
     participation: "time(s)",
     notJoined: "Not joined",
     emptyMembersTitle: "No member status yet",
-    emptyMembersDescription: "Log in as the super admin and paste the ECC member list.",
+    emptyMembersDescription: "Log in as an admin and paste the ECC member list.",
     teamMaker: "Team maker",
     teamMakerTitle: "Automatic Team Grouping",
     teamMakerDescription:
@@ -370,7 +370,7 @@ const copy = {
     generatedTeams: "Generated teams",
     generatedTeamsTitle: "Team Results",
     emptyTeams:
-      "No teams have been generated yet. The super admin can paste names or use the applicant list, then make teams.",
+      "No teams have been generated yet. Admins can paste names or use the applicant list, then make teams.",
     teamManualEdit: "You can manually edit the team results.",
     copyTeams: "Copy Teams",
     copiedTeams: "Team results copied to clipboard.",
@@ -631,7 +631,7 @@ function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): Applic
 }
 
 export function EccActivityPanel() {
-  const { isSuperAdmin, loading } = useSuperAdmin();
+  const { isAdmin, loading } = useEccAccess();
   const { language: siteLanguage, setLanguage: setSiteLanguage } = useLanguage();
   const [language, setLanguage] = useState<Language>("en");
   const [activeApplicationType, setActiveApplicationType] =
@@ -727,7 +727,7 @@ export function EccActivityPanel() {
     return () => {
       controller.abort();
     };
-  }, [isSuperAdmin, loading, text.applicationStorageError]);
+  }, [isAdmin, loading, text.applicationStorageError]);
 
   const selectedApplications = useMemo(
     () => applications.filter((application) => application.type === activeApplicationType),
@@ -1117,7 +1117,7 @@ export function EccActivityPanel() {
           ) : null}
         </form>
 
-        {isSuperAdmin ? (
+        {isAdmin ? (
           <div className="border border-ink/10 bg-white/50 p-5 md:p-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -1224,7 +1224,7 @@ export function EccActivityPanel() {
         ) : null}
       </section>
 
-      {isSuperAdmin ? (
+      {isAdmin ? (
         <>
           <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="paper-panel p-6 md:p-8">
