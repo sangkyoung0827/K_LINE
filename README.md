@@ -203,7 +203,7 @@ Reusable UI components include:
 - `FreeBoardDetailPage`
 - `EccMembershipCards`
 - `EccMemberRegistrationForm`
-- `EccMemberManagementPanel`
+- `EccMemberRegistrationManagementPanel`
 - `AuthProvider`
 - `AuthStatus`
 - `LoginPanel`
@@ -432,7 +432,6 @@ Current role-aware super-admin controls:
 - `/our-activities/ecc`: open the ECC menu for free board, activity, and fund management
 - `/our-activities/ecc/register`: non-official users submit K_LINE internal ECC new member registration after Google login
 - `/our-activities/ecc/members`: approve K_LINE internal ECC new member registrations and grant official member access after payment confirmation
-- `/our-activities/ecc/members`: confirm ECC membership-fee payment, prepare team chat links, show QR codes, and track invitation status
 - `/our-activities/ecc/activity`: paste ECC member status, view activity records, generate teams, and generate KakaoTalk-ready notices
 - `/admin`: fetch pending K-Culture Project submissions from Supabase
 - `/admin`: fetch pending Our Activities post submissions from Supabase
@@ -505,7 +504,8 @@ The current Supabase-backed tables are:
 - `public.project_submissions`
 - `public.activity_posts`
 - `public.ecc_activity_applications`
-- `public.ecc_members`
+- `public.ecc_member_registrations`
+- `public.ecc_roles`
 - `public.member_registration_campaigns`
 - `public.member_registration_applicant_statuses`
 - `public.site_members`
@@ -535,31 +535,6 @@ Add these Vercel environment variables for Production:
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-```
-
-Create the ECC member table in the Supabase SQL editor before using
-`/our-activities/ecc/members`. The legacy SQL is saved at
-`supabase/ecc_members.sql`.
-
-```sql
-create table if not exists public.ecc_members (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz not null default now(),
-  name text not null,
-  kakao_id text not null,
-  email text default '',
-  phone text default '',
-  nationality text default '',
-  note text default '',
-  membership_fee_paid boolean not null default false,
-  team_chat_sent boolean not null default false,
-  team_chat_url text default '',
-  qr_code_url text default '',
-  payment_note text default '',
-  status text not null default 'pending'
-);
-
-alter table public.ecc_members enable row level security;
 ```
 
 Create the internal ECC new member registration table before using the current
@@ -632,10 +607,10 @@ These tables support:
 - total page visit count and today's visit count
 - recent public-page visit list for the super-admin console
 
-Important: KakaoTalk automatic sending is not connected yet. The current member
-management page prepares the invite message, team chat URL, QR code, and sent
-status. Real automatic sending requires Kakao API or Kakao business channel setup,
-user consent, server-side credentials, and a production message policy review.
+Important: KakaoTalk automatic sending is not connected yet. Official members can
+open the protected team chat link and QR in `/ecc-official`; real automatic
+sending would require Kakao API or Kakao business channel setup, user consent,
+server-side credentials, and a production message policy review.
 
 ## SEO And Search
 

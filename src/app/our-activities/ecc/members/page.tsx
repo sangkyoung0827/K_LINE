@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArrowLeft, Lock } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { EccMemberRegistrationManagementPanel } from "@/components/EccMemberRegistrationManagementPanel";
-import { EccMemberManagementPanel } from "@/components/EccMemberManagementPanel";
 import { EccPermissionManagementPanel } from "@/components/EccPermissionManagementPanel";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -12,7 +11,7 @@ import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
   title: "ECC Member Management",
-  description: "Admin-only ECC member management, permission control, and team chat invitation page.",
+  description: "Admin-only ECC member registration approval and permission control page.",
   path: "/our-activities/ecc/members"
 });
 
@@ -35,8 +34,8 @@ export default async function EccMemberManagementPage() {
           title={<I18nText en="Member Management" ko="회원 관리" />}
           description={
             <I18nText
-              en="Confirm membership fee payment, prepare team chat invitations, and manage KakaoTalk invite status."
-              ko="회비 납부를 확인하고 팀채팅 초대 링크, QR, 카카오톡 초대 상태를 관리합니다."
+              en="Confirm K_LINE new member registrations and process ECC permission requests."
+              ko="K_LINE 신규회원 등록을 확인하고 ECC 권한 요청을 처리합니다."
             />
           }
         />
@@ -45,7 +44,6 @@ export default async function EccMemberManagementPage() {
             <div className="grid gap-8">
               <EccMemberRegistrationManagementPanel />
               <EccPermissionManagementPanel />
-              <EccMemberManagementPanel />
             </div>
           ) : (
             <div className="paper-panel flex items-start gap-4 p-6 md:p-8">

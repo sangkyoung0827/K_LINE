@@ -14,14 +14,20 @@ const clubDisplayTitles = {
   hanhwal: "Hanhwal"
 } as const;
 
-const clubBannerClass = {
-  ecc: "bg-[#5547a3]",
-  hanhwal: "bg-navy"
+const clubDisplayTitlesKo = {
+  ecc: "ECC",
+  hanhwal: "한활 Hanhwal"
 } as const;
 
-const clubGlowClass = {
-  ecc: "bg-[#f45055]",
-  hanhwal: "bg-brass"
+const clubSubtitles = {
+  ecc: {
+    en: "English Conversation Club",
+    ko: "English Conversation Club"
+  },
+  hanhwal: {
+    en: "Korean Traditional Archery",
+    ko: "한국 전통 활 동아리"
+  }
 } as const;
 
 const latestClubRecords = [
@@ -99,28 +105,36 @@ export default function OurActivitiesPage() {
               <Link
                 key={board.id}
                 href={`/our-activities/${board.slug}`}
-                className="paper-panel group grid min-h-80 overflow-hidden transition hover:border-brass hover:bg-white/65 hover:shadow-lift"
+                className="paper-panel group grid min-h-72 content-between p-6 transition hover:border-brass hover:bg-white/70 hover:shadow-lift md:p-8"
               >
-                <div className={`relative min-h-48 overflow-hidden ${clubBannerClass[board.id]}`}>
-                  <div className={`absolute -right-16 -top-20 h-56 w-56 rounded-full ${clubGlowClass[board.id]} opacity-90`} />
-                  <div className="absolute -left-24 bottom-4 h-64 w-64 rounded-full border-[34px] border-paper/12" />
-                  <div className="absolute bottom-10 left-8 h-1 w-56 origin-left -rotate-12 bg-brass" />
-                  <div className="absolute left-8 top-12 h-px w-56 origin-left -rotate-12 bg-paper/24" />
-                  <ClubMark
-                    id={board.id}
-                    size="xl"
-                    className="absolute right-6 top-6 border-4 border-white/70 shadow-lift transition duration-500 group-hover:scale-105"
-                  />
-                  <div className="relative flex min-h-48 items-end p-6 text-paper">
-                    <div>
+                <div className="border-b border-ink/10 pb-6">
+                  <div className="flex items-center gap-5">
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
-                      <h2 className="mt-3 font-serif text-4xl font-semibold">
-                        {clubDisplayTitles[board.id]}
+                      <h2 className="mt-4 font-serif text-4xl font-semibold text-ink md:text-5xl">
+                        <I18nText
+                          en={clubDisplayTitles[board.id]}
+                          ko={clubDisplayTitlesKo[board.id]}
+                        />
                       </h2>
                     </div>
+                    <span className="h-px min-w-10 flex-1 bg-brass/75 transition group-hover:bg-brass" aria-hidden="true" />
+                    <ClubMark
+                      id={board.id}
+                      size="xl"
+                      className="border-2 border-ink/10 bg-white shadow-soft transition duration-500 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-sm font-semibold text-ink/58">
+                      <I18nText
+                        en={clubSubtitles[board.id].en}
+                        ko={clubSubtitles[board.id].ko}
+                      />
+                    </p>
                   </div>
                 </div>
-                <div className="grid gap-4 p-6">
+                <div className="grid gap-4 pt-6">
                   <p className="text-sm leading-7 text-ink/68">
                     {board.id === "ecc" ? (
                       <I18nText

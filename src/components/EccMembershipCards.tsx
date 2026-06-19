@@ -27,9 +27,9 @@ const membershipCards = [
     title: "Member Management",
     titleKo: "회원 관리",
     description:
-      "Admins can confirm fee payment, prepare team chat invitations, and manage invite status.",
+      "Admins can approve K_LINE new member registrations and process ECC permission requests.",
     descriptionKo:
-      "관리자는 회비 납부를 확인하고 팀채팅 초대 링크, QR, 초대 상태를 관리할 수 있습니다.",
+      "관리자는 K_LINE 신규회원 등록을 승인하고 ECC 권한 요청을 처리할 수 있습니다.",
     href: "/our-activities/ecc/members",
     cta: "Open Member Management",
     ctaKo: "회원 관리 열기",

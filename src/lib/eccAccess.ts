@@ -43,11 +43,6 @@ export type EccRoleRow = {
   super_admin_approved_at: string | null;
 };
 
-type EccMemberRow = {
-  membership_fee_paid: boolean | null;
-  status: string | null;
-};
-
 export const eccRolesTable = "ecc_roles";
 export const eccRoleColumns =
   "id,created_at,updated_at,email,name,avatar_url,role,is_official_member,payment_confirmed,payment_confirmed_by,payment_confirmed_at,official_member_status,admin_status,admin_requested_at,admin_approved_by,admin_approved_at,super_admin_status,super_admin_requested_at,super_admin_approved_by,super_admin_approved_at";
@@ -123,30 +118,6 @@ export async function getEccRoleRow(email?: string | null) {
   }
 }
 
-async function hasPaidLegacyEccMember(email: string) {
-  try {
-    const rows = await supabaseRequest<EccMemberRow[]>(
-      `ecc_members?select=membership_fee_paid,status&email=eq.${encodeURIComponent(
-        email
-      )}&order=created_at.desc&limit=1`
-    );
-    const row = rows[0];
-
-    return Boolean(row?.membership_fee_paid) || row?.status === "active";
-  } catch (error) {
-    if (error instanceof SupabaseConfigError) {
-      return false;
-    }
-
-    if (error instanceof SupabaseRequestError && error.status === 404) {
-      return false;
-    }
-
-    console.error("Legacy ECC member lookup failed", error);
-    return false;
-  }
-}
-
 export async function getEccAccessForEmail(email?: string | null): Promise<EccAccess> {
   const normalized = normalizeEmail(email);
 
@@ -160,10 +131,7 @@ export async function getEccAccessForEmail(email?: string | null): Promise<EccAc
     return toEccAccess(normalized, "developer");
   }
 
-  const [roleRow, legacyPaidMember] = await Promise.all([
-    getEccRoleRow(normalized),
-    hasPaidLegacyEccMember(normalized)
-  ]);
+  const roleRow = await getEccRoleRow(normalized);
 
   if (adminAccess.isSuperAdmin || roleRow?.super_admin_status === "approved") {
     return toEccAccess(normalized, "super_admin");
@@ -176,8 +144,7 @@ export async function getEccAccessForEmail(email?: string | null): Promise<EccAc
   if (
     roleRow?.official_member_status === "approved" ||
     roleRow?.is_official_member ||
-    roleRow?.payment_confirmed ||
-    legacyPaidMember
+    roleRow?.payment_confirmed
   ) {
     return toEccAccess(normalized, "official_member");
   }
