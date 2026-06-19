@@ -4,7 +4,7 @@ import { ClubMark } from "@/components/ClubMark";
 import { CTAButton } from "@/components/CTAButton";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
-import { activities } from "@/data/activities";
+import { publicActivities } from "@/data/activities";
 import { activityBoards } from "@/data/activityBoards";
 import { projects } from "@/data/projects";
 import { createPublicMetadata } from "@/lib/seo";
@@ -42,7 +42,7 @@ const latestClubRecords = [
     image: project.image,
     tags: project.tags
   })),
-  ...activities.map((post) => ({
+  ...publicActivities.map((post) => ({
     id: post.id,
     title: post.title,
     category: post.category,

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { activities } from "@/data/activities";
+import { activities, publicActivities } from "@/data/activities";
 import { activityBoards } from "@/data/activityBoards";
 import { goods } from "@/data/goods";
 import { projects } from "@/data/projects";
@@ -29,7 +29,8 @@ export function buildWoohyukmonContext({
     )
     .join("\n");
 
-  const activitySummary = activities
+  const visibleActivities = includeGoods ? activities : publicActivities;
+  const activitySummary = visibleActivities
     .slice(0, 6)
     .map((post) => `- ${post.title}: ${post.excerpt} URL: /our-activities/${post.slug}`)
     .join("\n");

@@ -216,8 +216,8 @@ export function DonationPanel() {
           </h2>
           <p className="mt-5 text-sm leading-7 text-ink/68">
             <I18nText
-              en="Donations support ECC activities, K-culture projects, international clubs, goods prototyping, and community programs."
-              ko="후원금은 ECC 활동, K-컬처 프로젝트, 국제 학생 클럽, 굿즈 프로토타입, 커뮤니티 프로그램 운영 준비에 사용됩니다."
+              en="Donations support ECC activities, K-culture projects, international clubs, and community programs."
+              ko="후원금은 ECC 활동, K-컬처 프로젝트, 국제 학생 클럽, 커뮤니티 프로그램 운영 준비에 사용됩니다."
             />
           </p>
 

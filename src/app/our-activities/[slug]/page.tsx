@@ -6,15 +6,21 @@ import { ActivityPostCard } from "@/components/ActivityPostCard";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { SectionHeader } from "@/components/SectionHeader";
 import { TagBadge } from "@/components/TagBadge";
-import { activities, getActivityBySlug } from "@/data/activities";
-import { absoluteUrl, seoKeywords, siteConfig } from "@/lib/seo";
+import {
+  activities,
+  getActivityBySlug,
+  isDeveloperOnlyActivity,
+  publicActivities
+} from "@/data/activities";
+import { requireDeveloperAccess } from "@/lib/privilegedAccess";
+import { absoluteUrl, createNoIndexMetadata, seoKeywords, siteConfig } from "@/lib/seo";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
 export function generateStaticParams() {
-  return activities.map((post) => ({ slug: post.slug }));
+  return publicActivities.map((post) => ({ slug: post.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -25,6 +31,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: "International Clubs"
     };
+  }
+
+  if (isDeveloperOnlyActivity(post)) {
+    return createNoIndexMetadata({
+      title: post.title,
+      description: post.excerpt,
+      path: `/our-activities/${post.slug}`
+    });
   }
 
   return {
@@ -64,7 +78,11 @@ export default async function ActivityDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const relatedPosts = activities.filter((item) => item.slug !== post.slug).slice(0, 2);
+  if (isDeveloperOnlyActivity(post)) {
+    await requireDeveloperAccess();
+  }
+
+  const relatedPosts = publicActivities.filter((item) => item.slug !== post.slug).slice(0, 2);
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",

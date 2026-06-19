@@ -71,6 +71,17 @@ export const activities: ActivityPost[] = [
   }
 ];
 
+export const developerOnlyActivitySlugs = new Set([
+  "hanji-led-object-prototype-review",
+  "arrow-pen-design-development-log"
+]);
+
+export function isDeveloperOnlyActivity(post: ActivityPost) {
+  return developerOnlyActivitySlugs.has(post.slug);
+}
+
+export const publicActivities = activities.filter((post) => !isDeveloperOnlyActivity(post));
+
 export function getActivityBySlug(slug: string) {
   return activities.find((post) => post.slug === slug);
 }

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { activities } from "@/data/activities";
+import { publicActivities } from "@/data/activities";
 import { siteConfig } from "@/lib/seo";
 
 const publicRoutes = [
@@ -14,7 +14,7 @@ const publicRoutes = [
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const detailRoutes = [
-    ...activities.map((post) => `/our-activities/${post.slug}`)
+    ...publicActivities.map((post) => `/our-activities/${post.slug}`)
   ];
 
   return [
