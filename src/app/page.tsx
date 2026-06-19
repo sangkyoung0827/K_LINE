@@ -5,13 +5,13 @@ import { seoKeywords, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: {
-    absolute: siteConfig.title
+    absolute: siteConfig.homeTitle
   },
-  description: siteConfig.description,
+  description: siteConfig.homeDescription,
   keywords: seoKeywords,
   openGraph: {
-    title: siteConfig.title,
-    description: siteConfig.description,
+    title: siteConfig.homeTitle,
+    description: siteConfig.socialDescription,
     url: siteConfig.url,
     siteName: siteConfig.name,
     images: [
@@ -27,8 +27,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: siteConfig.title,
-    description: siteConfig.description,
+    title: siteConfig.homeTitle,
+    description: siteConfig.socialDescription,
     images: ["/images/k-line-hero.jpg"]
   },
   alternates: {

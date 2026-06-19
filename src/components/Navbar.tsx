@@ -11,6 +11,7 @@ import { ClubMark } from "@/components/ClubMark";
 import { useCart } from "@/components/CartProvider";
 import { LanguageSwitcher, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
+import { useEccAccess } from "@/hooks/useEccAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
 const navigationLabels = {
@@ -32,6 +33,7 @@ export function Navbar() {
   const { totalQuantity } = useCart();
   const { language, pick } = useLanguage();
   const { isDeveloper, isSuperAdmin } = useSuperAdmin();
+  const eccAccess = useEccAccess();
   const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
   const visibleNavigation = navigation.filter(
     (item) =>
@@ -142,37 +144,42 @@ export function Navbar() {
       {open ? (
         <div className="border-t border-navy/10 bg-paper lg:hidden">
           <div className="mx-auto grid max-w-7xl px-5 py-4">
-            {visibleNavigation.map((item) => {
-              const hasBoards = item.href === "/our-activities";
-              return (
-                <div key={item.href} className="border-b border-navy/8 last:border-b-0">
-                  <Link
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className="block py-3 text-sm text-ink/76"
-                  >
-                    {navigationLabels[item.href as keyof typeof navigationLabels]
-                      ? pick(navigationLabels[item.href as keyof typeof navigationLabels])
-                      : item.label}
-                  </Link>
-                  {hasBoards ? (
-                    <div className="grid pb-3 pl-4">
-                      {activityBoards.map((board) => (
-                        <Link
-                          key={board.id}
-                          href={`/our-activities/${board.slug}`}
-                          onClick={() => setOpen(false)}
-                          className="inline-flex items-center gap-3 py-2 text-sm font-semibold text-ink/66"
-                        >
-                          <ClubMark id={board.id} size="xs" className="border-ink/10" />
-                          {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
+            <MobileMenuLink href="/" onClick={() => setOpen(false)}>
+              <I18nNavText en="Home" ko="홈" language={language} />
+            </MobileMenuLink>
+            <MobileMenuLink href="/our-activities" onClick={() => setOpen(false)}>
+              <I18nNavText en="International Student Club" ko="국제 학생 클럽" language={language} />
+            </MobileMenuLink>
+            {eccAccess.isLoggedIn && !eccAccess.isOfficialMember ? (
+              <>
+                <MobileMenuLink href="/ecc-join" onClick={() => setOpen(false)}>
+                  <I18nNavText en="New Member Registration" ko="신규회원 등록" language={language} />
+                </MobileMenuLink>
+                <MobileMenuLink href="/ecc-join" onClick={() => setOpen(false)}>
+                  <I18nNavText en="My Status" ko="내 상태 확인" language={language} />
+                </MobileMenuLink>
+              </>
+            ) : null}
+            {eccAccess.isOfficialMember ? (
+              <>
+                <MobileMenuLink href="/ecc-official" onClick={() => setOpen(false)}>
+                  ECC OFFICIAL
+                </MobileMenuLink>
+                <MobileMenuLink href="/ecc-official" onClick={() => setOpen(false)}>
+                  <I18nNavText en="My Status" ko="내 상태 확인" language={language} />
+                </MobileMenuLink>
+              </>
+            ) : null}
+            {eccAccess.isAdmin ? (
+              <MobileMenuLink href="/our-activities/ecc/members" onClick={() => setOpen(false)}>
+                <I18nNavText en="Member Management" ko="회원 관리" language={language} />
+              </MobileMenuLink>
+            ) : null}
+            {!eccAccess.isLoggedIn && !eccAccess.loading ? (
+              <MobileMenuLink href="/login" onClick={() => setOpen(false)}>
+                <I18nNavText en="Login / Profile" ko="로그인 / 프로필" language={language} />
+              </MobileMenuLink>
+            ) : null}
             {isDeveloper ? (
               <Link
                 href="/developer"
@@ -188,4 +195,36 @@ export function Navbar() {
       ) : null}
     </header>
   );
+}
+
+function MobileMenuLink({
+  children,
+  href,
+  onClick
+}: {
+  children: React.ReactNode;
+  href: string;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="border-b border-navy/8 py-3 text-sm font-semibold text-ink/76 last:border-b-0"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function I18nNavText({
+  en,
+  ko,
+  language
+}: {
+  en: string;
+  ko: string;
+  language: "en" | "ko";
+}) {
+  return <>{language === "ko" ? ko : en}</>;
 }

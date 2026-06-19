@@ -95,8 +95,8 @@ export function LoginPanel() {
             <>
               <p>
                 <I18nText
-                  en="Vercel must have Google OAuth environment variables before real login works."
-                  ko="실제 로그인이 작동하려면 Vercel에 Google OAuth 환경변수가 등록되어 있어야 합니다."
+                  en="The production environment must have Google OAuth environment variables before real login works."
+                  ko="실제 로그인이 작동하려면 프로덕션 환경에 Google OAuth 환경변수가 등록되어 있어야 합니다."
                 />
               </p>
               <p>

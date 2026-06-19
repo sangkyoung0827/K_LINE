@@ -43,7 +43,7 @@ export function HeroSection() {
           </p>
           <HeroActions />
         </div>
-        <div className="lg:justify-self-end">
+        <div className="hidden md:block lg:justify-self-end">
           <HomeFeedbackCloud />
         </div>
       </div>

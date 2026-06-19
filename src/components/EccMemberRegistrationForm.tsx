@@ -53,6 +53,8 @@ type FormState = {
   studentId: string;
 };
 
+type FormField = keyof FormState;
+
 const emptyForm: FormState = {
   departmentOrMajor: "",
   fullName: "",
@@ -61,6 +63,11 @@ const emptyForm: FormState = {
   kakaoId: "",
   nationality: "",
   studentId: ""
+};
+
+const requiredError = {
+  en: "This field is required.",
+  ko: "필수 입력 항목입니다."
 };
 
 const flowItems = [
@@ -147,6 +154,7 @@ export function EccMemberRegistrationForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FormField, string>>>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loginRequired, setLoginRequired] = useState(false);
@@ -203,10 +211,14 @@ export function EccMemberRegistrationForm() {
   );
   const showForm = !registration || editing;
 
-  const updateForm = (field: keyof FormState, value: string) => {
+  const updateForm = (field: FormField, value: string) => {
     setForm((current) => ({
       ...current,
       [field]: value
+    }));
+    setFieldErrors((current) => ({
+      ...current,
+      [field]: ""
     }));
   };
 
@@ -217,6 +229,22 @@ export function EccMemberRegistrationForm() {
     setError("");
 
     try {
+      const missingFields = (Object.keys(form) as FormField[]).filter((field) => !form[field].trim());
+
+      if (missingFields.length > 0) {
+        setFieldErrors(
+          Object.fromEntries(
+            missingFields.map((field) => [field, language === "ko" ? requiredError.ko : requiredError.en])
+          )
+        );
+        setError(
+          language === "ko"
+            ? "필수 항목을 모두 입력해 주세요."
+            : "Please fill in all required fields."
+        );
+        return;
+      }
+
       const response = await fetch("/api/ecc/member-registration", {
         method: "POST",
         headers: {
@@ -232,6 +260,7 @@ export function EccMemberRegistrationForm() {
 
       setRegistration(data.registration ?? null);
       setForm(registrationToForm(data.registration ?? null));
+      setFieldErrors({});
       setEditing(false);
       setMessage(
         language === "ko"
@@ -284,7 +313,7 @@ export function EccMemberRegistrationForm() {
           </div>
         </div>
 
-        <div className="grid content-start gap-4">
+        <div className="hidden content-start gap-4 md:grid">
           <img
             src="/api/ecc/open-chat-qr"
             alt={
@@ -318,13 +347,14 @@ export function EccMemberRegistrationForm() {
 
       <section className="paper-panel p-5 md:p-8">
         <div className="grid gap-6 lg:grid-cols-2">
-          <div>
+          <div className="lg:col-span-2">
             <p className="text-sm font-semibold uppercase text-brass">
               <I18nText en="Payment guide" ko="회비 안내" />
             </p>
-            <div className="mt-4 whitespace-pre-line text-sm leading-7 text-ink/70">
-              {language === "ko"
-                ? `👋 Welcome to ECC!
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="border border-ink/10 bg-white/45 p-4">
+                <p className="text-xs font-semibold uppercase text-brass">Korean</p>
+                <div className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/72">{`👋 Welcome to ECC!
 
 ECC 신입 회원 신청(Registration form for new Club Members)
 ✅️클럽 회원 등록✅️
@@ -335,8 +365,11 @@ ECC 신입 회원 신청(Registration form for new Club Members)
 
 9월 11일(금)까지 17:00 - 18:00, 동아리 전용관 2층, ECC 동아리방
 
-감사합니다! 😊`
-                : `✅ Please fill out this form after checking the membership fee information.
+감사합니다! 😊`}</div>
+              </div>
+              <div className="border border-ink/10 bg-white/45 p-4">
+                <p className="text-xs font-semibold uppercase text-brass">English</p>
+                <div className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/72">{`✅ Please fill out this form after checking the membership fee information.
 
 💳 Membership Fee
 Amount: [ 15,000 ] KRW
@@ -352,10 +385,11 @@ ECC officers will check your form and payment.
 
 📷 Instagram: [ecc_jbnu]
 
-Thank you! 💚`}
+Thank you! 💚`}</div>
+              </div>
             </div>
           </div>
-          <div className="border border-pine/20 bg-pine/10 p-5">
+          <div className="border border-pine/20 bg-pine/10 p-5 lg:col-span-2">
             <div className="flex items-center gap-3">
               <ShieldCheck aria-hidden className="h-5 w-5 text-pine" />
               <h3 className="font-serif text-2xl font-semibold text-ink">
@@ -480,31 +514,37 @@ Thank you! 💚`}
           <div className="grid gap-4 md:grid-cols-2">
             <TextField
               label="Full Name / 이름"
+              error={fieldErrors.fullName}
               value={form.fullName}
               onChange={(value) => updateForm("fullName", value)}
             />
             <TextField
               label="Student ID / 학번"
+              error={fieldErrors.studentId}
               value={form.studentId}
               onChange={(value) => updateForm("studentId", value)}
             />
             <TextField
               label="Department or Major / 학과 또는 전공"
+              error={fieldErrors.departmentOrMajor}
               value={form.departmentOrMajor}
               onChange={(value) => updateForm("departmentOrMajor", value)}
             />
             <TextField
               label="Nationality / 국적"
+              error={fieldErrors.nationality}
               value={form.nationality}
               onChange={(value) => updateForm("nationality", value)}
             />
             <TextField
               label="KakaoTalk Display Name / 카카오톡 표시 이름"
+              error={fieldErrors.kakaoDisplayName}
               value={form.kakaoDisplayName}
               onChange={(value) => updateForm("kakaoDisplayName", value)}
             />
             <TextField
               label="Kakao ID / 카카오톡 ID"
+              error={fieldErrors.kakaoId}
               helper={
                 language === "ko"
                   ? "카카오톡 공유 메뉴에서 확인할 수 있는 ID를 입력해 주세요."
@@ -542,13 +582,16 @@ Thank you! 💚`}
                 </label>
               ))}
             </div>
+            {fieldErrors.gender ? (
+              <p className="text-xs font-semibold text-red-700">{fieldErrors.gender}</p>
+            ) : null}
           </fieldset>
 
-          <div className="flex flex-wrap items-center gap-4 pt-2">
+          <div className="sticky bottom-0 z-10 -mx-5 flex flex-wrap items-center gap-3 border-t border-ink/10 bg-paper/95 p-4 pt-4 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:pt-2">
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex min-h-12 items-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
             >
               {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
               {saving ? (
@@ -563,8 +606,10 @@ Thank you! 💚`}
                 onClick={() => {
                   setEditing(false);
                   setForm(registrationToForm(registration));
+                  setFieldErrors({});
+                  setError("");
                 }}
-                className="inline-flex min-h-12 items-center border border-navy/20 px-6 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
+                className="inline-flex min-h-12 flex-1 items-center justify-center border border-navy/20 px-6 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15 md:flex-none"
               >
                 <I18nText en="Cancel" ko="취소" />
               </button>
@@ -580,11 +625,13 @@ Thank you! 💚`}
 }
 
 function TextField({
+  error,
   helper,
   label,
   onChange,
   value
 }: {
+  error?: string;
   helper?: string;
   label: string;
   onChange: (value: string) => void;
@@ -595,10 +642,12 @@ function TextField({
       <span>{label}</span>
       <input
         required
+        aria-invalid={Boolean(error)}
         className="form-field"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+      {error ? <span className="text-xs font-semibold leading-5 text-red-700">{error}</span> : null}
       {helper ? <span className="text-xs font-normal leading-5 text-ink/54">{helper}</span> : null}
     </label>
   );

@@ -8,11 +8,20 @@ import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { createPublicMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createPublicMetadata({
-  title: "ECC Club Hub",
+  title: "ECC",
   description:
-    "ECC on K_LINE is an international student club hub for campus English conversation, student activities, board posts, and cultural exchange.",
+    "ECC is the English Conversation Club at Jeonbuk National University. K_LINE supports ECC registration, official member access, activities, and international student community features.",
   path: "/our-activities/ecc",
-  keywords: ["ECC", "international students", "campus culture", "student activities"]
+  keywords: [
+    "ECC",
+    "English Conversation Club",
+    "Jeonbuk National University",
+    "JBNU",
+    "international students",
+    "campus culture",
+    "student activities",
+    "official member registration"
+  ]
 });
 
 export default async function EccHubPage() {

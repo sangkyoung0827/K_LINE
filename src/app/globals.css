@@ -56,10 +56,12 @@ select {
 
 .form-field {
   width: 100%;
+  min-height: 3rem;
   border: 1px solid rgba(31, 42, 68, 0.16);
   background: rgba(255, 252, 246, 0.88);
   padding: 0.85rem 0.95rem;
   color: #111827;
+  font-size: 1rem;
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
@@ -83,6 +85,12 @@ select {
 
 .feedback-float {
   animation: feedback-drift 7.5s ease-in-out infinite;
+}
+
+@media (max-width: 767px) {
+  .feedback-float {
+    display: none;
+  }
 }
 
 @keyframes hanji-pulse {

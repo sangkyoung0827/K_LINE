@@ -149,7 +149,7 @@ export function WoohyukmonChatbot() {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-[70] md:bottom-6 md:right-6">
+    <div className="fixed bottom-5 right-5 z-[70] hidden md:block md:bottom-6 md:right-6">
       {open ? (
         <section className="mb-4 flex h-[min(680px,calc(100svh-7rem))] w-[calc(100vw-2.5rem)] max-w-md flex-col overflow-hidden border border-navy/12 bg-paper shadow-lift md:w-[420px]">
           <header className="flex items-center justify-between gap-3 bg-navy p-4 text-paper">

@@ -15,7 +15,7 @@ const membershipCards = [
       "Potential ECC members first enter the KakaoTalk Open Chat room, then submit the K_LINE internal registration form with Google login.",
     descriptionKo:
       "ECC 신규 회원은 먼저 카카오톡 오픈채팅방에 입장한 뒤 Google 로그인으로 K_LINE 내부 등록폼을 제출합니다.",
-    href: "/our-activities/ecc/register",
+    href: "/ecc-join",
     cta: "Register as Member",
     ctaKo: "신규 회원 등록하기",
     icon: UserPlus,

@@ -1,6 +1,8 @@
 "use client";
 
-import { BookOpenText, Boxes, GalleryVerticalEnd } from "lucide-react";
+import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { BookOpenText, Boxes, ClipboardList, GalleryVerticalEnd, LogIn, ShieldCheck, UserCheck } from "lucide-react";
 import { ActivityPreviewCard } from "@/components/ActivityPreviewCard";
 import { DashboardCard } from "@/components/DashboardCard";
 import { GoodsPreviewCard } from "@/components/GoodsPreviewCard";
@@ -8,6 +10,7 @@ import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { activityBoards } from "@/data/activityBoards";
 import { goods } from "@/data/goods";
+import { useEccAccess } from "@/hooks/useEccAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
 const restrictedDashboardSections = [
@@ -61,6 +64,7 @@ export function HomeTrackSections() {
     <>
       <section className="bg-paper py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
+          <MobileEccEntryCard />
           <SectionHeader
             eyebrow={
               canSeeRestrictedTracks ? (
@@ -151,5 +155,80 @@ export function HomeTrackSections() {
         </section>
       ) : null}
     </>
+  );
+}
+
+function MobileEccEntryCard() {
+  const access = useEccAccess();
+
+  return (
+    <div className="mb-8 md:hidden">
+      <section className="paper-panel p-5 shadow-soft">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-navy text-paper">
+            <UserCheck aria-hidden className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase text-brass">ECC</p>
+            <h2 className="mt-1 font-serif text-3xl font-semibold text-ink">
+              <I18nText en="Join ECC" ko="ECC 가입하기" />
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-ink/68">
+              <I18nText
+                en="Log in to K_LINE and complete the new member registration form."
+                ko="K_LINE에 로그인하고 신규회원 등록폼을 작성하세요."
+              />
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-2">
+          {!access.isLoggedIn && !access.loading ? (
+            <button
+              type="button"
+              onClick={() => signIn("google", { callbackUrl: "/ecc-join" })}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-4 text-sm font-semibold text-paper transition hover:bg-navy"
+            >
+              <LogIn aria-hidden className="h-4 w-4" />
+              <I18nText en="Log in with Google" ko="Google로 로그인" />
+            </button>
+          ) : null}
+
+          {access.isOfficialMember ? (
+            <>
+              <Link
+                href="/ecc-official"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-4 text-sm font-semibold text-paper transition hover:bg-navy"
+              >
+                <ShieldCheck aria-hidden className="h-4 w-4" />
+                ECC OFFICIAL
+              </Link>
+              <Link
+                href="/ecc-official"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 border border-navy/18 px-4 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
+              >
+                <I18nText en="Join ECC Official Team Chat" ko="ECC 공식 팀채팅 입장" />
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/ecc-join"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-brass px-4 text-sm font-semibold text-ink transition hover:bg-ink hover:text-paper"
+              >
+                <ClipboardList aria-hidden className="h-4 w-4" />
+                <I18nText en="New Member Registration" ko="신규회원 등록" />
+              </Link>
+              <Link
+                href="/ecc-join"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 border border-navy/18 px-4 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
+              >
+                <I18nText en="Check My Status" ko="내 상태 확인" />
+              </Link>
+            </>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }

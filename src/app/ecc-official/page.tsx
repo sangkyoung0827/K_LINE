@@ -60,7 +60,7 @@ export default async function EccOfficialPage() {
               ko="K_LINE 신규회원 등록폼 제출과 회비 납부를 완료해 주세요. 운영진이 납부를 확인하면 이 계정에서 ECC OFFICIAL이 열립니다."
             />
           }
-          href="/our-activities/ecc/register"
+          href="/ecc-join"
           cta={<I18nText en="New Member Registration" ko="신규회원 등록" />}
         />
       </OfficialShell>
