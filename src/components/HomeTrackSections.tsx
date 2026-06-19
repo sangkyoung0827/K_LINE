@@ -5,39 +5,36 @@ import { signIn } from "next-auth/react";
 import { BookOpenText, Boxes, ClipboardList, GalleryVerticalEnd, LogIn, ShieldCheck, UserCheck } from "lucide-react";
 import { ActivityPreviewCard } from "@/components/ActivityPreviewCard";
 import { DashboardCard } from "@/components/DashboardCard";
-import { GoodsPreviewCard } from "@/components/GoodsPreviewCard";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { activityBoards } from "@/data/activityBoards";
-import { goods } from "@/data/goods";
 import { useEccAccess } from "@/hooks/useEccAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
-const restrictedDashboardSections = [
-  {
-    title: "Goods",
-    eyebrow: <I18nText en="Goods" ko="상품" />,
-    description: (
-      <I18nText
-        en="Explore cultural goods based on Korean traditional aesthetics, Hanji, calligraphy, and Korean archery."
-        ko="한지, 서예, 국궁 등 한국적 미감을 바탕으로 한 문화 상품을 살펴봅니다."
-      />
-    ),
-    href: "/goods",
-    action: <I18nText en="Explore Goods" ko="상품 보기" />,
-    icon: Boxes
-  },
-  {
-    title: "K-Culture Project",
-    eyebrow: <I18nText en="K-Culture Project" ko="K-컬처 프로젝트" />,
-    description: (
-      <I18nText en="Student-made international projects." ko="학생들이 만들어나가는 국제적 프로젝트들" />
-    ),
-    href: "/k-culture-project",
-    action: <I18nText en="View Projects" ko="프로젝트 보기" />,
-    icon: GalleryVerticalEnd
-  }
-];
+const developerGoodsDashboardSection = {
+  title: "Goods",
+  eyebrow: <I18nText en="Goods" ko="상품" />,
+  description: (
+    <I18nText
+      en="Developer-only product draft area while goods are being prepared."
+      ko="상품 준비가 완료되기 전까지 개발자만 확인하는 상품 초안 영역입니다."
+    />
+  ),
+  href: "/goods",
+  action: <I18nText en="Open Goods Drafts" ko="상품 초안 열기" />,
+  icon: Boxes
+};
+
+const kCultureDashboardSection = {
+  title: "K-Culture Project",
+  eyebrow: <I18nText en="K-Culture Project" ko="K-컬처 프로젝트" />,
+  description: (
+    <I18nText en="Student-made international projects." ko="학생들이 만들어나가는 국제적 프로젝트들" />
+  ),
+  href: "/k-culture-project",
+  action: <I18nText en="View Projects" ko="프로젝트 보기" />,
+  icon: GalleryVerticalEnd
+};
 
 const clubsDashboardSection = {
   title: "International Clubs",
@@ -55,10 +52,13 @@ const clubsDashboardSection = {
 
 export function HomeTrackSections() {
   const { isDeveloper, isSuperAdmin } = useSuperAdmin();
-  const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
-  const dashboardSections = canSeeRestrictedTracks
-    ? [clubsDashboardSection, ...restrictedDashboardSections]
-    : [clubsDashboardSection];
+  const canSeeProjects = isSuperAdmin || isDeveloper;
+  const dashboardSections = [
+    clubsDashboardSection,
+    ...(isDeveloper ? [developerGoodsDashboardSection] : []),
+    ...(canSeeProjects ? [kCultureDashboardSection] : [])
+  ];
+  const hasMultipleTracks = dashboardSections.length > 1;
 
   return (
     <>
@@ -67,18 +67,18 @@ export function HomeTrackSections() {
           <MobileEccEntryCard />
           <SectionHeader
             eyebrow={
-              canSeeRestrictedTracks ? (
-                <I18nText en="Three main tracks" ko="세 가지 주요 흐름" />
+              hasMultipleTracks ? (
+                <I18nText en="Role-based tracks" ko="권한별 주요 흐름" />
               ) : (
                 <I18nText en="Main track" ko="주요 흐름" />
               )
             }
             title={<I18nText en="Dashboard" ko="Dashboard" />}
             description={
-              canSeeRestrictedTracks ? (
+              hasMultipleTracks ? (
                 <I18nText
-                  en="K_LINE keeps the experience focused on three paths: cultural goods, student-friendly K-culture projects, and international student clubs."
-                  ko="K_LINE은 문화 상품, 학생 친화형 K-컬처 프로젝트, 국제 학생 클럽이라는 세 가지 길에 집중합니다."
+                  en="K_LINE keeps the experience focused on student clubs and role-based project tools."
+                  ko="K_LINE은 학생 클럽과 권한별 프로젝트 도구를 중심으로 운영됩니다."
                 />
               ) : (
                 <I18nText
@@ -91,7 +91,7 @@ export function HomeTrackSections() {
           />
           <div
             className={`mt-12 grid gap-6 ${
-              canSeeRestrictedTracks ? "lg:grid-cols-3" : "mx-auto max-w-xl"
+              hasMultipleTracks ? "lg:grid-cols-3" : "mx-auto max-w-xl"
             }`}
           >
             {dashboardSections.map((section) => (
@@ -124,36 +124,6 @@ export function HomeTrackSections() {
           </div>
         </div>
       </section>
-
-      {canSeeRestrictedTracks ? (
-        <section className="bg-paper py-14 md:py-20">
-          <div className="mx-auto max-w-7xl px-5 md:px-8">
-            <div className="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-end">
-              <SectionHeader
-                eyebrow={<I18nText en="Featured goods" ko="대표 상품" />}
-                title={<I18nText en="Cultural Objects" ko="문화 오브젝트" />}
-                description={
-                  <I18nText
-                    en="A refined preview of K_LINE goods connected to Hanji, Korean calligraphy, Dangun myth, dancheong, najeonchilgi, Kim Hongdo, and Hanhwal."
-                    ko="한지, 서예, 단군신화, 단청, 나전칠기, 김홍도, 한활과 연결된 K_LINE 상품을 소개합니다."
-                  />
-                }
-              />
-              <p className="max-w-xl text-sm leading-7 text-muted md:justify-self-end">
-                <I18nText
-                  en="Goods remain inquiry-based while payment and inventory systems are prepared."
-                  ko="결제와 재고 시스템이 준비되기 전까지 상품은 문의 기반으로 운영됩니다."
-                />
-              </p>
-            </div>
-            <div className="mt-10 grid gap-6 lg:grid-cols-2">
-              {goods.map((item) => (
-                <GoodsPreviewCard key={item.id} item={item} />
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
     </>
   );
 }

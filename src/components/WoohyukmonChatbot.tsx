@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Bot, Loader2, MessageCircle, Minus, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
-import { woohyukmonQuickPrompts } from "@/data/woohyukmonKnowledge";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
 type ChatMessage = {
@@ -28,6 +27,16 @@ const welcomeMessages: Record<"en" | "ko", ChatMessage> = {
       "안녕하세요! 저는 K_LINE의 AI 안내자 우혁몬입니다. 국제 학생 클럽, ECC, 한활, 활동 글쓰기까지 무엇이든 물어보세요."
   }
 };
+
+const publicQuickPrompts = {
+  en: ["What is K_LINE?", "What is ECC?", "What is Han-hwal?", "How do I write an activity post?"],
+  ko: ["K_LINE이 뭐예요?", "ECC가 뭐예요?", "한활이 뭐예요?", "활동 글은 어떻게 쓰나요?"]
+} as const;
+
+const developerQuickPrompts = {
+  en: ["Tell me about Goods", "How do I submit a project?", "What is the Arrow Pen?", "What is the Hanji LED object?"],
+  ko: ["굿즈에 대해 알려줘", "프로젝트는 어떻게 올리나요?", "화살펜이 뭐예요?", "한지 오브제가 뭐예요?"]
+} as const;
 
 function WoohyukmonAvatar({
   language,
@@ -63,7 +72,12 @@ export function WoohyukmonChatbot() {
   const pathname = usePathname();
   const { language } = useLanguage();
   const { isDeveloper, isSuperAdmin } = useSuperAdmin();
-  const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
+  const canSeeProjects = isSuperAdmin || isDeveloper;
+  const quickPrompts = [
+    ...publicQuickPrompts[language],
+    ...(canSeeProjects ? [language === "ko" ? "프로젝트는 어떻게 올리나요?" : "How do I submit a project?"] : []),
+    ...(isDeveloper ? developerQuickPrompts[language] : [])
+  ];
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessages[language]]);
@@ -211,16 +225,7 @@ export function WoohyukmonChatbot() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              {woohyukmonQuickPrompts[language]
-                .filter((prompt) => {
-                  if (canSeeRestrictedTracks) {
-                    return true;
-                  }
-                  return !/(goods|project|arrow pen|hanji led|굿즈|프로젝트|화살펜|한지 오브제)/i.test(
-                    prompt
-                  );
-                })
-                .map((prompt) => (
+              {Array.from(new Set(quickPrompts)).map((prompt) => (
                   <button
                     key={prompt}
                     type="button"

@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { goods } from "@/data/goods";
 import type { CartLine, GoodsItem } from "@/types";
 
 type CartContextValue = {
@@ -31,15 +30,10 @@ function toCartLine(item: GoodsItem, quantity: number): CartLine {
 }
 
 function normalizeCartLines(lines: CartLine[]): CartLine[] {
-  return lines.map((line) => {
-    const latestItem = goods.find((item) => item.slug === line.slug);
-
-    if (!latestItem) {
-      return line;
-    }
-
-    return toCartLine(latestItem, Math.max(1, line.quantity));
-  });
+  return lines.map((line) => ({
+    ...line,
+    quantity: Math.max(1, Number(line.quantity) || 1)
+  }));
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {

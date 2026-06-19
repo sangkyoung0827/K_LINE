@@ -1,3 +1,5 @@
+import "server-only";
+
 export const woohyukmonKnowledge = {
   identity: {
     name: "우혁몬 / Woohyukmon",

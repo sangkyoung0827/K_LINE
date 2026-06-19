@@ -7,7 +7,6 @@ const publicSeoPages = new Set([
   "/",
   "/archery-class",
   "/contact",
-  "/goods",
   "/han-hwal",
   "/k-culture-project",
   "/our-activities",
@@ -23,9 +22,11 @@ const protectedPagePrefixes = [
   "/donate",
   "/ecc-join",
   "/ecc-official",
+  "/goods",
   "/international-student-club",
   "/k-culture-project/submit",
   "/member",
+  "/products",
   "/register",
   "/request-admin",
   "/our-activities/write",
@@ -54,10 +55,6 @@ function isProtectedPage(pathname: string) {
 
 function isPublicSeoPage(pathname: string) {
   if (publicSeoPages.has(pathname)) {
-    return true;
-  }
-
-  if (pathname.startsWith("/goods/")) {
     return true;
   }
 

@@ -17,10 +17,6 @@ const inquiryOptions = [
     label: { en: "General inquiry", ko: "일반 문의" }
   },
   {
-    value: "Goods inquiry",
-    label: { en: "Goods inquiry", ko: "상품 문의" }
-  },
-  {
     value: "K-Culture Project inquiry",
     label: { en: "K-Culture Project inquiry", ko: "K-컬처 프로젝트 문의" }
   },

@@ -1,10 +1,20 @@
+import "server-only";
+
 import { activities } from "@/data/activities";
 import { activityBoards } from "@/data/activityBoards";
 import { goods } from "@/data/goods";
 import { projects } from "@/data/projects";
 import { woohyukmonKnowledge } from "@/data/woohyukmonKnowledge";
 
-export function buildWoohyukmonContext(includeRestrictedTracks = false) {
+type WoohyukmonContextOptions = {
+  includeGoods?: boolean;
+  includeProjects?: boolean;
+};
+
+export function buildWoohyukmonContext({
+  includeGoods = false,
+  includeProjects = false
+}: WoohyukmonContextOptions = {}) {
   const goodsSummary = goods
     .map(
       (item) =>
@@ -33,15 +43,27 @@ export function buildWoohyukmonContext(includeRestrictedTracks = false) {
   const publicContext = [
     "K_LINE KNOWLEDGE BASE",
     `Identity: ${woohyukmonKnowledge.identity.description}`,
-    includeRestrictedTracks
+    includeGoods
       ? `Tracks: ${woohyukmonKnowledge.tracks.summary}`
-      : "Visible track for regular members: International Clubs.",
+      : includeProjects
+        ? "Visible tracks for this role: K-Culture Project and International Clubs."
+        : "Visible track for regular members: International Clubs.",
     "",
     "Track URLs:",
-    ...(includeRestrictedTracks
-      ? woohyukmonKnowledge.tracks.items.map(
-          (track) => `- ${track.name}: ${track.description} URL: ${track.href}`
-        )
+    ...(includeGoods || includeProjects
+      ? woohyukmonKnowledge.tracks.items
+          .filter((track) => {
+            if (track.href === "/goods") {
+              return includeGoods;
+            }
+
+            if (track.href === "/k-culture-project") {
+              return includeProjects;
+            }
+
+            return true;
+          })
+          .map((track) => `- ${track.name}: ${track.description} URL: ${track.href}`)
       : woohyukmonKnowledge.tracks.items
           .filter((track) => track.href === "/our-activities")
           .map((track) => `- ${track.name}: ${track.description} URL: ${track.href}`)),
@@ -73,23 +95,27 @@ export function buildWoohyukmonContext(includeRestrictedTracks = false) {
     "Rule: If information is missing, say it is not available yet and guide users to Contact."
   ];
 
-  if (!includeRestrictedTracks) {
+  if (!includeGoods && !includeProjects) {
     publicContext.push(
       "Rule: Goods and K-Culture Project pages are hidden from regular member accounts. Do not guide regular members to those pages."
     );
     return publicContext.join("\n");
   }
 
-  return [
-    ...publicContext.slice(0, 8),
-    "",
-    "Goods:",
-    goodsSummary,
-    "",
-    "K-Culture Projects:",
-    projectSummary,
-    `Submission URL: ${woohyukmonKnowledge.kCultureProjects.submission.href}`,
-    "",
-    ...publicContext.slice(8)
-  ].join("\n");
+  const restrictedContext: string[] = [...publicContext.slice(0, 8)];
+
+  if (includeGoods) {
+    restrictedContext.push("", "Goods:", goodsSummary);
+  }
+
+  if (includeProjects) {
+    restrictedContext.push(
+      "",
+      "K-Culture Projects:",
+      projectSummary,
+      `Submission URL: ${woohyukmonKnowledge.kCultureProjects.submission.href}`
+    );
+  }
+
+  return [...restrictedContext, "", ...publicContext.slice(8)].join("\n");
 }

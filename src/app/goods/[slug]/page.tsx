@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { GoodsDetail } from "@/components/GoodsDetail";
 import { getGoodsBySlug, goods } from "@/data/goods";
-import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
+import { requireDeveloperAccess } from "@/lib/privilegedAccess";
 import { absoluteUrl, seoKeywords, siteConfig } from "@/lib/seo";
 
 type PageProps = {
@@ -47,12 +47,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${item.name} | ${siteConfig.name}`,
       description: item.shortDescription,
       images: [item.images[0].src]
+    },
+    robots: {
+      index: false,
+      follow: false,
+      googleBot: {
+        index: false,
+        follow: false
+      }
     }
   };
 }
 
 export default async function GoodsDetailPage({ params }: PageProps) {
-  await requirePrivilegedAccess();
+  await requireDeveloperAccess();
 
   const { slug } = await params;
   const item = getGoodsBySlug(slug);

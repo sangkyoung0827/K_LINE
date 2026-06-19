@@ -3,7 +3,7 @@ import { GoodsCard } from "@/components/GoodsCard";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { goods } from "@/data/goods";
-import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
+import { requireDeveloperAccess } from "@/lib/privilegedAccess";
 import { absoluteUrl, seoKeywords, siteConfig } from "@/lib/seo";
 
 const goodsPageTitle = "K_LINE Goods | Korean Heritage Goods & K-Culture Products";
@@ -70,8 +70,12 @@ export const metadata: Metadata = {
     images: ["/images/goods-hero-clean.jpg"]
   },
   robots: {
-    index: true,
-    follow: true
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false
+    }
   }
 };
 
@@ -183,7 +187,7 @@ const goodsCollectionJsonLd = {
 };
 
 export default async function GoodsPage() {
-  await requirePrivilegedAccess();
+  await requireDeveloperAccess();
 
   return (
     <>

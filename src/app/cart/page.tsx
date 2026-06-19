@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CartView } from "@/components/CartView";
-import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
+import { requireDeveloperAccess } from "@/lib/privilegedAccess";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
@@ -10,7 +10,7 @@ export const metadata: Metadata = createNoIndexMetadata({
 });
 
 export default async function CartPage() {
-  await requirePrivilegedAccess();
+  await requireDeveloperAccess();
 
   return (
     <section className="bg-paper px-5 py-14 md:px-8 md:py-20">

@@ -1,6 +1,7 @@
 "use client";
 
-import { BarChart3, Eye, Globe2, UserCheck } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, Eye, Globe2, MessageSquareText, Settings, ShieldCheck, UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type SiteAnalyticsMember = {
@@ -135,7 +136,33 @@ export function DeveloperDashboard() {
         </div>
       </section>
 
-      <section className="bg-white/55 py-12 md:py-16">
+      <section className="bg-white/55 py-10 md:py-14">
+        <div className="mx-auto max-w-7xl px-5 md:px-8">
+          <h2 className="font-serif text-3xl font-semibold text-ink">Developer Menu</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <DeveloperMenuCard
+              href="/developer/feedback"
+              icon={<MessageSquareText aria-hidden className="h-5 w-5" />}
+              title="Site Feedback"
+              description="Read, resolve, and delete developer-only site feedback."
+            />
+            <DeveloperMenuCard
+              href="/developer"
+              icon={<Settings aria-hidden className="h-5 w-5" />}
+              title="Developer Settings"
+              description="Review developer analytics and configuration status."
+            />
+            <DeveloperMenuCard
+              href="/our-activities/ecc/members"
+              icon={<ShieldCheck aria-hidden className="h-5 w-5" />}
+              title="Role Acquisition Account Info"
+              description="Open ECC permission management with developer-only account details."
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-paper py-12 md:py-16">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 md:px-8 xl:grid-cols-[1fr_1fr]">
           <DeveloperPanel title="Google Login Members">
             {siteAnalyticsError ? (
@@ -186,6 +213,31 @@ export function DeveloperDashboard() {
         </div>
       </section>
     </>
+  );
+}
+
+function DeveloperMenuCard({
+  description,
+  href,
+  icon,
+  title
+}: {
+  description: string;
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="border border-ink/10 bg-paper/92 p-5 shadow-soft transition hover:-translate-y-1 hover:border-brass/50 hover:bg-white"
+    >
+      <span className="flex h-10 w-10 items-center justify-center bg-navy text-paper">
+        {icon}
+      </span>
+      <h3 className="mt-5 text-lg font-semibold text-ink">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-ink/62">{description}</p>
+    </Link>
   );
 }
 

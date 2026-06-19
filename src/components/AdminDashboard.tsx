@@ -3,10 +3,8 @@
 import {
   Banknote,
   CheckCircle2,
-  CircleDollarSign,
   ClipboardList,
   HeartHandshake,
-  Package,
   ShieldCheck,
   Trash2,
   Users
@@ -14,7 +12,6 @@ import {
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { activityBoards } from "@/data/activityBoards";
-import { goods } from "@/data/goods";
 import { adminStorageKeys } from "@/lib/adminStorageKeys";
 import {
   readFreeBoardPosts,
@@ -35,21 +32,6 @@ type AdminMember = {
   role: string;
   status: "active" | "paused";
   createdAt: string;
-};
-
-type OrderInquiry = {
-  name?: string;
-  email?: string;
-  message?: string;
-  selectedGoods?: {
-    slug: string;
-    name: string;
-    koreanName: string;
-    quantity: number;
-    estimatedPriceEur: number;
-  }[];
-  estimatedTotalEur?: number;
-  createdAt?: string;
 };
 
 type DonationPledge = {
@@ -163,7 +145,6 @@ function formatKrw(value: number) {
 export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
   const [members, setMembers] = useState<AdminMember[]>([]);
   const [memberForm, setMemberForm] = useState(memberInitialState);
-  const [orders, setOrders] = useState<OrderInquiry[]>([]);
   const [donations, setDonations] = useState<DonationPledge[]>([]);
   const [bankSnapshot, setBankSnapshot] = useState(defaultBankSnapshot);
   const [bankForm, setBankForm] = useState({
@@ -209,7 +190,6 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
 
   const refresh = () => {
     setMembers(readJson<AdminMember[]>(adminStorageKeys.adminMembers, []));
-    setOrders(readJson<OrderInquiry[]>(adminStorageKeys.orderInquiries, []));
     setDonations(readJson<DonationPledge[]>(adminStorageKeys.donationPledges, []));
     const nextBankSnapshot = readJson<BankSnapshot>(
       adminStorageKeys.bankSnapshot,
@@ -247,27 +227,6 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
     return hasAdminRecord ? members : [adminRecord, ...members];
   }, [adminEmail, adminName, members]);
 
-  const productStats = useMemo(
-    () =>
-      goods.map((item) => {
-        const quantity = orders.reduce((total, order) => {
-          const selected = order.selectedGoods?.find((line) => line.slug === item.slug);
-          return total + (selected?.quantity ?? 0);
-        }, 0);
-
-        return {
-          item,
-          quantity,
-          estimatedRevenueEur: quantity * item.estimatedPriceEur
-        };
-      }),
-    [orders]
-  );
-
-  const estimatedRevenueEur = productStats.reduce(
-    (total, stat) => total + stat.estimatedRevenueEur,
-    0
-  );
   const pledgedKrw = donations.reduce((total, donation) => total + donation.amountKrw, 0);
   const receivedKrw = donations
     .filter((donation) => donation.status === "received")
@@ -386,12 +345,6 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
             label="Activity submissions"
             value={`${activitySubmissions.length}`}
             note={`${pendingActivitySubmissions} pending`}
-          />
-          <MetricCard
-            icon={<Package aria-hidden className="h-5 w-5" />}
-            label="Order inquiries"
-            value={`${orders.length}`}
-            note={`Estimated EUR ${estimatedRevenueEur}`}
           />
           <MetricCard
             icon={<HeartHandshake aria-hidden className="h-5 w-5" />}
@@ -597,40 +550,6 @@ export function AdminDashboard({ adminEmail, adminName }: AdminDashboardProps) {
             ) : (
               <p className="text-sm leading-7 text-ink/62">No free-board posts are stored yet.</p>
             )}
-          </AdminPanel>
-
-          <AdminPanel
-            title="Orders And Revenue"
-            icon={<CircleDollarSign aria-hidden className="h-5 w-5" />}
-          >
-            <div className="grid gap-3 md:grid-cols-2">
-              {productStats.map((stat) => (
-                <div key={stat.item.id} className="border border-ink/10 bg-white/60 p-4">
-                  <p className="text-xs font-semibold uppercase text-brass">{stat.item.koreanName}</p>
-                  <p className="mt-2 font-semibold text-ink">{stat.item.name}</p>
-                  <p className="mt-3 text-sm text-ink/62">Quantity: {stat.quantity}</p>
-                  <p className="mt-1 text-sm text-ink/62">
-                    Estimated revenue: EUR {stat.estimatedRevenueEur}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-5 grid gap-3">
-              {orders.length > 0 ? (
-                orders.map((order, index) => (
-                  <div key={`${order.createdAt}-${index}`} className="border border-ink/10 bg-white/60 p-4">
-                    <p className="font-semibold text-ink">{order.name ?? "Unnamed order"}</p>
-                    <p className="mt-1 text-sm text-ink/62">{order.email ?? "No email"}</p>
-                    <p className="mt-2 text-sm font-semibold text-ink">
-                      Estimated total: EUR {order.estimatedTotalEur ?? 0}
-                    </p>
-                    <p className="mt-1 text-xs text-ink/52">{formatDate(order.createdAt)}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm leading-7 text-ink/62">No order inquiries are stored yet.</p>
-              )}
-            </div>
           </AdminPanel>
 
           <AdminPanel title="Donation And Bank Snapshot" icon={<Banknote aria-hidden className="h-5 w-5" />}>

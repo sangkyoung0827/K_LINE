@@ -8,7 +8,7 @@ import { createPublicMetadata, siteConfig } from "@/lib/seo";
 export const metadata: Metadata = createPublicMetadata({
   title: "Contact",
   description:
-    "Contact K_LINE for K-culture goods, Korean culture projects, ECC, Han-hwal, international student activities, and campus culture inquiries.",
+    "Contact K_LINE for Korean culture projects, ECC, Han-hwal, international student activities, and campus culture inquiries.",
   path: "/contact",
   keywords: ["K_LINE contact", "K-Culture", "ECC", "Han-hwal", "international students"]
 });
@@ -23,8 +23,8 @@ export default function ContactPage() {
             title={<I18nText en="Open a cultural conversation" ko="문화적 대화를 시작하세요" />}
             description={
               <I18nText
-                en="Use the form for Goods, K-Culture Project, International Clubs, Hanhwal project, or future collaboration inquiries."
-                ko="상품, K-컬처 프로젝트, 국제 학생 클럽, 한활 프로젝트, 향후 협업 문의에 이 양식을 사용하세요."
+                en="Use the form for K-Culture Project, International Clubs, Hanhwal project, or future collaboration inquiries."
+                ko="K-컬처 프로젝트, 국제 학생 클럽, 한활 프로젝트, 향후 협업 문의에 이 양식을 사용하세요."
               />
             }
           />

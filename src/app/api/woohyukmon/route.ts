@@ -59,7 +59,10 @@ export async function POST(request: Request) {
     const client = new OpenAI({ apiKey });
     const session = await auth();
     const access = await getAdminAccess(session?.user?.email ?? "");
-    const context = buildWoohyukmonContext(access.isSuperAdmin);
+    const context = buildWoohyukmonContext({
+      includeGoods: access.isDeveloper,
+      includeProjects: access.isSuperAdmin
+    });
     const history = cleanMessages(body.history);
 
     const response = await client.chat.completions.create({

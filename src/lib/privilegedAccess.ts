@@ -10,3 +10,16 @@ export async function requirePrivilegedAccess() {
     redirect("/our-activities");
   }
 }
+
+export async function requireDeveloperAccess() {
+  const session = await auth();
+  const access = await getAdminAccess(session?.user?.email ?? "");
+
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  if (!access.isDeveloper) {
+    redirect("/our-activities/ecc");
+  }
+}

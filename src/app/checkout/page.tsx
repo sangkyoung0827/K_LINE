@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { InquiryForm } from "@/components/InquiryForm";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
-import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
+import { requireDeveloperAccess } from "@/lib/privilegedAccess";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
@@ -13,7 +13,7 @@ export const metadata: Metadata = createNoIndexMetadata({
 });
 
 export default async function CheckoutPage() {
-  await requirePrivilegedAccess();
+  await requireDeveloperAccess();
 
   return (
     <section className="bg-paper py-14 md:py-20">

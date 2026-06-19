@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getDeveloperEmails, getSuperAdminEmails, normalizeEmail } from "@/lib/admin";
+import {
+  getDeveloperEmails,
+  getSuperAdminEmails,
+  isDeveloperEmail,
+  normalizeEmail
+} from "@/lib/admin";
 import {
   cleanText,
   SupabaseConfigError,
@@ -196,7 +201,7 @@ async function buildResponse() {
   siteMembers.forEach((member) => mergedEmails.add(normalizeEmail(member.email)));
   roleRows.forEach((row) => mergedEmails.add(normalizeEmail(row.email)));
 
-  const members = await Promise.all(
+  const allMembers = await Promise.all(
     Array.from(mergedEmails)
       .filter(Boolean)
       .sort()
@@ -217,6 +222,9 @@ async function buildResponse() {
         };
       })
   );
+  const members = access.isDeveloper
+    ? allMembers
+    : allMembers.filter((member) => !member.access.isDeveloper && !isDeveloperEmail(member.email));
 
   return {
     developerInfo: access.isDeveloper
@@ -313,6 +321,13 @@ export async function PATCH(request: Request) {
 
     if (!targetEmail) {
       return NextResponse.json({ error: "Target email is required." }, { status: 400 });
+    }
+
+    if (!access.isDeveloper && isDeveloperEmail(targetEmail)) {
+      return NextResponse.json(
+        { error: "Developer account information is available only to developer accounts." },
+        { status: 403 }
+      );
     }
 
     if (action === "approve_official_member") {

@@ -1,10 +1,15 @@
 import Image from "next/image";
+import { auth } from "@/auth";
 import { HeroActions } from "@/components/HeroActions";
 import { HomeFeedbackCloud } from "@/components/HomeFeedbackCloud";
 import { I18nText } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
+import { getAdminAccess } from "@/lib/admin";
 
-export function HeroSection() {
+export async function HeroSection() {
+  const session = await auth();
+  const access = await getAdminAccess(session?.user?.email ?? "");
+
   return (
     <section className="relative isolate overflow-hidden bg-navy text-paper">
       <Image
@@ -31,8 +36,8 @@ export function HeroSection() {
           </h1>
           <p className="mt-6 max-w-3xl text-xl leading-8 text-paper/84 md:text-2xl">
             <I18nText
-              en="A campus platform connecting Korean cultural projects, goods, and international student clubs."
-              ko="한국 문화 프로젝트, 상품, 국제 학생 클럽을 연결하는 대학 기반 플랫폼입니다."
+              en="A campus platform connecting ECC, Han-hwal, and international student club activities."
+              ko="ECC, 한활, 국제 학생 클럽 활동을 연결하는 대학 기반 플랫폼입니다."
             />
           </p>
           <p className="mt-4 max-w-3xl text-base leading-8 text-paper/72 md:text-lg">
@@ -43,9 +48,11 @@ export function HeroSection() {
           </p>
           <HeroActions />
         </div>
-        <div className="hidden md:block lg:justify-self-end">
-          <HomeFeedbackCloud />
-        </div>
+        {access.isDeveloper ? (
+          <div className="hidden md:block lg:justify-self-end">
+            <HomeFeedbackCloud />
+          </div>
+        ) : null}
       </div>
     </section>
   );

@@ -34,10 +34,18 @@ export function Navbar() {
   const { language, pick } = useLanguage();
   const { isDeveloper, isSuperAdmin } = useSuperAdmin();
   const eccAccess = useEccAccess();
-  const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
   const visibleNavigation = navigation.filter(
-    (item) =>
-      canSeeRestrictedTracks || (item.href !== "/goods" && item.href !== "/k-culture-project")
+    (item) => {
+      if (item.href === "/goods") {
+        return isDeveloper;
+      }
+
+      if (item.href === "/k-culture-project") {
+        return isSuperAdmin || isDeveloper;
+      }
+
+      return true;
+    }
   );
 
   if (pathname === "/login") {
@@ -120,7 +128,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
           <AuthStatus />
-          {canSeeRestrictedTracks ? (
+          {isDeveloper ? (
             <Link
               href="/cart"
               aria-label={language === "ko" ? "장바구니 열기" : "Open cart"}

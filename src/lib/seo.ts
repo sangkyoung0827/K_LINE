@@ -8,9 +8,9 @@ export const siteConfig = {
   homeTitle: "K_LINE ECC and Clubs | Campus K-Culture Hub",
   koreanTitle: "K_LINE",
   description:
-    "K_LINE is a campus-based club platform for ECC, international students, official member registration, K-culture activities, Korean heritage goods, Han-hwal, and JBNU campus clubs.",
+    "K_LINE is a campus-based club platform for ECC, international students, official member registration, K-culture activities, Han-hwal, and JBNU campus clubs.",
   homeDescription:
-    "K_LINE connects ECC, international student activities, Korean campus clubs, K-culture projects, goods, and Han-hwal at Jeonbuk National University.",
+    "K_LINE connects ECC, international student activities, Korean campus clubs, K-culture projects, and Han-hwal at Jeonbuk National University.",
   socialDescription:
     "K_LINE is a campus-based club platform for ECC, international students, official member registration, K-culture activities, and Korean campus clubs.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://kline-nine-wheat.vercel.app",
@@ -33,19 +33,10 @@ export const seoKeywords = [
   "Korean traditional archery",
   "Korean archery class",
   "Han-hwal",
-  "Hanji",
-  "Korean calligraphy",
-  "K-culture goods",
-  "Korean cultural goods",
   "Jeonbuk K-culture",
-  "Korean cultural object",
-  "Korean traditional goods",
   "국궁",
   "한활",
-  "한지",
-  "서예",
-  "전북 K-컬처",
-  "화살펜"
+  "전북 K-컬처"
 ];
 
 export function absoluteUrl(path: string) {

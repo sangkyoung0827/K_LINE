@@ -20,10 +20,18 @@ export function Footer() {
   const pathname = usePathname();
   const { pick } = useLanguage();
   const { isDeveloper, isSuperAdmin } = useSuperAdmin();
-  const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
   const visibleNavigation = navigation.filter(
-    (item) =>
-      canSeeRestrictedTracks || (item.href !== "/goods" && item.href !== "/k-culture-project")
+    (item) => {
+      if (item.href === "/goods") {
+        return isDeveloper;
+      }
+
+      if (item.href === "/k-culture-project") {
+        return isSuperAdmin || isDeveloper;
+      }
+
+      return true;
+    }
   );
 
   if (pathname === "/login") {
@@ -36,10 +44,10 @@ export function Footer() {
         <div>
           <Logo variant="light" size="sm" />
           <p className="mt-3 max-w-md text-sm leading-7 text-paper/70">
-            {canSeeRestrictedTracks ? (
+            {isSuperAdmin || isDeveloper ? (
               <I18nText
-                en="A campus K-culture hub connecting Korean cultural projects, goods, and international student clubs for university communities."
-                ko="한국 문화 프로젝트, 상품, 국제 학생 클럽을 대학 커뮤니티 안에서 연결하는 캠퍼스 K-컬처 허브입니다."
+                en="A campus K-culture hub connecting Korean cultural projects and international student clubs for university communities."
+                ko="한국 문화 프로젝트와 국제 학생 클럽을 대학 커뮤니티 안에서 연결하는 캠퍼스 K-컬처 허브입니다."
               />
             ) : (
               <I18nText
@@ -78,7 +86,7 @@ export function Footer() {
       </div>
       <div className="border-t border-paper/12 px-5 py-5 text-center text-xs text-paper/50">
         © {new Date().getFullYear()} K_LINE.{" "}
-        {canSeeRestrictedTracks ? (
+        {isDeveloper ? (
           <I18nText
             en="Inquiry-based commerce. No payment integration yet."
             ko="문의 기반 상품 흐름입니다. 실제 결제 연동은 아직 연결되지 않았습니다."
