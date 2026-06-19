@@ -12,18 +12,13 @@ type ActivityPreviewCardProps = {
 };
 
 const accentClass = {
-  gold: "border-brass/60 bg-brass/15",
-  green: "border-pine/45 bg-pine/12"
+  gold: "bg-brass",
+  green: "bg-pine"
 };
 
 const bannerClass = {
-  ecc: "bg-[#5547a3]",
-  hanhwal: "bg-navy"
-} as const;
-
-const glowClass = {
-  ecc: "bg-[#f45055]",
-  hanhwal: "bg-brass"
+  ecc: "bg-[#5547a3] text-paper",
+  hanhwal: "bg-navy text-paper"
 } as const;
 
 export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps) {
@@ -44,29 +39,32 @@ export function ActivityPreviewCard({ board, accent }: ActivityPreviewCardProps)
       className="paper-panel group grid overflow-hidden shadow-soft transition hover:-translate-y-1 hover:border-brass hover:bg-white/78 hover:shadow-lift"
     >
       <div className={`relative min-h-56 overflow-hidden ${bannerClass[board.id]}`}>
-        <div className="absolute inset-0">
-          <div className={`absolute -right-20 -top-24 h-64 w-64 rounded-full ${glowClass[board.id]} opacity-90`} />
-          <div className="absolute -left-24 bottom-4 h-72 w-72 rounded-full border-[38px] border-paper/12" />
-          <div className="absolute left-8 top-12 h-px w-56 origin-left -rotate-12 bg-paper/24" />
-          <div className="absolute bottom-10 left-8 h-1 w-52 origin-left -rotate-12 bg-brass" />
-          <div className="absolute bottom-16 left-14 h-1 w-36 origin-left -rotate-12 bg-pine" />
+        <div className="absolute inset-0 opacity-40">
+          <div className="absolute inset-x-0 top-0 h-px bg-white/40" />
+          <div className="absolute -left-20 -top-28 h-72 w-72 rounded-full border-[34px] border-white/12" />
+          <div className="absolute -right-20 bottom-6 h-52 w-52 rounded-full border border-brass/30" />
         </div>
-        <ClubMark
-          id={board.id}
-          size="xl"
-          className="absolute right-6 top-6 border-4 border-white/70 shadow-lift transition duration-500 group-hover:scale-105"
-        />
-        {board.id === "hanhwal" ? (
-          <div className="absolute right-20 top-24 h-36 w-36 rounded-full border border-brass/45" />
-        ) : null}
-        <div className="relative flex h-full min-h-56 items-end justify-between p-6 text-paper">
-          <div>
-            <p className="text-sm font-semibold uppercase text-brass">{title}</p>
-            <h3 className="mt-3 font-serif text-4xl font-semibold">
+        <div className="relative flex h-full min-h-56 items-center justify-between gap-5 p-6 md:p-8">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brass">
+              <I18nText en="International Club" ko="국제 학생 클럽" />
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              <h3 className="font-serif text-5xl font-semibold leading-none md:text-6xl">
+                {title}
+              </h3>
+              <span className="h-px w-14 bg-brass md:w-20" aria-hidden="true" />
+            </div>
+            <p className="mt-5 text-sm font-semibold text-paper/70">
               {language === "ko" ? `${title} 전체` : `${title} Overview`}
-            </h3>
+            </p>
           </div>
-          <span className={`hidden h-12 w-12 rounded-full border md:block ${accentClass[accent]}`} />
+          <ClubMark
+            id={board.id}
+            size="xl"
+            className="border-4 border-white/80 bg-white shadow-lift transition duration-500 group-hover:scale-105"
+          />
+          <span className={`absolute bottom-0 left-0 h-1 w-full ${accentClass[accent]}`} aria-hidden="true" />
         </div>
       </div>
       <div className="grid gap-4 p-6">

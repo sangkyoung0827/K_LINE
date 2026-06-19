@@ -16,7 +16,7 @@ const clubDisplayTitles = {
 
 const clubDisplayTitlesKo = {
   ecc: "ECC",
-  hanhwal: "한활 Hanhwal"
+  hanhwal: "한활"
 } as const;
 
 const clubSubtitles = {
