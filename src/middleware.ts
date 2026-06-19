@@ -3,6 +3,39 @@ import { NextResponse, type NextRequest } from "next/server";
 const publicFilePattern =
   /\.(?:avif|gif|html|ico|jpeg|jpg|json|png|svg|txt|webmanifest|webp|xml)$/i;
 
+const publicSeoPages = new Set([
+  "/",
+  "/archery-class",
+  "/contact",
+  "/goods",
+  "/han-hwal",
+  "/k-culture-project",
+  "/our-activities",
+  "/our-activities/ecc",
+  "/our-activities/hanhwal"
+]);
+
+const protectedPagePrefixes = [
+  "/admin",
+  "/cart",
+  "/checkout",
+  "/developer",
+  "/donate",
+  "/ecc-join",
+  "/ecc-official",
+  "/international-student-club",
+  "/k-culture-project/submit",
+  "/member",
+  "/register",
+  "/request-admin",
+  "/our-activities/write",
+  "/our-activities/ecc/activity",
+  "/our-activities/ecc/free-board",
+  "/our-activities/ecc/fund",
+  "/our-activities/ecc/members",
+  "/our-activities/ecc/register"
+];
+
 function isPublicPath(pathname: string) {
   return (
     pathname === "/login" ||
@@ -11,6 +44,32 @@ function isPublicPath(pathname: string) {
     pathname.startsWith("/images/") ||
     publicFilePattern.test(pathname)
   );
+}
+
+function isProtectedPage(pathname: string) {
+  return protectedPagePrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+function isPublicSeoPage(pathname: string) {
+  if (publicSeoPages.has(pathname)) {
+    return true;
+  }
+
+  if (pathname.startsWith("/goods/")) {
+    return true;
+  }
+
+  if (pathname.startsWith("/k-culture-project/")) {
+    return !isProtectedPage(pathname);
+  }
+
+  if (pathname.startsWith("/our-activities/")) {
+    return !isProtectedPage(pathname);
+  }
+
+  return false;
 }
 
 function getSafeCallback(pathname: string, search: string) {
@@ -40,6 +99,10 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (isPublicSeoPage(pathname)) {
     return NextResponse.next();
   }
 
