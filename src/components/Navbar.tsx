@@ -40,6 +40,10 @@ export function Navbar() {
       canSeeRestrictedTracks || (item.href !== "/goods" && item.href !== "/k-culture-project")
   );
 
+  if (pathname === "/login") {
+    return null;
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-navy/10 bg-paper/94 backdrop-blur">
       <nav className="mx-auto flex h-18 max-w-7xl items-center justify-between px-5 md:px-8">

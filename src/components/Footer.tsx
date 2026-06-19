@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { navigation } from "@/data/navigation";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
@@ -16,6 +17,7 @@ const navigationLabels = {
 } as const;
 
 export function Footer() {
+  const pathname = usePathname();
   const { pick } = useLanguage();
   const { isDeveloper, isSuperAdmin } = useSuperAdmin();
   const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
@@ -23,6 +25,10 @@ export function Footer() {
     (item) =>
       canSeeRestrictedTracks || (item.href !== "/goods" && item.href !== "/k-culture-project")
   );
+
+  if (pathname === "/login") {
+    return null;
+  }
 
   return (
     <footer className="bg-navy text-paper">

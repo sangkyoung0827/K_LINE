@@ -14,6 +14,10 @@ export const metadata: Metadata = createNoIndexMetadata({
 export default async function EccJoinPage() {
   const access = await getCurrentEccAccess();
 
+  if (!access.isLoggedIn) {
+    redirect("/login?callbackUrl=/ecc-join");
+  }
+
   if (access.isOfficialMember) {
     redirect("/ecc-official");
   }

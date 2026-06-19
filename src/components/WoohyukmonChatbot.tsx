@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Bot, Loader2, MessageCircle, Minus, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -59,6 +60,7 @@ function WoohyukmonAvatar({
 }
 
 export function WoohyukmonChatbot() {
+  const pathname = usePathname();
   const { language } = useLanguage();
   const { isDeveloper, isSuperAdmin } = useSuperAdmin();
   const canSeeRestrictedTracks = isSuperAdmin || isDeveloper;
@@ -147,6 +149,10 @@ export function WoohyukmonChatbot() {
     event.preventDefault();
     void sendMessage(input);
   };
+
+  if (pathname === "/login") {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-5 right-5 z-[70] hidden md:block md:bottom-6 md:right-6">

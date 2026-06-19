@@ -19,6 +19,10 @@ export const metadata: Metadata = createNoIndexMetadata({
 export default async function EccMemberRegistrationPage() {
   const access = await getCurrentEccAccess();
 
+  if (!access.isLoggedIn) {
+    redirect("/login?callbackUrl=/our-activities/ecc/register");
+  }
+
   if (access.isOfficialMember) {
     redirect("/ecc-official");
   }
@@ -39,8 +43,8 @@ export default async function EccMemberRegistrationPage() {
           title={<I18nText en="ECC New Member Registration" ko="ECC 신규회원 등록" />}
           description={
             <I18nText
-              en="Enter the ECC Open Chat first, then log in with Google and submit the K_LINE internal registration form. Officers approve official membership after payment confirmation."
-              ko="ECC 오픈채팅방에 먼저 입장한 뒤 Google로 로그인하고 K_LINE 내부 등록폼을 제출해 주세요. 운영진이 회비 납부를 확인하면 정식회원 권한이 승인됩니다."
+              en="Submit the K_LINE internal ECC registration form. Officers approve official membership after payment confirmation."
+              ko="K_LINE 내부 ECC 등록폼을 제출해 주세요. 운영진이 회비 납부를 확인하면 정식회원 권한이 승인됩니다."
             />
           }
         />
