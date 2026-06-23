@@ -163,6 +163,7 @@ export function WoohyukmonChatbot() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastSentAtRef = useRef(0);
 
   const apiHistory = useMemo(
     () =>
@@ -183,6 +184,17 @@ export function WoohyukmonChatbot() {
     if (!trimmed || loading) {
       return;
     }
+
+    const now = Date.now();
+    if (now - lastSentAtRef.current < 3500) {
+      setError(
+        language === "ko"
+          ? "우혁몬 무료 호출량을 보호하기 위해 잠시 후 다시 보내 주세요."
+          : "Please wait a moment before sending again so Woohyukmon can protect the free AI quota."
+      );
+      return;
+    }
+    lastSentAtRef.current = now;
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,

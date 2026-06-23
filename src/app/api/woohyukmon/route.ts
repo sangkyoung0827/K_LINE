@@ -23,6 +23,20 @@ type GeminiResponse = {
   }>;
 };
 
+type CachedAnswer = {
+  answer: string;
+  expiresAt: number;
+  fallback?: boolean;
+  provider: string;
+};
+
+type ProviderBudgetState = {
+  cooldownUntil: number;
+  requests: number[];
+};
+
+const answerCache = new Map<string, CachedAnswer>();
+const providerBudgets = new Map<string, ProviderBudgetState>();
 const systemPrompt = `You are 우혁몬, the core AI assistant for the K_LINE website. K_LINE is a campus-based community platform for university students, especially international students and student communities. You help with club administration, site guidance, activity planning, copywriting, and finding visible posts or records. Use the provided K_LINE knowledge base, role context, and searchable records first. Answer in the same language as the user. Be friendly, concise, accurate, and practical. Do not invent facts. If the information is not available, say so and guide the user to the relevant visible page or Contact.`;
 
 function cleanMessages(history: unknown): ClientMessage[] {
@@ -74,6 +88,36 @@ function getGeminiModel() {
   return process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
 }
 
+function getGeminiRequestsPerMinuteLimit() {
+  const parsed = Number.parseInt(process.env.GEMINI_RPM_LIMIT ?? "", 10);
+
+  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 15) {
+    return parsed;
+  }
+
+  return 12;
+}
+
+function getWoohyukmonCacheTtlMs() {
+  const parsed = Number.parseInt(process.env.WOOHYUKMON_CACHE_TTL_SECONDS ?? "", 10);
+
+  if (Number.isFinite(parsed) && parsed >= 10 && parsed <= 600) {
+    return parsed * 1000;
+  }
+
+  return 120 * 1000;
+}
+
+function getWoohyukmonCooldownMs() {
+  const parsed = Number.parseInt(process.env.WOOHYUKMON_GEMINI_COOLDOWN_SECONDS ?? "", 10);
+
+  if (Number.isFinite(parsed) && parsed >= 30 && parsed <= 3600) {
+    return parsed * 1000;
+  }
+
+  return 75 * 1000;
+}
+
 function getWoohyukmonMaxTokens() {
   const parsed = Number.parseInt(process.env.OPENAI_MAX_TOKENS ?? "", 10);
 
@@ -82,6 +126,117 @@ function getWoohyukmonMaxTokens() {
   }
 
   return 520;
+}
+
+function compactCacheText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 800);
+}
+
+function cacheKey(input: {
+  email: string;
+  history: ClientMessage[];
+  includeGoods: boolean;
+  includeProjects: boolean;
+  message: string;
+  provider: string;
+  role: string;
+}) {
+  const privateScope = input.role === "user" ? "public" : input.email || input.role;
+  const historyTail = input.history
+    .slice(-2)
+    .map((message) => `${message.role}:${compactCacheText(message.content)}`)
+    .join("|");
+
+  return [
+    input.provider,
+    privateScope,
+    input.role,
+    input.includeGoods ? "goods" : "no-goods",
+    input.includeProjects ? "projects" : "no-projects",
+    compactCacheText(input.message),
+    historyTail
+  ].join("::");
+}
+
+function getCachedAnswer(key: string) {
+  const cached = answerCache.get(key);
+
+  if (!cached) {
+    return null;
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    answerCache.delete(key);
+    return null;
+  }
+
+  return cached;
+}
+
+function setCachedAnswer(key: string, answer: string, provider: string, fallback = false) {
+  answerCache.set(key, {
+    answer,
+    expiresAt: Date.now() + getWoohyukmonCacheTtlMs(),
+    fallback,
+    provider
+  });
+
+  if (answerCache.size > 100) {
+    const firstKey = answerCache.keys().next().value as string | undefined;
+    if (firstKey) {
+      answerCache.delete(firstKey);
+    }
+  }
+}
+
+function getProviderBudget(provider: string) {
+  const existing = providerBudgets.get(provider);
+
+  if (existing) {
+    return existing;
+  }
+
+  const created = {
+    cooldownUntil: 0,
+    requests: []
+  };
+  providerBudgets.set(provider, created);
+  return created;
+}
+
+function canCallProvider(provider: string) {
+  if (provider !== "gemini") {
+    return { allowed: true, reason: "" };
+  }
+
+  const now = Date.now();
+  const budget = getProviderBudget(provider);
+
+  if (budget.cooldownUntil > now) {
+    return { allowed: false, reason: "cooldown" };
+  }
+
+  budget.requests = budget.requests.filter((timestamp) => now - timestamp < 60_000);
+
+  if (budget.requests.length >= getGeminiRequestsPerMinuteLimit()) {
+    budget.cooldownUntil = now + getWoohyukmonCooldownMs();
+    return { allowed: false, reason: "rpm" };
+  }
+
+  budget.requests.push(now);
+  return { allowed: true, reason: "" };
+}
+
+function putProviderOnCooldown(provider: string) {
+  if (provider !== "gemini") {
+    return;
+  }
+
+  getProviderBudget(provider).cooldownUntil = Date.now() + getWoohyukmonCooldownMs();
 }
 
 function extractRelevantRecords(context: string) {
@@ -272,6 +427,27 @@ export async function POST(request: Request) {
     const eccAccess = await getEccAccessForEmail(email);
     const includeGoods = access.isDeveloper;
     const includeProjects = access.isSuperAdmin;
+    const history = cleanMessages(body.history);
+    const key = cacheKey({
+      email,
+      history,
+      includeGoods,
+      includeProjects,
+      message,
+      provider,
+      role: eccAccess.role
+    });
+    const cached = getCachedAnswer(key);
+
+    if (cached) {
+      return NextResponse.json({
+        answer: cached.answer,
+        cached: true,
+        fallback: cached.fallback,
+        provider: cached.provider
+      });
+    }
+
     const context = buildWoohyukmonContext({
       includeGoods,
       includeProjects
@@ -283,7 +459,21 @@ export async function POST(request: Request) {
       localBoardPosts: body.localBoardPosts,
       query: message
     });
-    const history = cleanMessages(body.history);
+    const budget = canCallProvider(provider);
+
+    if (!budget.allowed) {
+      const answer = fallbackAnswer(message, assistantContext, provider);
+      setCachedAnswer(key, answer, provider, true);
+
+      return NextResponse.json({
+        answer,
+        fallback: true,
+        provider,
+        quotaProtected: true,
+        reason: budget.reason
+      });
+    }
+
     const answer = await (provider === "gemini"
       ? generateWithGemini({
           assistantContext,
@@ -297,9 +487,10 @@ export async function POST(request: Request) {
           context,
           history,
           message
-        }))
+      }))
       .catch((error: unknown) => {
         if (isQuotaError(error)) {
+          putProviderOnCooldown(provider);
           return "";
         }
 
@@ -307,12 +498,17 @@ export async function POST(request: Request) {
       });
 
     if (!answer) {
+      const fallback = fallbackAnswer(message, assistantContext, provider);
+      setCachedAnswer(key, fallback, provider, true);
+
       return NextResponse.json({
-        answer: fallbackAnswer(message, assistantContext, provider),
+        answer: fallback,
         fallback: true,
         provider
       });
     }
+
+    setCachedAnswer(key, answer, provider);
 
     return NextResponse.json({ answer, provider });
   } catch (error) {
