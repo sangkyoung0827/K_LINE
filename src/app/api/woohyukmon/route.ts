@@ -11,6 +11,18 @@ type ClientMessage = {
   content: string;
 };
 
+type GeminiPart = {
+  text?: string;
+};
+
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: GeminiPart[];
+    };
+  }>;
+};
+
 const systemPrompt = `You are 우혁몬, the core AI assistant for the K_LINE website. K_LINE is a campus-based community platform for university students, especially international students and student communities. You help with club administration, site guidance, activity planning, copywriting, and finding visible posts or records. Use the provided K_LINE knowledge base, role context, and searchable records first. Answer in the same language as the user. Be friendly, concise, accurate, and practical. Do not invent facts. If the information is not available, say so and guide the user to the relevant visible page or Contact.`;
 
 function cleanMessages(history: unknown): ClientMessage[] {
@@ -50,8 +62,16 @@ function isQuotaError(error: unknown) {
   return candidate.status === 429 || candidate.code === "insufficient_quota";
 }
 
+function getAiProvider() {
+  return (process.env.AI_PROVIDER?.trim().toLowerCase() || "openai") as "gemini" | "openai";
+}
+
 function getWoohyukmonModel() {
   return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+}
+
+function getGeminiModel() {
+  return process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
 }
 
 function getWoohyukmonMaxTokens() {
@@ -107,14 +127,122 @@ function fallbackAnswer(message: string, assistantContext: string) {
     : "Woohyukmon's OpenAI response is temporarily limited by quota, but basic guidance is still available. ECC is at `/our-activities/ecc`, activity applications are at `/our-activities/ecc/activity`, the board is at `/our-activities/ecc/free-board`, and contact is at `/contact`.";
 }
 
+function buildPromptMessages({
+  assistantContext,
+  context,
+  history,
+  message
+}: {
+  assistantContext: string;
+  context: string;
+  history: ClientMessage[];
+  message: string;
+}) {
+  return [
+    { role: "system" as const, content: systemPrompt },
+    {
+      role: "system" as const,
+      content: `Use this compact K_LINE context before answering:\n\n${context}`
+    },
+    {
+      role: "system" as const,
+      content: assistantContext
+    },
+    ...history,
+    { role: "user" as const, content: message.slice(0, 1200) }
+  ];
+}
+
+async function generateWithGemini(input: {
+  assistantContext: string;
+  context: string;
+  history: ClientMessage[];
+  message: string;
+}) {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+
+  const messages = buildPromptMessages(input);
+  const prompt = messages
+    .map((message) => `${message.role.toUpperCase()}:\n${message.content}`)
+    .join("\n\n");
+  const url = new URL(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      getGeminiModel()
+    )}:generateContent`
+  );
+  url.searchParams.set("key", apiKey);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }]
+        }
+      ],
+      generationConfig: {
+        maxOutputTokens: getWoohyukmonMaxTokens(),
+        temperature: 0.35
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const error = new Error(`Gemini request failed with status ${response.status}`) as Error & {
+      status?: number;
+    };
+    error.status = response.status;
+    throw error;
+  }
+
+  const data = (await response.json()) as GeminiResponse;
+  return (
+    data.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text ?? "")
+      .join("")
+      .trim() ?? ""
+  );
+}
+
+async function generateWithOpenAI(input: {
+  apiKey: string;
+  assistantContext: string;
+  context: string;
+  history: ClientMessage[];
+  message: string;
+}) {
+  const baseURL = process.env.OPENAI_BASE_URL?.trim();
+  const client = new OpenAI({
+    apiKey: input.apiKey,
+    ...(baseURL ? { baseURL } : {})
+  });
+  const response = await client.chat.completions.create({
+    model: getWoohyukmonModel(),
+    temperature: 0.35,
+    max_tokens: getWoohyukmonMaxTokens(),
+    messages: buildPromptMessages(input)
+  });
+
+  return response.choices[0]?.message?.content?.trim() ?? "";
+}
+
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const provider = getAiProvider();
+  const apiKey =
+    provider === "gemini" ? process.env.GEMINI_API_KEY?.trim() : process.env.OPENAI_API_KEY?.trim();
 
   if (!apiKey) {
     return NextResponse.json(
       {
-        error:
-          "OPENAI_API_KEY is not configured yet. Please add it locally or in Vercel Environment Variables."
+        error: `${provider === "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY"} is not configured yet. Please add it locally or in Vercel Environment Variables.`
       },
       { status: 503 }
     );
@@ -132,11 +260,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Message is required." }, { status: 400 });
     }
 
-    const baseURL = process.env.OPENAI_BASE_URL?.trim();
-    const client = new OpenAI({
-      apiKey,
-      ...(baseURL ? { baseURL } : {})
-    });
     const session = await auth();
     const email = session?.user?.email ?? "";
     const access = await getAdminAccess(email);
@@ -155,48 +278,33 @@ export async function POST(request: Request) {
       query: message
     });
     const history = cleanMessages(body.history);
-
-    const response = await client.chat.completions
-      .create({
-        model: getWoohyukmonModel(),
-        temperature: 0.35,
-        max_tokens: getWoohyukmonMaxTokens(),
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "system",
-            content: `Use this compact K_LINE context before answering:\n\n${context}`
-          },
-          {
-            role: "system",
-            content: assistantContext
-          },
-          ...history,
-          { role: "user", content: message.slice(0, 1200) }
-        ]
-      })
+    const answer = await (provider === "gemini"
+      ? generateWithGemini({
+          assistantContext,
+          context,
+          history,
+          message
+        })
+      : generateWithOpenAI({
+          apiKey,
+          assistantContext,
+          context,
+          history,
+          message
+        }))
       .catch((error: unknown) => {
         if (isQuotaError(error)) {
-          return null;
+          return "";
         }
 
         throw error;
       });
 
-    if (!response) {
+    if (!answer) {
       return NextResponse.json({
         answer: fallbackAnswer(message, assistantContext),
         fallback: true
       });
-    }
-
-    const answer = response.choices[0]?.message?.content?.trim();
-
-    if (!answer) {
-      return NextResponse.json(
-        { error: "Woohyukmon could not generate an answer. Please try again." },
-        { status: 502 }
-      );
     }
 
     return NextResponse.json({ answer });
