@@ -99,32 +99,33 @@ function extractRelevantRecords(context: string) {
     .join("\n");
 }
 
-function fallbackAnswer(message: string, assistantContext: string) {
+function fallbackAnswer(message: string, assistantContext: string, provider: string) {
   const ko = isKorean(message);
   const lower = message.toLowerCase();
   const records = extractRelevantRecords(assistantContext);
+  const providerLabel = provider === "gemini" ? "Gemini" : "OpenAI";
 
   if (lower.includes("find") || lower.includes("search") || message.includes("찾")) {
     return ko
-      ? `지금 OpenAI 사용량 제한 때문에 우혁몬의 긴 답변은 잠시 제한되지만, 사이트 기록 검색은 아래처럼 확인할 수 있어요.\n\n${records || "- 현재 조건에 맞는 기록을 찾지 못했습니다. 검색어를 더 구체적으로 입력해 주세요."}`
-      : `OpenAI quota is temporarily unavailable, but Woohyukmon can still show matching site records.\n\n${records || "- No matching record was found. Try a more specific keyword."}`;
+      ? `지금 ${providerLabel} 연결이 제한되어 우혁몬의 긴 답변은 잠시 제한되지만, 사이트 기록 검색은 아래처럼 확인할 수 있어요.\n\n${records || "- 현재 조건에 맞는 기록을 찾지 못했습니다. 검색어를 더 구체적으로 입력해 주세요."}`
+      : `${providerLabel} is temporarily unavailable, but Woohyukmon can still show matching site records.\n\n${records || "- No matching record was found. Try a more specific keyword."}`;
   }
 
   if (message.includes("공지") || lower.includes("notice") || lower.includes("kakao")) {
     return ko
-      ? "OpenAI 사용량 제한으로 자동 문장 확장은 잠시 제한됩니다. 대신 바로 쓸 수 있는 기본 공지 틀을 드릴게요.\n\n[공지]\n안녕하세요, ECC 운영진입니다.\n이번 활동 안내드립니다.\n- 활동명:\n- 일시:\n- 장소:\n- 준비물:\n- 회비/납부 여부:\n- 신청 방법:\n참여를 원하는 분들은 마감 시간 전까지 신청해 주세요. 감사합니다."
-      : "OpenAI quota is temporarily unavailable, but here is a copy-ready notice template.\n\n[Notice]\nHello, this is the ECC officer team.\nHere is the information for our next activity.\n- Activity:\n- Date and time:\n- Place:\n- What to bring:\n- Fee/payment status:\n- How to apply:\nPlease apply before the deadline. Thank you.";
+      ? `${providerLabel} 연결 제한으로 자동 문장 확장은 잠시 제한됩니다. 대신 바로 쓸 수 있는 기본 공지 틀을 드릴게요.\n\n[공지]\n안녕하세요, ECC 운영진입니다.\n이번 활동 안내드립니다.\n- 활동명:\n- 일시:\n- 장소:\n- 준비물:\n- 회비/납부 여부:\n- 신청 방법:\n참여를 원하는 분들은 마감 시간 전까지 신청해 주세요. 감사합니다.`
+      : `${providerLabel} is temporarily unavailable, but here is a copy-ready notice template.\n\n[Notice]\nHello, this is the ECC officer team.\nHere is the information for our next activity.\n- Activity:\n- Date and time:\n- Place:\n- What to bring:\n- Fee/payment status:\n- How to apply:\nPlease apply before the deadline. Thank you.`;
   }
 
   if (message.includes("아이디어") || lower.includes("idea")) {
     return ko
-      ? "OpenAI 사용량 제한으로 세부 기획은 잠시 제한되지만, 바로 사용할 수 있는 ECC 활동 아이디어를 추천할게요.\n\n1. 캠퍼스 영어 스몰토크 라운드\n2. 국가별 음식/문화 소개 미니 세션\n3. 한국어 단어 카드 교환 활동\n4. 전주 산책 후 영어 후기 공유\n5. 신입회원 웰컴 게임과 팀별 미션"
-      : "OpenAI quota is temporarily unavailable, but here are practical ECC activity ideas.\n\n1. Campus small-talk round\n2. Country food and culture mini-session\n3. Korean word exchange cards\n4. Jeonju walk and English reflection\n5. New member welcome games with team missions";
+      ? `${providerLabel} 연결 제한으로 세부 기획은 잠시 제한되지만, 바로 사용할 수 있는 ECC 활동 아이디어를 추천할게요.\n\n1. 캠퍼스 영어 스몰토크 라운드\n2. 국가별 음식/문화 소개 미니 세션\n3. 한국어 단어 카드 교환 활동\n4. 전주 산책 후 영어 후기 공유\n5. 신입회원 웰컴 게임과 팀별 미션`
+      : `${providerLabel} is temporarily unavailable, but here are practical ECC activity ideas.\n\n1. Campus small-talk round\n2. Country food and culture mini-session\n3. Korean word exchange cards\n4. Jeonju walk and English reflection\n5. New member welcome games with team missions`;
   }
 
   return ko
-    ? "우혁몬의 OpenAI 응답은 현재 사용량 제한으로 잠시 멈췄지만, 기본 안내는 가능합니다. ECC는 `/our-activities/ecc`, 활동 신청은 `/our-activities/ecc/activity`, 게시판은 `/our-activities/ecc/free-board`, 문의는 `/contact`에서 확인할 수 있습니다."
-    : "Woohyukmon's OpenAI response is temporarily limited by quota, but basic guidance is still available. ECC is at `/our-activities/ecc`, activity applications are at `/our-activities/ecc/activity`, the board is at `/our-activities/ecc/free-board`, and contact is at `/contact`.";
+    ? `우혁몬의 ${providerLabel} 응답은 현재 제한되어 있지만, 기본 안내는 가능합니다. ECC는 \`/our-activities/ecc\`, 활동 신청은 \`/our-activities/ecc/activity\`, 게시판은 \`/our-activities/ecc/free-board\`, 문의는 \`/contact\`에서 확인할 수 있습니다.`
+    : `Woohyukmon's ${providerLabel} response is temporarily unavailable, but basic guidance is still available. ECC is at \`/our-activities/ecc\`, activity applications are at \`/our-activities/ecc/activity\`, the board is at \`/our-activities/ecc/free-board\`, and contact is at \`/contact\`.`;
 }
 
 function buildPromptMessages({
@@ -196,6 +197,11 @@ async function generateWithGemini(input: {
   });
 
   if (!response.ok) {
+    console.error("Woohyukmon Gemini request failed", {
+      provider: "gemini",
+      status: response.status,
+      statusText: response.statusText
+    });
     const error = new Error(`Gemini request failed with status ${response.status}`) as Error & {
       status?: number;
     };
@@ -302,12 +308,13 @@ export async function POST(request: Request) {
 
     if (!answer) {
       return NextResponse.json({
-        answer: fallbackAnswer(message, assistantContext),
-        fallback: true
+        answer: fallbackAnswer(message, assistantContext, provider),
+        fallback: true,
+        provider
       });
     }
 
-    return NextResponse.json({ answer });
+    return NextResponse.json({ answer, provider });
   } catch (error) {
     console.error("Woohyukmon API error", error);
     return NextResponse.json(
