@@ -6,6 +6,8 @@ import {
   Clipboard,
   Copy,
   Megaphone,
+  Power,
+  PowerOff,
   Save,
   Shuffle,
   Trash2
@@ -67,10 +69,17 @@ type EccApplication = ApplicationForm & {
 };
 
 type ApplicationCounts = Record<ApplicationType, number>;
+type ActivityStatuses = Record<ApplicationType, boolean>;
 
 type ApplicationsApiResponse = {
   counts?: Partial<ApplicationCounts>;
   applications?: EccApplication[];
+  error?: string;
+};
+
+type ActivityStatusesApiResponse = {
+  statuses?: Partial<ActivityStatuses>;
+  tableReady?: boolean;
   error?: string;
 };
 
@@ -212,6 +221,20 @@ const copy = {
     applicationLoading: "신청 정보를 불러오는 중입니다.",
     applicationStorageError:
       "신청 저장소 연결에 문제가 있습니다. 잠시 후 다시 시도해 주세요.",
+    applicationOpen: "신청 열림",
+    applicationClosed: "신청 닫힘",
+    applicationClosedNotice:
+      "현재 이 활동은 신청이 닫혀 있습니다. 운영진이 다시 열면 신청할 수 있습니다.",
+    activityStatusManagerTitle: "활동 신청 열기/닫기",
+    activityStatusManagerDescription:
+      "관리자 이상은 활동별 운영 일정과 신청자 수에 따라 신청폼을 열거나 닫을 수 있습니다.",
+    openApplications: "열기",
+    closeApplications: "닫기",
+    activityStatusSaved: "활동 신청 상태가 저장되었습니다.",
+    activityStatusStorageWarning:
+      "활동 상태 저장 테이블이 아직 준비되지 않았습니다. SQL 실행 후 열기/닫기 저장이 유지됩니다.",
+    activityStatusStorageError:
+      "활동 신청 상태를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     applicantListTitle: "신청자 명단",
     applicantListDescription:
       "관리자 이상으로 로그인한 경우에만 활동별 신청자 명단을 확인할 수 있습니다.",
@@ -320,6 +343,20 @@ const copy = {
     applicationLoading: "Loading application data.",
     applicationStorageError:
       "There is a problem connecting to the application storage. Please try again later.",
+    applicationOpen: "Open",
+    applicationClosed: "Closed",
+    applicationClosedNotice:
+      "Applications for this activity are currently closed. You can apply when officers open it again.",
+    activityStatusManagerTitle: "Open / Close Activity Applications",
+    activityStatusManagerDescription:
+      "Admins can open or close each application form depending on the activity schedule and applicant volume.",
+    openApplications: "Open",
+    closeApplications: "Close",
+    activityStatusSaved: "Activity application status saved.",
+    activityStatusStorageWarning:
+      "The activity status table is not ready yet. Run the SQL setup so open/close changes stay saved.",
+    activityStatusStorageError:
+      "Activity application status could not be saved. Please try again later.",
     applicantListTitle: "Applicant List",
     applicantListDescription:
       "Only admins and higher roles can view applicant lists by activity.",
@@ -617,6 +654,17 @@ function emptyApplicationCounts(): ApplicationCounts {
   };
 }
 
+function emptyActivityStatuses(): ActivityStatuses {
+  return {
+    gathering: true,
+    mt: true,
+    special: true,
+    opening: true,
+    farewell: true,
+    "english-class": true
+  };
+}
+
 function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): ApplicationCounts {
   const empty = emptyApplicationCounts();
 
@@ -627,6 +675,19 @@ function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): Applic
     opening: Number(counts?.opening ?? empty.opening),
     farewell: Number(counts?.farewell ?? empty.farewell),
     "english-class": Number(counts?.["english-class"] ?? empty["english-class"])
+  };
+}
+
+function normalizeActivityStatuses(statuses?: Partial<ActivityStatuses>): ActivityStatuses {
+  const empty = emptyActivityStatuses();
+
+  return {
+    gathering: statuses?.gathering ?? empty.gathering,
+    mt: statuses?.mt ?? empty.mt,
+    special: statuses?.special ?? empty.special,
+    opening: statuses?.opening ?? empty.opening,
+    farewell: statuses?.farewell ?? empty.farewell,
+    "english-class": statuses?.["english-class"] ?? empty["english-class"]
   };
 }
 
@@ -641,6 +702,12 @@ export function EccActivityPanel() {
   const [applicationCounts, setApplicationCounts] = useState<ApplicationCounts>(
     emptyApplicationCounts
   );
+  const [activityStatuses, setActivityStatuses] = useState<ActivityStatuses>(
+    emptyActivityStatuses
+  );
+  const [activityStatusTableReady, setActivityStatusTableReady] = useState(true);
+  const [activityStatusSaving, setActivityStatusSaving] = useState<ApplicationType | "">("");
+  const [activityStatusMessage, setActivityStatusMessage] = useState("");
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const [applicationError, setApplicationError] = useState("");
   const [applicationSuccess, setApplicationSuccess] = useState("");
@@ -697,17 +764,29 @@ export function EccActivityPanel() {
       setApplicationsLoading(true);
 
       try {
-        const response = await fetch("/api/ecc/applications", {
-          signal: controller.signal
-        });
-        const data = (await response.json()) as ApplicationsApiResponse;
+        const [applicationsResponse, statusesResponse] = await Promise.all([
+          fetch("/api/ecc/applications", {
+            signal: controller.signal
+          }),
+          fetch("/api/ecc/activity-statuses", {
+            signal: controller.signal
+          })
+        ]);
+        const data = (await applicationsResponse.json()) as ApplicationsApiResponse;
+        const statusData = (await statusesResponse.json()) as ActivityStatusesApiResponse;
 
-        if (!response.ok) {
+        if (!applicationsResponse.ok) {
           throw new Error(data.error || text.applicationStorageError);
+        }
+
+        if (!statusesResponse.ok) {
+          throw new Error(statusData.error || text.activityStatusStorageError);
         }
 
         setApplicationCounts(normalizeApplicationCounts(data.counts));
         setApplications(Array.isArray(data.applications) ? data.applications : []);
+        setActivityStatuses(normalizeActivityStatuses(statusData.statuses));
+        setActivityStatusTableReady(statusData.tableReady !== false);
         setApplicationError("");
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -727,7 +806,7 @@ export function EccActivityPanel() {
     return () => {
       controller.abort();
     };
-  }, [isAdmin, loading, text.applicationStorageError]);
+  }, [isAdmin, loading, text.activityStatusStorageError, text.applicationStorageError]);
 
   const selectedApplications = useMemo(
     () => applications.filter((application) => application.type === activeApplicationType),
@@ -737,6 +816,7 @@ export function EccActivityPanel() {
   const activeApplication = applicationTypes.find(
     (application) => application.type === activeApplicationType
   )!;
+  const activeApplicationIsOpen = activityStatuses[activeApplicationType];
 
   const changeLanguage = (nextLanguage: Language) => {
     setSiteLanguage(nextLanguage);
@@ -766,10 +846,50 @@ export function EccActivityPanel() {
     setActiveApplicationType(type);
     setApplicationSuccess("");
     setApplicationError("");
+    setActivityStatusMessage("");
+  };
+
+  const saveActivityStatus = async (type: ApplicationType, isOpen: boolean) => {
+    setActivityStatusSaving(type);
+    setActivityStatusMessage("");
+    setApplicationError("");
+
+    try {
+      const response = await fetch("/api/ecc/activity-statuses", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          activity_id: type,
+          is_open: isOpen
+        })
+      });
+      const data = (await response.json()) as ActivityStatusesApiResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error || text.activityStatusStorageError);
+      }
+
+      setActivityStatuses(normalizeActivityStatuses(data.statuses));
+      setActivityStatusTableReady(data.tableReady !== false);
+      setActivityStatusMessage(text.activityStatusSaved);
+    } catch (error) {
+      setApplicationError(
+        error instanceof Error ? error.message : text.activityStatusStorageError
+      );
+    } finally {
+      setActivityStatusSaving("");
+    }
   };
 
   const submitApplication = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!activeApplicationIsOpen) {
+      setApplicationError(text.applicationClosedNotice);
+      return;
+    }
+
     setApplicationsLoading(true);
     setApplicationError("");
 
@@ -1006,6 +1126,7 @@ export function EccActivityPanel() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {applicationTypes.map((item) => {
             const selected = activeApplicationType === item.type;
+            const isOpen = activityStatuses[item.type];
 
             return (
               <button
@@ -1017,11 +1138,31 @@ export function EccActivityPanel() {
                   selected
                     ? "bg-navy text-paper shadow-lift ring-2 ring-brass ring-offset-2 ring-offset-paper"
                     : ""
-                }`}
+                } ${!isOpen && !selected ? "border-ink/10 bg-white/35 opacity-70" : ""}`}
               >
-                <p className={`text-sm font-semibold uppercase ${selected ? "text-brass" : "text-brass"}`}>
-                  {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className={`text-sm font-semibold uppercase ${selected ? "text-brass" : "text-brass"}`}>
+                    {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
+                  </p>
+                  <span
+                    className={`inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-semibold uppercase ${
+                      isOpen
+                        ? selected
+                          ? "border-brass/60 text-brass"
+                          : "border-pine/20 bg-pine/10 text-pine"
+                        : selected
+                          ? "border-paper/25 text-paper/72"
+                          : "border-ink/10 bg-ink/5 text-ink/48"
+                    }`}
+                  >
+                    {isOpen ? (
+                      <Power aria-hidden className="h-3 w-3" />
+                    ) : (
+                      <PowerOff aria-hidden className="h-3 w-3" />
+                    )}
+                    {isOpen ? text.applicationOpen : text.applicationClosed}
+                  </span>
+                </div>
                 <h3 className={`mt-4 font-serif text-3xl font-semibold ${selected ? "text-paper" : "text-ink"}`}>
                   {item.labels[language].title}
                 </h3>
@@ -1032,6 +1173,72 @@ export function EccActivityPanel() {
             );
           })}
         </div>
+
+        {isAdmin ? (
+          <div className="border border-ink/10 bg-white/55 p-5 md:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase text-brass">
+                  {text.applicationEyebrow}
+                </p>
+                <h3 className="mt-2 font-serif text-3xl font-semibold text-ink">
+                  {text.activityStatusManagerTitle}
+                </h3>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/62">
+                  {text.activityStatusManagerDescription}
+                </p>
+              </div>
+              {activityStatusMessage ? (
+                <p className="inline-flex items-center gap-2 text-sm font-semibold text-pine">
+                  <CheckCircle2 aria-hidden className="h-4 w-4" />
+                  {activityStatusMessage}
+                </p>
+              ) : null}
+            </div>
+            {!activityStatusTableReady ? (
+              <p className="mt-4 border border-brass/30 bg-brass/10 p-3 text-sm font-semibold text-ink/70">
+                {text.activityStatusStorageWarning}
+              </p>
+            ) : null}
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {applicationTypes.map((item) => {
+                const isOpen = activityStatuses[item.type];
+                const saving = activityStatusSaving === item.type;
+
+                return (
+                  <div
+                    key={item.type}
+                    className="flex items-center justify-between gap-3 border border-ink/10 bg-white/65 p-4"
+                  >
+                    <div>
+                      <p className="font-semibold text-ink">{item.labels[language].title}</p>
+                      <p className={`mt-1 text-sm font-semibold ${isOpen ? "text-pine" : "text-ink/48"}`}>
+                        {isOpen ? text.applicationOpen : text.applicationClosed}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => saveActivityStatus(item.type, !isOpen)}
+                      className={`inline-flex min-h-10 items-center justify-center gap-2 px-4 text-sm font-semibold transition ${
+                        isOpen
+                          ? "border border-ink/15 bg-white text-ink hover:border-red-300 hover:text-red-700"
+                          : "bg-navy text-paper hover:bg-ink"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {isOpen ? (
+                        <PowerOff aria-hidden className="h-4 w-4" />
+                      ) : (
+                        <Power aria-hidden className="h-4 w-4" />
+                      )}
+                      {isOpen ? text.closeApplications : text.openApplications}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
         <form onSubmit={submitApplication} className="grid gap-4 border border-ink/10 bg-white/50 p-5 md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1051,11 +1258,18 @@ export function EccActivityPanel() {
             ) : null}
           </div>
 
+          {!activeApplicationIsOpen ? (
+            <p className="border border-ink/10 bg-ink/5 p-4 text-sm font-semibold leading-7 text-ink/68">
+              {text.applicationClosedNotice}
+            </p>
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-2 text-sm font-semibold text-ink">
               {text.kakaoNameLabel}
               <input
                 required
+                disabled={!activeApplicationIsOpen}
                 className="form-field"
                 value={applicationForm.name}
                 onChange={(event) => updateApplicationForm("name", event.target.value)}
@@ -1065,6 +1279,7 @@ export function EccActivityPanel() {
               {text.genderLabel}
               <select
                 required
+                disabled={!activeApplicationIsOpen}
                 className="form-field"
                 value={applicationForm.gender}
                 onChange={(event) => updateApplicationForm("gender", event.target.value)}
@@ -1080,6 +1295,7 @@ export function EccActivityPanel() {
               {text.nationalityLabel}
               <input
                 required
+                disabled={!activeApplicationIsOpen}
                 className="form-field"
                 value={applicationForm.nationality}
                 onChange={(event) => updateApplicationForm("nationality", event.target.value)}
@@ -1089,6 +1305,7 @@ export function EccActivityPanel() {
               {text.preferredFoodLabel}
               <input
                 required
+                disabled={!activeApplicationIsOpen}
                 className="form-field"
                 value={applicationForm.preferredFood}
                 onChange={(event) => updateApplicationForm("preferredFood", event.target.value)}
@@ -1097,6 +1314,7 @@ export function EccActivityPanel() {
             <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
               {text.requestLabel}
               <textarea
+                disabled={!activeApplicationIsOpen}
                 className="form-field min-h-28"
                 value={applicationForm.otherRequests}
                 onChange={(event) => updateApplicationForm("otherRequests", event.target.value)}
@@ -1106,7 +1324,7 @@ export function EccActivityPanel() {
 
           <button
             type="submit"
-            disabled={applicationsLoading}
+            disabled={applicationsLoading || !activeApplicationIsOpen}
             className="inline-flex min-h-11 w-fit items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
           >
             <Save aria-hidden className="h-4 w-4" />

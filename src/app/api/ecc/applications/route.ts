@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
+import {
+  defaultEccActivityStatuses,
+  eccActivityTitles,
+  emptyEccActivityCounts,
+  normalizeEccActivityType,
+  type EccActivityType
+} from "@/lib/eccActivities";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
+import { getEccActivityStatuses } from "@/lib/eccActivityStatuses";
 import {
   cleanText,
   SupabaseConfigError,
@@ -8,14 +16,6 @@ import {
 } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
-
-type ApplicationType =
-  | "gathering"
-  | "mt"
-  | "special"
-  | "opening"
-  | "farewell"
-  | "english-class";
 
 type SupabaseApplicationRow = {
   id: string;
@@ -32,7 +32,7 @@ type SupabaseApplicationRow = {
 
 type EccApplication = {
   id: string;
-  type: ApplicationType;
+  type: EccActivityType;
   activityTitle: string;
   name: string;
   gender: string;
@@ -43,23 +43,6 @@ type EccApplication = {
   createdAt: string;
 };
 
-const validApplicationTypes: ApplicationType[] = [
-  "gathering",
-  "mt",
-  "special",
-  "opening",
-  "farewell",
-  "english-class"
-];
-const validApplicationTypeSet = new Set<ApplicationType>(validApplicationTypes);
-const activityTitles: Record<ApplicationType, string> = {
-  gathering: "International Gathering",
-  mt: "MT",
-  special: "Special Event",
-  opening: "Semester Opening Party",
-  farewell: "Farewell Party",
-  "english-class": "English Class"
-};
 const tableName = "ecc_activity_applications";
 const selectedColumns =
   "id,created_at,activity_id,activity_title,name,gender,nationality,preferred_food,other_requests,status";
@@ -89,20 +72,13 @@ function parseSupabaseError(error: SupabaseRequestError) {
   }
 }
 
-function normalizeApplicationType(value: string | null | undefined): ApplicationType {
-  const normalized = value?.trim().toLowerCase();
-  return validApplicationTypeSet.has(normalized as ApplicationType)
-    ? (normalized as ApplicationType)
-    : "gathering";
-}
-
 function toClientApplication(row: SupabaseApplicationRow): EccApplication {
-  const type = normalizeApplicationType(row.activity_id);
+  const type = normalizeEccActivityType(row.activity_id);
 
   return {
     id: row.id,
     type,
-    activityTitle: row.activity_title ?? activityTitles[type],
+    activityTitle: row.activity_title ?? eccActivityTitles[type],
     name: row.name,
     gender: row.gender,
     nationality: row.nationality,
@@ -113,22 +89,11 @@ function toClientApplication(row: SupabaseApplicationRow): EccApplication {
   };
 }
 
-function emptyCounts(): Record<ApplicationType, number> {
-  return {
-    gathering: 0,
-    mt: 0,
-    special: 0,
-    opening: 0,
-    farewell: 0,
-    "english-class": 0
-  };
-}
-
 function countApplications(rows: SupabaseApplicationRow[]) {
-  const counts = emptyCounts();
+  const counts = emptyEccActivityCounts();
 
   rows.forEach((row) => {
-    counts[normalizeApplicationType(row.activity_id)] += 1;
+    counts[normalizeEccActivityType(row.activity_id)] += 1;
   });
 
   return counts;
@@ -238,11 +203,11 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as Record<string, unknown>;
-    const type = normalizeApplicationType(
+    const type = normalizeEccActivityType(
       cleanText(body.activity_id ?? body.activityId ?? body.type)
     );
     const activityTitle =
-      cleanText(body.activity_title ?? body.activityTitle) || activityTitles[type];
+      cleanText(body.activity_title ?? body.activityTitle) || eccActivityTitles[type];
     const name = cleanText(body.name ?? body.kakaoName);
     const gender = cleanText(body.gender);
     const nationality = cleanText(body.nationality);
@@ -259,6 +224,27 @@ export async function POST(request: Request) {
           debugCode: "ECC_APPLICATION_VALIDATION_FAILED"
         },
         { status: 400 }
+      );
+    }
+
+    let statuses = defaultEccActivityStatuses();
+
+    try {
+      const statusResult = await getEccActivityStatuses();
+      statuses = statusResult.statuses;
+    } catch (error) {
+      if (!(error instanceof SupabaseRequestError && error.status === 404)) {
+        throw error;
+      }
+    }
+
+    if (!statuses[type]) {
+      return NextResponse.json(
+        {
+          error: "This ECC activity application is currently closed.",
+          debugCode: "ECC_ACTIVITY_APPLICATION_CLOSED"
+        },
+        { status: 403 }
       );
     }
 
@@ -348,7 +334,7 @@ export async function DELETE(request: Request) {
     }
 
     const url = new URL(request.url);
-    const type = normalizeApplicationType(url.searchParams.get("activity_id"));
+    const type = normalizeEccActivityType(url.searchParams.get("activity_id"));
 
     await supabaseRequest<null>(
       `${tableName}?activity_id=eq.${encodeURIComponent(type)}`,
