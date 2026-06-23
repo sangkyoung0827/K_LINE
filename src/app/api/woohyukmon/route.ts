@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
+import { getEccAccessForEmail } from "@/lib/eccAccess";
+import { buildWoohyukmonAssistantContext } from "@/lib/woohyukmonAssistant";
 import { buildWoohyukmonContext } from "@/lib/woohyukmonContext";
 
 type ClientMessage = {
@@ -9,7 +11,7 @@ type ClientMessage = {
   content: string;
 };
 
-const systemPrompt = `You are 우혁몬, the core AI assistant for the K_LINE website. K_LINE is a campus-based community platform for university students, especially international students and student communities. Use the provided K_LINE knowledge base and site data first. Answer in the same language as the user. Be friendly, concise, accurate, and helpful. Do not invent facts. If the information is not available, say so and guide the user to the relevant visible page or Contact.`;
+const systemPrompt = `You are 우혁몬, the core AI assistant for the K_LINE website. K_LINE is a campus-based community platform for university students, especially international students and student communities. You help with club administration, site guidance, activity planning, copywriting, and finding visible posts or records. Use the provided K_LINE knowledge base, role context, and searchable records first. Answer in the same language as the user. Be friendly, concise, accurate, and practical. Do not invent facts. If the information is not available, say so and guide the user to the relevant visible page or Contact.`;
 
 function cleanMessages(history: unknown): ClientMessage[] {
   if (!Array.isArray(history)) {
@@ -49,7 +51,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as { message?: unknown; history?: unknown };
+    const body = (await request.json()) as {
+      localBoardPosts?: unknown;
+      message?: unknown;
+      history?: unknown;
+    };
     const message = typeof body.message === "string" ? body.message.trim() : "";
 
     if (!message) {
@@ -58,10 +64,21 @@ export async function POST(request: Request) {
 
     const client = new OpenAI({ apiKey });
     const session = await auth();
-    const access = await getAdminAccess(session?.user?.email ?? "");
+    const email = session?.user?.email ?? "";
+    const access = await getAdminAccess(email);
+    const eccAccess = await getEccAccessForEmail(email);
+    const includeGoods = access.isDeveloper;
+    const includeProjects = access.isSuperAdmin;
     const context = buildWoohyukmonContext({
-      includeGoods: access.isDeveloper,
-      includeProjects: access.isSuperAdmin
+      includeGoods,
+      includeProjects
+    });
+    const assistantContext = await buildWoohyukmonAssistantContext({
+      access: eccAccess,
+      includeGoods,
+      includeProjects,
+      localBoardPosts: body.localBoardPosts,
+      query: message
     });
     const history = cleanMessages(body.history);
 
@@ -74,6 +91,10 @@ export async function POST(request: Request) {
         {
           role: "system",
           content: `Use this compact K_LINE context before answering:\n\n${context}`
+        },
+        {
+          role: "system",
+          content: assistantContext
         },
         ...history,
         { role: "user", content: message.slice(0, 1200) }

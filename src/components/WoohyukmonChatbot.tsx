@@ -13,30 +13,108 @@ type ChatMessage = {
   content: string;
 };
 
+type LocalBoardPostForAssistant = {
+  author: string;
+  boardId: "ecc" | "hanhwal";
+  content: string;
+  createdAt: string;
+  id: string;
+  title: string;
+};
+
 const welcomeMessages: Record<"en" | "ko", ChatMessage> = {
   en: {
     id: "welcome",
     role: "assistant",
     content:
-      "Hi! I am Woohyukmon, the K_LINE AI guide. Ask me about International Clubs, ECC, Han-hwal, or activity posts."
+      "Hi! I am Woohyukmon, the K_LINE AI assistant. I can explain the site, help with club administration, suggest activities, draft notices, and find visible posts."
   },
   ko: {
     id: "welcome",
     role: "assistant",
     content:
-      "안녕하세요! 저는 K_LINE의 AI 안내자 우혁몬입니다. 국제 학생 클럽, ECC, 한활, 활동 글쓰기까지 무엇이든 물어보세요."
+      "안녕하세요! 저는 K_LINE의 AI 보조 우혁몬입니다. 사이트 설명, 동아리 행정, 활동 아이디어, 공지 작성, 게시물 찾기까지 도와드릴게요."
   }
 };
 
 const publicQuickPrompts = {
-  en: ["What is K_LINE?", "What is ECC?", "What is Han-hwal?", "How do I write an activity post?"],
-  ko: ["K_LINE이 뭐예요?", "ECC가 뭐예요?", "한활이 뭐예요?", "활동 글은 어떻게 쓰나요?"]
+  en: [
+    "Find the Han-hwal post",
+    "Draft a KakaoTalk notice",
+    "Suggest ECC activity ideas",
+    "How do I manage club posts?"
+  ],
+  ko: [
+    "한활 게시물 찾아줘",
+    "카카오톡 공지 작성해줘",
+    "ECC 활동 아이디어 추천해줘",
+    "동아리 게시글은 어떻게 관리해?"
+  ]
+} as const;
+
+const superAdminQuickPrompts = {
+  en: ["Summarize pending submissions", "Make an officer checklist", "Draft an event payment notice"],
+  ko: ["대기 제출물 요약해줘", "임원 체크리스트 만들어줘", "활동비 납부 공지 작성해줘"]
 } as const;
 
 const developerQuickPrompts = {
-  en: ["Tell me about Goods", "How do I submit a project?", "What is the Arrow Pen?", "What is the Hanji LED object?"],
-  ko: ["굿즈에 대해 알려줘", "프로젝트는 어떻게 올리나요?", "화살펜이 뭐예요?", "한지 오브제가 뭐예요?"]
+  en: ["Find product draft records", "Explain developer-only areas"],
+  ko: ["상품 초안 기록 찾아줘", "개발자 전용 영역 설명해줘"]
 } as const;
+
+function readLocalBoardPostsForAssistant(): LocalBoardPostForAssistant[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  const boardKeys = [
+    { boardId: "ecc" as const, key: "k_line_free_board_ecc_posts" },
+    { boardId: "hanhwal" as const, key: "k_line_free_board_hanhwal_posts" }
+  ];
+
+  return boardKeys.flatMap(({ boardId, key }) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed.slice(0, 30).flatMap((post) => {
+        if (!post || typeof post !== "object") {
+          return [];
+        }
+
+        const candidate = post as Partial<LocalBoardPostForAssistant>;
+        if (
+          typeof candidate.id !== "string" ||
+          typeof candidate.title !== "string" ||
+          typeof candidate.content !== "string"
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            author: typeof candidate.author === "string" ? candidate.author.slice(0, 120) : "",
+            boardId,
+            content: candidate.content.slice(0, 900),
+            createdAt:
+              typeof candidate.createdAt === "string" ? candidate.createdAt.slice(0, 80) : "",
+            id: candidate.id.slice(0, 120),
+            title: candidate.title.slice(0, 180)
+          }
+        ];
+      });
+    } catch {
+      return [];
+    }
+  });
+}
 
 function WoohyukmonAvatar({
   language,
@@ -76,6 +154,7 @@ export function WoohyukmonChatbot() {
   const quickPrompts = [
     ...publicQuickPrompts[language],
     ...(canSeeProjects ? [language === "ko" ? "프로젝트는 어떻게 올리나요?" : "How do I submit a project?"] : []),
+    ...(isSuperAdmin ? superAdminQuickPrompts[language] : []),
     ...(isDeveloper ? developerQuickPrompts[language] : [])
   ];
   const [open, setOpen] = useState(false);
@@ -123,7 +202,8 @@ export function WoohyukmonChatbot() {
         },
         body: JSON.stringify({
           message: trimmed,
-          history: apiHistory.slice(-6)
+          history: apiHistory.slice(-6),
+          localBoardPosts: readLocalBoardPostsForAssistant()
         })
       });
       const data = (await response.json()) as { answer?: string; error?: string };
@@ -179,7 +259,9 @@ export function WoohyukmonChatbot() {
                 <p className="text-base font-semibold">
                   {language === "ko" ? "우혁몬" : "Woohyukmon"}
                 </p>
-                <p className="text-xs text-paper/70">K_LINE AI Assistant</p>
+                <p className="text-xs text-paper/70">
+                  {language === "ko" ? "행정 / 검색 / 아이디어" : "Admin / Search / Ideas"}
+                </p>
               </div>
             </div>
             <button
@@ -272,12 +354,12 @@ export function WoohyukmonChatbot() {
       >
         <WoohyukmonAvatar language={language} size="lg" />
         <span className="grid text-left">
-          <span className="text-sm font-semibold">
+                  <span className="text-sm font-semibold">
             {language === "ko" ? "우혁몬" : "Woohyukmon"}
           </span>
           <span className="inline-flex items-center gap-1 text-xs text-paper/70">
             <MessageCircle aria-hidden className="h-3 w-3" />
-            {language === "ko" ? "AI 안내자" : "AI Guide"}
+            {language === "ko" ? "AI 보조" : "AI Assistant"}
           </span>
         </span>
         {open ? <X aria-hidden className="h-4 w-4" /> : <Bot aria-hidden className="h-4 w-4" />}
