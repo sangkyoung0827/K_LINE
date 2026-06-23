@@ -50,6 +50,20 @@ function isQuotaError(error: unknown) {
   return candidate.status === 429 || candidate.code === "insufficient_quota";
 }
 
+function getWoohyukmonModel() {
+  return process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+}
+
+function getWoohyukmonMaxTokens() {
+  const parsed = Number.parseInt(process.env.OPENAI_MAX_TOKENS ?? "", 10);
+
+  if (Number.isFinite(parsed) && parsed >= 200 && parsed <= 1800) {
+    return parsed;
+  }
+
+  return 520;
+}
+
 function extractRelevantRecords(context: string) {
   const start = context.indexOf("Relevant searchable records for this message:");
 
@@ -118,7 +132,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Message is required." }, { status: 400 });
     }
 
-    const client = new OpenAI({ apiKey });
+    const baseURL = process.env.OPENAI_BASE_URL?.trim();
+    const client = new OpenAI({
+      apiKey,
+      ...(baseURL ? { baseURL } : {})
+    });
     const session = await auth();
     const email = session?.user?.email ?? "";
     const access = await getAdminAccess(email);
@@ -140,9 +158,9 @@ export async function POST(request: Request) {
 
     const response = await client.chat.completions
       .create({
-        model: "gpt-4o-mini",
+        model: getWoohyukmonModel(),
         temperature: 0.35,
-        max_tokens: 420,
+        max_tokens: getWoohyukmonMaxTokens(),
         messages: [
           { role: "system", content: systemPrompt },
           {
