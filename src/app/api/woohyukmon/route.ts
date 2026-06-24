@@ -85,7 +85,7 @@ function getWoohyukmonModel() {
 }
 
 function getGeminiModel() {
-  return process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+  return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash-lite";
 }
 
 function getGeminiRequestsPerMinuteLimit() {
