@@ -82,7 +82,7 @@ function isProviderAccessError(error: unknown) {
   }
 
   const candidate = error as { status?: unknown };
-  return candidate.status === 401 || candidate.status === 403;
+  return candidate.status === 401 || candidate.status === 403 || candidate.status === 404;
 }
 
 function getAiProvider() {
@@ -94,7 +94,7 @@ function getWoohyukmonModel() {
 }
 
 function getGeminiModel() {
-  return process.env.GEMINI_MODEL?.trim() || "gemini-1.5-flash";
+  return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash-lite";
 }
 
 function getGeminiRequestsPerMinuteLimit() {
@@ -409,15 +409,6 @@ export async function POST(request: Request) {
   const apiKey =
     provider === "gemini" ? process.env.GEMINI_API_KEY?.trim() : process.env.OPENAI_API_KEY?.trim();
 
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        error: `${provider === "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY"} is not configured yet. Please add it locally or in Vercel Environment Variables.`
-      },
-      { status: 503 }
-    );
-  }
-
   try {
     const body = (await request.json()) as {
       localBoardPosts?: unknown;
@@ -468,6 +459,19 @@ export async function POST(request: Request) {
       localBoardPosts: body.localBoardPosts,
       query: message
     });
+
+    if (!apiKey) {
+      const answer = fallbackAnswer(message, assistantContext, provider);
+      setCachedAnswer(key, answer, provider, true);
+
+      return NextResponse.json({
+        answer,
+        fallback: true,
+        missingApiKey: true,
+        provider
+      });
+    }
+
     const budget = canCallProvider(provider);
 
     if (!budget.allowed) {
