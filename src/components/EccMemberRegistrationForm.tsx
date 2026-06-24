@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   CheckCircle2,
   Edit3,
@@ -121,6 +122,8 @@ function statusDescription(registration: EccMemberRegistration, language: "en" |
 
 export function EccMemberRegistrationForm() {
   const { language } = useLanguage();
+  const pathname = usePathname();
+  const loginHref = `/login?callbackUrl=${encodeURIComponent(pathname || "/ecc-join")}`;
   const [registration, setRegistration] = useState<EccMemberRegistration | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [loading, setLoading] = useState(true);
@@ -313,7 +316,7 @@ Thank you! 💚`}</div>
             />
           </p>
           <Link
-            href="/login"
+            href={loginHref}
             className="mt-6 inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
           >
             <I18nText en="Go to Login" ko="로그인하러 가기" />

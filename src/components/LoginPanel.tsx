@@ -54,7 +54,12 @@ export function LoginPanel({ callbackUrl = "/ecc-join" }: LoginPanelProps) {
             <button
               type="button"
               disabled={isLoading}
-              onClick={() => signIn("google", { callbackUrl: safeCallbackUrl })}
+              onClick={() =>
+                signIn("google", {
+                  callbackUrl: safeCallbackUrl,
+                  redirectTo: safeCallbackUrl
+                })
+              }
               className="inline-flex min-h-11 items-center justify-center gap-2 bg-ink px-5 py-3 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
             >
               <LogIn aria-hidden className="h-4 w-4" />

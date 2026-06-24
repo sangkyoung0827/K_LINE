@@ -27,7 +27,7 @@ export function AuthStatus() {
         <button
           type="button"
           aria-label={language === "ko" ? "구글로 로그인" : "Sign in with Google"}
-          onClick={() => signIn("google", { callbackUrl: "/ecc-join" })}
+          onClick={() => signIn("google", { callbackUrl: "/ecc-join", redirectTo: "/ecc-join" })}
           className="hidden h-10 items-center justify-center gap-2 border border-ink/12 px-3 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10 md:inline-flex"
         >
           <LogIn aria-hidden className="h-4 w-4" />

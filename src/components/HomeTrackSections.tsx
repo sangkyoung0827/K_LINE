@@ -156,7 +156,7 @@ function MobileEccEntryCard() {
           {!access.isLoggedIn && !access.loading ? (
             <button
               type="button"
-              onClick={() => signIn("google", { callbackUrl: "/ecc-join" })}
+              onClick={() => signIn("google", { callbackUrl: "/ecc-join", redirectTo: "/ecc-join" })}
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-4 text-sm font-semibold text-paper transition hover:bg-navy"
             >
               <LogIn aria-hidden className="h-4 w-4" />
