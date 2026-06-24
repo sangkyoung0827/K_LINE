@@ -76,6 +76,15 @@ function isQuotaError(error: unknown) {
   return candidate.status === 429 || candidate.code === "insufficient_quota";
 }
 
+function isProviderAccessError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as { status?: unknown };
+  return candidate.status === 401 || candidate.status === 403;
+}
+
 function getAiProvider() {
   return (process.env.AI_PROVIDER?.trim().toLowerCase() || "openai") as "gemini" | "openai";
 }
@@ -85,7 +94,7 @@ function getWoohyukmonModel() {
 }
 
 function getGeminiModel() {
-  return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash-lite";
+  return process.env.GEMINI_MODEL?.trim() || "gemini-1.5-flash";
 }
 
 function getGeminiRequestsPerMinuteLimit() {
@@ -489,7 +498,7 @@ export async function POST(request: Request) {
           message
       }))
       .catch((error: unknown) => {
-        if (isQuotaError(error)) {
+        if (isQuotaError(error) || isProviderAccessError(error)) {
           putProviderOnCooldown(provider);
           return "";
         }
