@@ -4,6 +4,8 @@ import { siteConfig } from "@/lib/seo";
 
 const publicRoutes = [
   "",
+  "/ecc-alumni",
+  "/ecc-alumni/notices",
   "/k-culture-project",
   "/our-activities",
   "/our-activities/ecc",

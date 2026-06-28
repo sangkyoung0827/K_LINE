@@ -19,6 +19,7 @@ const navigationLabels = {
   "/goods": { en: "Goods", ko: "상품" },
   "/k-culture-project": { en: "K-Culture Project", ko: "K-컬처 프로젝트" },
   "/our-activities": { en: "International Clubs", ko: "국제 학생 클럽" },
+  "/ecc-alumni": { en: "ECC Alumni", ko: "ECC Alumni" },
   "/contact": { en: "Contact", ko: "문의" }
 } as const;
 
@@ -93,6 +94,13 @@ export function Navbar() {
                         {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
                       </Link>
                     ))}
+                    <Link
+                      href="/ecc-alumni"
+                      className="inline-flex items-center gap-3 border-b border-navy/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/15 hover:text-ink"
+                    >
+                      <ClubMark id="ecc" size="xs" className="border-ink/10" />
+                      ECC Alumni
+                    </Link>
                   </div>
                 </div>
               );
@@ -161,6 +169,9 @@ export function Navbar() {
             </MobileMenuLink>
             <MobileMenuLink href="/our-activities" onClick={() => setOpen(false)}>
               <I18nNavText en="International Student Club" ko="국제 학생 클럽" language={language} />
+            </MobileMenuLink>
+            <MobileMenuLink href="/ecc-alumni" onClick={() => setOpen(false)}>
+              ECC Alumni
             </MobileMenuLink>
             {eccAccess.isLoggedIn && !eccAccess.isOfficialMember ? (
               <>

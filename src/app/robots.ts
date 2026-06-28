@@ -12,7 +12,9 @@ export default function robots(): MetadataRoute.Robots {
           "/our-activities",
           "/our-activities/ecc",
           "/our-activities/hanhwal",
-          "/contact"
+          "/contact",
+          "/ecc-alumni",
+          "/ecc-alumni/notices"
         ],
         disallow: [
           "/admin",
@@ -27,6 +29,9 @@ export default function robots(): MetadataRoute.Robots {
           "/donate",
           "/ecc-join",
           "/ecc-official",
+          "/ecc-alumni/activity-inquiry",
+          "/ecc-alumni/rejoin",
+          "/ecc-alumni/status",
           "/goods",
           "/goods/",
           "/k-culture-project/submit",

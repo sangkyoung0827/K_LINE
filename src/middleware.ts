@@ -7,6 +7,8 @@ const publicSeoPages = new Set([
   "/",
   "/archery-class",
   "/contact",
+  "/ecc-alumni",
+  "/ecc-alumni/notices",
   "/han-hwal",
   "/k-culture-project",
   "/our-activities",
@@ -40,6 +42,7 @@ const protectedPagePrefixes = [
 function isPublicPath(pathname: string) {
   return (
     pathname === "/login" ||
+    pathname.startsWith("/ecc-alumni") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/images/") ||
