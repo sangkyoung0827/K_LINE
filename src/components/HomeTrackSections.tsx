@@ -1,204 +1,104 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
-import { BookOpenText, Boxes, ClipboardList, GalleryVerticalEnd, LogIn, ShieldCheck, UserCheck } from "lucide-react";
-import { ActivityPreviewCard } from "@/components/ActivityPreviewCard";
-import { DashboardCard } from "@/components/DashboardCard";
-import { I18nText } from "@/components/LanguageProvider";
-import { SectionHeader } from "@/components/SectionHeader";
-import { activityBoards } from "@/data/activityBoards";
-import { useEccAccess } from "@/hooks/useEccAccess";
-import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { ArrowRight, HeartHandshake } from "lucide-react";
+import { ClubMark } from "@/components/ClubMark";
+import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
-const developerGoodsDashboardSection = {
-  title: "Goods",
-  eyebrow: <I18nText en="Goods" ko="상품" />,
-  description: (
-    <I18nText
-      en="Developer-only product draft area while goods are being prepared."
-      ko="상품 준비가 완료되기 전까지 개발자만 확인하는 상품 초안 영역입니다."
-    />
-  ),
-  href: "/goods",
-  action: <I18nText en="Open Goods Drafts" ko="상품 초안 열기" />,
-  icon: Boxes
+type HomeCard = {
+  href: string;
+  title: { en: string; ko: string };
+  description: { en: string; ko: string };
+  badge: { en: string; ko: string };
+  accent: "ecc" | "hanhwal" | "support";
 };
 
-const kCultureDashboardSection = {
-  title: "K-Culture Project",
-  eyebrow: <I18nText en="K-Culture Project" ko="K-컬처 프로젝트" />,
-  description: (
-    <I18nText en="Student-made international projects." ko="학생들이 만들어나가는 국제적 프로젝트들" />
-  ),
-  href: "/k-culture-project",
-  action: <I18nText en="View Projects" ko="프로젝트 보기" />,
-  icon: GalleryVerticalEnd
-};
-
-const clubsDashboardSection = {
-  title: "International Clubs",
-  eyebrow: <I18nText en="International Clubs" ko="국제 학생 클럽" />,
-  description: (
-    <I18nText
-      en="Read and share club records, news-style posts, reviews, field notes, and community stories."
-      ko="클럽 기록, 소식, 후기, 현장 노트, 커뮤니티 이야기를 읽고 공유합니다."
-    />
-  ),
-  href: "/our-activities",
-  action: <I18nText en="View Clubs" ko="클럽 보기" />,
-  icon: BookOpenText
-};
+const homeCards: HomeCard[] = [
+  {
+    href: "/our-activities/ecc",
+    title: { en: "ECC", ko: "ECC" },
+    description: {
+      en: "Check and share international student club activities, news, and community updates.",
+      ko: "국제 학생 클럽 활동, 소식 및 커뮤니티를 확인하고 공유합니다."
+    },
+    badge: { en: "International", ko: "International" },
+    accent: "ecc"
+  },
+  {
+    href: "/our-activities/hanhwal",
+    title: { en: "Hanhwal", ko: "한활" },
+    description: {
+      en: "A channel for Korean traditional archery culture experiences and club member exchange.",
+      ko: "한국 전통 국궁(國弓) 문화 체험과 동문/회원 교류 채널입니다."
+    },
+    badge: { en: "Traditional", ko: "국궁 Traditional" },
+    accent: "hanhwal"
+  },
+  {
+    href: "/contact",
+    title: { en: "Contact & Guide", ko: "문의 및 안내" },
+    description: {
+      en: "Leave questions about the K_LINE platform, ECC activities, or participation.",
+      ko: "K_LINE 플랫폼 관련 질문을 남겨주세요."
+    },
+    badge: { en: "Support", ko: "Support" },
+    accent: "support"
+  }
+];
 
 export function HomeTrackSections() {
-  const { isDeveloper, isSuperAdmin } = useSuperAdmin();
-  const canSeeProjects = isSuperAdmin || isDeveloper;
-  const dashboardSections = [
-    clubsDashboardSection,
-    ...(isDeveloper ? [developerGoodsDashboardSection] : []),
-    ...(canSeeProjects ? [kCultureDashboardSection] : [])
-  ];
-  const hasMultipleTracks = dashboardSections.length > 1;
-
   return (
-    <>
-      <section className="bg-paper py-14 md:py-20">
-        <div className="mx-auto max-w-7xl px-5 md:px-8">
-          <MobileEccEntryCard />
-          <SectionHeader
-            eyebrow={
-              hasMultipleTracks ? (
-                <I18nText en="Role-based tracks" ko="권한별 주요 흐름" />
-              ) : (
-                <I18nText en="Main track" ko="주요 흐름" />
-              )
-            }
-            title={<I18nText en="Dashboard" ko="Dashboard" />}
-            description={
-              hasMultipleTracks ? (
-                <I18nText
-                  en="K_LINE keeps the experience focused on student clubs and role-based project tools."
-                  ko="K_LINE은 학생 클럽과 권한별 프로젝트 도구를 중심으로 운영됩니다."
-                />
-              ) : (
-                <I18nText
-                  en="K_LINE keeps the member experience focused on international student clubs."
-                  ko="일반 회원 화면에서는 국제 학생 클럽 중심으로 이용할 수 있습니다."
-                />
-              )
-            }
-            align="center"
-          />
-          <div
-            className={`mt-12 grid gap-6 ${
-              hasMultipleTracks ? "lg:grid-cols-3" : "mx-auto max-w-xl"
-            }`}
-          >
-            {dashboardSections.map((section) => (
-              <DashboardCard key={section.title} {...section} />
-            ))}
-          </div>
+    <section className="bg-paper px-5 pb-14 md:px-8 md:pb-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-7 md:grid-cols-3">
+          {homeCards.map((card) => (
+            <HomePortalCard key={card.href} card={card} />
+          ))}
         </div>
-      </section>
-
-      <section className="bg-white/55 py-14 md:py-20">
-        <div className="mx-auto max-w-7xl px-5 md:px-8">
-          <SectionHeader
-            eyebrow={<I18nText en="International clubs" ko="국제 학생 클럽" />}
-            title={<I18nText en="Meet the student clubs" ko="학생 클럽 전체를 만나보세요" />}
-            description={
-              <I18nText
-                en="ECC and Hanhwal give students a place to share club records, photos, questions, and campus stories."
-                ko="ECC와 한활은 학생들이 활동 기록, 사진, 질문, 캠퍼스 이야기를 나누는 공간입니다."
-              />
-            }
-          />
-          <div className="mt-10 grid gap-6 md:grid-cols-2">
-            {activityBoards.map((board, index) => (
-              <ActivityPreviewCard
-                key={board.id}
-                board={board}
-                accent={index === 0 ? "gold" : "green"}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }
 
-function MobileEccEntryCard() {
-  const access = useEccAccess();
+function HomePortalCard({ card }: { card: HomeCard }) {
+  const { pick } = useLanguage();
 
   return (
-    <div className="mb-8 md:hidden">
-      <section className="paper-panel p-5 shadow-soft">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-navy text-paper">
-            <UserCheck aria-hidden className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase text-brass">ECC</p>
-            <h2 className="mt-1 font-serif text-3xl font-semibold text-ink">
-              <I18nText en="Join ECC" ko="ECC 가입하기" />
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-ink/68">
-              <I18nText
-                en="Log in to K_LINE and complete the new member registration form."
-                ko="K_LINE에 로그인하고 신규회원 등록폼을 작성하세요."
-              />
-            </p>
-          </div>
-        </div>
+    <Link
+      href={card.href}
+      className="group relative flex min-h-[292px] flex-col rounded-2xl border border-navy/10 bg-white/58 p-6 text-left shadow-[0_18px_45px_rgba(31,42,68,0.06)] transition duration-200 hover:-translate-y-1 hover:border-brass/70 hover:bg-white/78 hover:shadow-[0_22px_55px_rgba(31,42,68,0.10)] md:p-8"
+    >
+      <div className="flex items-start justify-between gap-4">
+        {card.accent === "support" ? (
+          <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-navy text-brass shadow-[0_14px_28px_rgba(31,42,68,0.14)]">
+            <HeartHandshake aria-hidden className="h-6 w-6" />
+          </span>
+        ) : (
+          <ClubMark
+            id={card.accent === "ecc" ? "ecc" : "hanhwal"}
+            size="md"
+            className="border-4 border-white bg-white shadow-[0_14px_28px_rgba(31,42,68,0.12)]"
+          />
+        )}
 
-        <div className="mt-5 grid gap-2">
-          {!access.isLoggedIn && !access.loading ? (
-            <button
-              type="button"
-              onClick={() => signIn("google", { callbackUrl: "/ecc-join", redirectTo: "/ecc-join" })}
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-4 text-sm font-semibold text-paper transition hover:bg-navy"
-            >
-              <LogIn aria-hidden className="h-4 w-4" />
-              <I18nText en="Log in with Google" ko="Google로 로그인" />
-            </button>
-          ) : null}
+        <span className="rounded-full bg-hanji/80 px-3 py-1 text-xs font-bold text-navy/80">
+          {pick(card.badge)}
+        </span>
+      </div>
 
-          {access.isOfficialMember ? (
-            <>
-              <Link
-                href="/ecc-official"
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-4 text-sm font-semibold text-paper transition hover:bg-navy"
-              >
-                <ShieldCheck aria-hidden className="h-4 w-4" />
-                ECC OFFICIAL
-              </Link>
-              <Link
-                href="/ecc-official"
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 border border-navy/18 px-4 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
-              >
-                <I18nText en="Join ECC Official Team Chat" ko="ECC 공식 팀채팅 입장" />
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/ecc-join"
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-brass px-4 text-sm font-semibold text-ink transition hover:bg-ink hover:text-paper"
-              >
-                <ClipboardList aria-hidden className="h-4 w-4" />
-                <I18nText en="New Member Registration" ko="신규회원 등록" />
-              </Link>
-              <Link
-                href="/ecc-join"
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 border border-navy/18 px-4 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
-              >
-                <I18nText en="Check My Status" ko="내 상태 확인" />
-              </Link>
-            </>
-          )}
-        </div>
-      </section>
-    </div>
+      <div className="mt-8 flex-1">
+        <h2 className="font-serif text-3xl font-semibold tracking-[-0.02em] text-navy md:text-4xl">
+          {pick(card.title)}
+        </h2>
+        <p className="mt-6 min-h-[4.5rem] text-sm font-medium leading-7 text-muted">
+          {pick(card.description)}
+        </p>
+      </div>
+
+      <span className="mt-7 inline-flex items-center gap-2 text-sm font-bold text-navy">
+        <I18nText en="View Details" ko="자세히 보기" />
+        <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
+      </span>
+    </Link>
   );
 }
