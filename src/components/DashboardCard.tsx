@@ -20,17 +20,18 @@ export function DashboardCard({
   icon: Icon
 }: DashboardCardProps) {
   return (
-    <article className="paper-panel group relative grid min-h-[360px] overflow-hidden p-6 shadow-soft transition hover:-translate-y-1 hover:border-brass hover:bg-white/78 hover:shadow-lift md:p-8">
-      <div className="absolute inset-x-0 top-0 h-1 bg-brass transition group-hover:bg-pine" />
-      <div className="absolute right-6 top-7 h-px w-24 bg-navy/10" aria-hidden />
-      <div className="absolute right-6 top-12 h-px w-16 bg-brass/45" aria-hidden />
+    <article className="paper-panel group relative grid min-h-[320px] overflow-hidden p-6 shadow-[0_18px_45px_rgba(31,42,68,0.06)] transition duration-200 hover:-translate-y-1 hover:border-brass/70 hover:bg-white/78 hover:shadow-[0_22px_55px_rgba(31,42,68,0.10)] md:p-8">
       <div>
-        <div className="relative flex h-12 w-12 items-center justify-center bg-navy text-paper">
-          <Icon aria-hidden className="h-5 w-5" />
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-xl bg-navy text-brass shadow-[0_14px_28px_rgba(31,42,68,0.14)]">
+          <Icon aria-hidden className="h-6 w-6" />
         </div>
-        <p className="mt-8 text-sm font-semibold uppercase text-brass">{eyebrow}</p>
-        <h2 className="mt-3 font-serif text-4xl font-semibold text-ink">{title}</h2>
-        <p className="mt-5 text-base leading-8 text-ink/68">{description}</p>
+        <p className="mt-8 inline-flex rounded-full bg-hanji/75 px-3 py-1 text-xs font-bold uppercase text-navy/75">
+          {eyebrow}
+        </p>
+        <h2 className="mt-4 font-serif text-3xl font-semibold tracking-[-0.02em] text-navy md:text-4xl">
+          {title}
+        </h2>
+        <p className="mt-5 text-base leading-8 text-muted">{description}</p>
       </div>
       <div className="mt-8">
         <CTAButton href={href}>{action}</CTAButton>

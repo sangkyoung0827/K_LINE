@@ -1,58 +1,24 @@
-import Image from "next/image";
-import { auth } from "@/auth";
-import { HeroActions } from "@/components/HeroActions";
-import { HomeFeedbackCloud } from "@/components/HomeFeedbackCloud";
 import { I18nText } from "@/components/LanguageProvider";
-import { Logo } from "@/components/Logo";
-import { getAdminAccess } from "@/lib/admin";
 
-export async function HeroSection() {
-  const session = await auth();
-  const access = await getAdminAccess(session?.user?.email ?? "");
-
+export function HeroSection() {
   return (
-    <section className="relative isolate overflow-hidden bg-navy text-paper">
-      <Image
-        src="/images/k-line-hero.jpg"
-        alt="K_LINE campus K-culture platform visual"
-        fill
-        priority
-        sizes="100vw"
-        className="object-cover opacity-[0.42]"
-      />
-      <div className="absolute inset-0 bg-navy/72" aria-hidden />
-      <div
-        className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-paper to-transparent"
-        aria-hidden
-      />
-      <div className="relative mx-auto grid min-h-[78svh] max-w-7xl items-center gap-10 px-5 py-16 md:px-8 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
-        <div>
-          <Logo variant="light" size="lg" showTagline={false} />
-          <p className="mt-8 text-sm font-semibold uppercase tracking-normal text-brass">
-            <I18nText en="Campus K-Culture Hub" ko="캠퍼스 K-컬처 허브" />
-          </p>
-          <h1 className="mt-4 font-serif text-6xl font-semibold tracking-normal text-paper md:text-8xl">
-            K_LINE
-          </h1>
-          <p className="mt-6 max-w-3xl text-xl leading-8 text-paper/84 md:text-2xl">
-            <I18nText
-              en="A campus platform connecting ECC, Han-hwal, and international student club activities."
-              ko="ECC, 한활, 국제 학생 클럽 활동을 연결하는 대학 기반 플랫폼입니다."
-            />
-          </p>
-          <p className="mt-4 max-w-3xl text-base leading-8 text-paper/72 md:text-lg">
-            <I18nText
-              en="Built for international students, Korean students, and campus communities."
-              ko="외국인 유학생과 한국 학생이 함께 만드는 대학 기반 K-컬처 플랫폼"
-            />
-          </p>
-          <HeroActions />
+    <section className="relative isolate bg-paper px-5 py-20 text-center md:px-8 md:py-28 lg:py-32">
+      <div className="mx-auto max-w-4xl">
+        <div className="inline-flex items-center gap-2 rounded-full border border-navy/10 bg-white/58 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-navy shadow-[0_10px_30px_rgba(31,42,68,0.06)]">
+          <span aria-hidden className="text-brass">✦</span>
+          <I18nText en="Campus K-Culture Hub" ko="Campus K-Culture Hub" />
         </div>
-        {access.isDeveloper ? (
-          <div className="hidden md:block lg:justify-self-end">
-            <HomeFeedbackCloud />
-          </div>
-        ) : null}
+
+        <h1 className="mt-7 font-serif text-6xl font-semibold tracking-[-0.04em] text-navy md:text-7xl lg:text-8xl">
+          K_LINE
+        </h1>
+
+        <p className="mx-auto mt-7 max-w-3xl text-lg font-medium leading-8 text-muted md:text-xl">
+          <I18nText
+            en="A hub connecting global campus communities and K-culture experiences."
+            ko="캠퍼스 내 글로벌 커뮤니티와 K-컬처 경험을 연결하는 허브입니다."
+          />
+        </p>
       </div>
     </section>
   );

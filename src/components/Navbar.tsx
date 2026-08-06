@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, Code2, Menu, ShoppingBag, X } from "lucide-react";
 import { useState } from "react";
 import { activityBoards } from "@/data/activityBoards";
-import { navigation } from "@/data/navigation";
 import { AuthStatus } from "@/components/AuthStatus";
 import { ClubMark } from "@/components/ClubMark";
 import { useCart } from "@/components/CartProvider";
@@ -13,15 +12,6 @@ import { LanguageSwitcher, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
 import { useEccAccess } from "@/hooks/useEccAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
-
-const navigationLabels = {
-  "/": { en: "Home", ko: "홈" },
-  "/goods": { en: "Goods", ko: "상품" },
-  "/k-culture-project": { en: "K-Culture Project", ko: "K-컬처 프로젝트" },
-  "/our-activities": { en: "International Clubs", ko: "국제 학생 클럽" },
-  "/ecc-alumni": { en: "ECC Alumni", ko: "ECC Alumni" },
-  "/contact": { en: "Contact", ko: "문의" }
-} as const;
 
 const boardLabels = {
   ecc: { en: "ECC", ko: "ECC" },
@@ -33,102 +23,74 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const { totalQuantity } = useCart();
   const { language, pick } = useLanguage();
-  const { isDeveloper, isSuperAdmin } = useSuperAdmin();
+  const { isDeveloper } = useSuperAdmin();
   const eccAccess = useEccAccess();
-  const visibleNavigation = navigation.filter(
-    (item) => {
-      if (item.href === "/goods") {
-        return isDeveloper;
-      }
-
-      if (item.href === "/k-culture-project") {
-        return isSuperAdmin || isDeveloper;
-      }
-
-      return true;
-    }
-  );
 
   if (pathname === "/login") {
     return null;
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-navy/10 bg-paper/94 backdrop-blur">
-      <nav className="mx-auto flex h-18 max-w-7xl items-center justify-between px-5 md:px-8">
-        <Link href="/" aria-label="K_LINE home">
-          <Logo size="sm" />
+    <header className="sticky top-0 z-50 border-b border-navy/8 bg-paper/96 backdrop-blur-xl">
+      <nav className="mx-auto flex min-h-[92px] max-w-7xl items-center justify-between px-5 md:px-8">
+        <Link href="/" aria-label="K_LINE home" className="shrink-0">
+          <Logo size="md" />
         </Link>
 
-        <div className="hidden items-center gap-1 lg:flex">
-          {visibleNavigation.map((item) => {
-            const active =
-              pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-            const hasBoards = item.href === "/our-activities";
+        <div className="hidden items-center gap-9 lg:flex">
+          <DesktopNavLink href="/" active={pathname === "/"}>
+            {language === "ko" ? "홈" : "Home"}
+          </DesktopNavLink>
 
-            if (hasBoards) {
-              return (
-                <div key={item.href} className="group relative">
-                  <Link
-                    href={item.href}
-                    className={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium transition ${
-                      active ? "text-ink" : "text-ink/62 hover:text-ink"
-                    }`}
-                  >
-                    {navigationLabels[item.href as keyof typeof navigationLabels]
-                      ? pick(navigationLabels[item.href as keyof typeof navigationLabels])
-                      : item.label}
-                    <ChevronDown
-                      aria-hidden
-                      className="h-3.5 w-3.5 transition group-hover:rotate-180"
-                    />
-                  </Link>
-                  <div className="absolute left-0 top-full hidden min-w-52 border border-navy/10 bg-paper shadow-soft group-hover:grid group-focus-within:grid">
-                    {activityBoards.map((board) => (
-                      <Link
-                        key={board.id}
-                        href={`/our-activities/${board.slug}`}
-                        className="inline-flex items-center gap-3 border-b border-navy/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/15 hover:text-ink"
-                      >
-                        <ClubMark id={board.id} size="xs" className="border-ink/10" />
-                        {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
-                      </Link>
-                    ))}
-                    <Link
-                      href="/ecc-alumni"
-                      className="inline-flex items-center gap-3 border-b border-navy/8 px-4 py-3 text-sm font-semibold text-ink/72 transition last:border-b-0 hover:bg-brass/15 hover:text-ink"
-                    >
-                      <ClubMark id="ecc" size="xs" className="border-ink/10" />
-                      ECC Alumni
-                    </Link>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
+          <div className="group relative">
+            <Link
+              href="/our-activities"
+              className={`inline-flex items-center gap-1.5 px-2 py-3 text-sm font-semibold transition ${
+                pathname.startsWith("/our-activities") || pathname.startsWith("/ecc-alumni")
+                  ? "text-navy"
+                  : "text-ink/70 hover:text-navy"
+              }`}
+            >
+              {language === "ko" ? "국제학생클럽" : "International Student Club"}
+              <ChevronDown
+                aria-hidden
+                className="h-3.5 w-3.5 transition group-hover:rotate-180"
+              />
+            </Link>
+            <div className="absolute left-1/2 top-full hidden min-w-56 -translate-x-1/2 rounded-2xl border border-navy/10 bg-white/92 p-2 shadow-[0_20px_50px_rgba(31,42,68,0.12)] backdrop-blur group-hover:grid group-focus-within:grid">
+              {activityBoards.map((board) => (
+                <Link
+                  key={board.id}
+                  href={`/our-activities/${board.slug}`}
+                  className="inline-flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-ink/72 transition hover:bg-hanji/70 hover:text-navy"
+                >
+                  <ClubMark id={board.id} size="xs" className="border-ink/10" />
+                  {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
+                </Link>
+              ))}
               <Link
-                key={item.href}
-                href={item.href}
-                className={`px-3 py-2 text-sm font-medium transition ${
-                  active ? "text-ink" : "text-ink/62 hover:text-ink"
-                }`}
+                href="/ecc-alumni"
+                className="inline-flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-ink/72 transition hover:bg-hanji/70 hover:text-navy"
               >
-                {navigationLabels[item.href as keyof typeof navigationLabels]
-                  ? pick(navigationLabels[item.href as keyof typeof navigationLabels])
-                  : item.label}
+                <ClubMark id="ecc" size="xs" className="border-ink/10" />
+                ECC Alumni
               </Link>
-            );
-          })}
+            </div>
+          </div>
+
+          <DesktopNavLink href="/contact" active={pathname.startsWith("/contact")}>
+            {language === "ko" ? "문의" : "Contact"}
+          </DesktopNavLink>
+
           {isDeveloper ? (
             <Link
               href="/developer"
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition ${
-                pathname.startsWith("/developer") ? "text-ink" : "text-brass hover:text-ink"
+              className={`inline-flex items-center gap-1.5 px-2 py-3 text-sm font-semibold transition ${
+                pathname.startsWith("/developer") ? "text-navy" : "text-brass hover:text-navy"
               }`}
             >
               <Code2 aria-hidden className="h-4 w-4" />
-              {language === "ko" ? "개발자 전용" : "Developer"}
+              {language === "ko" ? "개발자" : "Developer"}
             </Link>
           ) : null}
         </div>
@@ -140,11 +102,11 @@ export function Navbar() {
             <Link
               href="/cart"
               aria-label={language === "ko" ? "장바구니 열기" : "Open cart"}
-              className="relative inline-flex h-10 w-10 items-center justify-center border border-navy/12 text-ink transition hover:border-brass hover:bg-brass/15"
+              className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-navy/12 bg-white/45 text-ink transition hover:border-brass hover:bg-brass/15"
             >
               <ShoppingBag aria-hidden className="h-4 w-4" />
               {totalQuantity > 0 ? (
-                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-brass px-1 text-xs font-semibold text-ink">
+                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-brass px-1 text-xs font-semibold text-ink">
                   {totalQuantity}
                 </span>
               ) : null}
@@ -154,7 +116,7 @@ export function Navbar() {
             type="button"
             aria-label={language === "ko" ? "메뉴 열기" : "Open navigation menu"}
             onClick={() => setOpen((value) => !value)}
-            className="inline-flex h-10 w-10 items-center justify-center border border-navy/12 text-ink transition hover:border-brass hover:bg-brass/15 lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-navy/12 bg-white/45 text-ink transition hover:border-brass hover:bg-brass/15 lg:hidden"
           >
             {open ? <X aria-hidden className="h-5 w-5" /> : <Menu aria-hidden className="h-5 w-5" />}
           </button>
@@ -162,16 +124,25 @@ export function Navbar() {
       </nav>
 
       {open ? (
-        <div className="border-t border-navy/10 bg-paper lg:hidden">
-          <div className="mx-auto grid max-w-7xl px-5 py-4">
+        <div className="border-t border-navy/8 bg-paper lg:hidden">
+          <div className="mx-auto grid max-w-7xl gap-1 px-5 py-4">
             <MobileMenuLink href="/" onClick={() => setOpen(false)}>
               <I18nNavText en="Home" ko="홈" language={language} />
             </MobileMenuLink>
             <MobileMenuLink href="/our-activities" onClick={() => setOpen(false)}>
-              <I18nNavText en="International Student Club" ko="국제 학생 클럽" language={language} />
+              <I18nNavText en="International Student Club" ko="국제학생클럽" language={language} />
+            </MobileMenuLink>
+            <MobileMenuLink href="/our-activities/ecc" onClick={() => setOpen(false)}>
+              ECC
+            </MobileMenuLink>
+            <MobileMenuLink href="/our-activities/hanhwal" onClick={() => setOpen(false)}>
+              <I18nNavText en="Hanhwal" ko="한활" language={language} />
             </MobileMenuLink>
             <MobileMenuLink href="/ecc-alumni" onClick={() => setOpen(false)}>
               ECC Alumni
+            </MobileMenuLink>
+            <MobileMenuLink href="/contact" onClick={() => setOpen(false)}>
+              <I18nNavText en="Contact" ko="문의" language={language} />
             </MobileMenuLink>
             {eccAccess.isLoggedIn && !eccAccess.isOfficialMember ? (
               <>
@@ -207,16 +178,40 @@ export function Navbar() {
               <Link
                 href="/developer"
                 onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-2 border-b border-navy/8 py-3 text-sm font-semibold text-brass"
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-brass transition hover:bg-white/60"
               >
                 <Code2 aria-hidden className="h-4 w-4" />
-                {language === "ko" ? "개발자 전용" : "Developer"}
+                {language === "ko" ? "개발자" : "Developer"}
               </Link>
             ) : null}
           </div>
         </div>
       ) : null}
     </header>
+  );
+}
+
+function DesktopNavLink({
+  children,
+  href,
+  active
+}: {
+  children: React.ReactNode;
+  href: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`relative px-2 py-3 text-sm font-semibold transition ${
+        active ? "text-navy" : "text-ink/70 hover:text-navy"
+      }`}
+    >
+      {children}
+      {active ? (
+        <span className="absolute inset-x-2 bottom-1 h-0.5 rounded-full bg-navy" aria-hidden />
+      ) : null}
+    </Link>
   );
 }
 
@@ -233,7 +228,7 @@ function MobileMenuLink({
     <Link
       href={href}
       onClick={onClick}
-      className="border-b border-navy/8 py-3 text-sm font-semibold text-ink/76 last:border-b-0"
+      className="rounded-xl px-3 py-3 text-sm font-semibold text-ink/76 transition hover:bg-white/60 hover:text-navy"
     >
       {children}
     </Link>
