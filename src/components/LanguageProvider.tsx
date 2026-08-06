@@ -73,14 +73,17 @@ export function LanguageSwitcher() {
   const { language, setLanguage } = useLanguage();
 
   return (
-    <div className="flex border border-navy/12 bg-white/40 p-1" aria-label="Language selector">
+    <div
+      className="flex rounded-xl border border-navy/10 bg-white/45 p-1 shadow-[0_10px_25px_rgba(31,42,68,0.04)]"
+      aria-label="Language selector"
+    >
       {(["en", "ko"] as const).map((item) => (
         <button
           key={item}
           type="button"
           onClick={() => setLanguage(item)}
-          className={`min-h-8 px-2.5 text-xs font-semibold transition ${
-            language === item ? "bg-ink text-paper" : "text-ink/60 hover:bg-brass/15 hover:text-ink"
+          className={`min-h-8 rounded-lg px-2.5 text-xs font-bold transition ${
+            language === item ? "bg-navy text-paper" : "text-ink/58 hover:bg-brass/15 hover:text-ink"
           }`}
           aria-pressed={language === item}
         >
