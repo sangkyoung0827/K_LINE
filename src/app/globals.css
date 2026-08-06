@@ -19,10 +19,9 @@ html {
 body {
   margin: 0;
   background:
-    linear-gradient(90deg, rgba(31, 42, 68, 0.035) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(31, 42, 68, 0.028) 1px, transparent 1px),
+    radial-gradient(circle at top left, rgba(214, 168, 90, 0.08), transparent 32rem),
+    radial-gradient(circle at top right, rgba(31, 42, 68, 0.045), transparent 34rem),
     #F4EBDD;
-  background-size: 42px 42px;
   color: #111827;
   font-family: var(--font-sans);
 }
@@ -46,29 +45,32 @@ select {
 
 .paper-panel {
   background: rgba(255, 252, 246, 0.84);
-  border: 1px solid rgba(31, 42, 68, 0.12);
+  border: 1px solid rgba(31, 42, 68, 0.11);
+  border-radius: 1.25rem;
 }
 
 .ink-rule {
-  background: linear-gradient(90deg, #111827, rgba(17, 24, 39, 0));
+  background: linear-gradient(90deg, rgba(31, 42, 68, 0.26), rgba(31, 42, 68, 0));
   height: 1px;
 }
 
 .form-field {
   width: 100%;
   min-height: 3rem;
-  border: 1px solid rgba(31, 42, 68, 0.16);
-  background: rgba(255, 252, 246, 0.88);
+  border: 1px solid rgba(31, 42, 68, 0.14);
+  border-radius: 0.95rem;
+  background: rgba(255, 252, 246, 0.9);
   padding: 0.85rem 0.95rem;
   color: #111827;
   font-size: 1rem;
   outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
 .form-field:focus {
   border-color: #D6A85A;
-  box-shadow: 0 0 0 3px rgba(214, 168, 90, 0.22);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 0 0 3px rgba(214, 168, 90, 0.2);
 }
 
 @keyframes feedback-drift {
