@@ -14,7 +14,7 @@ type CTAButtonProps = {
 const variantClass = {
   dark: "bg-navy text-paper hover:bg-ink",
   light: "bg-paper text-ink hover:bg-white",
-  outline: "border border-navy/20 text-ink hover:border-brass hover:bg-brass/15",
+  outline: "border border-navy/16 text-ink hover:border-brass hover:bg-brass/15",
   lightOutline: "border border-paper/45 text-paper hover:border-brass hover:bg-paper/12",
   gold: "bg-brass text-ink hover:bg-paper",
   green: "bg-pine text-paper hover:bg-navy"
@@ -28,7 +28,7 @@ export function CTAButton({
   onClick,
   disabled = false
 }: CTAButtonProps) {
-  const className = `inline-flex min-h-11 items-center justify-center gap-2 px-5 py-3 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 ${variantClass[variant]}`;
+  const className = `inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold shadow-[0_12px_28px_rgba(31,42,68,0.08)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 ${variantClass[variant]}`;
 
   if (href) {
     return (
