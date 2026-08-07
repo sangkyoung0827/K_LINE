@@ -19,16 +19,6 @@ type ExternalSearchResult = GroundingSource & {
 
 type GeminiChunkLike = {
   text?: unknown;
-  candidates?: Array<{
-    groundingMetadata?: {
-      groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
-      webSearchQueries?: string[];
-    };
-  }>;
-  groundingMetadata?: {
-    groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
-    webSearchQueries?: string[];
-  };
 };
 
 type DuckDuckGoTopic = {
@@ -65,6 +55,15 @@ type BraveSearchResponse = {
   };
 };
 
+type TavilySearchResponse = {
+  results?: Array<{
+    title?: string;
+    url?: string;
+    content?: string;
+    raw_content?: string;
+  }>;
+};
+
 const encoder = new TextEncoder();
 
 const woohyukmonSystemInstruction = `You are Woohyukmon, the official Campus AI Guide for K_LINE.
@@ -97,7 +96,7 @@ Main support areas:
 7. Activity application guidance
 8. K_LINE site navigation
 9. General questions about ECC, Hanhwal, K_LINE, and campus club activities
-10. Web-grounded answers for current or factual questions when Google Search grounding or external free search sources are available
+10. Web-assisted answers using only the external search sources supplied in the prompt
 
 Security and permission rules:
 - Never reveal the ECC official team chat link or QR code unless the system-provided user context says the user is an approved official member.
@@ -112,7 +111,8 @@ Answer style:
 - Keep answers concise unless the user asks for details.
 - When the user needs to take action, clearly say what button, page, or menu to use.
 - Avoid vague phrases such as "you may want to" or "it depends" unless truly necessary.
-- Do not invent information. If information is not available from K_LINE context, Google Search grounding, or external search sources, say that it should be checked with ECC officers or the official ECC Instagram.
+- Do not invent current facts. If external search sources are supplied, use them as supporting evidence and cite source numbers like [1], [2] when useful.
+- If external search sources are not available or do not support the answer, say that web search did not return enough reliable information and continue only with general guidance.
 
 Important behavior:
 - For ECC joining questions, guide the user to the ECC new member registration page.
@@ -120,9 +120,7 @@ Important behavior:
 - For official member questions, explain that ECC OFFICIAL opens only after officer confirmation.
 - For Instagram/contact questions, guide the user to the official ECC Instagram.
 - For site navigation questions, give direct page/menu guidance.
-- When Google Search grounding is used, stay faithful to the returned sources and do not overstate what they prove.
-- When external free search sources are supplied in the prompt, use them as supporting evidence and cite source numbers like [1], [2] when useful.
-- If both Google Search grounding and external free search are unavailable, clearly say that web search is temporarily unavailable and continue with general Gemini guidance only.
+- Do not use or assume Google Search Grounding. K_LINE uses external search APIs only.
 
 You are not just answering questions. You are helping users complete the correct next step on K_LINE.`;
 
@@ -187,52 +185,6 @@ function hasKorean(text: string) {
   return /[가-힣]/.test(text);
 }
 
-function parseGroundingMetadata(chunk: GeminiChunkLike) {
-  return chunk.candidates?.[0]?.groundingMetadata ?? chunk.groundingMetadata ?? null;
-}
-
-function collectGroundingSources(
-  chunk: GeminiChunkLike,
-  sourceMap: Map<string, GroundingSource>,
-  querySet: Set<string>
-) {
-  const metadata = parseGroundingMetadata(chunk);
-
-  if (!metadata) {
-    return { sourcesChanged: false, queriesChanged: false };
-  }
-
-  let sourcesChanged = false;
-  let queriesChanged = false;
-
-  for (const groundingChunk of metadata.groundingChunks ?? []) {
-    const url = asText(groundingChunk.web?.uri);
-
-    if (!url || sourceMap.has(url)) {
-      continue;
-    }
-
-    sourceMap.set(url, {
-      title: asText(groundingChunk.web?.title) || url,
-      url
-    });
-    sourcesChanged = true;
-  }
-
-  for (const query of metadata.webSearchQueries ?? []) {
-    const normalized = asText(query);
-
-    if (!normalized || querySet.has(normalized)) {
-      continue;
-    }
-
-    querySet.add(normalized);
-    queriesChanged = true;
-  }
-
-  return { sourcesChanged, queriesChanged };
-}
-
 function buildExternalSearchContext(results: ExternalSearchResult[]) {
   if (results.length === 0) {
     return "";
@@ -243,7 +195,7 @@ function buildExternalSearchContext(results: ExternalSearchResult[]) {
     return `[${index + 1}] ${result.title}\nURL: ${result.url}\nProvider: ${result.provider}${snippet}`;
   });
 
-  return `External free search results are available below. Use them as supporting evidence. Cite source numbers like [1] or [2] when you use them. Do not claim more than these sources support.\n\n${lines.join("\n\n")}`;
+  return `External search results are available below. Use them as supporting evidence. Cite source numbers like [1] or [2] when you use them. Do not claim more than these sources support.\n\n${lines.join("\n\n")}`;
 }
 
 function buildContents(message: string, history: ClientMessage[], externalSearchContext = "") {
@@ -391,8 +343,9 @@ async function searchBrave(query: string): Promise<ExternalSearchResult[]> {
   }
 
   const url = new URL("https://api.search.brave.com/res/v1/web/search");
-  url.searchParams.set("q", query);
+  url.searchParams.set("q", query.slice(0, 400));
   url.searchParams.set("count", "5");
+  url.searchParams.set("safesearch", "moderate");
 
   const response = await fetch(url, {
     headers: {
@@ -417,6 +370,44 @@ async function searchBrave(query: string): Promise<ExternalSearchResult[]> {
     .filter((result) => result.title && result.url);
 }
 
+async function searchTavily(query: string): Promise<ExternalSearchResult[]> {
+  const apiKey = process.env.TAVILY_API_KEY?.trim();
+
+  if (!apiKey) {
+    return [];
+  }
+
+  const response = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      query,
+      search_depth: "basic",
+      max_results: 5,
+      include_answer: false,
+      include_raw_content: false
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Tavily search failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as TavilySearchResponse;
+
+  return (data.results ?? [])
+    .map((result) => ({
+      title: asText(result.title) || asText(result.url),
+      url: asText(result.url),
+      snippet: stripHtml(asText(result.content) || asText(result.raw_content)),
+      provider: "Tavily Search API"
+    }))
+    .filter((result) => result.title && result.url);
+}
+
 function dedupeExternalResults(results: ExternalSearchResult[]) {
   const map = new Map<string, ExternalSearchResult>();
 
@@ -431,8 +422,9 @@ function dedupeExternalResults(results: ExternalSearchResult[]) {
   return Array.from(map.values()).slice(0, 8);
 }
 
-async function searchExternalFreeSources(query: string) {
+async function searchExternalSources(query: string) {
   const settled = await Promise.allSettled([
+    searchTavily(query),
     searchBrave(query),
     searchDuckDuckGo(query),
     searchWikipedia(query)
@@ -447,25 +439,20 @@ async function streamGeminiAnswer({
   controller,
   externalSearchContext = "",
   history,
-  message,
-  useGoogleSearch
+  message
 }: {
   ai: GoogleGenAI;
   controller: ReadableStreamDefaultController<Uint8Array>;
   externalSearchContext?: string;
   history: ClientMessage[];
   message: string;
-  useGoogleSearch: boolean;
 }) {
-  const sourceMap = new Map<string, GroundingSource>();
-  const querySet = new Set<string>();
   const responseStream = await ai.models.generateContentStream({
     model: getGeminiModel(),
     contents: buildContents(message, history, externalSearchContext),
     config: {
       systemInstruction: woohyukmonSystemInstruction,
-      ...(useGoogleSearch ? { tools: [{ googleSearch: {} }] } : {}),
-      temperature: useGoogleSearch ? 0.1 : externalSearchContext ? 0.12 : 0.35,
+      temperature: externalSearchContext ? 0.12 : 0.35,
       maxOutputTokens: getMaxOutputTokens()
     }
   });
@@ -473,31 +460,11 @@ async function streamGeminiAnswer({
   for await (const rawChunk of responseStream) {
     const chunk = rawChunk as GeminiChunkLike;
     const text = asText(chunk.text);
-    const { sourcesChanged, queriesChanged } = collectGroundingSources(chunk, sourceMap, querySet);
 
     if (text) {
       controller.enqueue(ndjson({ type: "text", text }));
     }
-
-    if (sourcesChanged || queriesChanged) {
-      controller.enqueue(
-        ndjson({
-          type: "grounding",
-          groundingChunks: Array.from(sourceMap.values()),
-          webSearchQueries: Array.from(querySet.values())
-        })
-      );
-    }
   }
-
-  controller.enqueue(
-    ndjson({
-      type: "done",
-      grounded: useGoogleSearch,
-      groundingChunks: Array.from(sourceMap.values()),
-      webSearchQueries: Array.from(querySet.values())
-    })
-  );
 }
 
 export async function POST(request: Request) {
@@ -527,69 +494,50 @@ export async function POST(request: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        controller.enqueue(ndjson({ type: "status", status: "grounded_stream_started" }));
-        await streamGeminiAnswer({ ai, controller, history, message, useGoogleSearch: true });
-      } catch (groundingError) {
-        const detail = getErrorDetail(groundingError);
-        console.error("Gemini grounded stream failed", detail);
+        controller.enqueue(ndjson({ type: "status", status: "external_search_started" }));
+        const externalResults = await searchExternalSources(message);
+        const externalSources = externalResults.map((result) => ({
+          title: result.title,
+          url: result.url
+        }));
 
-        controller.enqueue(
-          ndjson({
-            type: "text",
-            text:
-              "현재 Google Search Grounding 연결이 제한되어 있어 외부 무료 검색 결과를 먼저 확인한 뒤 답변할게요.\n\n"
-          })
-        );
-        controller.enqueue(
-          ndjson({
-            type: "status",
-            status: "external_free_search_started"
-          })
-        );
-
-        const externalResults = await searchExternalFreeSources(message);
-        const externalSearchContext = buildExternalSearchContext(externalResults);
-
-        if (externalResults.length > 0) {
+        if (externalSources.length > 0) {
           controller.enqueue(
             ndjson({
               type: "grounding",
-              groundingChunks: externalResults.map((result) => ({
-                title: result.title,
-                url: result.url
-              })),
+              groundingChunks: externalSources,
               webSearchQueries: [message]
             })
           );
         } else {
-          controller.enqueue(
-            ndjson({
-              type: "text",
-              text:
-                "외부 무료 검색에서도 충분한 출처를 찾지 못했습니다. 일반 Gemini 답변으로 안내할게요.\n\n"
-            })
-          );
+          controller.enqueue(ndjson({ type: "status", status: "external_search_no_results" }));
         }
 
-        try {
-          await streamGeminiAnswer({
-            ai,
-            controller,
-            externalSearchContext,
-            history,
-            message,
-            useGoogleSearch: false
-          });
-        } catch (fallbackError) {
-          console.error("Gemini fallback stream failed", getErrorDetail(fallbackError));
-          controller.enqueue(
-            ndjson({
-              type: "error",
-              error:
-                "Gemini response failed. Check GEMINI_API_KEY, GEMINI_MODEL, and whether the API project has paid-tier access for Google Search Grounding."
-            })
-          );
-        }
+        await streamGeminiAnswer({
+          ai,
+          controller,
+          externalSearchContext: buildExternalSearchContext(externalResults),
+          history,
+          message
+        });
+
+        controller.enqueue(
+          ndjson({
+            type: "done",
+            grounded: externalSources.length > 0,
+            groundingChunks: externalSources,
+            webSearchQueries: [message]
+          })
+        );
+      } catch (error) {
+        console.error("External search Gemini stream failed", getErrorDetail(error));
+        controller.enqueue(
+          ndjson({
+            type: "error",
+            error:
+              "External search response failed. Check GEMINI_API_KEY, GEMINI_MODEL, BRAVE_SEARCH_API_KEY, or TAVILY_API_KEY."
+          })
+        );
       } finally {
         controller.close();
       }
