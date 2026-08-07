@@ -12,6 +12,11 @@ type GroundingSource = {
   url: string;
 };
 
+type ExternalSearchResult = GroundingSource & {
+  provider: string;
+  snippet: string;
+};
+
 type GeminiChunkLike = {
   text?: unknown;
   candidates?: Array<{
@@ -23,6 +28,40 @@ type GeminiChunkLike = {
   groundingMetadata?: {
     groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
     webSearchQueries?: string[];
+  };
+};
+
+type DuckDuckGoTopic = {
+  FirstURL?: string;
+  Text?: string;
+  Name?: string;
+  Topics?: DuckDuckGoTopic[];
+};
+
+type DuckDuckGoResponse = {
+  AbstractSource?: string;
+  AbstractText?: string;
+  AbstractURL?: string;
+  Heading?: string;
+  RelatedTopics?: DuckDuckGoTopic[];
+};
+
+type WikipediaSearchResponse = {
+  query?: {
+    search?: Array<{
+      title?: string;
+      snippet?: string;
+    }>;
+  };
+};
+
+type BraveSearchResponse = {
+  web?: {
+    results?: Array<{
+      title?: string;
+      url?: string;
+      description?: string;
+    }>;
   };
 };
 
@@ -58,7 +97,7 @@ Main support areas:
 7. Activity application guidance
 8. K_LINE site navigation
 9. General questions about ECC, Hanhwal, K_LINE, and campus club activities
-10. Web-grounded answers for current or factual questions when Google Search grounding provides sources
+10. Web-grounded answers for current or factual questions when Google Search grounding or external free search sources are available
 
 Security and permission rules:
 - Never reveal the ECC official team chat link or QR code unless the system-provided user context says the user is an approved official member.
@@ -73,7 +112,7 @@ Answer style:
 - Keep answers concise unless the user asks for details.
 - When the user needs to take action, clearly say what button, page, or menu to use.
 - Avoid vague phrases such as "you may want to" or "it depends" unless truly necessary.
-- Do not invent information. If information is not available from K_LINE context or Google Search grounding, say that it should be checked with ECC officers or the official ECC Instagram.
+- Do not invent information. If information is not available from K_LINE context, Google Search grounding, or external search sources, say that it should be checked with ECC officers or the official ECC Instagram.
 
 Important behavior:
 - For ECC joining questions, guide the user to the ECC new member registration page.
@@ -82,7 +121,8 @@ Important behavior:
 - For Instagram/contact questions, guide the user to the official ECC Instagram.
 - For site navigation questions, give direct page/menu guidance.
 - When Google Search grounding is used, stay faithful to the returned sources and do not overstate what they prove.
-- If Google Search grounding is unavailable for the API project, clearly say that web search is temporarily unavailable and continue with general Gemini guidance only.
+- When external free search sources are supplied in the prompt, use them as supporting evidence and cite source numbers like [1], [2] when useful.
+- If both Google Search grounding and external free search are unavailable, clearly say that web search is temporarily unavailable and continue with general Gemini guidance only.
 
 You are not just answering questions. You are helping users complete the correct next step on K_LINE.`;
 
@@ -133,6 +173,20 @@ function asText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function stripHtml(value: string) {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasKorean(text: string) {
+  return /[가-힣]/.test(text);
+}
+
 function parseGroundingMetadata(chunk: GeminiChunkLike) {
   return chunk.candidates?.[0]?.groundingMetadata ?? chunk.groundingMetadata ?? null;
 }
@@ -179,7 +233,24 @@ function collectGroundingSources(
   return { sourcesChanged, queriesChanged };
 }
 
-function buildContents(message: string, history: ClientMessage[]) {
+function buildExternalSearchContext(results: ExternalSearchResult[]) {
+  if (results.length === 0) {
+    return "";
+  }
+
+  const lines = results.slice(0, 8).map((result, index) => {
+    const snippet = result.snippet ? `\nSnippet: ${result.snippet}` : "";
+    return `[${index + 1}] ${result.title}\nURL: ${result.url}\nProvider: ${result.provider}${snippet}`;
+  });
+
+  return `External free search results are available below. Use them as supporting evidence. Cite source numbers like [1] or [2] when you use them. Do not claim more than these sources support.\n\n${lines.join("\n\n")}`;
+}
+
+function buildContents(message: string, history: ClientMessage[], externalSearchContext = "") {
+  const userText = externalSearchContext
+    ? `${externalSearchContext}\n\nUser question:\n${message.slice(0, 2400)}`
+    : message.slice(0, 2400);
+
   return [
     ...history.map((entry) => ({
       role: entry.role === "assistant" ? "model" : "user",
@@ -187,7 +258,7 @@ function buildContents(message: string, history: ClientMessage[]) {
     })),
     {
       role: "user",
-      parts: [{ text: message.slice(0, 2400) }]
+      parts: [{ text: userText }]
     }
   ];
 }
@@ -208,15 +279,180 @@ function getErrorDetail(error: unknown) {
   }
 }
 
+function collectDuckDuckGoTopics(topics: DuckDuckGoTopic[], results: ExternalSearchResult[]) {
+  for (const topic of topics) {
+    if (topic.Topics?.length) {
+      collectDuckDuckGoTopics(topic.Topics, results);
+      continue;
+    }
+
+    const url = asText(topic.FirstURL);
+    const text = asText(topic.Text);
+
+    if (!url || !text) {
+      continue;
+    }
+
+    const [title, ...rest] = text.split(" - ");
+    results.push({
+      title: title || url,
+      url,
+      snippet: rest.join(" - ") || text,
+      provider: "DuckDuckGo Instant Answer"
+    });
+  }
+}
+
+async function searchDuckDuckGo(query: string): Promise<ExternalSearchResult[]> {
+  const url = new URL("https://api.duckduckgo.com/");
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("no_html", "1");
+  url.searchParams.set("skip_disambig", "1");
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`DuckDuckGo search failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as DuckDuckGoResponse;
+  const results: ExternalSearchResult[] = [];
+  const abstractUrl = asText(data.AbstractURL);
+  const abstractText = asText(data.AbstractText);
+
+  if (abstractUrl && abstractText) {
+    results.push({
+      title: asText(data.Heading) || asText(data.AbstractSource) || abstractUrl,
+      url: abstractUrl,
+      snippet: abstractText,
+      provider: "DuckDuckGo Instant Answer"
+    });
+  }
+
+  collectDuckDuckGoTopics(data.RelatedTopics ?? [], results);
+  return results;
+}
+
+async function searchWikipedia(query: string): Promise<ExternalSearchResult[]> {
+  const languages = hasKorean(query) ? ["ko", "en"] : ["en", "ko"];
+  const results: ExternalSearchResult[] = [];
+
+  for (const language of languages) {
+    const url = new URL(`https://${language}.wikipedia.org/w/api.php`);
+    url.searchParams.set("action", "query");
+    url.searchParams.set("list", "search");
+    url.searchParams.set("srsearch", query);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("utf8", "1");
+    url.searchParams.set("srlimit", "3");
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "K_LINE-Woohyukmon/1.0 (https://kline-nine-wheat.vercel.app)"
+      }
+    });
+
+    if (!response.ok) {
+      continue;
+    }
+
+    const data = (await response.json()) as WikipediaSearchResponse;
+
+    for (const item of data.query?.search ?? []) {
+      const title = asText(item.title);
+
+      if (!title) {
+        continue;
+      }
+
+      results.push({
+        title,
+        url: `https://${language}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`,
+        snippet: stripHtml(asText(item.snippet)),
+        provider: `Wikipedia ${language}`
+      });
+    }
+  }
+
+  return results;
+}
+
+async function searchBrave(query: string): Promise<ExternalSearchResult[]> {
+  const apiKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
+
+  if (!apiKey) {
+    return [];
+  }
+
+  const url = new URL("https://api.search.brave.com/res/v1/web/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("count", "5");
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "X-Subscription-Token": apiKey
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Brave search failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as BraveSearchResponse;
+
+  return (data.web?.results ?? [])
+    .map((result) => ({
+      title: asText(result.title) || asText(result.url),
+      url: asText(result.url),
+      snippet: stripHtml(asText(result.description)),
+      provider: "Brave Search API"
+    }))
+    .filter((result) => result.title && result.url);
+}
+
+function dedupeExternalResults(results: ExternalSearchResult[]) {
+  const map = new Map<string, ExternalSearchResult>();
+
+  for (const result of results) {
+    if (!result.url || map.has(result.url)) {
+      continue;
+    }
+
+    map.set(result.url, result);
+  }
+
+  return Array.from(map.values()).slice(0, 8);
+}
+
+async function searchExternalFreeSources(query: string) {
+  const settled = await Promise.allSettled([
+    searchBrave(query),
+    searchDuckDuckGo(query),
+    searchWikipedia(query)
+  ]);
+
+  const results = settled.flatMap((entry) => (entry.status === "fulfilled" ? entry.value : []));
+  return dedupeExternalResults(results);
+}
+
 async function streamGeminiAnswer({
   ai,
   controller,
+  externalSearchContext = "",
   history,
   message,
   useGoogleSearch
 }: {
   ai: GoogleGenAI;
   controller: ReadableStreamDefaultController<Uint8Array>;
+  externalSearchContext?: string;
   history: ClientMessage[];
   message: string;
   useGoogleSearch: boolean;
@@ -225,11 +461,11 @@ async function streamGeminiAnswer({
   const querySet = new Set<string>();
   const responseStream = await ai.models.generateContentStream({
     model: getGeminiModel(),
-    contents: buildContents(message, history),
+    contents: buildContents(message, history, externalSearchContext),
     config: {
       systemInstruction: woohyukmonSystemInstruction,
       ...(useGoogleSearch ? { tools: [{ googleSearch: {} }] } : {}),
-      temperature: useGoogleSearch ? 0.1 : 0.35,
+      temperature: useGoogleSearch ? 0.1 : externalSearchContext ? 0.12 : 0.35,
       maxOutputTokens: getMaxOutputTokens()
     }
   });
@@ -301,18 +537,49 @@ export async function POST(request: Request) {
           ndjson({
             type: "text",
             text:
-              "현재 Google Search Grounding 연결이 제한되어 있어 우선 일반 Gemini 답변으로 안내할게요. 최신 정보는 공식 사이트에서 한 번 더 확인해 주세요.\n\n"
+              "현재 Google Search Grounding 연결이 제한되어 있어 외부 무료 검색 결과를 먼저 확인한 뒤 답변할게요.\n\n"
           })
         );
         controller.enqueue(
           ndjson({
             type: "status",
-            status: "grounding_failed_fallback_started"
+            status: "external_free_search_started"
           })
         );
 
+        const externalResults = await searchExternalFreeSources(message);
+        const externalSearchContext = buildExternalSearchContext(externalResults);
+
+        if (externalResults.length > 0) {
+          controller.enqueue(
+            ndjson({
+              type: "grounding",
+              groundingChunks: externalResults.map((result) => ({
+                title: result.title,
+                url: result.url
+              })),
+              webSearchQueries: [message]
+            })
+          );
+        } else {
+          controller.enqueue(
+            ndjson({
+              type: "text",
+              text:
+                "외부 무료 검색에서도 충분한 출처를 찾지 못했습니다. 일반 Gemini 답변으로 안내할게요.\n\n"
+            })
+          );
+        }
+
         try {
-          await streamGeminiAnswer({ ai, controller, history, message, useGoogleSearch: false });
+          await streamGeminiAnswer({
+            ai,
+            controller,
+            externalSearchContext,
+            history,
+            message,
+            useGoogleSearch: false
+          });
         } catch (fallbackError) {
           console.error("Gemini fallback stream failed", getErrorDetail(fallbackError));
           controller.enqueue(
