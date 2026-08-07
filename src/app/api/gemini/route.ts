@@ -108,10 +108,17 @@ Security and permission rules:
 Answer style:
 - Start with the most useful answer.
 - Use numbered steps when explaining procedures.
-- Keep answers concise unless the user asks for details.
+- Keep answers concise but complete.
+- For ordinary factual questions, answer in about 4 to 7 short paragraphs or fewer.
 - When the user needs to take action, clearly say what button, page, or menu to use.
 - Avoid vague phrases such as "you may want to" or "it depends" unless truly necessary.
-- Do not invent current facts. If external search sources are supplied, use them as supporting evidence and cite source numbers like [1], [2] when useful.
+- Do not invent current facts. If external search sources are supplied, use them as supporting evidence.
+- Do not display source numbers like [1], [2] unless the user specifically asks for citation numbers.
+- Do not list URLs or sources inside the answer unless the user specifically asks for links.
+- Never use markdown bold markers such as **.
+- Never write standalone separator lines such as ---.
+- Never abbreviate with "중략", "...", "[...]", or a similar omission marker.
+- Never stop in the middle of a sentence. If the answer would become long, make it shorter and finish with a complete final sentence.
 - If external search sources are not available or do not support the answer, say that web search did not return enough reliable information and continue only with general guidance.
 
 Important behavior:
@@ -156,11 +163,11 @@ function getGeminiModel() {
 function getMaxOutputTokens() {
   const parsed = Number.parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS ?? "", 10);
 
-  if (Number.isFinite(parsed) && parsed >= 300 && parsed <= 3000) {
+  if (Number.isFinite(parsed) && parsed >= 500 && parsed <= 5000) {
     return parsed;
   }
 
-  return 1200;
+  return 2600;
 }
 
 function ndjson(payload: unknown) {
@@ -169,6 +176,16 @@ function ndjson(payload: unknown) {
 
 function asText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function sanitizeModelText(value: string) {
+  return value
+    .replace(/\*\*/g, "")
+    .replace(/(^|\n)\s*---+\s*(?=\n|$)/g, "$1")
+    .replace(/\[\s*중략\s*\]/g, "")
+    .replace(/중략[:：]?\s*/g, "")
+    .replace(/\[\.\.\.\]/g, "")
+    .replace(/\.\.\.\s*$/g, ".");
 }
 
 function stripHtml(value: string) {
@@ -185,6 +202,15 @@ function hasKorean(text: string) {
   return /[가-힣]/.test(text);
 }
 
+function getConfiguredSearchProviders() {
+  return [
+    ...(process.env.TAVILY_API_KEY?.trim() ? ["Tavily"] : []),
+    ...(process.env.BRAVE_SEARCH_API_KEY?.trim() ? ["Brave"] : []),
+    "DuckDuckGo",
+    "Wikipedia"
+  ];
+}
+
 function buildExternalSearchContext(results: ExternalSearchResult[]) {
   if (results.length === 0) {
     return "";
@@ -192,10 +218,10 @@ function buildExternalSearchContext(results: ExternalSearchResult[]) {
 
   const lines = results.slice(0, 8).map((result, index) => {
     const snippet = result.snippet ? `\nSnippet: ${result.snippet}` : "";
-    return `[${index + 1}] ${result.title}\nURL: ${result.url}\nProvider: ${result.provider}${snippet}`;
+    return `Source ${index + 1}: ${result.title}\nURL: ${result.url}\nProvider: ${result.provider}${snippet}`;
   });
 
-  return `External search results are available below. Use them as supporting evidence. Cite source numbers like [1] or [2] when you use them. Do not claim more than these sources support.\n\n${lines.join("\n\n")}`;
+  return `External search results are available below. Use them only as supporting evidence. Do not show source numbers, URLs, or a source list in the answer unless the user explicitly asks for links. Do not claim more than these sources support.\n\n${lines.join("\n\n")}`;
 }
 
 function buildContents(message: string, history: ClientMessage[], externalSearchContext = "") {
@@ -431,7 +457,13 @@ async function searchExternalSources(query: string) {
   ]);
 
   const results = settled.flatMap((entry) => (entry.status === "fulfilled" ? entry.value : []));
-  return dedupeExternalResults(results);
+  const dedupedResults = dedupeExternalResults(results);
+  const usedProviders = Array.from(new Set(dedupedResults.map((result) => result.provider)));
+
+  return {
+    results: dedupedResults,
+    usedProviders
+  };
 }
 
 async function streamGeminiAnswer({
@@ -457,14 +489,19 @@ async function streamGeminiAnswer({
     }
   });
 
+  let emittedText = "";
+
   for await (const rawChunk of responseStream) {
     const chunk = rawChunk as GeminiChunkLike;
-    const text = asText(chunk.text);
+    const text = sanitizeModelText(asText(chunk.text));
 
     if (text) {
+      emittedText += text;
       controller.enqueue(ndjson({ type: "text", text }));
     }
   }
+
+  return emittedText;
 }
 
 export async function POST(request: Request) {
@@ -494,8 +531,19 @@ export async function POST(request: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        controller.enqueue(ndjson({ type: "status", status: "external_search_started" }));
-        const externalResults = await searchExternalSources(message);
+        const configuredProviders = getConfiguredSearchProviders();
+
+        controller.enqueue(
+          ndjson({
+            type: "status",
+            status: "external_search_started",
+            label: `${configuredProviders.join(" · ")} 검색 중`,
+            providers: configuredProviders,
+            sourceCount: 0
+          })
+        );
+
+        const { results: externalResults, usedProviders } = await searchExternalSources(message);
         const externalSources = externalResults.map((result) => ({
           title: result.title,
           url: result.url
@@ -506,12 +554,41 @@ export async function POST(request: Request) {
             ndjson({
               type: "grounding",
               groundingChunks: externalSources,
+              providers: usedProviders,
+              sourceCount: externalSources.length,
               webSearchQueries: [message]
             })
           );
+          controller.enqueue(
+            ndjson({
+              type: "status",
+              status: "external_search_done",
+              label: `${usedProviders.join(" · ") || "외부 검색"} 검색 완료 · ${externalSources.length}개 자료 확인`,
+              providers: usedProviders,
+              sourceCount: externalSources.length
+            })
+          );
         } else {
-          controller.enqueue(ndjson({ type: "status", status: "external_search_no_results" }));
+          controller.enqueue(
+            ndjson({
+              type: "status",
+              status: "external_search_no_results",
+              label: "외부 검색 결과 부족 · 일반 답변 준비 중",
+              providers: configuredProviders,
+              sourceCount: 0
+            })
+          );
         }
+
+        controller.enqueue(
+          ndjson({
+            type: "status",
+            status: "answer_stream_started",
+            label: "우혁몬이 답변을 정리하는 중",
+            providers: usedProviders,
+            sourceCount: externalSources.length
+          })
+        );
 
         await streamGeminiAnswer({
           ai,
@@ -526,6 +603,8 @@ export async function POST(request: Request) {
             type: "done",
             grounded: externalSources.length > 0,
             groundingChunks: externalSources,
+            providers: usedProviders,
+            sourceCount: externalSources.length,
             webSearchQueries: [message]
           })
         );
