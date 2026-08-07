@@ -20,24 +20,17 @@ type ChatMessage = {
   sourceCount?: number;
 };
 
-type GeminiStreamEvent =
-  | { type: "status"; status?: string; label?: string; providers?: string[]; sourceCount?: number }
-  | { type: "text"; text?: string }
-  | {
-      type: "grounding";
-      groundingChunks?: GroundingSource[];
-      providers?: string[];
-      sourceCount?: number;
-      webSearchQueries?: string[];
-    }
-  | {
-      type: "done";
-      groundingChunks?: GroundingSource[];
-      providers?: string[];
-      sourceCount?: number;
-      webSearchQueries?: string[];
-    }
-  | { type: "error"; error?: string };
+type GeminiStreamEvent = {
+  type?: "status" | "text" | "grounding" | "done" | "error";
+  status?: string;
+  label?: string;
+  text?: string;
+  groundingChunks?: GroundingSource[];
+  providers?: string[];
+  sourceCount?: number;
+  webSearchQueries?: string[];
+  error?: string;
+};
 
 type LocalBoardPostForAssistant = {
   author: string;
@@ -124,15 +117,11 @@ function mergeSources(current: GroundingSource[], incoming: GroundingSource[]) {
   const sourceMap = new Map<string, GroundingSource>();
 
   for (const source of current) {
-    if (source.url) {
-      sourceMap.set(source.url, source);
-    }
+    if (source.url) sourceMap.set(source.url, source);
   }
 
   for (const source of incoming) {
-    if (source.url && !sourceMap.has(source.url)) {
-      sourceMap.set(source.url, source);
-    }
+    if (source.url && !sourceMap.has(source.url)) sourceMap.set(source.url, source);
   }
 
   return Array.from(sourceMap.values());
@@ -144,10 +133,7 @@ function mergeProviders(current: string[] = [], incoming: string[] = []) {
 
 function parseNdjsonLine(line: string): GeminiStreamEvent | null {
   const trimmed = line.trim();
-
-  if (!trimmed) {
-    return null;
-  }
+  if (!trimmed) return null;
 
   try {
     return JSON.parse(trimmed) as GeminiStreamEvent;
@@ -176,9 +162,7 @@ function buildCompactStatus(message: ChatMessage, language: "en" | "ko") {
   const providers = message.providers?.length ? message.providers.join(" · ") : "";
   const sourceCount = message.sourceCount ?? message.sources?.length ?? 0;
 
-  if (message.status) {
-    return message.status;
-  }
+  if (message.status) return message.status;
 
   if (providers && sourceCount > 0) {
     return language === "ko"
@@ -225,6 +209,72 @@ export function WoohyukmonChatbot() {
     setMessages((current) =>
       current.map((message) => (message.id === assistantId ? updater(message) : message))
     );
+  };
+
+  const applyStreamEvent = (assistantId: string, event: GeminiStreamEvent) => {
+    if (event.type === "status") {
+      updateAssistantMessage(assistantId, (message) => ({
+        ...message,
+        status: event.label ?? fallbackStatusLabel(event.status, language),
+        providers: mergeProviders(message.providers, event.providers),
+        sourceCount: typeof event.sourceCount === "number" ? event.sourceCount : message.sourceCount
+      }));
+      return;
+    }
+
+    if (event.type === "text" && event.text) {
+      updateAssistantMessage(assistantId, (message) => ({
+        ...message,
+        content: `${message.content}${cleanVisibleAnswer(event.text ?? "")}`,
+        status:
+          message.sourceCount && message.sourceCount > 0
+            ? message.status
+            : language === "ko"
+              ? "우혁몬이 답변 중"
+              : "Woohyukmon is answering"
+      }));
+      return;
+    }
+
+    if ((event.type === "grounding" || event.type === "done") && event.groundingChunks) {
+      updateAssistantMessage(assistantId, (message) => ({
+        ...message,
+        sources: mergeSources(message.sources ?? [], event.groundingChunks ?? []),
+        providers: mergeProviders(message.providers, event.providers),
+        sourceCount:
+          typeof event.sourceCount === "number"
+            ? event.sourceCount
+            : event.groundingChunks?.length ?? message.sourceCount
+      }));
+    }
+
+    if (event.type === "done") {
+      updateAssistantMessage(assistantId, (message) => {
+        const count = message.sourceCount ?? message.sources?.length ?? 0;
+        const providers = message.providers?.join(" · ");
+
+        return {
+          ...message,
+          status:
+            count > 0
+              ? language === "ko"
+                ? `${providers || "외부 검색"} 검색 완료 · ${count}개 자료 참고`
+                : `${providers || "External search"} complete · ${count} sources checked`
+              : language === "ko"
+                ? "답변 완료"
+                : "Answer complete"
+        };
+      });
+    }
+
+    if (event.type === "error") {
+      throw new Error(
+        event.error ??
+          (language === "ko"
+            ? "우혁몬 검색 응답 중 오류가 발생했습니다."
+            : "Woohyukmon search response failed.")
+      );
+    }
   };
 
   const sendMessage = async (content: string) => {
@@ -297,10 +347,7 @@ export function WoohyukmonChatbot() {
 
       while (true) {
         const { done, value } = await reader.read();
-
-        if (done) {
-          break;
-        }
+        if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
@@ -308,89 +355,12 @@ export function WoohyukmonChatbot() {
 
         for (const line of lines) {
           const event = parseNdjsonLine(line);
-
-          if (!event) {
-            continue;
-          }
-
-          if (event.type === "status") {
-            updateAssistantMessage(assistantId, (message) => ({
-              ...message,
-              status: event.label ?? fallbackStatusLabel(event.status, language),
-              providers: mergeProviders(message.providers, event.providers),
-              sourceCount:
-                typeof event.sourceCount === "number" ? event.sourceCount : message.sourceCount
-            }));
-          }
-
-          if (event.type === "text" && event.text) {
-            updateAssistantMessage(assistantId, (message) => ({
-              ...message,
-              content: `${message.content}${cleanVisibleAnswer(event.text)}`,
-              status:
-                message.sourceCount && message.sourceCount > 0
-                  ? message.status
-                  : language === "ko"
-                    ? "우혁몬이 답변 중"
-                    : "Woohyukmon is answering"
-            }));
-          }
-
-          if ((event.type === "grounding" || event.type === "done") && event.groundingChunks) {
-            updateAssistantMessage(assistantId, (message) => ({
-              ...message,
-              sources: mergeSources(message.sources ?? [], event.groundingChunks ?? []),
-              providers: mergeProviders(message.providers, event.providers),
-              sourceCount:
-                typeof event.sourceCount === "number"
-                  ? event.sourceCount
-                  : event.groundingChunks?.length ?? message.sourceCount
-            }));
-          }
-
-          if (event.type === "done") {
-            updateAssistantMessage(assistantId, (message) => ({
-              ...message,
-              status:
-                message.sourceCount && message.sourceCount > 0
-                  ? language === "ko"
-                    ? `${message.providers?.join(" · ") || "외부 검색"} 검색 완료 · ${message.sourceCount}개 자료 참고`
-                    : `${message.providers?.join(" · ") || "External search"} complete · ${message.sourceCount} sources checked`
-                  : language === "ko"
-                    ? "답변 완료"
-                    : "Answer complete"
-            }));
-          }
-
-          if (event.type === "error") {
-            throw new Error(
-              event.error ??
-                (language === "ko"
-                  ? "우혁몬 검색 응답 중 오류가 발생했습니다."
-                  : "Woohyukmon search response failed.")
-            );
-          }
+          if (event) applyStreamEvent(assistantId, event);
         }
       }
 
       const lastEvent = parseNdjsonLine(buffer);
-      if (lastEvent?.type === "text" && lastEvent.text) {
-        updateAssistantMessage(assistantId, (message) => ({
-          ...message,
-          content: `${message.content}${cleanVisibleAnswer(lastEvent.text)}`
-        }));
-      }
-      if ((lastEvent?.type === "grounding" || lastEvent?.type === "done") && lastEvent.groundingChunks) {
-        updateAssistantMessage(assistantId, (message) => ({
-          ...message,
-          sources: mergeSources(message.sources ?? [], lastEvent.groundingChunks ?? []),
-          providers: mergeProviders(message.providers, lastEvent.providers),
-          sourceCount:
-            typeof lastEvent.sourceCount === "number"
-              ? lastEvent.sourceCount
-              : lastEvent.groundingChunks?.length ?? message.sourceCount
-        }));
-      }
+      if (lastEvent) applyStreamEvent(assistantId, lastEvent);
 
       updateAssistantMessage(assistantId, (message) => ({
         ...message,
