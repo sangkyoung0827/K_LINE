@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ChevronDown, Instagram, Mic, PaperPlane, Plus } from "lucide-react";
+import { ChevronDown, Instagram, Mic, Plus, Send } from "lucide-react";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import { createPublicMetadata } from "@/lib/seo";
 
@@ -69,7 +69,7 @@ export default function ContactPage() {
         >
           <Instagram aria-hidden className="h-7 w-7" />
           ECC 공식 인스타그램으로 문의하기
-          <PaperPlane aria-hidden className="h-6 w-6" />
+          <Send aria-hidden className="h-6 w-6" />
         </a>
       </div>
     </section>
