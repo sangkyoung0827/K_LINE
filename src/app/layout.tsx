@@ -5,7 +5,6 @@ import { CartProvider } from "@/components/CartProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { Layout } from "@/components/Layout";
 import { SiteVisitTracker } from "@/components/SiteVisitTracker";
-import { WoohyukmonChatbot } from "@/components/WoohyukmonChatbot";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -93,7 +92,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <AuthProvider>
               <Layout>{children}</Layout>
               <SiteVisitTracker />
-              <WoohyukmonChatbot />
             </AuthProvider>
           </CartProvider>
         </LanguageProvider>

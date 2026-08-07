@@ -1,8 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { Bot, Loader2, MessageCircle, Minus, Send, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Send } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -116,27 +115,17 @@ function readLocalBoardPostsForAssistant(): LocalBoardPostForAssistant[] {
   });
 }
 
-function WoohyukmonAvatar({
-  size = "md"
-}: {
-  language: "en" | "ko";
-  size?: "sm" | "md" | "lg";
-}) {
-  const sizeClass = size === "lg" ? "h-16 w-16" : size === "sm" ? "h-9 w-9" : "h-11 w-11";
-  const iconSizeClass = size === "lg" ? "h-10 w-14" : size === "sm" ? "h-6 w-8" : "h-8 w-10";
+function WoohyukmonAvatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const sizeClass = size === "lg" ? "h-14 w-24" : size === "sm" ? "h-8 w-14" : "h-10 w-16";
 
   return (
-    <span
-      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-brass/60 bg-white shadow-soft ${sizeClass}`}
-      aria-hidden
-    >
-      <WoohyukmonGlassesIcon className={iconSizeClass} />
+    <span className={`relative flex shrink-0 items-center justify-center ${sizeClass}`} aria-hidden>
+      <WoohyukmonGlassesIcon className="h-full w-full" alt="" />
     </span>
   );
 }
 
 export function WoohyukmonChatbot() {
-  const pathname = usePathname();
   const { language } = useLanguage();
   const { isDeveloper, isSuperAdmin } = useSuperAdmin();
   const canSeeProjects = isSuperAdmin || isDeveloper;
@@ -146,7 +135,6 @@ export function WoohyukmonChatbot() {
     ...(isSuperAdmin ? superAdminQuickPrompts[language] : []),
     ...(isDeveloper ? developerQuickPrompts[language] : [])
   ];
-  const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessages[language]]);
   const [loading, setLoading] = useState(false);
@@ -240,131 +228,97 @@ export function WoohyukmonChatbot() {
     }
   };
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void sendMessage(input);
   };
 
-  if (pathname === "/login") {
-    return null;
-  }
-
   return (
-    <div className="fixed bottom-5 right-5 z-[70] hidden md:block md:bottom-6 md:right-6">
-      {open ? (
-        <section className="mb-4 flex h-[min(680px,calc(100svh-7rem))] w-[calc(100vw-2.5rem)] max-w-md flex-col overflow-hidden border border-navy/12 bg-paper shadow-lift md:w-[420px]">
-          <header className="flex items-center justify-between gap-3 bg-navy p-4 text-paper">
-            <div className="flex items-center gap-3">
-              <WoohyukmonAvatar language={language} size="sm" />
-              <div>
-                <p className="text-base font-semibold">
-                  {language === "ko" ? "우혁몬" : "Woohyukmon"}
-                </p>
-                <p className="text-xs text-paper/70">
-                  {language === "ko" ? "행정 / 검색 / 아이디어" : "Admin / Search / Ideas"}
-                </p>
+    <section className="flex w-full flex-col overflow-hidden rounded-[2rem] border border-navy/12 bg-white/64 text-left shadow-[0_22px_60px_rgba(31,42,68,0.10)] backdrop-blur">
+      <header className="flex items-center justify-between gap-4 border-b border-navy/10 bg-white/48 px-5 py-4 md:px-6 md:py-5">
+        <div className="flex min-w-0 items-center gap-4">
+          <WoohyukmonAvatar size="lg" />
+          <div className="min-w-0">
+            <p className="text-lg font-semibold text-ink">
+              {language === "ko" ? "우혁몬" : "Woohyukmon"}
+            </p>
+            <p className="truncate text-xs font-medium text-muted">
+              {language === "ko" ? "K_LINE AI · 행정 · 검색 · 아이디어" : "K_LINE AI · Admin · Search · Ideas"}
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 rounded-full bg-brass/15 px-3 py-1.5 text-xs font-bold text-navy">
+          {language === "ko" ? "우혁몬 2.0" : "Woohyukmon 2.0"}
+        </span>
+      </header>
+
+      <div className="max-h-[520px] min-h-[360px] flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="grid gap-3">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              {message.role === "assistant" ? <WoohyukmonAvatar size="sm" /> : null}
+              <div
+                className={`max-w-[82%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${
+                  message.role === "user"
+                    ? "bg-navy text-paper"
+                    : "border border-navy/10 bg-white/82 text-ink"
+                }`}
+              >
+                {message.content}
               </div>
             </div>
-            <button
-              type="button"
-              aria-label="Close Woohyukmon chat"
-              onClick={() => setOpen(false)}
-              className="flex h-9 w-9 items-center justify-center border border-paper/25 text-paper transition hover:border-brass hover:bg-paper/10"
-            >
-              <Minus aria-hidden className="h-4 w-4" />
-            </button>
-          </header>
-
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid gap-3">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  {message.role === "assistant" ? (
-                    <WoohyukmonAvatar language={language} size="sm" />
-                  ) : null}
-                  <div
-                    className={`max-w-[82%] whitespace-pre-wrap px-4 py-3 text-sm leading-7 ${
-                      message.role === "user"
-                        ? "bg-navy text-paper"
-                        : "border border-navy/10 bg-white/78 text-ink"
-                    }`}
-                  >
-                    {message.content}
-                  </div>
-                </div>
-              ))}
-              {loading ? (
-                <div className="flex items-center gap-2 text-sm text-muted">
-                  <WoohyukmonAvatar language={language} size="sm" />
-                  <span className="inline-flex items-center gap-2 border border-navy/10 bg-white/78 px-4 py-3">
-                    <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-                    {language === "ko" ? "우혁몬이 생각 중입니다..." : "Woohyukmon is thinking..."}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {Array.from(new Set(quickPrompts)).map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                  onClick={() => void sendMessage(prompt)}
-                  className="border border-navy/12 bg-white/70 px-3 py-2 text-xs font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {error ? (
-            <div className="border-t border-red-900/12 bg-red-50 px-4 py-3 text-xs font-semibold text-red-800">
-              {error}
+          ))}
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <WoohyukmonAvatar size="sm" />
+              <span className="inline-flex items-center gap-2 rounded-2xl border border-navy/10 bg-white/82 px-4 py-3">
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+                {language === "ko" ? "우혁몬이 생각 중입니다..." : "Woohyukmon is thinking..."}
+              </span>
             </div>
           ) : null}
+        </div>
 
-          <form onSubmit={submit} className="flex gap-2 border-t border-navy/10 bg-white/60 p-3">
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder={language === "ko" ? "우혁몬에게 물어보기" : "Ask Woohyukmon"}
-              className="min-h-11 flex-1 border border-navy/14 bg-paper px-3 text-sm text-ink outline-none transition focus:border-brass focus:ring-2 focus:ring-brass/20"
-            />
+        <div className="mt-5 flex flex-wrap gap-2">
+          {Array.from(new Set(quickPrompts)).map((prompt) => (
             <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              aria-label="Send message"
-              className="flex h-11 w-11 items-center justify-center bg-brass text-ink transition hover:bg-navy hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
+              key={prompt}
+              type="button"
+              onClick={() => void sendMessage(prompt)}
+              className="rounded-xl border border-navy/12 bg-white/72 px-3 py-2 text-xs font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
             >
-              <Send aria-hidden className="h-4 w-4" />
+              {prompt}
             </button>
-          </form>
-        </section>
+          ))}
+        </div>
+      </div>
+
+      {error ? (
+        <div className="border-t border-red-900/12 bg-red-50 px-4 py-3 text-xs font-semibold text-red-800">
+          {error}
+        </div>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="group flex items-center gap-3 bg-navy p-2 pr-4 text-paper shadow-lift transition hover:-translate-y-1 hover:bg-ink"
-        aria-label="Open Woohyukmon chat"
-      >
-        <WoohyukmonAvatar language={language} size="lg" />
-        <span className="grid text-left">
-                  <span className="text-sm font-semibold">
-            {language === "ko" ? "우혁몬" : "Woohyukmon"}
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs text-paper/70">
-            <MessageCircle aria-hidden className="h-3 w-3" />
-            {language === "ko" ? "AI 보조" : "AI Assistant"}
-          </span>
-        </span>
-        {open ? <X aria-hidden className="h-4 w-4" /> : <Bot aria-hidden className="h-4 w-4" />}
-      </button>
-    </div>
+      <form onSubmit={submit} className="flex gap-2 border-t border-navy/10 bg-white/60 p-3 md:p-4">
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          placeholder={language === "ko" ? "우혁몬에게 물어보기" : "Ask Woohyukmon"}
+          className="min-h-12 flex-1 rounded-xl border border-navy/14 bg-paper px-4 text-sm text-ink outline-none transition focus:border-brass focus:ring-2 focus:ring-brass/20"
+        />
+        <button
+          type="submit"
+          disabled={loading || !input.trim()}
+          aria-label="Send message"
+          className="flex h-12 w-12 items-center justify-center rounded-xl bg-brass text-ink transition hover:bg-navy hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Send aria-hidden className="h-4 w-4" />
+        </button>
+      </form>
+    </section>
   );
 }

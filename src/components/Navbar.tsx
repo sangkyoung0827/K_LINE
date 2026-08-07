@@ -72,7 +72,7 @@ export function Navbar() {
           </div>
 
           <DesktopNavLink href="/contact" active={pathname.startsWith("/contact")}>
-            {language === "ko" ? "문의" : "Contact"}
+            {language === "ko" ? "우혁몬" : "Woohyukmon"}
           </DesktopNavLink>
 
           {isDeveloper ? (
@@ -132,7 +132,7 @@ export function Navbar() {
               <I18nNavText en="Hanhwal" ko="한활" language={language} />
             </MobileMenuLink>
             <MobileMenuLink href="/contact" onClick={() => setOpen(false)}>
-              <I18nNavText en="Contact" ko="문의" language={language} />
+              <I18nNavText en="Woohyukmon" ko="우혁몬" language={language} />
             </MobileMenuLink>
             {eccAccess.isLoggedIn && !eccAccess.isOfficialMember ? (
               <>
