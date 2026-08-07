@@ -5,11 +5,24 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 
+type GroundingSource = {
+  title: string;
+  url: string;
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  sources?: GroundingSource[];
 };
+
+type GeminiStreamEvent =
+  | { type: "status"; status?: string }
+  | { type: "text"; text?: string }
+  | { type: "grounding"; groundingChunks?: GroundingSource[]; webSearchQueries?: string[] }
+  | { type: "done"; groundingChunks?: GroundingSource[]; webSearchQueries?: string[] }
+  | { type: "error"; error?: string };
 
 type LocalBoardPostForAssistant = {
   author: string;
@@ -48,14 +61,16 @@ function readLocalBoardPostsForAssistant(): LocalBoardPostForAssistant[] {
           return [];
         }
 
-        return [{
-          author: typeof candidate.author === "string" ? candidate.author.slice(0, 120) : "",
-          boardId,
-          content: candidate.content.slice(0, 900),
-          createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt.slice(0, 80) : "",
-          id: candidate.id.slice(0, 120),
-          title: candidate.title.slice(0, 180)
-        }];
+        return [
+          {
+            author: typeof candidate.author === "string" ? candidate.author.slice(0, 120) : "",
+            boardId,
+            content: candidate.content.slice(0, 900),
+            createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt.slice(0, 80) : "",
+            id: candidate.id.slice(0, 120),
+            title: candidate.title.slice(0, 180)
+          }
+        ];
       });
     } catch {
       return [];
@@ -66,7 +81,7 @@ function readLocalBoardPostsForAssistant(): LocalBoardPostForAssistant[] {
 function WoohyukmonAvatar() {
   return (
     <span className="flex h-8 w-14 shrink-0 items-center justify-center" aria-hidden>
-      <WoohyukmonGlassesIcon className="h-full w-full" alt="" />
+      <WoohyukmonGlassesIcon className="h-full w-full" />
     </span>
   );
 }
@@ -87,6 +102,38 @@ function getCoreAnswer(message: string, language: "en" | "ko") {
     : "ECC stands for English Conversation Club. It is a Jeonbuk National University student community where Korean and international students meet through English conversation, campus activities, friendship, and cultural exchange.";
 }
 
+function mergeSources(current: GroundingSource[], incoming: GroundingSource[]) {
+  const sourceMap = new Map<string, GroundingSource>();
+
+  for (const source of current) {
+    if (source.url) {
+      sourceMap.set(source.url, source);
+    }
+  }
+
+  for (const source of incoming) {
+    if (source.url && !sourceMap.has(source.url)) {
+      sourceMap.set(source.url, source);
+    }
+  }
+
+  return Array.from(sourceMap.values());
+}
+
+function parseNdjsonLine(line: string): GeminiStreamEvent | null {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(trimmed) as GeminiStreamEvent;
+  } catch {
+    return null;
+  }
+}
+
 export function WoohyukmonChatbot() {
   const { language } = useLanguage();
   const [input, setInput] = useState("");
@@ -100,6 +147,15 @@ export function WoohyukmonChatbot() {
     () => messages.map((message) => ({ role: message.role, content: message.content })),
     [messages]
   );
+
+  const updateAssistantMessage = (
+    assistantId: string,
+    updater: (message: ChatMessage) => ChatMessage
+  ) => {
+    setMessages((current) =>
+      current.map((message) => (message.id === assistantId ? updater(message) : message))
+    );
+  };
 
   const sendMessage = async (content: string) => {
     const trimmed = content.trim();
@@ -133,32 +189,103 @@ export function WoohyukmonChatbot() {
       return;
     }
 
+    const assistantId = `assistant-${Date.now()}`;
+    setMessages((current) => [
+      ...current,
+      {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        sources: []
+      }
+    ]);
     setLoading(true);
 
     try {
-      const response = await fetch("/api/woohyukmon", {
+      const response = await fetch("/api/gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
-          history: apiHistory.slice(-6),
+          history: apiHistory.slice(-8),
           localBoardPosts: readLocalBoardPostsForAssistant()
         })
       });
 
-      const data = (await response.json()) as { answer?: string; error?: string };
-      if (!response.ok || !data.answer) {
-        throw new Error(data.error ?? (language === "ko" ? "답변을 생성하지 못했습니다." : "Could not generate an answer."));
+      if (!response.ok || !response.body) {
+        throw new Error(language === "ko" ? "답변을 생성하지 못했습니다." : "Could not generate an answer.");
       }
 
-      setMessages((current) => [
-        ...current,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: data.answer ?? ""
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
         }
-      ]);
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const event = parseNdjsonLine(line);
+
+          if (!event) {
+            continue;
+          }
+
+          if (event.type === "text" && event.text) {
+            updateAssistantMessage(assistantId, (message) => ({
+              ...message,
+              content: `${message.content}${event.text}`
+            }));
+          }
+
+          if ((event.type === "grounding" || event.type === "done") && event.groundingChunks) {
+            updateAssistantMessage(assistantId, (message) => ({
+              ...message,
+              sources: mergeSources(message.sources ?? [], event.groundingChunks ?? [])
+            }));
+          }
+
+          if (event.type === "error") {
+            throw new Error(
+              event.error ??
+                (language === "ko"
+                  ? "우혁몬 검색 응답 중 오류가 발생했습니다."
+                  : "Woohyukmon search response failed.")
+            );
+          }
+        }
+      }
+
+      const lastEvent = parseNdjsonLine(buffer);
+      if (lastEvent?.type === "text" && lastEvent.text) {
+        updateAssistantMessage(assistantId, (message) => ({
+          ...message,
+          content: `${message.content}${lastEvent.text}`
+        }));
+      }
+      if ((lastEvent?.type === "grounding" || lastEvent?.type === "done") && lastEvent.groundingChunks) {
+        updateAssistantMessage(assistantId, (message) => ({
+          ...message,
+          sources: mergeSources(message.sources ?? [], lastEvent.groundingChunks ?? [])
+        }));
+      }
+
+      updateAssistantMessage(assistantId, (message) => ({
+        ...message,
+        content:
+          message.content.trim().length > 0
+            ? message.content
+            : language === "ko"
+              ? "답변을 생성하지 못했습니다. 다시 질문해 주세요."
+              : "I could not generate an answer. Please try again."
+      }));
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -167,6 +294,15 @@ export function WoohyukmonChatbot() {
             ? "잠시 후 다시 시도해 주세요."
             : "Please try again in a moment."
       );
+      updateAssistantMessage(assistantId, (message) => ({
+        ...message,
+        content:
+          message.content.trim().length > 0
+            ? message.content
+            : language === "ko"
+              ? "우혁몬이 잠시 대답하지 못했습니다. 잠시 후 다시 시도해 주세요."
+              : "Woohyukmon could not answer for a moment. Please try again soon."
+      }));
     } finally {
       setLoading(false);
       window.setTimeout(() => inputRef.current?.focus(), 80);
@@ -194,13 +330,33 @@ export function WoohyukmonChatbot() {
               >
                 {message.role === "assistant" ? <WoohyukmonAvatar /> : null}
                 <div
-                  className={`max-w-[82%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${
+                  className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-7 ${
                     message.role === "user"
                       ? "bg-navy text-paper"
                       : "border border-navy/10 bg-white/84 text-ink"
                   }`}
                 >
-                  {message.content}
+                  <div className="whitespace-pre-wrap">{message.content}</div>
+
+                  {message.role === "assistant" && message.sources && message.sources.length > 0 ? (
+                    <div className="mt-4 border-t border-navy/10 pt-3">
+                      <p className="text-xs font-bold text-navy">🔍 참조한 웹 출처</p>
+                      <ul className="mt-2 grid gap-1.5">
+                        {message.sources.slice(0, 6).map((source, index) => (
+                          <li key={source.url} className="text-xs leading-5">
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold text-navy underline underline-offset-4 hover:text-brass"
+                            >
+                              {index + 1}. {source.title || source.url}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -210,7 +366,7 @@ export function WoohyukmonChatbot() {
                 <WoohyukmonAvatar />
                 <span className="inline-flex items-center gap-2 rounded-2xl border border-navy/10 bg-white/84 px-4 py-3">
                   <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-                  {language === "ko" ? "생각 중..." : "Thinking..."}
+                  {language === "ko" ? "검색하고 답변 중..." : "Searching and answering..."}
                 </span>
               </div>
             ) : null}
