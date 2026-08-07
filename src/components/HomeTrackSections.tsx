@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, HeartHandshake } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
@@ -36,12 +36,12 @@ const homeCards: HomeCard[] = [
   },
   {
     href: "/contact",
-    title: { en: "Contact & Guide", ko: "문의 및 안내" },
+    title: { en: "Woohyukmon", ko: "우혁몬" },
     description: {
-      en: "Leave questions about the K_LINE platform, ECC activities, or participation.",
-      ko: "K_LINE 플랫폼 관련 질문을 남겨주세요."
+      en: "Ask anything about ECC, K_LINE, registration, or site guidance.",
+      ko: "무엇이든 물어보세요. ECC, K_LINE, 가입과 사이트 이용을 안내합니다."
     },
-    badge: { en: "Support", ko: "Support" },
+    badge: { en: "AI Guide", ko: "AI Guide" },
     accent: "support"
   }
 ];
@@ -70,8 +70,8 @@ function HomePortalCard({ card }: { card: HomeCard }) {
     >
       <div className="flex items-start justify-between gap-4">
         {card.accent === "support" ? (
-          <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-navy text-brass shadow-[0_14px_28px_rgba(31,42,68,0.14)]">
-            <HeartHandshake aria-hidden className="h-6 w-6" />
+          <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-navy text-3xl shadow-[0_14px_28px_rgba(31,42,68,0.14)]">
+            😎
           </span>
         ) : (
           <ClubMark
