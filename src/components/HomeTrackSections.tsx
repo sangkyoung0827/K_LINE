@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
+import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 
 type HomeCard = {
   href: string;
@@ -70,8 +71,8 @@ function HomePortalCard({ card }: { card: HomeCard }) {
     >
       <div className="flex items-start justify-between gap-4">
         {card.accent === "support" ? (
-          <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-navy text-3xl shadow-[0_14px_28px_rgba(31,42,68,0.14)]">
-            😎
+          <span className="flex h-14 w-20 items-center justify-center rounded-xl bg-white shadow-[0_14px_28px_rgba(31,42,68,0.14)]">
+            <WoohyukmonGlassesIcon className="h-10 w-16" />
           </span>
         ) : (
           <ClubMark
