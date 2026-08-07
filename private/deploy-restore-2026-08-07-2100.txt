@@ -1,0 +1,2 @@
+This file intentionally triggers a Vercel Git deployment from the current GitHub main branch after a local CLI deployment likely used an outdated working tree.
+No app functionality is changed.
