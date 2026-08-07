@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { createPublicMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createPublicMetadata({
@@ -19,7 +21,13 @@ export const metadata: Metadata = createPublicMetadata({
   ]
 });
 
-export default function EccHubPage() {
+export default async function EccHubPage() {
+  const access = await getCurrentEccAccess();
+
+  if (access.isOfficialMember) {
+    redirect("/ecc-official");
+  }
+
   return (
     <section className="bg-paper py-16 md:py-24">
       <div className="mx-auto max-w-4xl px-5 md:px-8">
