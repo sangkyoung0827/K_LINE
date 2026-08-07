@@ -1,58 +1,51 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ContactForm } from "@/components/ContactForm";
-import { I18nText } from "@/components/LanguageProvider";
-import { SectionHeader } from "@/components/SectionHeader";
-import { createPublicMetadata, siteConfig } from "@/lib/seo";
+import { createPublicMetadata } from "@/lib/seo";
+
+const instagramUrl = "https://www.instagram.com/ecc_jbnu/";
 
 export const metadata: Metadata = createPublicMetadata({
   title: "Contact",
-  description:
-    "Contact K_LINE for Korean culture projects, ECC, Han-hwal, international student activities, and campus culture inquiries.",
+  description: "Contact ECC through the official ECC Instagram or Woohyukmon.",
   path: "/contact",
-  keywords: ["K_LINE contact", "K-Culture", "ECC", "Han-hwal", "international students"]
+  keywords: ["K_LINE contact", "ECC", "ECC Instagram", "Woohyukmon"]
 });
 
 export default function ContactPage() {
   return (
     <section className="bg-paper py-14 md:py-20">
-      <div className="mx-auto grid max-w-7xl gap-10 px-5 lg:grid-cols-[0.85fr_1.15fr] md:px-8">
-        <div>
-          <SectionHeader
-            eyebrow={<I18nText en="Contact" ko="문의" />}
-            title={<I18nText en="Open a cultural conversation" ko="문화적 대화를 시작하세요" />}
-            description={
-              <I18nText
-                en="Use the form for K-Culture Project, International Clubs, Hanhwal project, or future collaboration inquiries."
-                ko="K-컬처 프로젝트, 국제 학생 클럽, 한활 프로젝트, 향후 협업 문의에 이 양식을 사용하세요."
-              />
-            }
-          />
-          <div className="mt-8 grid gap-4 text-sm text-ink/70">
-            <p>
-              <span className="font-semibold text-ink">
-                <I18nText en="Email placeholder" ko="이메일 자리표시자" />:
-              </span>{" "}
-              {siteConfig.emailPlaceholder}
-            </p>
-            <p>
-              <span className="font-semibold text-ink">YouTube:</span>{" "}
-              <a href={siteConfig.youtube} target="_blank" rel="noreferrer" className="underline underline-offset-4">
-                https://www.youtube.com/@Weirdsang
-              </a>
-            </p>
-            <p>
-              <span className="font-semibold text-ink">Instagram:</span> {siteConfig.instagramPlaceholder}
-            </p>
-          </div>
-          <Link
-            href="/our-activities/ecc/fund"
-            className="mt-8 inline-flex min-h-11 items-center justify-center bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
+      <div className="mx-auto max-w-4xl px-5 md:px-8">
+        <h1 className="font-serif text-5xl font-semibold text-navy md:text-7xl">문의</h1>
+
+        <div className="mt-10 grid gap-5 md:grid-cols-2">
+          <a
+            href={instagramUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="paper-panel group grid min-h-56 content-between p-6 transition hover:border-brass hover:bg-white/70 hover:shadow-soft md:p-8"
           >
-            <I18nText en="ECC Fund Management" ko="ECC 자금관리" />
-          </Link>
+            <div>
+              <p className="text-sm font-semibold uppercase text-brass">Instagram</p>
+              <h2 className="mt-4 font-serif text-3xl font-semibold text-ink md:text-4xl">
+                ECC 공식 인스타그램
+              </h2>
+            </div>
+            <span className="mt-8 inline-flex w-fit items-center rounded-full bg-navy px-5 py-3 text-sm font-semibold text-paper transition group-hover:bg-ink">
+              문의하기
+            </span>
+          </a>
+
+          <div className="paper-panel grid min-h-56 content-between p-6 md:p-8">
+            <div>
+              <p className="text-sm font-semibold uppercase text-brass">Woohyukmon</p>
+              <h2 className="mt-4 font-serif text-3xl font-semibold text-ink md:text-4xl">
+                우혁몬에게 문의하기
+              </h2>
+            </div>
+            <span className="mt-8 inline-flex w-fit items-center rounded-full bg-navy px-5 py-3 text-sm font-semibold text-paper">
+              오른쪽 아래 우혁몬 버튼 사용
+            </span>
+          </div>
         </div>
-        <ContactForm />
       </div>
     </section>
   );
