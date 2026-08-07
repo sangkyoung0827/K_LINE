@@ -12,6 +12,20 @@ type GroundingSource = {
   url: string;
 };
 
+type GeminiChunkLike = {
+  text?: unknown;
+  candidates?: Array<{
+    groundingMetadata?: {
+      groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
+      webSearchQueries?: string[];
+    };
+  }>;
+  groundingMetadata?: {
+    groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
+    webSearchQueries?: string[];
+  };
+};
+
 const encoder = new TextEncoder();
 
 const woohyukmonSystemInstruction = `You are Woohyukmon, the official Campus AI Guide for K_LINE.
@@ -68,6 +82,7 @@ Important behavior:
 - For Instagram/contact questions, guide the user to the official ECC Instagram.
 - For site navigation questions, give direct page/menu guidance.
 - When Google Search grounding is used, stay faithful to the returned sources and do not overstate what they prove.
+- If Google Search grounding is unavailable for the API project, clearly say that web search is temporarily unavailable and continue with general Gemini guidance only.
 
 You are not just answering questions. You are helping users complete the correct next step on K_LINE.`;
 
@@ -118,25 +133,12 @@ function asText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function parseGroundingMetadata(chunk: unknown) {
-  const candidate = chunk as {
-    candidates?: Array<{
-      groundingMetadata?: {
-        groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
-        webSearchQueries?: string[];
-      };
-    }>;
-    groundingMetadata?: {
-      groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
-      webSearchQueries?: string[];
-    };
-  };
-
-  return candidate.candidates?.[0]?.groundingMetadata ?? candidate.groundingMetadata ?? null;
+function parseGroundingMetadata(chunk: GeminiChunkLike) {
+  return chunk.candidates?.[0]?.groundingMetadata ?? chunk.groundingMetadata ?? null;
 }
 
 function collectGroundingSources(
-  chunk: unknown,
+  chunk: GeminiChunkLike,
   sourceMap: Map<string, GroundingSource>,
   querySet: Set<string>
 ) {
@@ -190,6 +192,78 @@ function buildContents(message: string, history: ClientMessage[]) {
   ];
 }
 
+function getErrorDetail(error: unknown) {
+  if (error instanceof Error) {
+    return error.message.slice(0, 500);
+  }
+
+  if (typeof error === "string") {
+    return error.slice(0, 500);
+  }
+
+  try {
+    return JSON.stringify(error).slice(0, 500);
+  } catch {
+    return "Unknown Gemini error";
+  }
+}
+
+async function streamGeminiAnswer({
+  ai,
+  controller,
+  history,
+  message,
+  useGoogleSearch
+}: {
+  ai: GoogleGenAI;
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  history: ClientMessage[];
+  message: string;
+  useGoogleSearch: boolean;
+}) {
+  const sourceMap = new Map<string, GroundingSource>();
+  const querySet = new Set<string>();
+  const responseStream = await ai.models.generateContentStream({
+    model: getGeminiModel(),
+    contents: buildContents(message, history),
+    config: {
+      systemInstruction: woohyukmonSystemInstruction,
+      ...(useGoogleSearch ? { tools: [{ googleSearch: {} }] } : {}),
+      temperature: useGoogleSearch ? 0.1 : 0.35,
+      maxOutputTokens: getMaxOutputTokens()
+    }
+  });
+
+  for await (const rawChunk of responseStream) {
+    const chunk = rawChunk as GeminiChunkLike;
+    const text = asText(chunk.text);
+    const { sourcesChanged, queriesChanged } = collectGroundingSources(chunk, sourceMap, querySet);
+
+    if (text) {
+      controller.enqueue(ndjson({ type: "text", text }));
+    }
+
+    if (sourcesChanged || queriesChanged) {
+      controller.enqueue(
+        ndjson({
+          type: "grounding",
+          groundingChunks: Array.from(sourceMap.values()),
+          webSearchQueries: Array.from(querySet.values())
+        })
+      );
+    }
+  }
+
+  controller.enqueue(
+    ndjson({
+      type: "done",
+      grounded: useGoogleSearch,
+      groundingChunks: Array.from(sourceMap.values()),
+      webSearchQueries: Array.from(querySet.values())
+    })
+  );
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
 
@@ -214,63 +288,41 @@ export async function POST(request: Request) {
   const history = cleanMessages(body.history);
   const ai = new GoogleGenAI({ apiKey });
 
-  const stream = new ReadableStream({
+  const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const sourceMap = new Map<string, GroundingSource>();
-      const querySet = new Set<string>();
-
       try {
-        controller.enqueue(ndjson({ type: "status", status: "started" }));
+        controller.enqueue(ndjson({ type: "status", status: "grounded_stream_started" }));
+        await streamGeminiAnswer({ ai, controller, history, message, useGoogleSearch: true });
+      } catch (groundingError) {
+        const detail = getErrorDetail(groundingError);
+        console.error("Gemini grounded stream failed", detail);
 
-        const responseStream = await ai.models.generateContentStream({
-          model: getGeminiModel(),
-          contents: buildContents(message, history),
-          config: {
-            systemInstruction: woohyukmonSystemInstruction,
-            tools: [{ googleSearch: {} }],
-            temperature: 0.1,
-            maxOutputTokens: getMaxOutputTokens()
-          }
-        });
+        controller.enqueue(
+          ndjson({
+            type: "text",
+            text:
+              "현재 Google Search Grounding 연결이 제한되어 있어 우선 일반 Gemini 답변으로 안내할게요. 최신 정보는 공식 사이트에서 한 번 더 확인해 주세요.\n\n"
+          })
+        );
+        controller.enqueue(
+          ndjson({
+            type: "status",
+            status: "grounding_failed_fallback_started"
+          })
+        );
 
-        for await (const chunk of responseStream) {
-          const text = typeof chunk.text === "string" ? chunk.text : "";
-          const { sourcesChanged, queriesChanged } = collectGroundingSources(
-            chunk,
-            sourceMap,
-            querySet
+        try {
+          await streamGeminiAnswer({ ai, controller, history, message, useGoogleSearch: false });
+        } catch (fallbackError) {
+          console.error("Gemini fallback stream failed", getErrorDetail(fallbackError));
+          controller.enqueue(
+            ndjson({
+              type: "error",
+              error:
+                "Gemini response failed. Check GEMINI_API_KEY, GEMINI_MODEL, and whether the API project has paid-tier access for Google Search Grounding."
+            })
           );
-
-          if (text) {
-            controller.enqueue(ndjson({ type: "text", text }));
-          }
-
-          if (sourcesChanged || queriesChanged) {
-            controller.enqueue(
-              ndjson({
-                type: "grounding",
-                groundingChunks: Array.from(sourceMap.values()),
-                webSearchQueries: Array.from(querySet.values())
-              })
-            );
-          }
         }
-
-        controller.enqueue(
-          ndjson({
-            type: "done",
-            groundingChunks: Array.from(sourceMap.values()),
-            webSearchQueries: Array.from(querySet.values())
-          })
-        );
-      } catch (error) {
-        console.error("Gemini grounded stream failed", error);
-        controller.enqueue(
-          ndjson({
-            type: "error",
-            error: "Gemini grounded search response failed. Please try again later."
-          })
-        );
       } finally {
         controller.close();
       }
