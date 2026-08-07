@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Instagram, Send } from "lucide-react";
 import { createPublicMetadata } from "@/lib/seo";
 
 const instagramUrl = "https://www.instagram.com/ecc_jbnu/";
@@ -12,39 +13,46 @@ export const metadata: Metadata = createPublicMetadata({
 
 export default function ContactPage() {
   return (
-    <section className="bg-paper py-14 md:py-20">
-      <div className="mx-auto max-w-4xl px-5 md:px-8">
-        <h1 className="font-serif text-5xl font-semibold text-navy md:text-7xl">문의</h1>
+    <section className="relative isolate min-h-[calc(100svh-92px)] overflow-hidden bg-paper px-5 py-16 md:px-8 md:py-24">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(214,168,90,0.13),transparent_28rem),radial-gradient(circle_at_90%_88%,rgba(255,255,255,0.72),transparent_18rem)]" />
+      <div className="pointer-events-none absolute bottom-20 right-[12%] text-5xl text-white/80 drop-shadow-sm md:text-6xl">
+        ✦
+      </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2">
+      <div className="relative mx-auto flex max-w-5xl flex-col items-center text-center">
+        <div className="text-6xl leading-none md:text-7xl" aria-hidden>
+          😎
+        </div>
+        <h1 className="mt-4 break-keep font-serif text-4xl font-semibold tracking-[-0.04em] text-navy md:text-6xl">
+          무엇이든 물어보세요
+        </h1>
+
+        <div className="mt-10 w-full max-w-3xl rounded-[2rem] border border-navy/10 bg-white/62 p-5 text-left shadow-[0_24px_65px_rgba(31,42,68,0.10)] backdrop-blur md:p-7">
+          <p className="text-sm font-medium text-ink/48">우혁몬에게 문의하려면 오른쪽 아래 버튼을 눌러주세요</p>
+          <div className="mt-8 flex items-center justify-between gap-4">
+            <span className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-paper shadow-soft">
+              우혁몬
+            </span>
+            <span className="text-sm font-semibold text-ink/60">AI 보조</span>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row">
+          <div className="inline-flex min-h-14 items-center gap-3 rounded-2xl border border-navy/10 bg-white/62 px-6 py-4 text-sm font-semibold text-ink shadow-soft">
+            <span aria-hidden className="text-xl">😎</span>
+            우혁몬에게 문의하기
+          </div>
+
           <a
             href={instagramUrl}
             target="_blank"
             rel="noreferrer"
-            className="paper-panel group grid min-h-56 content-between p-6 transition hover:border-brass hover:bg-white/70 hover:shadow-soft md:p-8"
+            className="inline-flex min-h-14 items-center gap-3 rounded-2xl border border-navy/10 bg-white/62 px-6 py-4 text-sm font-semibold text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-brass hover:bg-white"
           >
-            <div>
-              <p className="text-sm font-semibold uppercase text-brass">Instagram</p>
-              <h2 className="mt-4 font-serif text-3xl font-semibold text-ink md:text-4xl">
-                ECC 공식 인스타그램
-              </h2>
-            </div>
-            <span className="mt-8 inline-flex w-fit items-center rounded-full bg-navy px-5 py-3 text-sm font-semibold text-paper transition group-hover:bg-ink">
-              문의하기
-            </span>
+            <Instagram aria-hidden className="h-5 w-5" />
+            ECC 공식 인스타그램으로 문의하기
+            <Send aria-hidden className="h-4 w-4" />
           </a>
-
-          <div className="paper-panel grid min-h-56 content-between p-6 md:p-8">
-            <div>
-              <p className="text-sm font-semibold uppercase text-brass">Woohyukmon</p>
-              <h2 className="mt-4 font-serif text-3xl font-semibold text-ink md:text-4xl">
-                우혁몬에게 문의하기
-              </h2>
-            </div>
-            <span className="mt-8 inline-flex w-fit items-center rounded-full bg-navy px-5 py-3 text-sm font-semibold text-paper">
-              오른쪽 아래 우혁몬 버튼 사용
-            </span>
-          </div>
         </div>
       </div>
     </section>
