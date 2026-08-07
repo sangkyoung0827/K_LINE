@@ -15,29 +15,16 @@ export const metadata: Metadata = createPublicMetadata({
 
 export default function ContactPage() {
   return (
-    <section className="relative isolate overflow-hidden bg-paper px-5 py-14 md:px-8 md:py-20">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_8%,rgba(255,255,255,0.92),transparent_30rem),radial-gradient(circle_at_50%_65%,rgba(214,168,90,0.12),transparent_30rem)]" />
-      <div className="pointer-events-none absolute bottom-20 right-[8%] hidden text-6xl text-white/80 drop-shadow-sm md:block">
-        ✦
-      </div>
+    <section className="relative isolate overflow-hidden bg-paper px-5 py-10 md:px-8 md:py-14">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(255,255,255,0.94),transparent_32rem),radial-gradient(circle_at_50%_70%,rgba(214,168,90,0.10),transparent_30rem)]" />
 
-      <div className="relative mx-auto flex min-h-[calc(100svh-14rem)] max-w-5xl flex-col items-center justify-center text-center">
-        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-5">
-          <WoohyukmonGlassesIcon className="h-20 w-36 md:h-24 md:w-44" alt="우혁몬 안경 아이콘" />
-          <div className="text-center sm:text-left">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-brass">K_LINE AI</p>
-            <h1 className="mt-1 break-keep text-4xl font-medium tracking-[-0.04em] text-ink md:text-6xl">
-              우혁몬
-            </h1>
-          </div>
-        </div>
+      <div className="relative mx-auto flex min-h-[calc(100svh-11rem)] max-w-5xl flex-col items-center justify-center">
+        <WoohyukmonGlassesIcon
+          className="mb-7 h-24 w-44 md:h-28 md:w-52"
+          alt="우혁몬 안경 아이콘"
+        />
 
-        <p className="mt-5 max-w-2xl break-keep text-sm font-medium leading-7 text-muted md:text-base">
-          ECC와 K_LINE, 가입, 사이트 이용, 동아리 운영에 대해 무엇이든 물어보세요.
-          이제 우혁몬은 이 메뉴 안에서 바로 대화할 수 있습니다.
-        </p>
-
-        <div className="mt-9 w-full">
+        <div className="w-full">
           <WoohyukmonChatbot />
         </div>
 
@@ -45,7 +32,7 @@ export default function ContactPage() {
           href={instagramUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-8 inline-flex min-h-14 items-center gap-3 rounded-2xl border border-ink/10 bg-white/44 px-6 text-base font-medium text-ink shadow-[0_12px_34px_rgba(31,42,68,0.08)] backdrop-blur transition hover:-translate-y-0.5 hover:border-brass/60 hover:bg-white/70"
+          className="mt-7 inline-flex min-h-14 items-center gap-3 rounded-2xl border border-ink/10 bg-white/50 px-6 text-base font-medium text-ink shadow-[0_12px_34px_rgba(31,42,68,0.07)] backdrop-blur transition hover:-translate-y-0.5 hover:border-brass/60 hover:bg-white/75"
         >
           <Instagram aria-hidden className="h-6 w-6" />
           ECC 공식 인스타그램으로 문의하기
