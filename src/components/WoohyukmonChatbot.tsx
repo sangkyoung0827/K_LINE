@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Bot, Loader2, MessageCircle, Minus, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -117,31 +116,19 @@ function readLocalBoardPostsForAssistant(): LocalBoardPostForAssistant[] {
 }
 
 function WoohyukmonAvatar({
-  language,
   size = "md"
 }: {
   language: "en" | "ko";
   size?: "sm" | "md" | "lg";
 }) {
-  const [failed, setFailed] = useState(false);
-  const sizeClass = size === "lg" ? "h-16 w-16" : size === "sm" ? "h-9 w-9" : "h-11 w-11";
+  const sizeClass = size === "lg" ? "h-16 w-16 text-4xl" : size === "sm" ? "h-9 w-9 text-xl" : "h-11 w-11 text-2xl";
 
   return (
     <span
-      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-brass/60 bg-navy text-paper shadow-soft ${sizeClass}`}
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-brass/60 bg-paper text-ink shadow-soft ${sizeClass}`}
+      aria-hidden
     >
-      {failed ? (
-        <span className="text-sm font-bold">{language === "ko" ? "우" : "W"}</span>
-      ) : (
-        <Image
-          src="/images/woohyukmon-icon.png"
-          alt={language === "ko" ? "우혁몬 아이콘" : "Woohyukmon AI guide icon"}
-          fill
-          sizes="64px"
-          className="object-cover"
-          onError={() => setFailed(true)}
-        />
-      )}
+      😎
     </span>
   );
 }
