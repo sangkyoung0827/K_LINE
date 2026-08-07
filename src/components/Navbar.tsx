@@ -46,7 +46,7 @@ export function Navbar() {
             <Link
               href="/our-activities"
               className={`inline-flex items-center gap-1.5 px-2 py-3 text-sm font-semibold transition ${
-                pathname.startsWith("/our-activities") || pathname.startsWith("/ecc-alumni")
+                pathname.startsWith("/our-activities")
                   ? "text-navy"
                   : "text-ink/70 hover:text-navy"
               }`}
@@ -68,13 +68,6 @@ export function Navbar() {
                   {boardLabels[board.id] ? pick(boardLabels[board.id]) : board.label}
                 </Link>
               ))}
-              <Link
-                href="/ecc-alumni"
-                className="inline-flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-ink/72 transition hover:bg-hanji/70 hover:text-navy"
-              >
-                <ClubMark id="ecc" size="xs" className="border-ink/10" />
-                ECC Alumni
-              </Link>
             </div>
           </div>
 
@@ -137,9 +130,6 @@ export function Navbar() {
             </MobileMenuLink>
             <MobileMenuLink href="/our-activities/hanhwal" onClick={() => setOpen(false)}>
               <I18nNavText en="Hanhwal" ko="한활" language={language} />
-            </MobileMenuLink>
-            <MobileMenuLink href="/ecc-alumni" onClick={() => setOpen(false)}>
-              ECC Alumni
             </MobileMenuLink>
             <MobileMenuLink href="/contact" onClick={() => setOpen(false)}>
               <I18nNavText en="Contact" ko="문의" language={language} />
