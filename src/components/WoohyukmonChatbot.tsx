@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Bot, Loader2, MessageCircle, Minus, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
+import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
 type ChatMessage = {
@@ -121,14 +122,15 @@ function WoohyukmonAvatar({
   language: "en" | "ko";
   size?: "sm" | "md" | "lg";
 }) {
-  const sizeClass = size === "lg" ? "h-16 w-16 text-4xl" : size === "sm" ? "h-9 w-9 text-xl" : "h-11 w-11 text-2xl";
+  const sizeClass = size === "lg" ? "h-16 w-16" : size === "sm" ? "h-9 w-9" : "h-11 w-11";
+  const iconSizeClass = size === "lg" ? "h-10 w-14" : size === "sm" ? "h-6 w-8" : "h-8 w-10";
 
   return (
     <span
-      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-brass/60 bg-paper text-ink shadow-soft ${sizeClass}`}
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-brass/60 bg-white shadow-soft ${sizeClass}`}
       aria-hidden
     >
-      😎
+      <WoohyukmonGlassesIcon className={iconSizeClass} />
     </span>
   );
 }
