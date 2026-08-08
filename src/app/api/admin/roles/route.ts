@@ -13,6 +13,12 @@ import {
   SupabaseRequestError,
   supabaseRequest
 } from "@/lib/supabaseServer";
+import {
+  eccRoleColumns,
+  eccRolesTable,
+  ensureEccRoleRow,
+  type EccRoleRow
+} from "@/lib/eccAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -282,6 +288,45 @@ async function grantSuperAdmin(email: string, grantedBy: string) {
   return rows[0];
 }
 
+function fallbackEccRole(row: EccRoleRow) {
+  if (row.admin_status === "approved") {
+    return "admin";
+  }
+
+  if (
+    row.official_member_status === "approved" ||
+    row.is_official_member ||
+    row.payment_confirmed
+  ) {
+    return "official_member";
+  }
+
+  return "user";
+}
+
+async function revokeEccSuperAdminRole(email: string) {
+  const roleRow = await ensureEccRoleRow({ email });
+
+  if (!roleRow) {
+    throw new Error("ECC role row could not be created.");
+  }
+
+  await supabaseRequest<EccRoleRow[]>(
+    `${eccRolesTable}?id=eq.${encodeURIComponent(roleRow.id)}&select=${eccRoleColumns}`,
+    {
+      method: "PATCH",
+      headers: {
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({
+        role: fallbackEccRole(roleRow),
+        super_admin_status: "rejected",
+        updated_at: new Date().toISOString()
+      })
+    }
+  );
+}
+
 async function buildResponse() {
   const context = await getSessionContext();
 
@@ -450,6 +495,10 @@ export async function PATCH(request: Request) {
           { status: 400 }
         );
       }
+
+      // ECC access also recognizes ecc_roles.super_admin_status. Revoke both
+      // records so a removed account cannot retain super-admin access there.
+      await revokeEccSuperAdminRole(targetEmail);
 
       await supabaseRequest<RoleRow[]>(`${rolesTable}?select=${roleColumns}`, {
         method: "POST",

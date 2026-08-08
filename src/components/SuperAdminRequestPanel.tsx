@@ -133,6 +133,7 @@ export function SuperAdminRequestPanel() {
             request: "권한 요청하기",
             requestSent: "슈퍼관리자 권한 요청이 접수되었습니다.",
             revoke: "삭제",
+            revokeConfirm: "이 계정의 슈퍼관리자 권한을 해제하시겠습니까?",
             roleDeveloper: "개발자",
             roleMember: "일반회원",
             roleSuperAdmin: "슈퍼관리자",
@@ -168,6 +169,7 @@ export function SuperAdminRequestPanel() {
             request: "Request Access",
             requestSent: "Super-admin access request was submitted.",
             revoke: "Remove",
+            revokeConfirm: "Remove super-admin access from this account?",
             roleDeveloper: "Developer",
             roleMember: "Member",
             roleSuperAdmin: "Super Admin",
@@ -274,6 +276,12 @@ export function SuperAdminRequestPanel() {
       setError(requestError instanceof Error ? requestError.message : text.tableMissing);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const revokeSuperAdmin = (email: string) => {
+    if (window.confirm(text.revokeConfirm)) {
+      void updateRole({ action: "revoke", email });
     }
   };
 
@@ -395,7 +403,7 @@ export function SuperAdminRequestPanel() {
                           <button
                             type="button"
                             disabled={loading}
-                            onClick={() => updateRole({ action: "revoke", email: admin.email })}
+                            onClick={() => revokeSuperAdmin(admin.email)}
                             className="inline-flex min-h-9 items-center justify-center gap-2 border border-red-900/20 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
                           >
                             <Trash2 aria-hidden className="h-3.5 w-3.5" />
