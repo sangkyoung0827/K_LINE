@@ -72,14 +72,14 @@ export default async function EccOfficialPage() {
   return (
     <OfficialShell>
       <section className="grid gap-6">
-        <div className="paper-panel grid gap-6 p-5 md:p-8 lg:grid-cols-[1fr_280px]">
-          <div>
+        <div className="paper-panel mx-auto grid w-full max-w-5xl justify-items-center p-6 text-center md:p-10">
+          <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
               <ShieldCheck aria-hidden className="h-4 w-4" />
               <I18nText en="Confirmed member" ko="정식회원 확인됨" />
             </div>
-            <h2 className="mt-5 font-serif text-4xl font-semibold text-ink">
-              <I18nText en="Welcome, official ECC member." ko="ECC 정식회원 라운지에 오신 것을 환영합니다." />
+            <h2 className="mt-5 font-serif text-3xl font-semibold text-ink md:text-4xl">
+              <I18nText en="Join the ECC team chat" ko="ECC 팀채팅에 입장하세요" />
             </h2>
             <p className="mt-4 text-sm leading-7 text-ink/66">
               <I18nText
@@ -87,93 +87,67 @@ export default async function EccOfficialPage() {
                 ko="공식 팀채팅에 입장할 때는 등록한 이름 또는 카카오톡 표시 이름을 사용해 주세요."
               />
             </p>
-            <a
-              href={teamChatUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-7 inline-flex min-h-12 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
-            >
-              <MessageCircle aria-hidden className="h-4 w-4" />
-              <I18nText en="Join ECC Official Team Chat" ko="ECC 공식 팀채팅 입장" />
-            </a>
           </div>
-          <div className="grid gap-3">
+          <div className="mt-6 grid w-full max-w-60 gap-3">
             <img
               src="/api/ecc/official-team-qr"
               alt="ECC official team chat QR code"
               className="aspect-square w-full border border-ink/10 bg-white object-contain p-3"
             />
-            <p className="text-center text-xs leading-5 text-ink/54">
-              <I18nText en="Scan to join the official team chat." ko="QR을 스캔해 공식 팀채팅에 입장하세요." />
-            </p>
+            <a
+              href={teamChatUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
+            >
+              <MessageCircle aria-hidden className="h-4 w-4" />
+              <I18nText en="Join ECC Official Team Chat" ko="ECC 공식 팀채팅 입장" />
+            </a>
           </div>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <OfficialCard
-            href="/our-activities/ecc/free-board"
-            icon={MessageSquareText}
-            title={<I18nText en="Board" ko="ECC 게시판" />}
-            description={
-              <I18nText
-                en="Read and write ECC official community posts."
-                ko="ECC 정식회원 커뮤니티 게시글을 읽고 작성합니다."
+        <div className="mx-auto w-full max-w-5xl">
+          <p className="mb-3 text-sm font-semibold text-ink/58">
+            <I18nText en="Next" ko="다음 할 일" />
+          </p>
+          <div className="overflow-hidden border border-ink/10 bg-white/50">
+            <OfficialRow
+              href="/our-activities/ecc/free-board"
+              icon={MessageSquareText}
+              title={<I18nText en="Board" ko="ECC 게시판" />}
+            />
+            <OfficialRow
+              href="/our-activities/ecc/activity"
+              icon={ClipboardList}
+              title={<I18nText en="Activity Application" ko="활동 신청" />}
+            />
+            {access.isAdmin ? (
+              <OfficialRow
+                href="/our-activities/ecc/members"
+                icon={Settings}
+                title={<I18nText en="Member Management" ko="회원 관리" />}
               />
-            }
-          />
-          <OfficialCard
-            href="/our-activities/ecc/activity"
-            icon={ClipboardList}
-            title={<I18nText en="Activity Application" ko="활동 신청" />}
-            description={
-              <I18nText
-                en="Apply for ECC gatherings, events, MT, and English class."
-                ko="ECC 모임, 행사, MT, English Class에 신청합니다."
+            ) : null}
+            {access.isSuperAdmin ? (
+              <OfficialRow
+                href="/our-activities/ecc/fund"
+                icon={Banknote}
+                title={<I18nText en="ECC Fund Management" ko="ECC 자금관리" />}
               />
-            }
-          />
-          {access.isAdmin ? (
-            <OfficialCard
-              href="/our-activities/ecc/members"
-              icon={Settings}
-              title={<I18nText en="Member Management" ko="회원 관리" />}
-              description={
-                <I18nText
-                  en="Confirm official members and manage ECC applications."
-                  ko="정식회원 승인과 ECC 신청 관리를 처리합니다."
-                />
-              }
-            />
-          ) : null}
-          {access.isSuperAdmin ? (
-            <OfficialCard
-              href="/our-activities/ecc/fund"
-              icon={Banknote}
-              title={<I18nText en="ECC Fund Management" ko="ECC 자금관리" />}
-              description={
-                <I18nText
-                  en="Manage ECC fund and donation information."
-                  ko="ECC 자금과 후원 정보를 관리합니다."
-                />
-              }
-            />
-          ) : null}
-          {access.isDeveloper ? (
-            <OfficialCard
-              href="/developer"
-              icon={ShieldCheck}
-              title={<I18nText en="Developer Menu" ko="개발자 메뉴" />}
-              description={
-                <I18nText
-                  en="Open developer-only dashboards and system data."
-                  ko="개발자 전용 대시보드와 시스템 데이터를 확인합니다."
-                />
-              }
-            />
-          ) : null}
+            ) : null}
+            {access.isDeveloper ? (
+              <OfficialRow
+                href="/developer"
+                icon={ShieldCheck}
+                title={<I18nText en="Developer Menu" ko="개발자 메뉴" />}
+              />
+            ) : null}
+          </div>
         </div>
 
-        <EccPermissionRequestCard role={access.role} />
+        <div className="mx-auto w-full max-w-5xl pt-2 text-center">
+          <EccPermissionRequestCard role={access.role} />
+        </div>
       </section>
     </OfficialShell>
   );
@@ -237,13 +211,11 @@ function AccessMessage({
   );
 }
 
-function OfficialCard({
-  description,
+function OfficialRow({
   href,
   icon: Icon,
   title
 }: {
-  description: React.ReactNode;
   href: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   title: React.ReactNode;
@@ -251,17 +223,13 @@ function OfficialCard({
   return (
     <Link
       href={href}
-      className="paper-panel group grid min-h-56 content-between p-5 transition hover:border-brass hover:bg-white/70 hover:shadow-soft md:p-6"
+      className="group flex min-h-20 items-center gap-4 border-b border-ink/10 px-5 py-4 last:border-b-0 transition hover:bg-white/70 md:px-6"
     >
-      <div>
-        <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
-          <Icon aria-hidden className="h-5 w-5" />
-        </div>
-        <h2 className="mt-5 font-serif text-3xl font-semibold text-ink">{title}</h2>
-        <p className="mt-3 text-sm leading-7 text-ink/64">{description}</p>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
+        <Icon aria-hidden className="h-5 w-5" />
       </div>
-      <span className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4">
-        <I18nText en="Open" ko="열기" />
+      <span className="text-lg font-semibold text-ink md:text-xl">{title}</span>
+      <span className="ml-auto text-ink/45 transition group-hover:translate-x-1 group-hover:text-ink">
         <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
       </span>
     </Link>

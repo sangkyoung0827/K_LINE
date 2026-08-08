@@ -53,43 +53,20 @@ export function EccPermissionRequestCard({ role }: { role: EccRole }) {
   };
 
   return (
-    <div className="paper-panel grid gap-4 p-5 md:p-6">
-      <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper">
-        <ShieldPlus aria-hidden className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold uppercase text-brass">
-          <I18nText en="Permission request" ko="권한 요청" />
-        </p>
-        <h2 className="mt-2 font-serif text-3xl font-semibold text-ink">
-          {action === "request_admin" ? (
-            <I18nText en="Apply for Admin Permission" ko="관리자 권한 요청" />
-          ) : (
-            <I18nText en="Apply for Super Admin Permission" ko="슈퍼관리자 권한 요청" />
-          )}
-        </h2>
-        <p className="mt-3 text-sm leading-7 text-ink/64">
-          {action === "request_admin" ? (
-            <I18nText
-              en="Official members can request admin permission after joining ECC operations."
-              ko="정식회원은 ECC 운영 참여를 위해 관리자 권한을 요청할 수 있습니다."
-            />
-          ) : (
-            <I18nText
-              en="Admins can request super-admin permission. Approval is handled by the developer."
-              ko="관리자는 슈퍼관리자 권한을 요청할 수 있으며, 승인은 개발자가 처리합니다."
-            />
-          )}
-        </p>
-      </div>
+    <div className="grid justify-items-center gap-2">
       <button
         type="button"
         disabled={loading}
         onClick={submit}
-        className="inline-flex min-h-11 w-fit items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy disabled:opacity-50"
+        className="inline-flex min-h-9 w-fit items-center gap-2 text-xs font-semibold text-ink/48 transition hover:text-ink disabled:opacity-50"
       >
-        <Send aria-hidden className="h-4 w-4" />
-        <I18nText en="Submit Request" ko="요청하기" />
+        <ShieldPlus aria-hidden className="h-3.5 w-3.5" />
+        {action === "request_admin" ? (
+          <I18nText en="Request admin permission" ko="관리자 권한 요청" />
+        ) : (
+          <I18nText en="Request super-admin permission" ko="슈퍼관리자 권한 요청" />
+        )}
+        <Send aria-hidden className="h-3.5 w-3.5" />
       </button>
       {message ? (
         <p className="inline-flex items-center gap-2 text-sm font-semibold text-pine">
