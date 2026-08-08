@@ -1,6 +1,19 @@
 "use client";
 
-import { FolderPlus, Menu, MessageSquarePlus, Paperclip, PanelLeftClose, Send, X } from "lucide-react";
+import {
+  BarChart3,
+  Calculator,
+  FolderPlus,
+  ImagePlus,
+  Instagram,
+  Lightbulb,
+  Menu,
+  MessageSquarePlus,
+  Paperclip,
+  PanelLeftClose,
+  Send,
+  X
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
@@ -79,6 +92,8 @@ type LocalBoardPostForAssistant = {
   id: string;
   title: string;
 };
+
+const eccInstagramUrl = "https://www.instagram.com/ecc_jbnu/";
 
 function readLocalBoardPostsForAssistant(): LocalBoardPostForAssistant[] {
   if (typeof window === "undefined") return [];
@@ -880,6 +895,64 @@ export function WoohyukmonChatbot() {
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
   const isEmptyConversation = messages.length === 0;
 
+  const fillQuickPrompt = (prompt: string) => {
+    setInput(prompt);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const quickActionCards = (
+    <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
+      {[
+        {
+          icon: Calculator,
+          ko: "이번 학기 예산안 짜줘",
+          en: "Plan this semester's budget"
+        },
+        {
+          icon: Lightbulb,
+          ko: "MT 활동 아이디어 추천",
+          en: "Suggest MT activity ideas"
+        },
+        {
+          icon: ImagePlus,
+          ko: "인스타 게시물 초안 작성",
+          en: "Draft an Instagram post"
+        },
+        {
+          icon: BarChart3,
+          ko: "지출 내역 정리하기",
+          en: "Organize expense records"
+        }
+      ].map(({ en, icon: Icon, ko }) => {
+        const prompt = language === "ko" ? ko : en;
+
+        return (
+          <button
+            key={en}
+            type="button"
+            onClick={() => fillQuickPrompt(prompt)}
+            className="flex min-h-24 flex-col items-start justify-center gap-3 border border-navy/10 bg-white/72 px-4 py-3 text-left text-sm font-semibold text-ink transition hover:border-brass hover:bg-white sm:min-h-28 sm:px-5 sm:text-base"
+          >
+            <Icon aria-hidden className="h-5 w-5 text-ink/70" />
+            <span>{prompt}</span>
+          </button>
+        );
+      })}
+      <a
+        href={eccInstagramUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="col-span-2 flex min-h-12 items-center gap-2 border border-navy/10 bg-white/56 px-4 py-3 text-sm font-semibold text-ink/72 transition hover:border-brass hover:bg-white sm:px-5"
+      >
+        <Instagram aria-hidden className="h-4 w-4" />
+        <span>
+          {language === "ko" ? "ECC 공식 인스타그램으로 문의하기" : "Contact ECC on Instagram"}
+        </span>
+        <Send aria-hidden className="ml-auto h-4 w-4" />
+      </a>
+    </div>
+  );
+
   const chatComposer = (mode: "center" | "bottom") => (
     <form
       onSubmit={submit}
@@ -1000,7 +1073,7 @@ export function WoohyukmonChatbot() {
   );
 
   const sidebar = (
-    <aside className="flex h-full min-h-0 w-full flex-col border-r border-navy/12 bg-[#f8f4eb] text-ink lg:w-72">
+    <aside className="flex h-full min-h-0 w-full flex-col border-r border-navy/12 bg-[#f8f4eb] text-ink lg:w-80 xl:w-96">
       <div className="flex items-center justify-between border-b border-navy/10 p-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
@@ -1107,7 +1180,7 @@ export function WoohyukmonChatbot() {
   );
 
   return (
-    <section className="flex w-full flex-col overflow-hidden border border-navy/12 bg-white/70 text-left shadow-[0_22px_60px_rgba(31,42,68,0.09)] lg:min-h-[680px] lg:flex-row">
+    <section className="flex w-full flex-col overflow-hidden border border-navy/12 bg-white/70 text-left shadow-[0_22px_60px_rgba(31,42,68,0.09)] lg:min-h-[calc(100svh-6.5rem)] lg:flex-row">
       <div className="hidden lg:block">{sidebar}</div>
 
       {sidebarOpen ? (
@@ -1150,14 +1223,15 @@ export function WoohyukmonChatbot() {
           </button>
         </div>
 
-        <div className="min-h-[440px] flex-1 overflow-y-auto p-5 md:p-7">
+        <div className="min-h-[440px] flex-1 overflow-y-auto p-5 md:p-7 lg:p-8">
           {isEmptyConversation ? (
-            <div className="mx-auto flex min-h-[470px] w-full max-w-2xl flex-col items-center justify-center pb-8">
+            <div className="mx-auto flex min-h-[520px] w-full max-w-3xl flex-col items-center justify-center pb-8">
               <WoohyukmonGlassesIcon
                 className="mb-7 h-20 w-40 md:h-24 md:w-48"
                 alt={language === "ko" ? "우혁몬 안경" : "Woohyukmon glasses"}
               />
               <div className="w-full">{chatComposer("center")}</div>
+              <div className="mt-4 w-full">{quickActionCards}</div>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -1235,7 +1309,12 @@ export function WoohyukmonChatbot() {
           </div>
         ) : null}
 
-        {!isEmptyConversation ? chatComposer("bottom") : null}
+        {!isEmptyConversation ? (
+          <div className="border-t border-navy/10 bg-white/82 p-3 md:p-4">
+            <div className="mx-auto w-full max-w-4xl">{chatComposer("bottom")}</div>
+            <div className="mx-auto mt-3 w-full max-w-4xl">{quickActionCards}</div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
