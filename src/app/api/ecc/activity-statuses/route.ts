@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   defaultEccActivityStatuses,
+  eccActivityTypes,
   eccActivityTypeSet,
   normalizeEccActivityType,
   type EccActivityType
@@ -135,6 +136,16 @@ export async function PATCH(request: Request) {
         },
         { status: 400 }
       );
+    }
+
+    // Only one ECC activity can accept applications at a time. Opening a new
+    // activity therefore closes every other activity in the same update.
+    const openedActivity = eccActivityTypes.find((type) => updates[type] === true);
+
+    if (openedActivity) {
+      eccActivityTypes.forEach((type) => {
+        updates[type] = type === openedActivity;
+      });
     }
 
     return NextResponse.json(await updateEccActivityStatuses(updates, access.email));

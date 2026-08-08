@@ -808,6 +808,22 @@ export function EccActivityPanel() {
     };
   }, [isAdmin, loading, text.activityStatusStorageError, text.applicationStorageError]);
 
+  const publicOpenApplication = useMemo(
+    () => applicationTypes.find((application) => activityStatuses[application.type]),
+    [activityStatuses]
+  );
+  const visibleApplicationTypes = isAdmin
+    ? applicationTypes
+    : publicOpenApplication
+      ? [publicOpenApplication]
+      : [];
+
+  useEffect(() => {
+    if (!isAdmin && publicOpenApplication) {
+      setActiveApplicationType(publicOpenApplication.type);
+    }
+  }, [isAdmin, publicOpenApplication]);
+
   const selectedApplications = useMemo(
     () => applications.filter((application) => application.type === activeApplicationType),
     [activeApplicationType, applications]
@@ -873,6 +889,9 @@ export function EccActivityPanel() {
 
       setActivityStatuses(normalizeActivityStatuses(data.statuses));
       setActivityStatusTableReady(data.tableReady !== false);
+      if (isOpen) {
+        setActiveApplicationType(type);
+      }
       setActivityStatusMessage(text.activityStatusSaved);
     } catch (error) {
       setApplicationError(
@@ -1123,56 +1142,62 @@ export function EccActivityPanel() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-          {applicationTypes.map((item) => {
-            const selected = activeApplicationType === item.type;
-            const isOpen = activityStatuses[item.type];
+        {visibleApplicationTypes.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            {visibleApplicationTypes.map((item) => {
+              const selected = activeApplicationType === item.type;
+              const isOpen = activityStatuses[item.type];
 
-            return (
-              <button
-                key={item.type}
-                type="button"
-                onClick={() => selectApplicationType(item.type)}
-                aria-pressed={selected}
-                className={`paper-panel min-h-44 p-5 text-left transition hover:border-brass hover:bg-white/70 ${
-                  selected
-                    ? "bg-navy text-paper shadow-lift ring-2 ring-brass ring-offset-2 ring-offset-paper"
-                    : ""
-                } ${!isOpen && !selected ? "border-ink/10 bg-white/35 opacity-70" : ""}`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className={`text-sm font-semibold uppercase ${selected ? "text-brass" : "text-brass"}`}>
-                    {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
+              return (
+                <button
+                  key={item.type}
+                  type="button"
+                  onClick={() => selectApplicationType(item.type)}
+                  aria-pressed={selected}
+                  className={`paper-panel min-h-44 p-5 text-left transition hover:border-brass hover:bg-white/70 ${
+                    selected
+                      ? "bg-navy text-paper shadow-lift ring-2 ring-brass ring-offset-2 ring-offset-paper"
+                      : ""
+                  } ${!isOpen && !selected ? "border-ink/10 bg-white/35 opacity-70" : ""}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold uppercase text-brass">
+                      {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
+                    </p>
+                    <span
+                      className={`inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-semibold uppercase ${
+                        isOpen
+                          ? selected
+                            ? "border-brass/60 text-brass"
+                            : "border-pine/20 bg-pine/10 text-pine"
+                          : selected
+                            ? "border-paper/25 text-paper/72"
+                            : "border-ink/10 bg-ink/5 text-ink/48"
+                      }`}
+                    >
+                      {isOpen ? (
+                        <Power aria-hidden className="h-3 w-3" />
+                      ) : (
+                        <PowerOff aria-hidden className="h-3 w-3" />
+                      )}
+                      {isOpen ? text.applicationOpen : text.applicationClosed}
+                    </span>
+                  </div>
+                  <h3 className={`mt-4 font-serif text-3xl font-semibold ${selected ? "text-paper" : "text-ink"}`}>
+                    {item.labels[language].title}
+                  </h3>
+                  <p className={`mt-3 text-sm leading-7 ${selected ? "text-paper/72" : "text-ink/62"}`}>
+                    {item.labels[language].description}
                   </p>
-                  <span
-                    className={`inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-semibold uppercase ${
-                      isOpen
-                        ? selected
-                          ? "border-brass/60 text-brass"
-                          : "border-pine/20 bg-pine/10 text-pine"
-                        : selected
-                          ? "border-paper/25 text-paper/72"
-                          : "border-ink/10 bg-ink/5 text-ink/48"
-                    }`}
-                  >
-                    {isOpen ? (
-                      <Power aria-hidden className="h-3 w-3" />
-                    ) : (
-                      <PowerOff aria-hidden className="h-3 w-3" />
-                    )}
-                    {isOpen ? text.applicationOpen : text.applicationClosed}
-                  </span>
-                </div>
-                <h3 className={`mt-4 font-serif text-3xl font-semibold ${selected ? "text-paper" : "text-ink"}`}>
-                  {item.labels[language].title}
-                </h3>
-                <p className={`mt-3 text-sm leading-7 ${selected ? "text-paper/72" : "text-ink/62"}`}>
-                  {item.labels[language].description}
-                </p>
-              </button>
-            );
-          })}
-        </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : !isAdmin ? (
+          <p className="border border-ink/10 bg-ink/5 p-4 text-sm font-semibold leading-7 text-ink/68">
+            {text.applicationClosedNotice}
+          </p>
+        ) : null}
 
         {isAdmin ? (
           <div className="border border-ink/10 bg-white/55 p-5 md:p-6">
@@ -1240,7 +1265,8 @@ export function EccActivityPanel() {
           </div>
         ) : null}
 
-        <form onSubmit={submitApplication} className="grid gap-4 border border-ink/10 bg-white/50 p-5 md:p-6">
+        {(isAdmin || publicOpenApplication) ? (
+          <form onSubmit={submitApplication} className="grid gap-4 border border-ink/10 bg-white/50 p-5 md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold uppercase text-brass">
@@ -1333,7 +1359,8 @@ export function EccActivityPanel() {
           {applicationError ? (
             <p className="text-sm font-semibold text-red-700">{applicationError}</p>
           ) : null}
-        </form>
+          </form>
+        ) : null}
 
         {isAdmin ? (
           <div className="border border-ink/10 bg-white/50 p-5 md:p-6">
