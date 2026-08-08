@@ -365,7 +365,7 @@ export function WoohyukmonChatbot() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [modelVersion, setModelVersion] = useState<"2" | "3">("2");
+  const [modelVersion, setModelVersion] = useState<"2" | "3">("3");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [saveWarning, setSaveWarning] = useState("");
   const [loading, setLoading] = useState(false);
@@ -901,7 +901,7 @@ export function WoohyukmonChatbot() {
   };
 
   const quickActionCards = (
-    <div className="grid w-full grid-cols-2 gap-2.5 sm:gap-3">
+    <div className="flex w-full flex-wrap justify-center gap-2.5">
       {[
         {
           icon: Calculator,
@@ -931,9 +931,9 @@ export function WoohyukmonChatbot() {
             key={en}
             type="button"
             onClick={() => fillQuickPrompt(prompt)}
-            className="flex min-h-24 flex-col items-start justify-center gap-3 border border-navy/10 bg-white/72 px-4 py-3 text-left text-sm font-semibold text-ink transition hover:border-brass hover:bg-white sm:min-h-28 sm:px-5 sm:text-base"
+            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-navy/15 bg-white/72 px-3.5 py-2 text-left text-xs font-semibold text-ink transition hover:border-brass hover:bg-white sm:px-4 sm:text-sm"
           >
-            <Icon aria-hidden className="h-5 w-5 text-ink/70" />
+            <Icon aria-hidden className="h-4 w-4 shrink-0 text-ink/70" />
             <span>{prompt}</span>
           </button>
         );
@@ -942,13 +942,13 @@ export function WoohyukmonChatbot() {
         href={eccInstagramUrl}
         target="_blank"
         rel="noreferrer"
-        className="col-span-2 flex min-h-12 items-center gap-2 border border-navy/10 bg-white/56 px-4 py-3 text-sm font-semibold text-ink/72 transition hover:border-brass hover:bg-white sm:px-5"
+        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-navy/15 bg-white/56 px-3.5 py-2 text-xs font-semibold text-ink/72 transition hover:border-brass hover:bg-white sm:px-4 sm:text-sm"
       >
-        <Instagram aria-hidden className="h-4 w-4" />
+        <Instagram aria-hidden className="h-4 w-4 shrink-0" />
         <span>
           {language === "ko" ? "ECC 공식 인스타그램으로 문의하기" : "Contact ECC on Instagram"}
         </span>
-        <Send aria-hidden className="ml-auto h-4 w-4" />
+        <Send aria-hidden className="h-3.5 w-3.5" />
       </a>
     </div>
   );
