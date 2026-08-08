@@ -131,6 +131,26 @@ Important behavior:
 
 You are not just answering questions. You are helping users complete the correct next step on K_LINE.`;
 
+function buildWoohyukmonSystemInstruction(history: ClientMessage[], mode = "chat", attachmentNames: string[] = []) {
+  const conversationRule =
+    history.length === 0
+      ? "This is the first reply in this chat. A short natural greeting is allowed once, but answer the user's request immediately."
+      : "This is an ongoing chat. Do not greet the user again. Continue naturally from the question and prior conversation.";
+
+  const postDraftRule =
+    mode === "post_draft"
+      ? `\n\nWoohyukmon 3.0 board draft task:\n- Draft an ECC free-board post from the user's request and the attached file names.\n- Start with exactly \"제목: \" for Korean or \"Title: \" for English, followed by a concise title.\n- Then write \"내용:\" or \"Content:\" and a finished post body.\n- Do not say the post has already been uploaded. The user must confirm publication separately.\n- Attached files: ${attachmentNames.join(", ") || "none"}.`
+      : "";
+
+  return `${woohyukmonSystemInstruction}
+
+Conversation continuity:
+- ${conversationRule}
+- Do not repeatedly introduce yourself or repeat K_LINE, ECC, Han-hwal, membership, or site navigation unless the user asks about that subject.
+- Focus on the user's exact request. If the subject changes, follow the new subject without redirecting it back to club information.
+- Never claim that you can view, edit, upload, publish, approve, or change live K_LINE data unless the server explicitly provides that authorized live action or data.${postDraftRule}`;
+}
+
 function cleanMessages(history: unknown): ClientMessage[] {
   if (!Array.isArray(history)) {
     return [];
@@ -471,19 +491,23 @@ async function streamGeminiAnswer({
   controller,
   externalSearchContext = "",
   history,
-  message
+  message,
+  mode,
+  attachmentNames
 }: {
   ai: GoogleGenAI;
   controller: ReadableStreamDefaultController<Uint8Array>;
   externalSearchContext?: string;
   history: ClientMessage[];
   message: string;
+  mode?: string;
+  attachmentNames?: string[];
 }) {
   const responseStream = await ai.models.generateContentStream({
     model: getGeminiModel(),
     contents: buildContents(message, history, externalSearchContext),
     config: {
-      systemInstruction: woohyukmonSystemInstruction,
+      systemInstruction: buildWoohyukmonSystemInstruction(history, mode, attachmentNames),
       temperature: externalSearchContext ? 0.12 : 0.35,
       maxOutputTokens: getMaxOutputTokens()
     }
@@ -511,7 +535,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
   }
 
-  let body: { message?: unknown; history?: unknown };
+  let body: { attachmentNames?: unknown; message?: unknown; history?: unknown; mode?: unknown };
 
   try {
     body = (await request.json()) as { message?: unknown; history?: unknown };
@@ -526,6 +550,14 @@ export async function POST(request: Request) {
   }
 
   const history = cleanMessages(body.history);
+  const mode = body.mode === "post_draft" ? "post_draft" : "chat";
+  const attachmentNames = Array.isArray(body.attachmentNames)
+    ? body.attachmentNames
+        .filter((name): name is string => typeof name === "string")
+        .map((name) => name.trim().slice(0, 200))
+        .filter(Boolean)
+        .slice(0, 12)
+    : [];
   const ai = new GoogleGenAI({ apiKey });
 
   const stream = new ReadableStream<Uint8Array>({
@@ -595,7 +627,9 @@ export async function POST(request: Request) {
           controller,
           externalSearchContext: buildExternalSearchContext(externalResults),
           history,
-          message
+          message,
+          mode,
+          attachmentNames
         });
 
         controller.enqueue(

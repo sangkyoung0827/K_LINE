@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderPlus, Menu, MessageSquarePlus, PanelLeftClose, Send } from "lucide-react";
+import { FolderPlus, Menu, MessageSquarePlus, Paperclip, PanelLeftClose, Send, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
@@ -19,6 +19,20 @@ type ChatMessage = {
   status?: string;
   providers?: string[];
   sourceCount?: number;
+  action?: {
+    attachments: ChatAttachment[];
+    boardId: "ecc" | "hanhwal";
+    content: string;
+    title: string;
+    type: "publish_board_post";
+  };
+};
+
+type ChatAttachment = {
+  file: File;
+  id: string;
+  name: string;
+  type: string;
 };
 
 type GeminiStreamEvent = {
@@ -32,6 +46,8 @@ type GeminiStreamEvent = {
   webSearchQueries?: string[];
   error?: string;
 };
+
+type LiveKind = "applications" | "fund" | "members";
 
 type SavedProject = {
   id: string;
@@ -205,6 +221,53 @@ function cleanVisibleAnswer(value: string) {
     .replace(/\[\.\.\.\]/g, "");
 }
 
+function isPostInstruction(value: string) {
+  return /게시물|게시글|업로드|올려s*줘|올려줘|post|publish/i.test(value);
+}
+
+function getLiveKind(value: string): LiveKind | null {
+  const normalized = value.toLowerCase();
+  if (/자금|잔액|남은 금액|fund|balance|donation/.test(normalized)) return "fund";
+  if (/신청.*(현황|수|명단)|application.*(count|status)|신청자/.test(normalized)) return "applications";
+  if (/회원.*(현황|수|명단)|member.*(count|status|summary)/.test(normalized)) return "members";
+  return null;
+}
+
+function formatLiveSummary(kind: LiveKind, summary: Record<string, unknown>, language: "en" | "ko") {
+  if (kind === "fund") {
+    const balance = new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US").format(
+      Number(summary.displayedBalance ?? 0)
+    );
+    const donations = new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US").format(
+      Number(summary.totalDonationKrw ?? 0)
+    );
+    return language === "ko"
+      ? `현재 ECC 자금관리의 표시 잔액은 ${balance}원이며, 누적 후원금은 ${donations}원입니다.`
+      : `The current displayed ECC balance is KRW ${balance}, and total donations are KRW ${donations}.`;
+  }
+  if (kind === "applications") {
+    const total = Number(summary.total ?? 0);
+    const byActivity = (summary.byActivity ?? {}) as Record<string, number>;
+    const detail = Object.entries(byActivity).map(([name, count]) => `${name}: ${count}`).join(", ");
+    return language === "ko"
+      ? `현재 활동 신청은 총 ${total}건입니다.${detail ? ` 활동별 현황: ${detail}` : ""}`
+      : `There are ${total} activity applications in total.${detail ? ` By activity: ${detail}` : ""}`;
+  }
+  return language === "ko"
+    ? `현재 가입 사용자 수는 ${Number(summary.registeredUsers ?? 0)}명, 정식회원은 ${Number(summary.officialMembers ?? 0)}명입니다.`
+    : `There are ${Number(summary.registeredUsers ?? 0)} registered users and ${Number(summary.officialMembers ?? 0)} official members.`;
+}
+
+function postDraftFromAnswer(answer: string, fallback: string) {
+  const titleMatch = answer.match(/^(?:제목|title)\s*[:：]\s*(.+)$/im);
+  const title = (titleMatch?.[1] ?? fallback.split(/\n|\.|。/)[0] ?? "ECC post").trim().slice(0, 180);
+  const body = answer
+    .replace(/^(?:제목|title)\s*[:：].*$/im, "")
+    .replace(/^(?:내용|content|body)\s*[:：]?\s*/im, "")
+    .trim();
+  return { content: body || fallback, title };
+}
+
 function reduceAssistantMessage(
   message: ChatMessage,
   event: GeminiStreamEvent,
@@ -286,11 +349,15 @@ export function WoohyukmonChatbot() {
   const [selectedChatId, setSelectedChatId] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelVersion, setModelVersion] = useState<"2" | "3">("2");
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [saveWarning, setSaveWarning] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeAssistantId, setActiveAssistantId] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastSentAtRef = useRef(0);
 
@@ -530,6 +597,81 @@ export function WoohyukmonChatbot() {
     }
   };
 
+  const addAttachments = (files: FileList | File[]) => {
+    const next = Array.from(files)
+      .filter((file) => file.size > 0)
+      .slice(0, 12)
+      .map((file) => ({
+        file,
+        id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+        name: file.name,
+        type: file.type || "application/octet-stream"
+      }));
+    setAttachments((current) => [...current, ...next].slice(0, 12));
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((current) => current.filter((attachment) => attachment.id !== id));
+  };
+
+  const loadLiveSummary = async (kind: LiveKind) => {
+    const data = await fetchJson<{ summary: Record<string, unknown> }>(
+      `/api/woohyukmon/live?kind=${encodeURIComponent(kind)}`
+    );
+    return formatLiveSummary(kind, data.summary ?? {}, language);
+  };
+
+  const publishBoardPost = async (messageId: string, action: NonNullable<ChatMessage["action"]>) => {
+    setLoading(true);
+    setError("");
+    try {
+      const uploadPlan = await fetchJson<{
+        uploads: Array<{ name: string; publicUrl: string; signedUrl: string; type: string }>;
+      }>("/api/woohyukmon/uploads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: action.attachments.map(({ name, type }) => ({ name, type })) })
+      });
+      await Promise.all(
+        uploadPlan.uploads.map(async (upload, index) => {
+          const attachment = action.attachments[index];
+          const response = await fetch(upload.signedUrl, {
+            method: "PUT",
+            headers: { "Content-Type": attachment.type },
+            body: attachment.file
+          });
+          if (!response.ok) throw new Error("Attachment upload failed.");
+        })
+      );
+      await fetchJson("/api/woohyukmon/live", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          boardId: action.boardId,
+          content: action.content,
+          media: uploadPlan.uploads.map(({ name, publicUrl, type }) => ({ name, type, url: publicUrl })),
+          title: action.title
+        })
+      });
+      updateAssistantMessage(messageId, (current) => ({
+        ...current,
+        action: undefined,
+        content: `${current.content}\n\n${language === "ko" ? "ECC 게시판에 게시했습니다." : "Published to the ECC board."}`.trim()
+      }));
+      setAttachments([]);
+    } catch (publishError) {
+      setError(
+        publishError instanceof Error
+          ? publishError.message
+          : language === "ko"
+            ? "게시물을 업로드하지 못했습니다."
+            : "The post could not be uploaded."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendMessage = async (content: string) => {
     const trimmed = content.trim();
     if (!trimmed || loading) return;
@@ -559,6 +701,33 @@ export function WoohyukmonChatbot() {
           : "Could not prepare saved chat. Continuing as a temporary chat."
       );
     }
+
+    const liveKind = modelVersion === "3" ? getLiveKind(trimmed) : null;
+    if (liveKind) {
+      try {
+        const answer = await loadLiveSummary(liveKind);
+        const assistantMessage: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: answer,
+          status: language === "ko" ? "실시간 K_LINE 정보 확인" : "Live K_LINE data checked"
+        };
+        setMessages((current) => [...current, assistantMessage]);
+        await saveMessage(chatId, assistantMessage);
+        return;
+      } catch (liveError) {
+        setError(
+          liveError instanceof Error
+            ? liveError.message
+            : language === "ko"
+              ? "실시간 정보를 불러오지 못했습니다."
+              : "Live information could not be loaded."
+        );
+      }
+    }
+
+    const postIntent = modelVersion === "3" && attachments.length > 0 && isPostInstruction(trimmed);
+    const attachmentsForPost = postIntent ? attachments : [];
 
     const coreAnswer = getCoreAnswer(trimmed, language);
     if (coreAnswer) {
@@ -594,8 +763,10 @@ export function WoohyukmonChatbot() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          attachmentNames: attachmentsForPost.map((attachment) => attachment.name),
           message: trimmed,
           history: apiHistory.slice(-8),
+          mode: postIntent ? "post_draft" : "chat",
           localBoardPosts: readLocalBoardPostsForAssistant()
         })
       });
@@ -657,6 +828,20 @@ export function WoohyukmonChatbot() {
               : "I could not generate an answer. Please try again."
       };
 
+      if (postIntent) {
+        const draft = postDraftFromAnswer(assistantSnapshot.content, trimmed);
+        assistantSnapshot = {
+          ...assistantSnapshot,
+          action: {
+            attachments: attachmentsForPost,
+            boardId: "ecc",
+            content: draft.content,
+            title: draft.title,
+            type: "publish_board_post"
+          }
+        };
+      }
+
       updateAssistantMessage(assistantId, () => assistantSnapshot);
       await saveMessage(chatId, assistantSnapshot);
     } catch (requestError) {
@@ -698,12 +883,43 @@ export function WoohyukmonChatbot() {
   const chatComposer = (mode: "center" | "bottom") => (
     <form
       onSubmit={submit}
-      className={`flex w-full gap-2 ${
+      onDragOver={(event) => {
+        if (modelVersion === "3") event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (modelVersion !== "3") return;
+        event.preventDefault();
+        addAttachments(event.dataTransfer.files);
+      }}
+      className={`relative flex w-full gap-2 ${
         mode === "center"
           ? "rounded-[1.1rem] border border-navy/14 bg-white p-2 shadow-[0_14px_34px_rgba(31,42,68,0.10)]"
           : "border-t border-navy/10 bg-white/82 p-3 md:p-4"
       }`}
     >
+      {modelVersion === "3" ? (
+        <>
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept="image/*,video/*,audio/*,application/pdf,text/*"
+            onChange={(event) => {
+              if (event.target.files) addAttachments(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => attachmentInputRef.current?.click()}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-navy/12 bg-white text-navy transition hover:border-brass"
+            aria-label={language === "ko" ? "파일 첨부" : "Attach files"}
+          >
+            <Paperclip aria-hidden className="h-4 w-4" />
+          </button>
+        </>
+      ) : null}
       <input
         ref={inputRef}
         value={input}
@@ -715,6 +931,46 @@ export function WoohyukmonChatbot() {
             : "rounded-xl border border-navy/14 focus:border-brass"
         }`}
       />
+      <div className="relative hidden shrink-0 sm:block">
+        <button
+          type="button"
+          onClick={() => setModelMenuOpen((current) => !current)}
+          className="flex h-12 items-center rounded-xl border border-navy/12 bg-white px-3 text-[11px] font-bold text-navy transition hover:border-brass"
+          aria-expanded={modelMenuOpen}
+          aria-label={language === "ko" ? "모델 설정" : "Model settings"}
+        >
+          {language === "ko" ? `우혁몬 ${modelVersion}.0` : `Woohyukmon ${modelVersion}.0`}
+        </button>
+        {modelMenuOpen ? (
+          <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-20 w-44 rounded-lg border border-navy/12 bg-white p-2 text-xs text-ink shadow-lift">
+            <p className="px-2 py-1 font-bold text-navy">
+              {language === "ko" ? "현재 모델" : "Current model"}
+            </p>
+            <div className="rounded-md bg-brass/14 px-2 py-2 font-semibold">
+              <button
+                type="button"
+                onClick={() => {
+                  setModelVersion("2");
+                  setModelMenuOpen(false);
+                }}
+                className={`w-full rounded-md px-2 py-1 text-left ${modelVersion === "2" ? "bg-brass/14" : "hover:bg-navy/6"}`}
+              >
+                {language === "ko" ? "우혁몬 2.0" : "Woohyukmon 2.0"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModelVersion("3");
+                  setModelMenuOpen(false);
+                }}
+                className={`mt-1 w-full rounded-md px-2 py-1 text-left ${modelVersion === "3" ? "bg-brass/14" : "hover:bg-navy/6"}`}
+              >
+                {language === "ko" ? "우혁몬 3.0" : "Woohyukmon 3.0"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
       <button
         type="submit"
         disabled={loading || !input.trim()}
@@ -723,6 +979,23 @@ export function WoohyukmonChatbot() {
       >
         <Send aria-hidden className="h-4 w-4" />
       </button>
+      {modelVersion === "3" && attachments.length > 0 ? (
+        <div className="absolute left-2 right-2 top-[calc(100%+0.35rem)] z-20 flex flex-wrap gap-1 rounded-lg border border-navy/12 bg-white p-2 text-xs shadow-lift">
+          {attachments.map((attachment) => (
+            <span key={attachment.id} className="inline-flex max-w-full items-center gap-1 rounded-md bg-paper px-2 py-1 text-ink/72">
+              <span className="max-w-32 truncate">{attachment.name}</span>
+              <button
+                type="button"
+                onClick={() => removeAttachment(attachment.id)}
+                aria-label={`${attachment.name} remove`}
+                className="text-ink/55 hover:text-red-700"
+              >
+                <X aria-hidden className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </form>
   );
 
@@ -924,6 +1197,23 @@ export function WoohyukmonChatbot() {
                               : "Searching and preparing an answer."
                             : "")}
                       </div>
+                      {message.action?.type === "publish_board_post" ? (
+                        <div className="mt-4 border-t border-navy/10 pt-3">
+                          <p className="text-xs font-semibold text-ink/62">
+                            {language === "ko"
+                              ? `ECC 게시판 게시 초안 · 첨부 ${message.action.attachments.length}개`
+                              : `ECC board draft · ${message.action.attachments.length} attachments`}
+                          </p>
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => void publishBoardPost(message.id, message.action!)}
+                            className="mt-3 inline-flex min-h-10 items-center justify-center bg-navy px-4 text-xs font-bold text-paper transition hover:bg-brass hover:text-ink disabled:opacity-50"
+                          >
+                            {language === "ko" ? "ECC 게시판에 게시" : "Publish to ECC board"}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );

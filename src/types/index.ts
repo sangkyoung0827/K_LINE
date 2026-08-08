@@ -83,6 +83,11 @@ export type FreeBoardPost = {
   createdAt: string;
   imageDataUrl?: string;
   imageName?: string;
+  media?: Array<{
+    name?: string;
+    type?: string;
+    url?: string;
+  }>;
 };
 
 export type CartLine = {

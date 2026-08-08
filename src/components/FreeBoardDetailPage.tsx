@@ -37,7 +37,14 @@ export function FreeBoardDetailPage({
   const router = useRouter();
 
   useEffect(() => {
-    setPosts(readFreeBoardPosts(board));
+    const localPosts = readFreeBoardPosts(board);
+    setPosts(localPosts);
+    fetch(`/api/club-board-posts?board=${encodeURIComponent(board.id)}`)
+      .then((response) => response.json())
+      .then((data: { posts?: FreeBoardPost[] }) => {
+        if (Array.isArray(data.posts)) setPosts([...data.posts, ...localPosts]);
+      })
+      .catch(() => undefined);
   }, [board]);
 
   const post = useMemo(() => posts.find((item) => item.id === postId), [postId, posts]);

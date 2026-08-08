@@ -49,7 +49,15 @@ export function FreeBoardPage({
   const { language } = useLanguage();
 
   useEffect(() => {
-    setPosts(readFreeBoardPosts(board));
+    const localPosts = readFreeBoardPosts(board);
+    setPosts(localPosts);
+    fetch(`/api/club-board-posts?board=${encodeURIComponent(board.id)}`)
+      .then((response) => response.json())
+      .then((data: { posts?: FreeBoardPost[] }) => {
+        if (!Array.isArray(data.posts)) return;
+        setPosts(sortPostsByNewest([...data.posts, ...localPosts]));
+      })
+      .catch(() => undefined);
   }, [board]);
 
   const sortedPosts = useMemo(() => sortPostsByNewest(posts), [posts]);

@@ -129,6 +129,34 @@ export function DonationPanel() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+
+    fetch("/api/ecc/fund")
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as { fund?: Partial<BankDisplay> };
+      })
+      .then((data) => {
+        if (!data?.fund) return;
+        const nextDisplay: BankDisplay = {
+          bankName: data.fund.bankName ?? "",
+          accountNumber: data.fund.accountNumber ?? "",
+          accountHolder: data.fund.accountHolder ?? "",
+          totalDonationKrw: Number(data.fund.totalDonationKrw ?? 0),
+          displayedBalance: Number(data.fund.displayedBalance ?? 0),
+          updatedAt: data.fund.updatedAt ?? ""
+        };
+        setBankDisplay(nextDisplay);
+        setBankForm({
+          ...nextDisplay,
+          totalDonationKrw: String(nextDisplay.totalDonationKrw || ""),
+          displayedBalance: String(nextDisplay.displayedBalance || "")
+        });
+      })
+      .catch(() => undefined);
+  }, [isSuperAdmin]);
+
   const { accountHolder, accountNumber, bankName, displayedBalance, totalDonationKrw } =
     bankDisplay;
   const hasAccount = Boolean(bankName && accountNumber && accountHolder);
@@ -156,7 +184,7 @@ export function DonationPanel() {
     setSuccess(true);
   };
 
-  const saveBankDisplay = (event: React.FormEvent<HTMLFormElement>) => {
+  const saveBankDisplay = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextDisplay: BankDisplay = {
       bankName: bankForm.bankName.trim(),
@@ -183,6 +211,18 @@ export function DonationPanel() {
       totalDonationKrw: String(nextDisplay.totalDonationKrw || ""),
       displayedBalance: String(nextDisplay.displayedBalance || "")
     });
+
+    if (isSuperAdmin) {
+      try {
+        await fetch("/api/ecc/fund", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(nextDisplay)
+        });
+      } catch {
+        // The local browser copy remains available if the server is temporarily unavailable.
+      }
+    }
   };
 
   const updateDonationStatus = (donationId: string, status: DonationPledge["status"]) => {
