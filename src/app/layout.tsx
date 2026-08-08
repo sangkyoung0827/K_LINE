@@ -46,9 +46,9 @@ export const metadata: Metadata = {
     google: ["googlefd1a14b874829389.html", "fd1a14b874829389"]
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-    apple: "/k-line-mark.svg"
+    icon: "/images/k-line-official-logo.png",
+    shortcut: "/images/k-line-official-logo.png",
+    apple: "/images/k-line-official-logo.png"
   },
   appleWebApp: {
     capable: true,
