@@ -693,10 +693,42 @@ export function WoohyukmonChatbot() {
   };
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
+  const isEmptyConversation = messages.length === 0;
+
+  const chatComposer = (mode: "center" | "bottom") => (
+    <form
+      onSubmit={submit}
+      className={`flex w-full gap-2 ${
+        mode === "center"
+          ? "rounded-[1.1rem] border border-navy/14 bg-white p-2 shadow-[0_14px_34px_rgba(31,42,68,0.10)]"
+          : "border-t border-navy/10 bg-white/82 p-3 md:p-4"
+      }`}
+    >
+      <input
+        ref={inputRef}
+        value={input}
+        onChange={(event) => setInput(event.target.value)}
+        placeholder={language === "ko" ? "우혁몬에게 무엇이든 물어보세요" : "Ask Woohyukmon anything"}
+        className={`min-h-12 flex-1 bg-paper px-4 text-sm text-ink outline-none transition focus:ring-2 focus:ring-brass/20 ${
+          mode === "center"
+            ? "rounded-xl border border-transparent focus:border-brass"
+            : "rounded-xl border border-navy/14 focus:border-brass"
+        }`}
+      />
+      <button
+        type="submit"
+        disabled={loading || !input.trim()}
+        aria-label="Send message"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brass text-ink transition hover:bg-navy hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Send aria-hidden className="h-4 w-4" />
+      </button>
+    </form>
+  );
 
   const sidebar = (
-    <aside className="flex h-full min-h-0 w-full flex-col border-navy/10 bg-navy/95 text-paper lg:w-72 lg:border-r">
-      <div className="flex items-center justify-between border-b border-paper/10 p-4">
+    <aside className="flex h-full min-h-0 w-full flex-col border-r border-navy/12 bg-[#f8f4eb] text-ink lg:w-72">
+      <div className="flex items-center justify-between border-b border-navy/10 p-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
             {language === "ko" ? "저장된 대화" : "Saved Conversations"}
@@ -705,7 +737,7 @@ export function WoohyukmonChatbot() {
         </div>
         <button
           type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-paper/15 text-paper lg:hidden"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-navy/12 text-navy lg:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-label="Close chat history"
         >
@@ -713,11 +745,11 @@ export function WoohyukmonChatbot() {
         </button>
       </div>
 
-      <div className="grid gap-2 p-4">
+      <div className="grid gap-1 p-3">
         <button
           type="button"
           onClick={() => void createProject()}
-          className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brass px-3 text-sm font-bold text-ink transition hover:bg-paper"
+          className="flex min-h-11 items-center justify-start gap-2 rounded-lg px-3 text-sm font-bold text-ink transition hover:bg-navy/8"
         >
           <FolderPlus aria-hidden className="h-4 w-4" />
           {language === "ko" ? "새 프로젝트" : "New Project"}
@@ -725,16 +757,16 @@ export function WoohyukmonChatbot() {
         <button
           type="button"
           onClick={startNewChat}
-          className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-paper/18 bg-paper/8 px-3 text-sm font-bold text-paper transition hover:bg-paper/15"
+          className="flex min-h-11 items-center justify-start gap-2 rounded-lg bg-navy px-3 text-sm font-bold text-paper transition hover:bg-navy/88"
         >
           <MessageSquarePlus aria-hidden className="h-4 w-4" />
           {language === "ko" ? "새 채팅" : "New Chat"}
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {!access.loading && !access.isLoggedIn ? (
-          <div className="rounded-2xl border border-paper/12 bg-paper/8 p-4 text-sm leading-6 text-paper/80">
+          <div className="rounded-lg border border-navy/10 bg-white/60 p-3 text-sm leading-6 text-ink/68">
             {language === "ko"
               ? "로그인하면 대화 기록을 저장할 수 있습니다."
               : "Log in to save your chat history."}
@@ -742,7 +774,7 @@ export function WoohyukmonChatbot() {
         ) : null}
 
         {historyLoading ? (
-          <p className="px-1 py-3 text-sm text-paper/65">
+          <p className="px-1 py-3 text-sm text-ink/55">
             {language === "ko" ? "기록을 불러오는 중..." : "Loading history..."}
           </p>
         ) : null}
@@ -756,10 +788,10 @@ export function WoohyukmonChatbot() {
                 setSelectedChatId("");
                 setMessages([]);
               }}
-              className={`w-full rounded-xl px-3 py-2 text-left text-sm font-bold transition ${
+              className={`w-full rounded-lg px-3 py-2 text-left text-sm font-bold transition ${
                 selectedProjectId === project.id
-                  ? "bg-paper text-ink"
-                  : "text-paper/86 hover:bg-paper/10"
+                  ? "bg-navy text-paper"
+                  : "text-ink/82 hover:bg-navy/8"
               }`}
             >
               {project.title || "General"}
@@ -767,11 +799,11 @@ export function WoohyukmonChatbot() {
 
             {selectedProjectId === project.id ? (
               <div className="mt-2 grid gap-1 pl-3">
-                <p className="px-2 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-paper/45">
+                <p className="px-2 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-ink/42">
                   {language === "ko" ? "채팅 기록" : "Chat History"}
                 </p>
                 {chats.length === 0 ? (
-                  <p className="px-2 py-2 text-xs text-paper/55">
+                  <p className="px-2 py-2 text-xs text-ink/55">
                     {language === "ko" ? "아직 저장된 채팅이 없습니다." : "No saved chats yet."}
                   </p>
                 ) : null}
@@ -787,7 +819,7 @@ export function WoohyukmonChatbot() {
                     className={`rounded-lg px-3 py-2 text-left text-xs font-semibold leading-5 transition ${
                       selectedChatId === chat.id
                         ? "bg-brass text-ink"
-                        : "text-paper/72 hover:bg-paper/10 hover:text-paper"
+                        : "text-ink/66 hover:bg-navy/8 hover:text-ink"
                     }`}
                   >
                     {chat.title || "New Chat"}
@@ -802,21 +834,21 @@ export function WoohyukmonChatbot() {
   );
 
   return (
-    <section className="flex w-full flex-col overflow-hidden rounded-[2rem] border border-navy/12 bg-white/58 text-left shadow-[0_22px_60px_rgba(31,42,68,0.09)] backdrop-blur lg:min-h-[620px] lg:flex-row">
+    <section className="flex w-full flex-col overflow-hidden border border-navy/12 bg-white/70 text-left shadow-[0_22px_60px_rgba(31,42,68,0.09)] lg:min-h-[680px] lg:flex-row">
       <div className="hidden lg:block">{sidebar}</div>
 
       {sidebarOpen ? (
-        <div className="fixed inset-0 z-[80] bg-ink/40 p-4 backdrop-blur-sm lg:hidden">
-          <div className="h-full overflow-hidden rounded-3xl shadow-lift">{sidebar}</div>
+        <div className="fixed inset-0 z-[80] bg-ink/40 backdrop-blur-sm lg:hidden">
+          <div className="h-full max-w-[19rem] overflow-hidden shadow-lift">{sidebar}</div>
         </div>
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between gap-3 border-b border-navy/10 bg-white/50 px-4 py-3 md:px-5">
+        <div className="flex items-center justify-between gap-3 border-b border-navy/10 bg-white/54 px-4 py-3 md:px-5">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-navy/12 bg-white/70 text-navy lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-navy/12 bg-white/70 text-navy lg:hidden"
             aria-label="Open chat history"
           >
             <Menu aria-hidden className="h-4 w-4" />
@@ -838,17 +870,21 @@ export function WoohyukmonChatbot() {
           <button
             type="button"
             onClick={startNewChat}
-            className="hidden min-h-10 items-center gap-2 rounded-xl border border-navy/12 bg-white/70 px-3 text-xs font-bold text-ink transition hover:border-brass md:inline-flex"
+            className="hidden min-h-10 items-center gap-2 rounded-lg border border-navy/12 bg-white/70 px-3 text-xs font-bold text-ink transition hover:border-brass md:inline-flex"
           >
             <MessageSquarePlus aria-hidden className="h-4 w-4" />
             {language === "ko" ? "새 채팅" : "New Chat"}
           </button>
         </div>
 
-        <div className="max-h-[560px] min-h-[430px] flex-1 overflow-y-auto p-5 md:p-7">
-          {messages.length === 0 ? (
-            <div className="flex min-h-[360px] items-center justify-center text-center text-sm font-medium text-muted">
-              {language === "ko" ? "우혁몬에게 무엇이든 물어보세요." : "Ask Woohyukmon anything."}
+        <div className="min-h-[440px] flex-1 overflow-y-auto p-5 md:p-7">
+          {isEmptyConversation ? (
+            <div className="mx-auto flex min-h-[470px] w-full max-w-2xl flex-col items-center justify-center pb-8">
+              <WoohyukmonGlassesIcon
+                className="mb-7 h-20 w-40 md:h-24 md:w-48"
+                alt={language === "ko" ? "우혁몬 안경" : "Woohyukmon glasses"}
+              />
+              <div className="w-full">{chatComposer("center")}</div>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -909,23 +945,7 @@ export function WoohyukmonChatbot() {
           </div>
         ) : null}
 
-        <form onSubmit={submit} className="flex gap-2 border-t border-navy/10 bg-white/64 p-3 md:p-4">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder={language === "ko" ? "우혁몬에게 물어보기" : "Ask Woohyukmon"}
-            className="min-h-12 flex-1 rounded-xl border border-navy/14 bg-paper px-4 text-sm text-ink outline-none transition focus:border-brass focus:ring-2 focus:ring-brass/20"
-          />
-          <button
-            type="submit"
-            disabled={loading || !input.trim()}
-            aria-label="Send message"
-            className="flex h-12 w-12 items-center justify-center rounded-xl bg-brass text-ink transition hover:bg-navy hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Send aria-hidden className="h-4 w-4" />
-          </button>
-        </form>
+        {!isEmptyConversation ? chatComposer("bottom") : null}
       </div>
     </section>
   );

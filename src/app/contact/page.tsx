@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Instagram, Send } from "lucide-react";
 import { WoohyukmonChatbot } from "@/components/WoohyukmonChatbot";
-import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import { createPublicMetadata } from "@/lib/seo";
 
 const instagramUrl = "https://www.instagram.com/ecc_jbnu/";
@@ -18,12 +17,7 @@ export default function ContactPage() {
     <section className="relative isolate overflow-hidden bg-paper px-5 py-10 md:px-8 md:py-14">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(255,255,255,0.94),transparent_32rem),radial-gradient(circle_at_50%_70%,rgba(214,168,90,0.10),transparent_30rem)]" />
 
-      <div className="relative mx-auto flex min-h-[calc(100svh-11rem)] max-w-5xl flex-col items-center justify-center">
-        <WoohyukmonGlassesIcon
-          className="mb-7 h-24 w-44 md:h-28 md:w-52"
-          alt="우혁몬 안경 아이콘"
-        />
-
+      <div className="relative mx-auto flex min-h-[calc(100svh-11rem)] w-full max-w-[1400px] flex-col items-center justify-center">
         <div className="w-full">
           <WoohyukmonChatbot />
         </div>
