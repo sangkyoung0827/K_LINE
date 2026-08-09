@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck"
+    "verify:browser-metadata": "node scripts/verify-browser-metadata.mjs",
+    "test": "npm run typecheck && npm run verify:browser-metadata",
+    "check": "npm run test && npm run build"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",
