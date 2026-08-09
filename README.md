@@ -747,4 +747,6 @@ TOSSINVEST_CLIENT_SECRET=
 TOSSINVEST_ACCOUNT_SEQ=
 ```
 
+Existing projects that already use `TOSS_CLIENT_ID` and `TOSS_CLIENT_SECRET` are supported as compatible aliases.
+
 In Toss Securities WTS, create the Open API client and register an allowed outbound IP. Toss Securities blocks unregistered IPs. Vercel uses dynamic outbound IPs by default; use Vercel Static IPs or a separate server with a fixed egress IP before enabling this production connection.

@@ -90,8 +90,10 @@ function maskedAccountNumber(value: string | undefined) {
 }
 
 function configuration() {
-  const clientId = process.env.TOSSINVEST_CLIENT_ID?.trim();
-  const clientSecret = process.env.TOSSINVEST_CLIENT_SECRET?.trim();
+  // Keep the first integration's TOSS_CLIENT_* names compatible with the
+  // finance-specific aliases. Neither value is ever returned to the client.
+  const clientId = process.env.TOSSINVEST_CLIENT_ID?.trim() || process.env.TOSS_CLIENT_ID?.trim();
+  const clientSecret = process.env.TOSSINVEST_CLIENT_SECRET?.trim() || process.env.TOSS_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) {
     throw new TossInvestConfigurationError("Toss Securities is not configured. Add TOSSINVEST_CLIENT_ID and TOSSINVEST_CLIENT_SECRET on the server.");
   }
@@ -153,7 +155,10 @@ async function requestToss<T>(path: string, accountSequence?: number): Promise<T
 }
 
 export function isTossInvestConfigured() {
-  return Boolean(process.env.TOSSINVEST_CLIENT_ID?.trim() && process.env.TOSSINVEST_CLIENT_SECRET?.trim());
+  return Boolean(
+    (process.env.TOSSINVEST_CLIENT_ID?.trim() || process.env.TOSS_CLIENT_ID?.trim()) &&
+    (process.env.TOSSINVEST_CLIENT_SECRET?.trim() || process.env.TOSS_CLIENT_SECRET?.trim())
+  );
 }
 
 export async function getTossPortfolio(): Promise<TossPortfolio> {

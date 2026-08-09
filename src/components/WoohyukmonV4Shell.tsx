@@ -1,15 +1,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { BarChart3, Bot, BrainCircuit, FlaskConical, LayoutDashboard, LineChart, NotebookTabs, WalletCards } from "lucide-react";
+import { BarChart3, Bot, MessageSquare, ShieldCheck, WalletCards } from "lucide-react";
 
-const financeLinks = [
-  { href: "/v4/finance", label: "Overview", icon: LayoutDashboard },
-  { href: "/v4/finance/assets", label: "Assets", icon: WalletCards },
-  { href: "/v4/finance/trading-lab", label: "Trading Lab", icon: FlaskConical },
-  { href: "/v4/finance/paper-trading", label: "Paper Trading", icon: BarChart3 },
-  { href: "/v4/finance/live-experiment", label: "Live Experiment", icon: BrainCircuit },
-  { href: "/v4/finance/journal", label: "Trading Journal", icon: NotebookTabs },
-  { href: "/v4/finance/performance", label: "Performance", icon: LineChart }
+const workspaceLinks = [
+  { href: "/v4#toss-securities", label: "Toss Securities", icon: WalletCards },
+  { href: "/v4#trade-proposal", label: "Trade Proposal", icon: ShieldCheck },
+  { href: "/v4#performance", label: "Performance", icon: BarChart3 },
+  { href: "/v4#chat", label: "Chat", icon: MessageSquare }
 ];
 
 export function WoohyukmonV4Shell({ children }: { children: ReactNode }) {
@@ -27,22 +24,13 @@ export function WoohyukmonV4Shell({ children }: { children: ReactNode }) {
             </span>
           </Link>
 
-          <nav className="mt-7 grid gap-1" aria-label="WooHyukmon 4.0 navigation">
-            <Link href="/v4" className="rounded-lg px-3 py-2 text-sm font-semibold text-white/76 transition hover:bg-white/8 hover:text-white">
-              Dashboard
-            </Link>
-            <Link href="/v4/chat" className="rounded-lg px-3 py-2 text-sm font-semibold text-white/76 transition hover:bg-white/8 hover:text-white">
-              Developer Chat
-            </Link>
-          </nav>
-
           <div className="mt-8">
             <div className="flex items-center justify-between px-3">
-              <p className="text-[10px] font-bold tracking-[0.16em] text-white/38">FINANCE</p>
-              <span className="rounded-full border border-[#f7c76b]/30 bg-[#f7c76b]/10 px-2 py-0.5 text-[9px] font-bold text-[#f7c76b]">EXPERIMENTAL</span>
+              <p className="text-[10px] font-bold tracking-[0.16em] text-white/38">PRIVATE WORKSPACE</p>
+              <span className="rounded-full border border-[#f7c76b]/30 bg-[#f7c76b]/10 px-2 py-0.5 text-[9px] font-bold text-[#f7c76b]">READ ONLY</span>
             </div>
-            <nav className="mt-2 grid gap-1" aria-label="Finance navigation">
-              {financeLinks.map(({ href, icon: Icon, label }) => (
+            <nav className="mt-2 grid gap-1" aria-label="WooHyukmon 4.0 workspace">
+              {workspaceLinks.map(({ href, icon: Icon, label }) => (
                 <Link key={href} href={href} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white/72 transition hover:bg-white/8 hover:text-white">
                   <Icon aria-hidden className="h-4 w-4 text-[#f7c76b]" />
                   {label}

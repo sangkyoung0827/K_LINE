@@ -10,7 +10,11 @@ export class FinanceProviderError extends Error {
 export type FinanceLlmProvider = { generate: (prompt: string, signal: AbortSignal) => Promise<string> };
 
 function getProviderName() {
-  return process.env.FINANCE_LLM_PROVIDER?.trim().toLowerCase() || "";
+  const configured = process.env.FINANCE_LLM_PROVIDER?.trim() || process.env.AI_PROVIDER?.trim();
+  if (configured && ["gemini", "openai"].includes(configured.toLowerCase())) return configured.toLowerCase();
+  // WooHyukmon already uses the project-level Gemini credentials. Finance is
+  // private and server-only, so it can safely share that provider by default.
+  return process.env.FINANCE_GEMINI_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() ? "gemini" : "";
 }
 
 async function parseProviderResponse(response: Response) {
@@ -21,8 +25,8 @@ async function parseProviderResponse(response: Response) {
 export function getFinanceLlmProvider(): FinanceLlmProvider {
   const provider = getProviderName();
   if (provider === "gemini") {
-    const apiKey = process.env.FINANCE_GEMINI_API_KEY?.trim();
-    const model = process.env.FINANCE_GEMINI_MODEL?.trim() || "gemini-2.5-flash-lite";
+    const apiKey = process.env.FINANCE_GEMINI_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim();
+    const model = process.env.FINANCE_GEMINI_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash-lite";
     if (!apiKey) throw new FinanceProviderError("FINANCE_GEMINI_API_KEY is not configured.");
     return {
       async generate(prompt, signal) {
