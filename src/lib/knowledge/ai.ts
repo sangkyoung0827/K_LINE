@@ -147,8 +147,20 @@ export async function analyzeKnowledgeSource(input: {
   if (input.buffer && input.buffer.byteLength > 18 * 1024 * 1024) {
     throw new Error("Image is stored, but it is too large for the current vision analysis request.");
   }
-  const provider = configuredProvider();
-  const raw = provider === "openai" ? await analyzeWithOpenAI(input) : await analyzeWithGemini(input);
+  let provider = configuredProvider();
+  let raw: string;
+  if (provider === "openai") {
+    try {
+      raw = await analyzeWithOpenAI(input);
+    } catch (error) {
+      if (!process.env.GEMINI_API_KEY?.trim()) throw error;
+      console.warn("OpenAI knowledge analysis failed; retrying with Gemini.");
+      provider = "gemini";
+      raw = await analyzeWithGemini(input);
+    }
+  } else {
+    raw = await analyzeWithGemini(input);
+  }
   return { analysis: normalizeAnalysis(parseJsonObject(raw), input.text || input.name), provider };
 }
 
@@ -193,7 +205,14 @@ async function embedWithGemini(texts: string[]): Promise<EmbeddingBatch> {
 
 export async function embedKnowledgeTexts(texts: string[]) {
   if (texts.length === 0) return { model: "", provider: configuredProvider(), vectors: [] } as EmbeddingBatch;
-  return configuredProvider() === "openai" ? embedWithOpenAI(texts) : embedWithGemini(texts);
+  if (configuredProvider() === "gemini") return embedWithGemini(texts);
+  try {
+    return await embedWithOpenAI(texts);
+  } catch (error) {
+    if (!process.env.GEMINI_API_KEY?.trim()) throw error;
+    console.warn("OpenAI knowledge embedding failed; retrying with Gemini.");
+    return embedWithGemini(texts);
+  }
 }
 
 export async function embedKnowledgeQuery(text: string) {
