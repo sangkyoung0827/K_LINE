@@ -115,7 +115,7 @@ async function analyzeWithGemini(input: {
 }) {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) throw new Error("GEMINI_API_KEY is missing.");
-  const model = process.env.WOOHYUKMON_KNOWLEDGE_MODEL?.trim() || "gemini-2.5-flash-lite";
+  const model = process.env.WOOHYUKMON_KNOWLEDGE_MODEL?.trim() || "gemini-3.5-flash-lite";
   const parts: Array<Record<string, unknown>> = [{ text: knowledgeAnalysisPrompt(input.name, input.text) }];
   if (input.buffer && input.mimeType?.startsWith("image/")) {
     parts.push({ inlineData: { data: input.buffer.toString("base64"), mimeType: input.mimeType } });
@@ -127,7 +127,7 @@ async function analyzeWithGemini(input: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts, role: "user" }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+        generationConfig: { responseMimeType: "application/json" }
       })
     }
   );
