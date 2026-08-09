@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, Eye, Globe2, MessageSquareText, Settings, ShieldCheck, UserCheck } from "lucide-react";
+import { BarChart3, Eye, FlaskConical, Globe2, MessageSquareText, Settings, ShieldCheck, UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type SiteAnalyticsMember = {
@@ -139,7 +139,7 @@ export function DeveloperDashboard() {
       <section className="bg-white/55 py-10 md:py-14">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <h2 className="font-serif text-3xl font-semibold text-ink">Developer Menu</h2>
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <DeveloperMenuCard
               href="/developer/feedback"
               icon={<MessageSquareText aria-hidden className="h-5 w-5" />}
@@ -157,6 +157,12 @@ export function DeveloperDashboard() {
               icon={<ShieldCheck aria-hidden className="h-5 w-5" />}
               title="Role Acquisition Account Info"
               description="Open ECC permission management with developer-only account details."
+            />
+            <DeveloperMenuCard
+              href="/v4"
+              icon={<FlaskConical aria-hidden className="h-5 w-5" />}
+              title="WooHyukmon 4.0"
+              description="Open the private developer finance control plane in experimental Paper mode."
             />
           </div>
         </div>

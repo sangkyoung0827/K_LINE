@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "verify:browser-metadata": "node scripts/verify-browser-metadata.mjs",
-    "test": "npm run typecheck && npm run verify:browser-metadata",
+    "check:v4-isolation": "node scripts/check-v4-isolation.mjs",
+    "test": "npm run typecheck && npm run verify:browser-metadata && npm run check:v4-isolation",
     "check": "npm run test && npm run build"
   },
   "dependencies": {
