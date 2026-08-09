@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { BarChart3, BrainCircuit, FlaskConical, LayoutDashboard, LineChart, NotebookTabs, WalletCards } from "lucide-react";
+import { BarChart3, Bot, BrainCircuit, FlaskConical, LayoutDashboard, LineChart, NotebookTabs, WalletCards } from "lucide-react";
 
 const financeLinks = [
   { href: "/v4/finance", label: "Overview", icon: LayoutDashboard },
@@ -18,8 +18,8 @@ export function WoohyukmonV4Shell({ children }: { children: ReactNode }) {
       <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-[1720px] lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="border-b border-white/10 bg-[#171b1d] p-5 lg:border-b-0 lg:border-r">
           <Link href="/v4" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-[#101112]">
-              <img src="/images/k-line-official-logo.png" alt="" className="h-full w-full object-cover" />
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#101112] text-[#f7c76b]" aria-hidden>
+              <Bot className="h-5 w-5" strokeWidth={2.2} />
             </span>
             <span>
               <span className="block text-sm font-bold tracking-wide">WOOHYUKMON 4.0</span>
