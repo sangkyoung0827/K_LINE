@@ -16,6 +16,14 @@ function storageHeaders(contentType?: string) {
 
 export async function ensureKnowledgeBucket() {
   const config = getSupabaseConfig();
+  const bucketUrl = `${config.url}/storage/v1/bucket/${encodeURIComponent(knowledgeBucket)}`;
+  const existing = await fetch(bucketUrl, { headers: storageHeaders() });
+
+  if (existing.ok) return;
+  if (existing.status !== 404) {
+    throw new Error(`Knowledge bucket could not be checked: ${await existing.text()}`);
+  }
+
   const response = await fetch(`${config.url}/storage/v1/bucket`, {
     method: "POST",
     headers: storageHeaders("application/json"),
@@ -27,9 +35,12 @@ export async function ensureKnowledgeBucket() {
     })
   });
 
-  if (!response.ok && response.status !== 409) {
-    throw new Error(`Knowledge bucket could not be prepared: ${await response.text()}`);
-  }
+  if (response.ok) return;
+
+  const errorBody = await response.text();
+  if (response.status === 409 || errorBody.includes("BucketAlreadyExists")) return;
+
+  throw new Error(`Knowledge bucket could not be prepared: ${errorBody}`);
 }
 
 export async function createKnowledgeSignedUpload(path: string) {
