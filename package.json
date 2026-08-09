@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "toss:bridge": "node tools/toss-local-bridge.mjs",
     "typecheck": "tsc --noEmit",
     "check:v4-isolation": "node scripts/check-v4-isolation.mjs",
     "test": "npm run typecheck"

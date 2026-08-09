@@ -738,7 +738,18 @@ https://kline-nine-wheat.vercel.app/contact
 
 WooHyukmon 4.0 can show a developer-only, read-only Toss Securities portfolio and create manual research proposals. It never sends orders or conditional orders.
 
-Configure these Vercel server environment variables. Never prefix them with `NEXT_PUBLIC_` and never commit or share their values:
+The production dashboard now uses a **registered-MacBook local bridge**. It never calls Toss from Vercel and never sends brokerage credentials to the browser. Do not put Toss credentials in Vercel for this mode.
+
+On the MacBook whose public IP is registered in Toss WTS:
+
+1. Copy `.toss-local.env.example` to `.toss-local.env`.
+2. Add only the existing Toss `TOSS_CLIENT_ID` and `TOSS_CLIENT_SECRET` values to that ignored local file.
+3. Run `npm run toss:bridge` and keep that terminal session running.
+4. In the same MacBook browser, sign in as the developer and open `/v4`. Use **Refresh** in the Toss Securities panel.
+
+The bridge binds only to `127.0.0.1:45821`, provides only `GET /health` and `GET /portfolio`, and has no order, transfer, or conditional-order endpoint. It accepts browser requests only from the K_LINE production origin. If the home or office public IP changes, update the Toss WTS allowlist before refreshing the dashboard.
+
+The local bridge reads these values from `.toss-local.env`. Never prefix them with `NEXT_PUBLIC_` and never commit or share their values:
 
 ```text
 TOSSINVEST_CLIENT_ID=
@@ -747,6 +758,4 @@ TOSSINVEST_CLIENT_SECRET=
 TOSSINVEST_ACCOUNT_SEQ=
 ```
 
-Existing projects that already use `TOSS_CLIENT_ID` and `TOSS_CLIENT_SECRET` are supported as compatible aliases.
-
-In Toss Securities WTS, create the Open API client and register an allowed outbound IP. Toss Securities blocks unregistered IPs. Vercel uses dynamic outbound IPs by default; use Vercel Static IPs or a separate server with a fixed egress IP before enabling this production connection.
+Existing projects that already use `TOSS_CLIENT_ID` and `TOSS_CLIENT_SECRET` are supported as compatible aliases. In Toss Securities WTS, retain the registered MacBook network public IP. Toss blocks calls from an unregistered IP.

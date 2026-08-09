@@ -27,6 +27,8 @@ type Portfolio = {
 };
 type PortfolioResponse = { state: "ready" | "not_configured" | "unavailable"; message?: string; portfolio?: Portfolio };
 
+const LOCAL_TOSS_BRIDGE = "http://127.0.0.1:45821";
+
 const emptyOverview: Overview = { experimentalCapitalKrw: 100000, mode: "PAPER", metrics: [] };
 
 function chartPath(candles: Array<{ c: number }>) {
@@ -56,9 +58,13 @@ function symbolFromRequest(value: string) {
   return match?.[1] ?? "";
 }
 
-function analysisAnswer(message: string, analysis: Analysis | null, overview: Overview) {
+function analysisAnswer(message: string, analysis: Analysis | null, overview: Overview, portfolio: Portfolio | null) {
   const normalized = message.toLowerCase();
   if (/계좌|자산|성과|portfolio|performance|p&l|수익/.test(normalized)) {
+    if (portfolio) {
+      const totalReturn = `${formatMoney(portfolio.totals.profitLoss.krw, "KRW")}${portfolio.totals.profitLoss.usd ? ` / ${formatMoney(portfolio.totals.profitLoss.usd, "USD")}` : ""}`;
+      return `Toss Securities local snapshot: ${portfolio.holdings.length} positions. Portfolio value: ${portfolioValue(portfolio)}. Unrealized P&L: ${totalReturn}. This is read-only data from this MacBook.`;
+    }
     return `Experiment capital is ₩${new Intl.NumberFormat("ko-KR").format(overview.experimentalCapitalKrw)}. No verified assets, positions, P&L, or performance data has been recorded yet.`;
   }
   if (!analysis) return "There is no saved analysis yet. Name a symbol, for example: NVDA 분석해줘.";
@@ -103,17 +109,28 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
   const [error, setError] = useState("");
 
   const loadData = async () => {
-    const [overviewResponse, historyResponse, portfolioResponse] = await Promise.all([fetch("/api/v4/finance/overview"), fetch("/api/v4/finance/history"), fetch("/api/v4/finance/portfolio")]);
+    const localPortfolioRequest: Promise<{ ok: boolean; data: PortfolioResponse }> = fetch(`${LOCAL_TOSS_BRIDGE}/portfolio`, { cache: "no-store" })
+      .then(async (response) => ({ ok: response.ok, data: await response.json() as PortfolioResponse }))
+      .catch(() => ({ ok: false, data: { state: "unavailable", message: "This MacBook's local Toss bridge is not running." } }));
+    const [overviewResponse, historyResponse, portfolioResult] = await Promise.all([
+      fetch("/api/v4/finance/overview"),
+      fetch("/api/v4/finance/history"),
+      localPortfolioRequest
+    ]);
     if (overviewResponse.ok) setOverview(await overviewResponse.json() as Overview);
     if (historyResponse.ok) {
       const data = await historyResponse.json() as { data?: HistoryItem[] };
       setHistory(data.data ?? []);
     }
-    if (portfolioResponse.ok) {
-      const data = await portfolioResponse.json() as PortfolioResponse;
+    if (portfolioResult.ok) {
+      const data = portfolioResult.data;
       setPortfolioState(data.state);
       setPortfolio(data.portfolio ?? null);
       setPortfolioMessage(data.message ?? "");
+    } else {
+      setPortfolioState("unavailable");
+      setPortfolio(null);
+      setPortfolioMessage(portfolioResult.data.message ?? "This MacBook's local Toss bridge is not running.");
     }
   };
 
@@ -135,11 +152,11 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
     if (loading) return;
     setLoading(true); setError("");
     try {
-      const response = await fetch("/api/v4/finance/portfolio/proposal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol }) });
-      const data = await response.json() as { analysis?: Analysis; portfolio?: Portfolio; proposal?: { message?: string; positionContext?: string }; error?: string };
+      const holding = portfolio?.holdings.find((item) => item.symbol.toUpperCase() === symbol.toUpperCase());
+      const response = await fetch("/api/v4/finance/portfolio/proposal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, position: holding ? { name: holding.name, symbol: holding.symbol, quantity: holding.quantity, allocationPercent: holding.allocationPercent } : null }) });
+      const data = await response.json() as { analysis?: Analysis; proposal?: { message?: string; positionContext?: string }; error?: string };
       if (!response.ok || !data.analysis) throw new Error(data.error || "Portfolio research could not run.");
       setSelected(data.analysis);
-      if (data.portfolio) { setPortfolio(data.portfolio); setPortfolioState("ready"); }
       setHistory((current) => [{ id: data.analysis!.id, symbol: data.analysis!.symbol, createdAt: data.analysis!.createdAt, summary: data.analysis!.summary }, ...current.filter((item) => item.id !== data.analysis!.id)].slice(0, 8));
       setLines((current) => [...current, { role: "assistant", content: `${data.proposal?.positionContext ?? ""}\n\n${data.proposal?.message ?? "Manual review only."}\n\n${data.analysis!.summary}`.trim() }]);
     } catch (requestError) {
@@ -161,7 +178,7 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
         setSelected(data); setHistory((current) => [{ id: data.id, symbol: data.symbol, createdAt: data.createdAt, summary: data.summary }, ...current.filter((item) => item.id !== data.id)].slice(0, 8));
         setLines((current) => [...current, { role: "assistant", content: data.summary }]);
       } else if (/계좌|자산|성과|portfolio|performance|p&l|수익|bear|위험|risk|하락|리스크|왜|why|buy|sell|hold|판단|decision|최근 분석|recent analysis/i.test(message)) {
-        setLines((current) => [...current, { role: "assistant", content: analysisAnswer(message, selected, overview) }]);
+        setLines((current) => [...current, { role: "assistant", content: analysisAnswer(message, selected, overview, portfolio) }]);
       } else {
         const response = await fetch("/api/gemini", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, history: lines.slice(-6) }) });
         if (!response.ok) throw new Error("Woohyukmon could not answer.");
@@ -197,7 +214,7 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
             <Metric label="Total return" value={portfolio ? `${formatMoney(portfolio.totals.profitLoss.krw, "KRW")}${portfolio.totals.profitLoss.usd ? ` / ${formatMoney(portfolio.totals.profitLoss.usd, "USD")}` : ""}` : "—"} note={portfolio?.totals.profitLoss.rate != null ? `${(portfolio.totals.profitLoss.rate * 100).toFixed(2)}% reported return` : "No account data"} />
             <Metric label="Today" value={portfolio ? `${formatMoney(portfolio.totals.dailyProfitLoss.krw, "KRW")}${portfolio.totals.dailyProfitLoss.usd ? ` / ${formatMoney(portfolio.totals.dailyProfitLoss.usd, "USD")}` : ""}` : "—"} note="Broker-reported daily result" />
           </div>
-          {portfolio?.holdings.length ? <div className="mt-4 divide-y divide-white/10 border-y border-white/10">{portfolio.holdings.map((holding) => <div key={`${holding.currency}-${holding.symbol}`} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold text-white">{holding.name} <span className="text-white/45">{holding.symbol}</span></p><p className="mt-1 text-xs text-white/48">{holding.quantity.toLocaleString()} shares · {holding.allocationPercent?.toFixed(1) ?? "—"}% allocation · {formatMoney(holding.marketValue, holding.currency)}</p></div><div className="flex items-center gap-3"><p className={`text-xs font-semibold ${holding.profitLoss >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{holding.profitLoss >= 0 ? "+" : ""}{formatMoney(holding.profitLoss, holding.currency)} {holding.profitLossRate !== null ? `(${(holding.profitLossRate * 100).toFixed(1)}%)` : ""}</p><button type="button" onClick={() => void runPortfolioProposal(holding.symbol)} disabled={loading} className="h-8 border border-white/20 px-3 text-xs font-bold text-white/80 transition hover:border-[#f7c76b]/60 hover:text-[#f7c76b] disabled:opacity-50">Research proposal</button></div></div>)}</div> : <Empty label={portfolioState === "ready" ? "No stock holdings were returned by the connected account." : "Add your Toss Securities server environment variables, then refresh this private dashboard."} />}
+          {portfolio?.holdings.length ? <div className="mt-4 divide-y divide-white/10 border-y border-white/10">{portfolio.holdings.map((holding) => <div key={`${holding.currency}-${holding.symbol}`} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold text-white">{holding.name} <span className="text-white/45">{holding.symbol}</span></p><p className="mt-1 text-xs text-white/48">{holding.quantity.toLocaleString()} shares · {holding.allocationPercent?.toFixed(1) ?? "—"}% allocation · {formatMoney(holding.marketValue, holding.currency)}</p></div><div className="flex items-center gap-3"><p className={`text-xs font-semibold ${holding.profitLoss >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{holding.profitLoss >= 0 ? "+" : ""}{formatMoney(holding.profitLoss, holding.currency)} {holding.profitLossRate !== null ? `(${(holding.profitLossRate * 100).toFixed(1)}%)` : ""}</p><button type="button" onClick={() => void runPortfolioProposal(holding.symbol)} disabled={loading} className="h-8 border border-white/20 px-3 text-xs font-bold text-white/80 transition hover:border-[#f7c76b]/60 hover:text-[#f7c76b] disabled:opacity-50">Research proposal</button></div></div>)}</div> : <Empty label={portfolioState === "ready" ? "No stock holdings were returned by the connected account." : "Start this MacBook's local Toss bridge, then refresh this private dashboard."} />}
         </Panel>
       </section>
       <section id="trade-proposal" className="mt-4 grid scroll-mt-8 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
