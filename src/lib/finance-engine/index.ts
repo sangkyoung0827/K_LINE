@@ -3,7 +3,10 @@ export { calculatePositionSize, defaultRiskPolicy } from "@/lib/finance-engine/r
 export { defaultStrategyVersion } from "@/lib/finance-engine/strategy";
 export { handleFinanceChatIntent } from "@/lib/finance-engine/chat";
 export { financeAuditEventTypes } from "@/lib/finance-engine/audit";
+export { financeJobLimits, runBoundedFinanceJob } from "@/lib/finance-engine/jobs";
+export { isValidFinanceSymbol, normalizeFinanceSymbol } from "@/lib/finance-engine/validation";
 export type { FinanceAuditEvent, FinanceAuditEventType } from "@/lib/finance-engine/audit";
+export { FinanceJobCapacityError, FinanceJobTimeoutError } from "@/lib/finance-engine/jobs";
 export type { FinanceChatIntent } from "@/lib/finance-engine/chat";
 export type { StrategyVersion } from "@/lib/finance-engine/strategy";
 export type * from "@/lib/finance-engine/types";
