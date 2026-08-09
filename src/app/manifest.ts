@@ -12,15 +12,15 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#1F2A44",
     icons: [
       {
-        src: "/images/k-line-official-logo.png",
-        sizes: "422x386",
-        type: "image/png",
+        src: "/favicon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
         purpose: "any"
       },
       {
-        src: "/images/k-line-official-logo.png",
-        sizes: "422x386",
-        type: "image/png",
+        src: "/k-line-mark.svg",
+        sizes: "512x512",
+        type: "image/svg+xml",
         purpose: "maskable"
       }
     ]
