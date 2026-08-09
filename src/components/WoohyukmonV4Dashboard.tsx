@@ -15,6 +15,17 @@ type Analysis = {
 type Overview = { experimentalCapitalKrw: number; metrics: Array<{ key: string; label: string; value: number | null; format: string }>; mode: "PAPER" };
 type ChatLine = { role: "user" | "assistant"; content: string };
 type HistoryItem = Pick<Analysis, "createdAt" | "id" | "summary" | "symbol">;
+type Portfolio = {
+  account: { maskedNumber: string | null; sequence: number; type: string };
+  asOf: string;
+  totals: {
+    marketValue: { krw: number; usd: number };
+    profitLoss: { krw: number; usd: number; rate: number | null };
+    dailyProfitLoss: { krw: number; usd: number; rate: number | null };
+  };
+  holdings: Array<{ symbol: string; name: string; currency: "KRW" | "USD"; quantity: number; marketValue: number; profitLoss: number; profitLossRate: number | null; allocationPercent: number | null }>;
+};
+type PortfolioResponse = { state: "ready" | "not_configured" | "unavailable"; message?: string; portfolio?: Portfolio };
 
 const emptyOverview: Overview = { experimentalCapitalKrw: 100000, mode: "PAPER", metrics: [] };
 
@@ -22,6 +33,18 @@ function chartPath(candles: Array<{ c: number }>) {
   if (candles.length < 2) return "";
   const values = candles.map(({ c }) => c); const minimum = Math.min(...values); const maximum = Math.max(...values); const range = maximum - minimum || 1;
   return values.map((value, index) => `${index ? "L" : "M"}${(index / (values.length - 1)) * 100} ${72 - ((value - minimum) / range) * 58}`).join(" ");
+}
+
+function formatMoney(value: number, currency: "KRW" | "USD") {
+  return new Intl.NumberFormat("ko-KR", { style: "currency", currency, maximumFractionDigits: currency === "KRW" ? 0 : 2 }).format(value);
+}
+
+function portfolioValue(portfolio: Portfolio | null) {
+  if (!portfolio) return "—";
+  const values = [];
+  if (portfolio.totals.marketValue.krw) values.push(formatMoney(portfolio.totals.marketValue.krw, "KRW"));
+  if (portfolio.totals.marketValue.usd) values.push(formatMoney(portfolio.totals.marketValue.usd, "USD"));
+  return values.join(" + ") || formatMoney(0, "KRW");
 }
 
 function symbolFromRequest(value: string) {
@@ -71,17 +94,26 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
   const [overview, setOverview] = useState<Overview>(emptyOverview);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [selected, setSelected] = useState<Analysis | null>(null);
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [portfolioState, setPortfolioState] = useState<PortfolioResponse["state"]>("not_configured");
+  const [portfolioMessage, setPortfolioMessage] = useState("");
   const [input, setInput] = useState("");
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const loadData = async () => {
-    const [overviewResponse, historyResponse] = await Promise.all([fetch("/api/v4/finance/overview"), fetch("/api/v4/finance/history")]);
+    const [overviewResponse, historyResponse, portfolioResponse] = await Promise.all([fetch("/api/v4/finance/overview"), fetch("/api/v4/finance/history"), fetch("/api/v4/finance/portfolio")]);
     if (overviewResponse.ok) setOverview(await overviewResponse.json() as Overview);
     if (historyResponse.ok) {
       const data = await historyResponse.json() as { data?: HistoryItem[] };
       setHistory(data.data ?? []);
+    }
+    if (portfolioResponse.ok) {
+      const data = await portfolioResponse.json() as PortfolioResponse;
+      setPortfolioState(data.state);
+      setPortfolio(data.portfolio ?? null);
+      setPortfolioMessage(data.message ?? "");
     }
   };
 
@@ -96,6 +128,24 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
       setSelected(data.data);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Saved analysis could not load.");
+    }
+  };
+
+  const runPortfolioProposal = async (symbol: string) => {
+    if (loading) return;
+    setLoading(true); setError("");
+    try {
+      const response = await fetch("/api/v4/finance/portfolio/proposal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol }) });
+      const data = await response.json() as { analysis?: Analysis; portfolio?: Portfolio; proposal?: { message?: string; positionContext?: string }; error?: string };
+      if (!response.ok || !data.analysis) throw new Error(data.error || "Portfolio research could not run.");
+      setSelected(data.analysis);
+      if (data.portfolio) { setPortfolio(data.portfolio); setPortfolioState("ready"); }
+      setHistory((current) => [{ id: data.analysis!.id, symbol: data.analysis!.symbol, createdAt: data.analysis!.createdAt, summary: data.analysis!.summary }, ...current.filter((item) => item.id !== data.analysis!.id)].slice(0, 8));
+      setLines((current) => [...current, { role: "assistant", content: `${data.proposal?.positionContext ?? ""}\n\n${data.proposal?.message ?? "Manual review only."}\n\n${data.analysis!.summary}`.trim() }]);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Portfolio research could not run.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -139,7 +189,7 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
         <span className="rounded-full border border-[#f7c76b]/30 bg-[#f7c76b]/10 px-3 py-1.5 text-xs font-bold text-[#f7c76b]">EXPERIMENTAL / PAPER</span>
       </div>
       <section className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Total Assets" value="—" note="No data yet" /><Metric label="Experiment Capital" value={`₩${new Intl.NumberFormat("ko-KR").format(overview.experimentalCapitalKrw)}`} note="Configured research baseline" /><Metric label="Today P&L" value="—" note="No data yet" /><Metric label="Portfolio Value" value="—" note="No data yet" />
+        <Metric label="Connected Assets" value={portfolioValue(portfolio)} note={portfolioState === "ready" ? "Toss Securities read-only data" : "No account data connected"} /><Metric label="Experiment Capital" value={`₩${new Intl.NumberFormat("ko-KR").format(overview.experimentalCapitalKrw)}`} note="Configured research baseline" /><Metric label="Today P&L" value={portfolio ? `${formatMoney(portfolio.totals.dailyProfitLoss.krw, "KRW")}${portfolio.totals.dailyProfitLoss.usd ? ` / ${formatMoney(portfolio.totals.dailyProfitLoss.usd, "USD")}` : ""}` : "—"} note={portfolio ? "Reported by broker" : "No account data connected"} /><Metric label="Portfolio Value" value={portfolioValue(portfolio)} note={portfolio ? `${portfolio.holdings.length} held positions` : "No account data connected"} />
       </section>
       <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.9fr)]">
         <Panel title={selected ? `${selected.marketSnapshot.display} market chart` : "Portfolio / market chart"} icon={BarChart3}>
@@ -155,6 +205,18 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
         <Panel title="Bull / bear debate" icon={BrainCircuit}>{analysisAgents.filter((agent) => agent.name === "BULL" || agent.name === "BEAR").length ? <div className="grid gap-2">{analysisAgents.filter((agent) => agent.name === "BULL" || agent.name === "BEAR").map((agent) => <button type="button" key={`${agent.id}-${agent.turn ?? 0}`} onClick={() => setLines((current) => [...current, { role: "assistant", content: `${agent.name} turn ${agent.turn ?? ""}: ${agent.report}` }])} className="border border-white/10 bg-black/10 p-3 text-left transition hover:border-[#f7c76b]/50"><span className="text-xs font-bold text-[#f7c76b]">{agent.name} / TURN {agent.turn ?? "—"}</span><p className="mt-1 line-clamp-2 text-xs leading-5 text-white/64">{agent.bubble}</p></button>)}</div> : <Empty label="Debate appears after analysis." />}</Panel>
         <Panel title="Risk review" icon={ShieldCheck}>{selected?.riskReview.length ? <div className="grid gap-2">{selected.riskReview.map((agent) => <div key={agent.name} className="border border-white/10 bg-black/10 p-3"><p className="text-xs font-bold text-[#f7c76b]">{agent.name}</p><p className="mt-1 text-xs leading-5 text-white/62">{agent.bubble}</p></div>)}</div> : <Empty label="No risk review yet." />}</Panel>
         <Panel title="Recent analysis" icon={Activity}>{history.length ? <div className="grid gap-2">{history.map((analysis) => <button key={analysis.id} type="button" onClick={() => void selectHistory(analysis.id)} className="flex items-center justify-between border border-white/10 bg-black/10 p-3 text-left transition hover:border-[#f7c76b]/50"><span><strong className="text-sm text-white">{analysis.symbol}</strong><span className="ml-2 line-clamp-1 text-xs text-white/44">{analysis.summary}</span></span><span className="text-xs text-white/42">{new Date(analysis.createdAt).toLocaleDateString()}</span></button>)}</div> : <Empty label="Analysis history is empty." />}</Panel>
+      </section>
+      <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+        <Panel title="Connected portfolio" icon={BarChart3}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs leading-5 text-white/48">{portfolioState === "ready" && portfolio ? `Read-only Toss Securities data · ${portfolio.account.type} ${portfolio.account.maskedNumber ?? ""} · updated ${new Date(portfolio.asOf).toLocaleString()}` : portfolioMessage || "Toss Securities has not been connected."}</p>
+            <button type="button" onClick={() => void loadData()} disabled={loading} className="h-8 border border-[#f7c76b]/45 px-3 text-xs font-bold text-[#f7c76b] transition hover:bg-[#f7c76b]/10 disabled:opacity-50">Refresh</button>
+          </div>
+          {portfolio?.holdings.length ? <div className="mt-4 divide-y divide-white/10 border-y border-white/10">{portfolio.holdings.map((holding) => <div key={`${holding.currency}-${holding.symbol}`} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold text-white">{holding.name} <span className="text-white/45">{holding.symbol}</span></p><p className="mt-1 text-xs text-white/48">{holding.quantity.toLocaleString()} shares · {holding.allocationPercent?.toFixed(1) ?? "—"}% allocation · {formatMoney(holding.marketValue, holding.currency)}</p></div><div className="flex items-center gap-3"><p className={`text-xs font-semibold ${holding.profitLoss >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{holding.profitLoss >= 0 ? "+" : ""}{formatMoney(holding.profitLoss, holding.currency)} {holding.profitLossRate !== null ? `(${(holding.profitLossRate * 100).toFixed(1)}%)` : ""}</p><button type="button" onClick={() => void runPortfolioProposal(holding.symbol)} disabled={loading} className="h-8 border border-white/20 px-3 text-xs font-bold text-white/80 transition hover:border-[#f7c76b]/60 hover:text-[#f7c76b] disabled:opacity-50">Research proposal</button></div></div>)}</div> : <Empty label={portfolioState === "ready" ? "No stock holdings were returned by the connected account." : "Add your Toss Securities server environment variables, then refresh this private dashboard."} />}
+        </Panel>
+        <Panel title="Manual trade review" icon={ShieldCheck}>
+          {selected ? <div><p className="text-2xl font-bold text-[#f7c76b]">{selected.decision.action}</p><p className="mt-2 text-xs leading-5 text-white/62">{selected.symbol} · {selected.decision.sizing}</p><p className="mt-4 text-sm leading-6 text-white/68">{selected.decision.rationale}</p><p className="mt-5 border-t border-white/10 pt-4 text-xs leading-5 text-white/45">No order was sent to Toss Securities. Review the analysis and place any trade yourself in the Toss Securities app.</p></div> : <Empty label="Choose a holding to create a research proposal. It never sends an order." />}
+        </Panel>
       </section>
       <section className="mt-4"><WorkspaceChat lines={lines} loading={loading} input={input} setInput={setInput} submit={submit} error={error} /></section>
     </main>

@@ -734,3 +734,17 @@ https://kline-nine-wheat.vercel.app/contact
 
 7. Confirm Google can crawl the site by checking URL Inspection, robots.txt status, and sitemap status.
 8. Do not submit private routes such as `/admin`, `/login`, `/api/*`, `/developer/*`, or role-management/action pages.
+# Private Toss Securities portfolio connection
+
+WooHyukmon 4.0 can show a developer-only, read-only Toss Securities portfolio and create manual research proposals. It never sends orders or conditional orders.
+
+Configure these Vercel server environment variables. Never prefix them with `NEXT_PUBLIC_` and never commit or share their values:
+
+```text
+TOSSINVEST_CLIENT_ID=
+TOSSINVEST_CLIENT_SECRET=
+# Optional. When omitted, the first eligible brokerage account is used.
+TOSSINVEST_ACCOUNT_SEQ=
+```
+
+In Toss Securities WTS, create the Open API client and register an allowed outbound IP. Toss Securities blocks unregistered IPs. Vercel uses dynamic outbound IPs by default; use Vercel Static IPs or a separate server with a fixed egress IP before enabling this production connection.
