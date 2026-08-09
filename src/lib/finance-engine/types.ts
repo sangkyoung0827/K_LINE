@@ -28,10 +28,68 @@ export type FinanceOverview = {
   state: "empty";
 };
 
+export type FinanceAgentId = "taro" | "diana" | "nova" | "vibe" | "bull" | "bear" | "ace" | "risky" | "safe" | "neutral" | "pm";
+
+export type FinanceCandle = { t: number; o: number; h: number; l: number; c: number; v: number };
+
+export type FinanceIndicators = {
+  changePct24h: number;
+  high20: number;
+  low20: number;
+  macd: number;
+  macdSignal: number;
+  price: number;
+  rsi14: number | null;
+  sma20: number | null;
+  sma50: number | null;
+  summaryLines: string[];
+  volatilityPct: number;
+};
+
+export type FinanceMarketSnapshot = {
+  candles: FinanceCandle[];
+  display: string;
+  fundamentals: string[];
+  headlines: string[];
+  indicators: FinanceIndicators;
+  kind: "crypto" | "stock" | "krstock";
+  priceLine: string;
+  sentiment: string[];
+  symbol: string;
+};
+
+export type FinanceAgentResult = {
+  bubble: string;
+  id: FinanceAgentId;
+  name: string;
+  report: string;
+  turn?: number;
+};
+
+export type FinanceDecision = {
+  action: "BUY" | "SELL" | "HOLD";
+  confidence: number | null;
+  entry: string;
+  rationale: string;
+  sizing: string;
+  stop: string;
+  target: string;
+  verdict: "APPROVE" | "AMEND" | "REJECT" | "UNAVAILABLE";
+};
+
 export type FinanceAnalysis = {
-  message: string;
-  mode: FinanceMode;
-  state: "not_configured";
+  agentResults: FinanceAgentResult[];
+  createdAt: string;
+  decision: FinanceDecision;
+  id: string;
+  marketSnapshot: FinanceMarketSnapshot;
+  mode: "PAPER";
+  persistence: "saved" | "unavailable";
+  rawOutputs: Record<string, unknown>;
+  riskReview: FinanceAgentResult[];
+  state: "complete";
+  strategyVersion: string;
+  summary: string;
   symbol: string;
 };
 

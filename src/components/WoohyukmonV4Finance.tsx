@@ -58,9 +58,9 @@ export function WoohyukmonV4Finance({ page }: { page: FinancePage }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbol })
       });
-      const data = (await response.json()) as { message?: string; error?: string };
+      const data = (await response.json()) as { message?: string; summary?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Finance request could not be completed.");
-      setMessage(data.message || "No data yet.");
+      setMessage(data.summary || data.message || "No data yet.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Finance request could not be completed.");
     } finally {
@@ -174,4 +174,3 @@ function StatusCard({ icon: Icon, note, title, value }: { icon: typeof WalletCar
     </div>
   );
 }
-

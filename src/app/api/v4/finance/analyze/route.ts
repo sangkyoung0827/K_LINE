@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { FinanceJobCapacityError, FinanceJobTimeoutError, financeEngine, isValidFinanceSymbol, normalizeFinanceSymbol, runBoundedFinanceJob } from "@/lib/finance-engine";
+import { FinanceJobCapacityError, FinanceJobTimeoutError, FinanceMarketDataError, FinanceProviderError, financeEngine, isValidFinanceSymbol, normalizeFinanceSymbol, runBoundedFinanceJob } from "@/lib/finance-engine";
 import { requireWoohyukmonV4DeveloperApi } from "@/lib/woohyukmon-v4-api";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +16,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    return NextResponse.json(await runBoundedFinanceJob(() => financeEngine.analyze(symbol)));
+    return NextResponse.json(await runBoundedFinanceJob(({ signal }) => financeEngine.analyze(symbol, signal)));
   } catch (error) {
     if (error instanceof FinanceJobCapacityError) return NextResponse.json({ error: error.message }, { status: 429 });
     if (error instanceof FinanceJobTimeoutError) return NextResponse.json({ error: error.message }, { status: 504 });
+    if (error instanceof FinanceMarketDataError) return NextResponse.json({ error: "Market data is temporarily unavailable." }, { status: 502 });
+    if (error instanceof FinanceProviderError) return NextResponse.json({ error: "Finance AI provider is temporarily unavailable." }, { status: 502 });
+    console.error("Finance analysis request failed", error instanceof Error ? error.message : "unknown error");
     return NextResponse.json({ error: "Finance analysis is temporarily unavailable." }, { status: 503 });
   }
 }

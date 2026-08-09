@@ -5,5 +5,5 @@ export function normalizeFinanceSymbol(value: unknown) {
 }
 
 export function isValidFinanceSymbol(symbol: string) {
-  return /^[A-Z0-9.-]{1,12}$/.test(symbol);
+  return /^[0-9A-Za-z가-힣 .-]{1,20}$/.test(symbol.trim());
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import { PaperBroker, RealBroker } from "@/lib/finance-engine/broker";
 import { defaultRiskPolicy } from "@/lib/finance-engine/risk";
+import { runOriginalAlgorithmPort } from "@/lib/finance-engine/analysis";
 import type { FinanceAnalysis, FinanceOverview, PaperTradeProposal } from "@/lib/finance-engine/types";
 
 export const financeEngine = {
@@ -34,13 +35,8 @@ export const financeEngine = {
     };
   },
 
-  analyze(symbol: string): FinanceAnalysis {
-    return {
-      symbol,
-      mode: "PAPER",
-      state: "not_configured",
-      message: "Market data and analysis agents are not connected in Phase 1. No market decision has been generated."
-    };
+  analyze(symbol: string, signal: AbortSignal): Promise<FinanceAnalysis> {
+    return runOriginalAlgorithmPort(symbol, signal);
   },
 
   createPaperTradeProposal(symbol: string): PaperTradeProposal {

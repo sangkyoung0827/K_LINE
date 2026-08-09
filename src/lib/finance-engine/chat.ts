@@ -8,8 +8,8 @@ export type FinanceChatIntent =
   | { kind: "paperTradeProposal"; symbol: string };
 
 // This intentionally stops at the Finance Engine. It has no broker capability.
-export function handleFinanceChatIntent(intent: FinanceChatIntent) {
+export async function handleFinanceChatIntent(intent: FinanceChatIntent, signal: AbortSignal) {
   if (intent.kind === "overview") return financeEngine.getOverview();
-  if (intent.kind === "analyze") return financeEngine.analyze(intent.symbol);
+  if (intent.kind === "analyze") return financeEngine.analyze(intent.symbol, signal);
   return financeEngine.createPaperTradeProposal(intent.symbol);
 }
