@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Bot, LoaderCircle, Send, ShieldCheck, WalletCards } from "lucide-react";
+import { BarChart3, Bot, ExternalLink, LoaderCircle, Send, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 import type { ComponentType, FormEvent, SVGProps } from "react";
 import { useEffect, useState } from "react";
 
@@ -26,8 +26,10 @@ type Portfolio = {
   holdings: Array<{ symbol: string; name: string; currency: "KRW" | "USD"; quantity: number; marketValue: number; profitLoss: number; profitLossRate: number | null; allocationPercent: number | null }>;
 };
 type PortfolioResponse = { state: "ready" | "not_configured" | "unavailable"; message?: string; portfolio?: Portfolio };
+type ProposalResponse = { analysis?: Analysis; proposal?: { message?: string; positionContext?: string }; error?: string };
 
 const LOCAL_TOSS_BRIDGE = "http://127.0.0.1:45821";
+const MAX_PORTFOLIO_REVIEW_HOLDINGS = 5;
 
 const emptyOverview: Overview = { experimentalCapitalKrw: 100000, mode: "PAPER", metrics: [] };
 
@@ -60,7 +62,7 @@ function symbolFromRequest(value: string) {
 
 function analysisAnswer(message: string, analysis: Analysis | null, overview: Overview, portfolio: Portfolio | null) {
   const normalized = message.toLowerCase();
-  if (/계좌|자산|성과|portfolio|performance|p&l|수익/.test(normalized)) {
+  if (/계좌|자산|성과|portfolio|performance|p&l|수익|토스|보유.*(?:주식|종목)|내.*(?:주식|종목)/.test(normalized)) {
     if (portfolio) {
       const totalReturn = `${formatMoney(portfolio.totals.profitLoss.krw, "KRW")}${portfolio.totals.profitLoss.usd ? ` / ${formatMoney(portfolio.totals.profitLoss.usd, "USD")}` : ""}`;
       return `Toss Securities local snapshot: ${portfolio.holdings.length} positions. Portfolio value: ${portfolioValue(portfolio)}. Unrealized P&L: ${totalReturn}. This is read-only data from this MacBook.`;
@@ -77,6 +79,14 @@ function analysisAnswer(message: string, analysis: Analysis | null, overview: Ov
   }
   if (/최근|recent|분석|analysis/.test(normalized)) return analysis.summary;
   return "Ask about the selected analysis, its risk review, or name a symbol for a new analysis.";
+}
+
+function asksForPortfolio(message: string) {
+  return /토스|보유.*(?:주식|종목)|내.*(?:주식|종목)|portfolio|holdings/i.test(message);
+}
+
+function asksForPortfolioAnalysis(message: string) {
+  return /분석|analysis|평가|점검|리뷰|어때|추천/i.test(message);
 }
 
 async function readWooHyukmonStream(response: Response) {
@@ -152,13 +162,11 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
     if (loading) return;
     setLoading(true); setError("");
     try {
-      const holding = portfolio?.holdings.find((item) => item.symbol.toUpperCase() === symbol.toUpperCase());
-      const response = await fetch("/api/v4/finance/portfolio/proposal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, position: holding ? { name: holding.name, symbol: holding.symbol, quantity: holding.quantity, allocationPercent: holding.allocationPercent } : null }) });
-      const data = await response.json() as { analysis?: Analysis; proposal?: { message?: string; positionContext?: string }; error?: string };
-      if (!response.ok || !data.analysis) throw new Error(data.error || "Portfolio research could not run.");
+      const holding = portfolio?.holdings.find((item) => item.symbol.toUpperCase() === symbol.toUpperCase()) ?? null;
+      const data = await requestHoldingProposal(symbol, holding);
       setSelected(data.analysis);
-      setHistory((current) => [{ id: data.analysis!.id, symbol: data.analysis!.symbol, createdAt: data.analysis!.createdAt, summary: data.analysis!.summary }, ...current.filter((item) => item.id !== data.analysis!.id)].slice(0, 8));
-      setLines((current) => [...current, { role: "assistant", content: `${data.proposal?.positionContext ?? ""}\n\n${data.proposal?.message ?? "Manual review only."}\n\n${data.analysis!.summary}`.trim() }]);
+      rememberAnalyses([data.analysis]);
+      setLines((current) => [...current, { role: "assistant", content: `${data.proposal?.positionContext ?? ""}\n\n${data.proposal?.message ?? "Research only. No order was sent."}\n\n${data.analysis.summary}`.trim() }]);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Portfolio research could not run.");
     } finally {
@@ -166,16 +174,74 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
     }
   };
 
+  const requestHoldingProposal = async (symbol: string, holding: Portfolio["holdings"][number] | null): Promise<{ analysis: Analysis; proposal?: ProposalResponse["proposal"] }> => {
+    const response = await fetch("/api/v4/finance/portfolio/proposal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, position: holding ? { name: holding.name, symbol: holding.symbol, quantity: holding.quantity, allocationPercent: holding.allocationPercent } : null })
+    });
+    const data = await response.json() as ProposalResponse;
+    if (!response.ok || !data.analysis) throw new Error(data.error || "Portfolio research could not run.");
+    return { analysis: data.analysis, proposal: data.proposal };
+  };
+
+  const rememberAnalyses = (analyses: Analysis[]) => {
+    setHistory((current) => [
+      ...analyses.map((analysis) => ({ id: analysis.id, symbol: analysis.symbol, createdAt: analysis.createdAt, summary: analysis.summary })),
+      ...current
+    ].filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index).slice(0, 8));
+  };
+
+  const runPortfolioReview = async () => {
+    if (loading) return;
+    if (!portfolio?.holdings.length) {
+      setError("Refresh Toss Securities on this MacBook before requesting a portfolio review.");
+      return;
+    }
+    setLoading(true); setError("");
+    try {
+      // Run sequentially to keep the private research workload bounded and avoid
+      // turning a single dashboard request into an unbounded model burst.
+      const holdings = [...portfolio.holdings].sort((left, right) => right.marketValue - left.marketValue).slice(0, MAX_PORTFOLIO_REVIEW_HOLDINGS);
+      const results: Array<{ holding: Portfolio["holdings"][number]; analysis: Analysis; proposal?: ProposalResponse["proposal"] }> = [];
+      for (const holding of holdings) {
+        const result = await requestHoldingProposal(holding.symbol, holding);
+        results.push({ holding, ...result });
+      }
+      const analyses = results.map((result) => result.analysis);
+      setSelected(analyses[0] ?? null);
+      rememberAnalyses(analyses);
+      const coverage = portfolio.holdings.length > holdings.length ? `Top ${holdings.length} holdings by market value were reviewed out of ${portfolio.holdings.length}.` : `${holdings.length} connected holdings were reviewed.`;
+      const report = results.map(({ holding, analysis }) => `${holding.name} (${holding.symbol})\nResearch signal: ${analysis.decision.action} · confidence ${analysis.decision.confidence ?? "—"}%\n${analysis.summary}`).join("\n\n");
+      setLines((current) => [...current, { role: "assistant", content: `Toss Securities local portfolio review\n${coverage}\n\n${report}\n\nThese are research signals, not executed orders or a guarantee of outcome. Review each result and decide independently in Toss Securities.` }]);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Portfolio review could not run.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); const message = input.trim(); if (!message || loading) return;
-    setInput(""); setError(""); setLoading(true); setLines((current) => [...current, { role: "user", content: message }]);
+    setInput(""); setError(""); setLines((current) => [...current, { role: "user", content: message }]);
+    if (asksForPortfolio(message)) {
+      if (!portfolio) {
+        setLines((current) => [...current, { role: "assistant", content: "Toss Securities data is not loaded on this MacBook yet. Start the local bridge, then use Refresh in the Toss Securities panel." }]);
+      } else if (asksForPortfolioAnalysis(message)) {
+        await runPortfolioReview();
+      } else {
+        setLines((current) => [...current, { role: "assistant", content: analysisAnswer(message, selected, overview, portfolio) }]);
+      }
+      return;
+    }
+    setLoading(true);
     try {
       const symbol = symbolFromRequest(message);
       if (symbol) {
         const response = await fetch("/api/v4/finance/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol }) });
         const data = await response.json() as Analysis & { error?: string };
         if (!response.ok) throw new Error(data.error || "Finance analysis could not run.");
-        setSelected(data); setHistory((current) => [{ id: data.id, symbol: data.symbol, createdAt: data.createdAt, summary: data.summary }, ...current.filter((item) => item.id !== data.id)].slice(0, 8));
+        setSelected(data); rememberAnalyses([data]);
         setLines((current) => [...current, { role: "assistant", content: data.summary }]);
       } else if (/계좌|자산|성과|portfolio|performance|p&l|수익|bear|위험|risk|하락|리스크|왜|why|buy|sell|hold|판단|decision|최근 분석|recent analysis/i.test(message)) {
         setLines((current) => [...current, { role: "assistant", content: analysisAnswer(message, selected, overview, portfolio) }]);
@@ -204,11 +270,12 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
         <span className="rounded-full border border-[#f7c76b]/30 bg-[#f7c76b]/10 px-3 py-1.5 text-xs font-bold text-[#f7c76b]">READ ONLY</span>
       </div>
       <section id="toss-securities" className="mt-8 scroll-mt-8">
-        <Panel title="Toss Securities" icon={WalletCards}>
+        <Panel title="Toss Securities / 내 보유 종목" icon={WalletCards}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs leading-5 text-white/48">{portfolioState === "ready" && portfolio ? `Read-only Toss Securities data · ${portfolio.account.type} ${portfolio.account.maskedNumber ?? ""} · updated ${new Date(portfolio.asOf).toLocaleString()}` : portfolioMessage || "Toss Securities has not been connected."}</p>
-            <button type="button" onClick={() => void loadData()} disabled={loading} className="h-8 border border-[#f7c76b]/45 px-3 text-xs font-bold text-[#f7c76b] transition hover:bg-[#f7c76b]/10 disabled:opacity-50">Refresh</button>
+            <p className="text-xs leading-5 text-white/48">{portfolioState === "ready" && portfolio ? `Registered MacBook read-only snapshot · ${portfolio.account.type} ${portfolio.account.maskedNumber ?? ""} · updated ${new Date(portfolio.asOf).toLocaleString()}` : portfolioMessage || "Toss Securities has not been connected."}</p>
+            <div className="flex flex-wrap items-center gap-2"><a href="https://tossinvest.com" target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1 border border-white/20 px-3 text-xs font-bold text-white/75 transition hover:border-[#f7c76b]/60 hover:text-[#f7c76b]">토스증권 열기 <ExternalLink className="h-3.5 w-3.5" /></a><button type="button" onClick={() => void loadData()} disabled={loading} className="h-8 border border-[#f7c76b]/45 px-3 text-xs font-bold text-[#f7c76b] transition hover:bg-[#f7c76b]/10 disabled:opacity-50">Refresh</button></div>
           </div>
+          {portfolio?.holdings.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-y border-white/10 bg-[#f7c76b]/[0.04] px-3 py-3"><p className="text-xs leading-5 text-white/60">현재 토스 보유 종목을 순서대로 분석합니다. 주문은 전송되지 않습니다.</p><button type="button" onClick={() => void runPortfolioReview()} disabled={loading} className="inline-flex h-9 items-center gap-2 bg-[#f7c76b] px-3 text-xs font-bold text-[#181a1b] transition hover:bg-[#ffda8b] disabled:opacity-50"><Sparkles className="h-3.5 w-3.5" />내 보유 종목 분석</button></div> : null}
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <Metric label="Portfolio value" value={portfolioValue(portfolio)} note={portfolio ? `${portfolio.holdings.length} held positions` : "No account data"} />
             <Metric label="Total return" value={portfolio ? `${formatMoney(portfolio.totals.profitLoss.krw, "KRW")}${portfolio.totals.profitLoss.usd ? ` / ${formatMoney(portfolio.totals.profitLoss.usd, "USD")}` : ""}` : "—"} note={portfolio?.totals.profitLoss.rate != null ? `${(portfolio.totals.profitLoss.rate * 100).toFixed(2)}% reported return` : "No account data"} />
