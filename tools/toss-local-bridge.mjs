@@ -165,8 +165,9 @@ const server = createServer(async (request, response) => {
     return;
   }
   try {
+    const currentPortfolio = await portfolio();
     response.writeHead(200, headers);
-    response.end(JSON.stringify({ state: "ready", provider: "Toss Securities", portfolio: await portfolio() }));
+    response.end(JSON.stringify({ state: "ready", provider: "Toss Securities", portfolio: currentPortfolio }));
   } catch (error) {
     console.error("Toss local bridge portfolio request failed:", error instanceof Error ? error.message : error);
     response.writeHead(503, headers);
