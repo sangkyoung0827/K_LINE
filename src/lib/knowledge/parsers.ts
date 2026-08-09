@@ -2,7 +2,6 @@ import "server-only";
 
 import JSZip from "jszip";
 import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
 import type { ParsedDocument } from "@/lib/knowledge/types";
 
 export class UnsupportedKnowledgeFileError extends Error {}
@@ -57,6 +56,7 @@ async function readZipEntry(entry: JSZip.JSZipObject) {
 }
 
 async function parsePdf(buffer: Buffer, name: string): Promise<ParsedDocument> {
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
     const result = await parser.getText();
