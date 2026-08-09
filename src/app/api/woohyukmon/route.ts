@@ -5,6 +5,7 @@ import { getAdminAccess } from "@/lib/admin";
 import { getEccAccessForEmail } from "@/lib/eccAccess";
 import { buildWoohyukmonAssistantContext } from "@/lib/woohyukmonAssistant";
 import { buildWoohyukmonContext } from "@/lib/woohyukmonContext";
+import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
 
 type ClientMessage = {
   role: "user" | "assistant";
@@ -505,13 +506,23 @@ export async function POST(request: Request) {
       includeGoods,
       includeProjects
     });
-    const assistantContext = await buildWoohyukmonAssistantContext({
+    const siteAssistantContext = await buildWoohyukmonAssistantContext({
       access: eccAccess,
       includeGoods,
       includeProjects,
       localBoardPosts: body.localBoardPosts,
       query: message
     });
+    const knowledgeResults = access.isDeveloper
+      ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
+          console.error("Woohyukmon knowledge retrieval failed", error);
+          return [];
+        })
+      : [];
+    const assistantContext = [
+      siteAssistantContext,
+      access.isDeveloper ? formatKnowledgeContext(knowledgeResults) : ""
+    ].filter(Boolean).join("\n\n");
 
     if (!apiKey) {
       const answer = fallbackAnswer(message, assistantContext, provider);
@@ -576,7 +587,15 @@ export async function POST(request: Request) {
 
     setCachedAnswer(key, answer, provider);
 
-    return NextResponse.json({ answer, provider });
+    return NextResponse.json({
+      answer,
+      provider,
+      sources: knowledgeResults.map((result) => ({
+        fileId: result.fileId,
+        pageNumber: result.pageNumber,
+        title: result.fileName
+      }))
+    });
   } catch (error) {
     console.error("Woohyukmon API error", error);
     return NextResponse.json(

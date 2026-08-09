@@ -749,6 +749,48 @@ On the MacBook whose public IP is registered in Toss WTS:
 
 The bridge binds only to `127.0.0.1:45821`, provides only `GET /health` and `GET /portfolio`, and has no order, transfer, or conditional-order endpoint. It accepts browser requests only from the K_LINE production origin. If the home or office public IP changes, update the Toss WTS allowlist before refreshing the dashboard.
 
+## WooHyukmon Knowledge Training
+
+Developer accounts can open `/developer/woohyukmon-training` to upload and manage private
+WooHyukmon reference material. The browser uploads each original file directly to the private
+Supabase Storage bucket. The server then extracts supported content, creates conservative AI
+metadata, chunks the source, embeds each chunk, and exposes hybrid retrieval to the developer
+WooHyukmon chat.
+
+Before the first deployment, run the complete migration in
+`supabase/woohyukmon_knowledge.sql` from the Supabase SQL Editor. It creates the private
+`woohyukmon-knowledge` bucket, the knowledge tables, pgvector index, and the server-only vector
+matching function. No anon or authenticated table policies are created. Every management API
+route performs a server-side developer-role check and uses `SUPABASE_SERVICE_ROLE_KEY` only on
+the server.
+
+Currently analyzed formats:
+
+- TXT, Markdown, CSV, JSON, XML, YAML, and log text
+- PDF
+- DOCX
+- PPTX
+- XLSX
+- JPEG, PNG, WEBP, GIF, and other image MIME types accepted by the configured vision provider
+- ZIP inventory metadata
+
+DOC, PPT, XLS, HWP, HWPX, HEIC files unsupported by the configured vision provider, and unknown
+formats are still uploaded and preserved. They remain `UNSUPPORTED` until a compatible parser is
+added, then can be processed again from the file detail panel.
+
+Required production environment variables are the existing `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, and at least one of `OPENAI_API_KEY` or `GEMINI_API_KEY`. Optional
+overrides are `WOOHYUKMON_KNOWLEDGE_MODEL` and `WOOHYUKMON_EMBEDDING_MODEL`.
+
+Verification commands:
+
+```bash
+npm run typecheck
+npm run build
+npm run check:browser-safety
+npm run check:v4-isolation
+```
+
 The local bridge reads these values from `.toss-local.env`. Never prefix them with `NEXT_PUBLIC_` and never commit or share their values:
 
 ```text

@@ -1,4 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
+import { auth } from "@/auth";
+import { getAdminAccess } from "@/lib/admin";
+import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
 
 export const maxDuration = 60;
 
@@ -97,12 +100,14 @@ Main support areas:
 8. K_LINE site navigation
 9. General questions about ECC, Hanhwal, K_LINE, and campus club activities
 10. Web-assisted answers using only the external search sources supplied in the prompt
+11. Developer-only answers grounded in WooHyukmon private Knowledge DB sources supplied by the server
 
 Security and permission rules:
 - Never reveal the ECC official team chat link or QR code unless the system-provided user context says the user is an approved official member.
 - Never claim that a user has been approved unless the system-provided user context confirms it.
 - Never approve payments, change roles, or modify member status.
 - Never expose developer information, admin-only data, private member information, API keys, environment variables, database structure, or hidden routes.
+- Private Knowledge DB context is available only when the server explicitly supplies it for a developer account. Never infer private records without that context.
 - If a user asks for something restricted, explain that only approved official members or authorized officers can access it.
 
 Answer style:
@@ -115,6 +120,7 @@ Answer style:
 - Do not invent current facts. If external search sources are supplied, use them as supporting evidence.
 - Do not display source numbers like [1], [2] unless the user specifically asks for citation numbers.
 - Do not list URLs or sources inside the answer unless the user specifically asks for links.
+- When private Knowledge DB sources are supplied and used, end with a short "참고 자료" or "Sources" list containing only the source file names and page/section when available.
 - Never use markdown bold markers such as **.
 - Never write standalone separator lines such as ---.
 - Never abbreviate with "중략", "...", "[...]", or a similar omission marker.
@@ -559,6 +565,8 @@ export async function POST(request: Request) {
         .slice(0, 12)
     : [];
   const ai = new GoogleGenAI({ apiKey });
+  const session = await auth();
+  const developerAccess = await getAdminAccess(session?.user?.email ?? "");
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -576,18 +584,34 @@ export async function POST(request: Request) {
         );
 
         const { results: externalResults, usedProviders } = await searchExternalSources(message);
+        const knowledgeResults = developerAccess.isDeveloper
+          ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
+              console.error("WooHyukmon private knowledge retrieval failed", error);
+              return [];
+            })
+          : [];
+        const knowledgeSources = knowledgeResults.map((result) => ({
+          title: result.fileName,
+          url: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://kline-nine-wheat.vercel.app"}/developer/woohyukmon-training?file=${encodeURIComponent(result.fileId)}`
+        }));
         const externalSources = externalResults.map((result) => ({
           title: result.title,
           url: result.url
         }));
 
-        if (externalSources.length > 0) {
+        const allSources = [...knowledgeSources, ...externalSources];
+        const allProviders = [
+          ...(knowledgeSources.length > 0 ? ["WooHyukmon DB"] : []),
+          ...usedProviders
+        ];
+
+        if (allSources.length > 0) {
           controller.enqueue(
             ndjson({
               type: "grounding",
-              groundingChunks: externalSources,
-              providers: usedProviders,
-              sourceCount: externalSources.length,
+              groundingChunks: allSources,
+              providers: allProviders,
+              sourceCount: allSources.length,
               webSearchQueries: [message]
             })
           );
@@ -595,9 +619,9 @@ export async function POST(request: Request) {
             ndjson({
               type: "status",
               status: "external_search_done",
-              label: `${usedProviders.join(" · ") || "외부 검색"} 검색 완료 · ${externalSources.length}개 자료 확인`,
-              providers: usedProviders,
-              sourceCount: externalSources.length
+              label: `${allProviders.join(" · ") || "검색"} 검색 완료 · ${allSources.length}개 자료 확인`,
+              providers: allProviders,
+              sourceCount: allSources.length
             })
           );
         } else {
@@ -617,15 +641,18 @@ export async function POST(request: Request) {
             type: "status",
             status: "answer_stream_started",
             label: "우혁몬이 답변을 정리하는 중",
-            providers: usedProviders,
-            sourceCount: externalSources.length
+            providers: allProviders,
+            sourceCount: allSources.length
           })
         );
 
         await streamGeminiAnswer({
           ai,
           controller,
-          externalSearchContext: buildExternalSearchContext(externalResults),
+          externalSearchContext: [
+            developerAccess.isDeveloper ? formatKnowledgeContext(knowledgeResults) : "",
+            buildExternalSearchContext(externalResults)
+          ].filter(Boolean).join("\n\n"),
           history,
           message,
           mode,
@@ -635,10 +662,10 @@ export async function POST(request: Request) {
         controller.enqueue(
           ndjson({
             type: "done",
-            grounded: externalSources.length > 0,
-            groundingChunks: externalSources,
-            providers: usedProviders,
-            sourceCount: externalSources.length,
+            grounded: allSources.length > 0,
+            groundingChunks: allSources,
+            providers: allProviders,
+            sourceCount: allSources.length,
             webSearchQueries: [message]
           })
         );
