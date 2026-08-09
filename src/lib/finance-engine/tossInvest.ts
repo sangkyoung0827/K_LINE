@@ -80,6 +80,7 @@ function numberValue(value: unknown) {
 }
 
 function optionalNumber(value: unknown) {
+  if (typeof value === "string" && !value.trim()) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
