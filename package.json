@@ -8,8 +8,9 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "verify:browser-metadata": "node scripts/verify-browser-metadata.mjs",
+    "check:v4-isolation": "node scripts/check-v4-isolation.mjs",
     "test": "npm run typecheck && npm run verify:browser-metadata",
-    "check": "npm run test && npm run build"
+    "check": "npm run test && npm run build && npm run check:v4-isolation"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",

@@ -33,3 +33,6 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+      - name: V4 isolation safety
+        run: npm run check:v4-isolation
