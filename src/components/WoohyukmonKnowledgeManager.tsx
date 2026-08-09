@@ -153,6 +153,8 @@ export function WoohyukmonKnowledgeManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<KnowledgeSearchResult[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadFiles = useCallback(async () => {
@@ -293,15 +295,19 @@ export function WoohyukmonKnowledgeManager() {
     }
   };
 
-  const deleteFile = async (fileId: string, name: string) => {
-    if (!window.confirm(`'${name}' 원본과 분석 데이터를 모두 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+  const deleteFile = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await responseJson(await fetch(`/api/woohyukmon/knowledge/files/${fileId}`, { method: "DELETE" }));
+      await responseJson(await fetch(`/api/woohyukmon/knowledge/files/${pendingDelete.id}`, { method: "DELETE" }));
+      setPendingDelete(null);
       setSelectedId("");
       setDetail(null);
       await loadFiles();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "삭제에 실패했습니다.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -390,7 +396,8 @@ export function WoohyukmonKnowledgeManager() {
         </section>
       </div>
 
-      {selectedId ? <DetailPanel detail={detail} loading={detailLoading} onClose={() => { setSelectedId(""); setDetail(null); }} onDelete={deleteFile} onReprocess={reprocessFile} /> : null}
+      {selectedId ? <DetailPanel detail={detail} loading={detailLoading} onClose={() => { setSelectedId(""); setDetail(null); }} onDelete={(id, name) => setPendingDelete({ id, name })} onReprocess={reprocessFile} /> : null}
+      {pendingDelete ? <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5" role="alertdialog" aria-modal="true" aria-labelledby="delete-knowledge-title"><div className="w-full max-w-md border border-red-400/25 bg-[#141b1e] p-6 shadow-2xl"><div className="flex h-11 w-11 items-center justify-center bg-red-400/10 text-red-200"><AlertTriangle className="h-5 w-5" /></div><h2 id="delete-knowledge-title" className="mt-5 text-xl font-semibold">자료를 삭제할까요?</h2><p className="mt-3 break-words text-sm leading-6 text-white/60"><strong className="text-white/85">{pendingDelete.name}</strong> 원본과 분석 데이터를 모두 삭제합니다. 이 작업은 되돌릴 수 없습니다.</p><div className="mt-6 flex justify-end gap-2"><button disabled={deleting} onClick={() => setPendingDelete(null)} className="h-10 border border-white/15 px-4 text-sm disabled:opacity-50">취소</button><button disabled={deleting} onClick={() => void deleteFile()} className="inline-flex h-10 items-center gap-2 bg-red-500 px-4 text-sm font-semibold text-white disabled:opacity-50">{deleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}삭제 확인</button></div></div></div> : null}
     </main>
   );
 }
