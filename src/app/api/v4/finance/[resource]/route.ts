@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { financeEngine } from "@/lib/finance-engine";
-import { listRecentFinanceAnalyses } from "@/lib/finance-engine";
+import { financeEngine, getFinanceAnalysisById, listRecentFinanceAnalysisSummaries } from "@/lib/finance-engine";
 import { requireWoohyukmonV4DeveloperApi } from "@/lib/woohyukmon-v4-api";
 
 export const dynamic = "force-dynamic";
 
 const emptyResources = new Set(["portfolio", "positions", "performance", "trades", "signals", "strategies"]);
 
-export async function GET(_request: Request, { params }: { params: Promise<{ resource: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ resource: string }> }) {
   const access = await requireWoohyukmonV4DeveloperApi();
   if (access instanceof NextResponse) return access;
 
@@ -18,7 +17,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ res
   }
 
   if (resource === "history") {
-    return NextResponse.json({ data: await listRecentFinanceAnalyses(8), mode: "PAPER", state: "ready" });
+    const id = new URL(request.url).searchParams.get("id");
+    if (id) {
+      const analysis = await getFinanceAnalysisById(id);
+      return analysis
+        ? NextResponse.json({ data: analysis, mode: "PAPER", state: "ready" })
+        : NextResponse.json({ error: "Analysis was not found." }, { status: 404 });
+    }
+    return NextResponse.json({ data: await listRecentFinanceAnalysisSummaries(8), mode: "PAPER", state: "ready" });
   }
 
   if (emptyResources.has(resource)) {

@@ -5,7 +5,7 @@ export { handleFinanceChatIntent } from "@/lib/finance-engine/chat";
 export { financeAuditEventTypes } from "@/lib/finance-engine/audit";
 export { collectMarketSnapshot, FinanceMarketDataError, resolveFinanceSymbol } from "@/lib/finance-engine/market";
 export { getFinanceLlmProvider, FinanceProviderError } from "@/lib/finance-engine/provider";
-export { listFinanceAnalysisMemory, listRecentFinanceAnalyses } from "@/lib/finance-engine/repository";
+export { getFinanceAnalysisById, listFinanceAnalysisMemory, listRecentFinanceAnalyses, listRecentFinanceAnalysisSummaries } from "@/lib/finance-engine/repository";
 export { runOriginalAlgorithmPort } from "@/lib/finance-engine/analysis";
 export { financeJobLimits, runBoundedFinanceJob } from "@/lib/finance-engine/jobs";
 export { isValidFinanceSymbol, normalizeFinanceSymbol } from "@/lib/finance-engine/validation";

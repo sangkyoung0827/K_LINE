@@ -59,7 +59,18 @@ function parseJson(raw: string) {
   try { return JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>; } catch { return {} as Record<string, unknown>; }
 }
 
+function clippedText(value: unknown, maxLength: number, fallback: string) {
+  if (typeof value !== "string" || !value.trim()) return fallback;
+  return value.trim().slice(0, maxLength);
+}
+
 export async function runFinanceAgent(id: FinanceAgentId, context: AgentContext, provider: FinanceLlmProvider, signal: AbortSignal): Promise<FinanceAgentResult & Record<string, unknown>> {
   const parsed = parseJson(await provider.generate(buildFinanceAgentPrompt(id, context), signal));
-  return { id, name: definitions[id].name, bubble: typeof parsed.bubble === "string" ? parsed.bubble : "Analysis complete.", report: typeof parsed.report === "string" ? parsed.report : "No detailed report was returned.", ...parsed };
+  return {
+    ...parsed,
+    id,
+    name: definitions[id].name,
+    bubble: clippedText(parsed.bubble, 700, "Analysis complete."),
+    report: clippedText(parsed.report, 9000, "No detailed report was returned.")
+  };
 }

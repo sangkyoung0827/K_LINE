@@ -14,6 +14,7 @@ type Analysis = {
 
 type Overview = { experimentalCapitalKrw: number; metrics: Array<{ key: string; label: string; value: number | null; format: string }>; mode: "PAPER" };
 type ChatLine = { role: "user" | "assistant"; content: string };
+type HistoryItem = Pick<Analysis, "createdAt" | "id" | "summary" | "symbol">;
 
 const emptyOverview: Overview = { experimentalCapitalKrw: 100000, mode: "PAPER", metrics: [] };
 
@@ -68,7 +69,7 @@ async function readWooHyukmonStream(response: Response) {
 
 export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean }) {
   const [overview, setOverview] = useState<Overview>(emptyOverview);
-  const [history, setHistory] = useState<Analysis[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [selected, setSelected] = useState<Analysis | null>(null);
   const [input, setInput] = useState("");
   const [lines, setLines] = useState<ChatLine[]>([]);
@@ -79,13 +80,24 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
     const [overviewResponse, historyResponse] = await Promise.all([fetch("/api/v4/finance/overview"), fetch("/api/v4/finance/history")]);
     if (overviewResponse.ok) setOverview(await overviewResponse.json() as Overview);
     if (historyResponse.ok) {
-      const data = await historyResponse.json() as { data?: Analysis[] };
+      const data = await historyResponse.json() as { data?: HistoryItem[] };
       setHistory(data.data ?? []);
-      setSelected((current) => current ?? data.data?.[0] ?? null);
     }
   };
 
   useEffect(() => { void loadData().catch(() => setError("Finance data could not load.")); }, []);
+
+  const selectHistory = async (id: string) => {
+    setError("");
+    try {
+      const response = await fetch(`/api/v4/finance/history?id=${encodeURIComponent(id)}`);
+      const data = await response.json() as { data?: Analysis; error?: string };
+      if (!response.ok || !data.data) throw new Error(data.error || "Saved analysis could not load.");
+      setSelected(data.data);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Saved analysis could not load.");
+    }
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); const message = input.trim(); if (!message || loading) return;
@@ -96,7 +108,7 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
         const response = await fetch("/api/v4/finance/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol }) });
         const data = await response.json() as Analysis & { error?: string };
         if (!response.ok) throw new Error(data.error || "Finance analysis could not run.");
-        setSelected(data); setHistory((current) => [data, ...current.filter((item) => item.id !== data.id)].slice(0, 8));
+        setSelected(data); setHistory((current) => [{ id: data.id, symbol: data.symbol, createdAt: data.createdAt, summary: data.summary }, ...current.filter((item) => item.id !== data.id)].slice(0, 8));
         setLines((current) => [...current, { role: "assistant", content: data.summary }]);
       } else if (/계좌|자산|성과|portfolio|performance|p&l|수익|bear|위험|risk|하락|리스크|왜|why|buy|sell|hold|판단|decision|최근 분석|recent analysis/i.test(message)) {
         setLines((current) => [...current, { role: "assistant", content: analysisAnswer(message, selected, overview) }]);
@@ -142,7 +154,7 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
         <Panel title="AI analysis" icon={Bot}>{mainAgents.length ? <div className="grid gap-2">{mainAgents.map((agent) => <button type="button" key={agent.id} onClick={() => setLines((current) => [...current, { role: "assistant", content: `${agent.name}: ${agent.report}` }])} className="border border-white/10 bg-black/10 p-3 text-left transition hover:border-[#f7c76b]/50"><span className="text-xs font-bold text-[#f7c76b]">{agent.name}</span><p className="mt-1 line-clamp-2 text-xs leading-5 text-white/64">{agent.bubble}</p></button>)}</div> : <Empty label="Agent views appear after analysis." />}</Panel>
         <Panel title="Bull / bear debate" icon={BrainCircuit}>{analysisAgents.filter((agent) => agent.name === "BULL" || agent.name === "BEAR").length ? <div className="grid gap-2">{analysisAgents.filter((agent) => agent.name === "BULL" || agent.name === "BEAR").map((agent) => <button type="button" key={`${agent.id}-${agent.turn ?? 0}`} onClick={() => setLines((current) => [...current, { role: "assistant", content: `${agent.name} turn ${agent.turn ?? ""}: ${agent.report}` }])} className="border border-white/10 bg-black/10 p-3 text-left transition hover:border-[#f7c76b]/50"><span className="text-xs font-bold text-[#f7c76b]">{agent.name} / TURN {agent.turn ?? "—"}</span><p className="mt-1 line-clamp-2 text-xs leading-5 text-white/64">{agent.bubble}</p></button>)}</div> : <Empty label="Debate appears after analysis." />}</Panel>
         <Panel title="Risk review" icon={ShieldCheck}>{selected?.riskReview.length ? <div className="grid gap-2">{selected.riskReview.map((agent) => <div key={agent.name} className="border border-white/10 bg-black/10 p-3"><p className="text-xs font-bold text-[#f7c76b]">{agent.name}</p><p className="mt-1 text-xs leading-5 text-white/62">{agent.bubble}</p></div>)}</div> : <Empty label="No risk review yet." />}</Panel>
-        <Panel title="Recent analysis" icon={Activity}>{history.length ? <div className="grid gap-2">{history.map((analysis) => <button key={analysis.id} type="button" onClick={() => setSelected(analysis)} className="flex items-center justify-between border border-white/10 bg-black/10 p-3 text-left transition hover:border-[#f7c76b]/50"><span><strong className="text-sm text-white">{analysis.symbol}</strong><span className="ml-2 text-xs text-white/44">{analysis.decision.action}</span></span><span className="text-xs text-white/42">{new Date(analysis.createdAt).toLocaleDateString()}</span></button>)}</div> : <Empty label="Analysis history is empty." />}</Panel>
+        <Panel title="Recent analysis" icon={Activity}>{history.length ? <div className="grid gap-2">{history.map((analysis) => <button key={analysis.id} type="button" onClick={() => void selectHistory(analysis.id)} className="flex items-center justify-between border border-white/10 bg-black/10 p-3 text-left transition hover:border-[#f7c76b]/50"><span><strong className="text-sm text-white">{analysis.symbol}</strong><span className="ml-2 line-clamp-1 text-xs text-white/44">{analysis.summary}</span></span><span className="text-xs text-white/42">{new Date(analysis.createdAt).toLocaleDateString()}</span></button>)}</div> : <Empty label="Analysis history is empty." />}</Panel>
       </section>
       <section className="mt-4"><WorkspaceChat lines={lines} loading={loading} input={input} setInput={setInput} submit={submit} error={error} /></section>
     </main>

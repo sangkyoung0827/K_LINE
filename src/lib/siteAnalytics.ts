@@ -256,10 +256,10 @@ export async function getSiteAnalyticsDashboard(): Promise<SiteAnalyticsDashboar
   const [members, recentVisits, totalMembers, activeMembers, uniqueVisitors, totalVisits, todayVisits] =
     await Promise.all([
       supabaseRequest<SiteMemberRow[]>(
-        `${siteMembersTable}?select=${siteMemberColumns}&order=last_login_at.desc.nullslast&limit=200`
+        `${siteMembersTable}?select=${siteMemberColumns}&order=last_login_at.desc.nullslast&limit=50`
       ),
       supabaseRequest<SiteVisitRow[]>(
-        `${siteVisitsTable}?select=${siteVisitColumns}&order=created_at.desc&limit=80`
+        `${siteVisitsTable}?select=${siteVisitColumns}&order=created_at.desc&limit=40`
       ),
       supabaseCount(`${siteMembersTable}?select=id`),
       supabaseCount(`${siteMembersTable}?select=id&status=eq.active`),
