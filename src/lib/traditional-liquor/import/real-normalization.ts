@@ -4,6 +4,14 @@ import type { MappedImportRecord } from "@/lib/traditional-liquor/import/real-im
 function text(value: unknown) { return value === null || value === undefined ? null : String(value).trim() || null; }
 function number(value: unknown) { return typeof value === "number" && Number.isFinite(value) ? value : parsePrice(text(value)); }
 function url(value: unknown) { return text(value); }
+function dateTime(value: unknown) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const date = new Date((value - 25569) * 86_400_000);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  return text(value);
+}
 const productStatuses = new Set(["OFFICIAL", "LIKELY", "UNKNOWN", "NON_TRADITIONAL"]);
 
 export function normalizeRealImportRecord(record: MappedImportRecord) {
@@ -26,7 +34,7 @@ export function normalizeRealImportRecord(record: MappedImportRecord) {
     importType: record.importType, listingTitle, normalizedListingTitle: normalizeSearchText(listingTitle), productName, normalizedProductName: normalizeSearchText(productName), platformCode: text(data.platform_code)?.toUpperCase(),
     sellerName: text(data.seller_name), normalizedSellerName: normalizeSearchText(text(data.seller_name)), price: number(data.price), originalPrice: number(data.original_price), shippingFee: number(data.shipping_fee),
     listingVolumeMl: volumeMl, quantity, totalVolumeMl: number(data.total_volume_ml) ?? (volumeMl && quantity ? volumeMl * quantity : null), stockStatus: text(data.stock_status), reviewCount: number(data.review_count), rating: number(data.rating),
-    externalOfferId: text(data.external_offer_id), listingUrl: url(data.listing_url), query: text(data.query), collectedAt: text(data.collected_at) ?? new Date().toISOString(), sourceName: record.sourceName
+    externalOfferId: text(data.external_offer_id), listingUrl: url(data.listing_url), query: text(data.query), collectedAt: dateTime(data.collected_at) ?? new Date().toISOString(), sourceName: record.sourceName
   };
 }
 
@@ -45,7 +53,7 @@ export function validateRealImportRecord(normalized: ReturnType<typeof normalize
       if (normalized[field]) { try { new URL(normalized[field]); } catch { add("INVALID_URL", field, `${field} URL 형식이 올바르지 않습니다.`); } }
     }
   } else {
-    if (!normalized.listingTitle) add("MISSING_LISTING_TITLE", "listingTitle", "판매 상품명이 필요합니다.");
+    if (!normalized.listingTitle && !normalized.productName) add("MISSING_LISTING_TITLE", "listingTitle", "listing_title 또는 product_name이 필요합니다.");
     if (!normalized.platformCode) add("UNKNOWN_PLATFORM", "platformCode", "플랫폼 코드가 필요합니다.");
     if (!normalized.sellerName) add("MISSING_SELLER_NAME", "sellerName", "판매업체가 필요합니다.");
     if (normalized.price === null || normalized.price < 0) add("INVALID_PRICE", "price", "유효한 가격이 필요합니다.");

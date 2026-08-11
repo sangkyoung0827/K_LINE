@@ -11,6 +11,15 @@ export interface RawImportRecord {
 export interface ParsedImportFile {
   fileType: ImportFileType;
   fileName: string;
+  importType: RealImportType;
+  requestedImportType: RealImportType;
+  detectedImportType: RealImportType | null;
+  hasTypeConflict: boolean;
+  typeOverrideApplied: boolean;
+  detectionConfidence: "HIGH" | "MEDIUM" | "LOW";
+  detectionReasons: string[];
+  sheetName?: string;
+  sheetNames?: string[];
   headers: string[];
   records: RawImportRecord[];
 }
@@ -29,6 +38,14 @@ export interface RealImportAnalysis {
   fileType: ImportFileType;
   fileName: string;
   importType: RealImportType;
+  requestedImportType: RealImportType;
+  detectedImportType: RealImportType | null;
+  hasTypeConflict: boolean;
+  typeOverrideApplied: boolean;
+  detectionConfidence: "HIGH" | "MEDIUM" | "LOW";
+  detectionReasons: string[];
+  sheetName?: string;
+  sheetNames?: string[];
   headers: string[];
   suggestedMapping: ColumnMapping;
   sampleRows: Array<Record<string, unknown>>;

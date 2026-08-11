@@ -10,15 +10,15 @@ export const dynamic = "force-dynamic";
 function validImportType(value: unknown): value is RealImportType { return value === "PRODUCT_MASTER" || value === "MARKET_OFFER"; }
 function safeError(error: unknown) {
   console.error("Traditional liquor real import error", error);
-  const known = error instanceof Error && /^(MANUAL_REVIEW_REQUIRED|BATCH_NOT_READY|IMPORT_BATCH_NOT_FOUND|NOT_A_REAL_IMPORT_BATCH|NO_COMMITTABLE_ROWS|STAGING_ROW_NOT_FOUND|PRODUCT_LINK_REQUIRED|SELLER_LINK_REQUIRED|PLATFORM_LINK_REQUIRED)/.test(error.message);
+  const known = error instanceof Error && /^(MANUAL_REVIEW_REQUIRED|BATCH_NOT_READY|IMPORT_BATCH_NOT_FOUND|NOT_A_REAL_IMPORT_BATCH|NO_COMMITTABLE_ROWS|STAGING_ROW_NOT_FOUND|PRODUCT_LINK_REQUIRED|SELLER_LINK_REQUIRED|PLATFORM_LINK_REQUIRED|COMMITTED_BATCH_CANNOT_BE_DISCARDED)/.test(error.message);
   const message = known ? (error as Error).message : "실제 전통주 Import 작업을 처리하지 못했습니다.";
   return NextResponse.json({ error: message, debugCode: "TL_REAL_IMPORT_V2" }, { status: known ? 409 : 500 });
 }
 
 function safeMapping(value: string | null, parsed: ParsedImportFile) {
-  if (!value) return suggestColumnMapping(parsed.headers, parsed.records[0]?.importType ?? "MARKET_OFFER");
+  if (!value) return suggestColumnMapping(parsed.headers, parsed.importType);
   const decoded = JSON.parse(value) as ColumnMapping;
-  const allowed = new Set(fieldsForImportType(parsed.records[0]?.importType ?? "MARKET_OFFER"));
+  const allowed = new Set(fieldsForImportType(parsed.importType));
   return Object.fromEntries(Object.entries(decoded).filter(([header, field]) => parsed.headers.includes(header) && allowed.has(field as never)));
 }
 
@@ -50,10 +50,19 @@ export async function POST(request: Request) {
       const importType = form.get("importType");
       const action = String(form.get("action") ?? "analyze");
       const sourceName = String(form.get("sourceName") ?? "직접 조사").trim().slice(0, 160);
+      const forceImportType = form.get("forceImportType") === "true";
+      const sheetName = form.get("sheetName")?.toString() || undefined;
       if (!(file instanceof File) || !validImportType(importType)) return NextResponse.json({ error: "파일과 데이터 유형이 필요합니다." }, { status: 400 });
-      const parsed = await parseImportFile(file, importType, sourceName);
-      const suggestedMapping = suggestColumnMapping(parsed.headers, importType);
-      if (action === "analyze") return NextResponse.json({ analysis: { fileType: parsed.fileType, fileName: parsed.fileName, importType, headers: parsed.headers, suggestedMapping, sampleRows: parsed.records.slice(0, 5).map((item) => item.rawData), totalRows: parsed.records.length } });
+      const parsed = await parseImportFile(file, importType, sourceName, { forceImportType, sheetName });
+      const suggestedMapping = suggestColumnMapping(parsed.headers, parsed.importType);
+      if (action === "analyze") return NextResponse.json({ analysis: {
+        fileType: parsed.fileType, fileName: parsed.fileName, importType: parsed.importType,
+        requestedImportType: parsed.requestedImportType, detectedImportType: parsed.detectedImportType,
+        hasTypeConflict: parsed.hasTypeConflict, typeOverrideApplied: parsed.typeOverrideApplied,
+        detectionConfidence: parsed.detectionConfidence, detectionReasons: parsed.detectionReasons,
+        sheetName: parsed.sheetName, sheetNames: parsed.sheetNames, headers: parsed.headers,
+        suggestedMapping, sampleRows: parsed.records.slice(0, 10).map((item) => item.rawData), totalRows: parsed.records.length
+      } });
       if (action === "stage") {
         const mapping = safeMapping(form.get("mapping")?.toString() ?? null, parsed);
         const result = await repository.stageFile(parsed, mapping, sourceName, form.get("observedAt")?.toString() || null);
@@ -65,10 +74,11 @@ export async function POST(request: Request) {
     const body = await request.json() as Record<string, unknown>;
     if (body.action === "resolve" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.resolveBatch(body.batchId) });
     if (body.action === "commit" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.commitBatch(body.batchId) });
+    if (body.action === "discard" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.discardBatch(body.batchId) });
     if (body.action === "stage-json" && validImportType(body.importType) && Array.isArray(body.records)) {
       const sourceName = typeof body.sourceName === "string" ? body.sourceName.slice(0, 160) : "JSON API";
       const parsed = parseJsonBuffer(Buffer.from(JSON.stringify(body.records)), typeof body.fileName === "string" ? body.fileName : "collector-import.json", body.importType, sourceName);
-      const mapping = body.mapping && typeof body.mapping === "object" ? body.mapping as ColumnMapping : suggestColumnMapping(parsed.headers, body.importType);
+      const mapping = body.mapping && typeof body.mapping === "object" ? body.mapping as ColumnMapping : suggestColumnMapping(parsed.headers, parsed.importType);
       return NextResponse.json({ result: await repository.stageFile(parsed, mapping, sourceName, typeof body.observedAt === "string" ? body.observedAt : null) }, { status: 201 });
     }
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });

@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import test from "node:test";
 import JSZip from "jszip";
-import { suggestColumnMapping } from "@/lib/traditional-liquor/import/column-mapping";
+import { applyColumnMapping, suggestColumnMapping } from "@/lib/traditional-liquor/import/column-mapping";
 import { resolveImportRow, type ResolutionEntities } from "@/lib/traditional-liquor/import/entity-resolution";
 import { parseImportFile, parseJsonBuffer } from "@/lib/traditional-liquor/import/file-parsers";
+import { detectImportType } from "@/lib/traditional-liquor/import/import-type-detection";
+import { createImportPreview } from "@/lib/traditional-liquor/import/import-preview";
+import { normalizeRealImportRecord, validateRealImportRecord } from "@/lib/traditional-liquor/import/real-normalization";
 
 const entities: ResolutionEntities = {
   breweries: [{ id: "brewery-1", name: "명인 양조장", normalized_name: "명인 양조장", region: "안동", province: "경북", city: "안동" }],
@@ -30,11 +34,11 @@ function columnName(index: number) {
   return value;
 }
 
-async function xlsxFile(rows: unknown[][]) {
+async function xlsxFile(rows: unknown[][], sheetName = "Import") {
   const zip = new JSZip();
   zip.file("[Content_Types].xml", `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
   zip.file("_rels/.rels", `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
-  zip.file("xl/workbook.xml", `<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Import" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  zip.file("xl/workbook.xml", `<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xml(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
   zip.file("xl/_rels/workbook.xml.rels", `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`);
   const sheetRows = rows.map((row, rowIndex) => `<row r="${rowIndex + 1}">${row.map((cell, columnIndex) => `<c r="${columnName(columnIndex)}${rowIndex + 1}" t="inlineStr"><is><t>${xml(cell)}</t></is></c>`).join("")}</row>`).join("");
   zip.file("xl/worksheets/sheet1.xml", `<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetRows}</sheetData></worksheet>`);
@@ -51,9 +55,12 @@ test("TEST 1: CSV PRODUCT_MASTER 3-row import", async () => {
 });
 
 test("TEST 2: XLSX MARKET_OFFER 3-row import", async () => {
-  const file = await xlsxFile([["판매상품명", "플랫폼", "판매처", "가격", "상품url"], ["가주", "NAVER", "가게", "10000", "https://example.com/a"], ["나주", "NAVER", "가게", "11000", "https://example.com/b"], ["다주", "NAVER", "가게", "12000", "https://example.com/c"]]);
-  const parsed = await parseImportFile(file, "MARKET_OFFER", "XLSX TEST");
+  const file = await xlsxFile([["판매상품명", "플랫폼", "판매처", "가격", "상품url"], ["가주", "NAVER", "가게", "10000", "https://example.com/a"], ["나주", "NAVER", "가게", "11000", "https://example.com/b"], ["다주", "NAVER", "가게", "12000", "https://example.com/c"]], "MARKET_OFFER");
+  const parsed = await parseImportFile(file, "PRODUCT_MASTER", "XLSX TEST");
   assert.equal(parsed.fileType, "XLSX");
+  assert.equal(parsed.importType, "MARKET_OFFER");
+  assert.equal(parsed.hasTypeConflict, true);
+  assert.equal(parsed.sheetName, "MARKET_OFFER");
   assert.equal(parsed.records.length, 3);
 });
 
@@ -146,4 +153,41 @@ test("TEST 15: service role key is absent from client source", async () => {
 test("TEST 16: Fixture regression assets and V1 suite remain installed", async () => {
   assert.ok((await readFile(join(process.cwd(), "fixtures/traditional-liquor-shop.html"), "utf8")).includes("명인 안동소주"));
   assert.ok((await readFile(join(process.cwd(), "src/lib/traditional-liquor/collection/collection-engine.test.ts"), "utf8")).includes("FixtureCollectionAdapter"));
+});
+
+test("TEST 17: product_name alone never classifies PRODUCT_MASTER", () => {
+  assert.equal(detectImportType(["product_name"]).importType, null);
+  assert.equal(detectImportType(["product_name", "brewery_name", "abv"]).importType, "PRODUCT_MASTER");
+});
+
+test("TEST 18: MARKET_OFFER preview falls back to nested raw_data", () => {
+  const preview = createImportPreview("MARKET_OFFER", {}, { rawData: { listing_title: "금정산성 막걸리", seller_name: "술마켓", price: 2800, platform_code: "NAVER", volume_ml: 750, quantity: 1, listing_url: "https://example.com" } });
+  assert.equal(preview.title, "금정산성 막걸리");
+  assert.equal(preview.seller, "술마켓");
+  assert.equal(preview.price, 2800);
+  assert.equal(preview.platform, "NAVER");
+});
+
+const actualMarketOfferPath = "/Users/chogihwa/Downloads/woo_hyukmon_naver_traditional_liquor_market_offer_2026-08-11.xlsx";
+test("TEST 19: supplied 148-row MARKET_OFFER workbook is detected and validates", { skip: !existsSync(actualMarketOfferPath) }, async () => {
+  const bytes = await readFile(actualMarketOfferPath);
+  const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const file = new File([arrayBuffer], basename(actualMarketOfferPath), { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const parsed = await parseImportFile(file, "PRODUCT_MASTER", "NAVER SHOPPING");
+  assert.equal(parsed.importType, "MARKET_OFFER");
+  assert.equal(parsed.detectedImportType, "MARKET_OFFER");
+  assert.equal(parsed.sheetName, "MARKET_OFFER");
+  assert.equal(parsed.records.length, 148);
+  const mapping = suggestColumnMapping(parsed.headers, parsed.importType);
+  assert.equal(mapping.seller_name, "seller_name");
+  assert.equal(mapping.price, "price");
+  assert.equal(mapping.platform_code, "platform_code");
+  const results = parsed.records.map((record) => {
+    const mapped = applyColumnMapping(record, mapping, "NAVER SHOPPING");
+    const normalized = normalizeRealImportRecord(mapped);
+    return { normalized, validation: validateRealImportRecord(normalized), preview: createImportPreview("MARKET_OFFER", normalized, record.rawData, mapping) };
+  });
+  assert.equal(results.filter(({ validation }) => validation.status === "VALID").length, 148);
+  assert.equal(results.filter(({ preview }) => !preview.seller || preview.price === null || !preview.platform).length, 0);
+  assert.deepEqual(results.slice(0, 5).map(({ preview }) => [preview.seller, preview.price]), [["11번가", 2980], ["DOSU", 2900], ["별주막닷컴", 2890], ["술마켓", 2800], ["쿠팡", 2900]]);
 });

@@ -26,7 +26,7 @@ export class RealImportRepository {
 
   async stageFile(parsed: ParsedImportFile, mapping: ColumnMapping, sourceName: string, observedAt?: string | null): Promise<StageImportResult> {
     const sourceId = await this.ensureSource(sourceName, parsed.fileType === "JSON" ? "MANUAL" : parsed.fileType);
-    const batches = await supabaseRequest<BatchRow[]>("traditional_liquor_import_batches", { method: "POST", headers: representationHeaders, body: JSON.stringify({ source_id: sourceId, file_name: parsed.fileName, import_type: parsed.records[0]?.importType ?? "MARKET_OFFER", mapping_data: mapping, status: "PARSING", started_at: new Date().toISOString() }) });
+    const batches = await supabaseRequest<BatchRow[]>("traditional_liquor_import_batches", { method: "POST", headers: representationHeaders, body: JSON.stringify({ source_id: sourceId, file_name: parsed.fileName, import_type: parsed.importType, mapping_data: mapping, status: "PARSING", started_at: new Date().toISOString() }) });
     const batchId = batches[0].id;
     try {
       const staged: Array<Record<string, unknown>> = [];
@@ -58,6 +58,17 @@ export class RealImportRepository {
 
   async getRows(batchId: string) {
     return supabaseRequest<RealStagingRow[]>(`traditional_liquor_import_staging_rows?select=*&batch_id=eq.${encodeURIComponent(batchId)}&order=row_number.asc&limit=10000`);
+  }
+
+  async discardBatch(batchId: string) {
+    const batches = await supabaseRequest<BatchRow[]>(`traditional_liquor_import_batches?select=id,status,total_rows,valid_rows,invalid_rows,inserted_rows,updated_rows,skipped_rows,file_name,import_type,created_at&id=eq.${encodeURIComponent(batchId)}&limit=1`);
+    const batch = batches[0];
+    if (!batch) throw new Error("IMPORT_BATCH_NOT_FOUND");
+    if (batch.status === "COMPLETED" || batch.status === "IMPORTING") throw new Error("COMMITTED_BATCH_CANNOT_BE_DISCARDED");
+    await supabaseRequest(`traditional_liquor_import_errors?batch_id=eq.${encodeURIComponent(batchId)}`, { method: "DELETE" });
+    await supabaseRequest(`traditional_liquor_import_staging_rows?batch_id=eq.${encodeURIComponent(batchId)}`, { method: "DELETE" });
+    await supabaseRequest(`traditional_liquor_import_batches?id=eq.${encodeURIComponent(batchId)}`, { method: "DELETE" });
+    return { batchId, discarded: true };
   }
 
   async resolveBatch(batchId: string): Promise<ResolutionResult> {
