@@ -166,22 +166,28 @@ export async function searchKnowledge(input: {
 
 export function formatKnowledgeContext(results: KnowledgeSearchResult[]) {
   if (results.length === 0) {
-    return "WOOHYUKMON PRIVATE KNOWLEDGE: No matching source was found. Do not invent an answer from the private database.";
+    return "WOOHYUKMON KNOWLEDGE DB: No matching source was found. Do not invent an answer from the database.";
   }
   return [
-    "WOOHYUKMON PRIVATE KNOWLEDGE SOURCES",
+    "WOOHYUKMON 4.0 KNOWLEDGE DB SOURCES",
     "Use these sources before general knowledge. If evidence is incomplete, say so. Cite file names in the answer.",
     ...results.map((result, index) =>
       [
         `[Source ${index + 1}] ${result.fileName}`,
-        `File ID: ${result.fileId}`,
         result.pageNumber ? `Page: ${result.pageNumber}` : "",
         result.section ? `Section: ${result.section}` : "",
         result.organization ? `Organization: ${result.organization}` : "",
         result.event ? `Event: ${result.event}` : "",
         `Relevance: ${result.score.toFixed(3)}`,
-        `Content: ${result.content.slice(0, 2400)}`
+        `Content: ${redactPublicKnowledgeExcerpt(result.content).slice(0, 2400)}`
       ].filter(Boolean).join("\n")
     )
   ].join("\n\n");
+}
+
+function redactPublicKnowledgeExcerpt(value: string) {
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email redacted]")
+    .replace(/(?:\+?82[-. ]?)?0?1[016789][-. ]?\d{3,4}[-. ]?\d{4}/g, "[phone redacted]")
+    .replace(/\b(?:sk-(?:proj-)?|sb_secret_|GOCSPX-|AQ\.)[A-Za-z0-9_./+-]{12,}\b/g, "[secret redacted]");
 }

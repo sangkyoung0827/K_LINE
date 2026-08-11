@@ -723,6 +723,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
     }
 
     if (detectTraditionalLiquorIntent(trimmed) === "OPEN_TRADITIONAL_LIQUOR_DATABASE") {
+      const canUseDatabaseInChat = modelVersion === "4";
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
@@ -730,10 +731,14 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
           ? language === "ko"
             ? "권한을 확인했습니다. 전통주 데이터베이스를 엽니다."
             : "Access confirmed. Opening the Traditional Liquor Database."
+          : canUseDatabaseInChat
+            ? language === "ko"
+              ? "전통주 데이터베이스가 우혁몬 4.0 채팅에 연결되었습니다. 제품, 가격, 판매처 등 궁금한 내용을 이 채팅에서 질문해 주세요."
+              : "The Traditional Liquor Database is connected to Woohyukmon 4.0. Ask about products, prices, sellers, or market records here."
           : language === "ko"
             ? "전통주 데이터베이스는 허가된 개발자만 열 수 있습니다."
             : "The Traditional Liquor Database is restricted to authorized developers.",
-        status: language === "ko" ? "권한 확인 완료" : "Access checked"
+        status: language === "ko" ? "데이터베이스 연결 확인" : "Database connection checked"
       };
       setMessages((current) => [...current, assistantMessage]);
       await saveMessage(chatId, assistantMessage);
@@ -742,7 +747,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
     }
 
     const liveKind = modelVersion !== "2" ? getLiveKind(trimmed) : null;
-    if (liveKind) {
+    if (liveKind && modelVersion !== "4") {
       try {
         const answer = await loadLiveSummary(liveKind);
         const assistantMessage: ChatMessage = {
@@ -806,7 +811,8 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
           message: trimmed,
           history: apiHistory.slice(-8),
           mode: postIntent ? "post_draft" : "chat",
-          localBoardPosts: readLocalBoardPostsForAssistant()
+          localBoardPosts: readLocalBoardPostsForAssistant(),
+          modelVersion
         })
       });
 

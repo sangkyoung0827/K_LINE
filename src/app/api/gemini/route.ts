@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
 import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
+import { supabaseRequest } from "@/lib/supabaseServer";
 import { buildTraditionalLiquorAssistantContext, isTraditionalLiquorQuestion } from "@/lib/traditional-liquor/assistant-context";
 
 export const maxDuration = 60;
@@ -101,16 +102,17 @@ Main support areas:
 8. K_LINE site navigation
 9. General questions about ECC, Hanhwal, K_LINE, and campus club activities
 10. Web-assisted answers using only the external search sources supplied in the prompt
-11. Developer-only answers grounded in WooHyukmon private Knowledge DB sources supplied by the server
-12. Developer-only traditional liquor market analysis grounded in Traditional Liquor DB records supplied by the server
+11. WooHyukmon 4.0 answers grounded in Knowledge DB sources supplied by the server
+12. WooHyukmon 4.0 traditional liquor market analysis grounded in Traditional Liquor DB records supplied by the server
 
 Security and permission rules:
 - Never reveal the ECC official team chat link or QR code unless the system-provided user context says the user is an approved official member.
 - Never claim that a user has been approved unless the system-provided user context confirms it.
 - Never approve payments, change roles, or modify member status.
 - Never expose developer information, admin-only data, private member information, API keys, environment variables, database structure, or hidden routes.
-- Private Knowledge DB context is available only when the server explicitly supplies it for a developer account. Never infer private records without that context.
-- Traditional Liquor DB context is available only when the server explicitly supplies it for a developer account. Analyze its stored products and price observations, but never claim that missing or stale records are current facts.
+- Knowledge DB and Traditional Liquor DB context may be supplied to any WooHyukmon 4.0 user. Use only the server-supplied excerpts and never infer records that are not present.
+- Never reveal raw member names, email addresses, contact details, payment identifiers, team-chat links, QR codes, API keys, environment variables, internal database identifiers, or hidden admin routes from any supplied context.
+- Analyze stored traditional-liquor products and price observations, but never claim that missing or stale records are current facts.
 - For traditional-liquor questions, treat Traditional Liquor DB records as the primary source. Use external search results only when the DB has no usable records for the request or the user explicitly requests additional/current web research. Clearly distinguish DB facts from externally researched facts.
 - If a user asks for something restricted, explain that only approved official members or authorized officers can access it.
 
@@ -141,7 +143,7 @@ Important behavior:
 
 You are not just answering questions. You are helping users complete the correct next step on K_LINE.`;
 
-function buildWoohyukmonSystemInstruction(history: ClientMessage[], mode = "chat", attachmentNames: string[] = []) {
+function buildWoohyukmonSystemInstruction(history: ClientMessage[], mode = "chat", attachmentNames: string[] = [], modelVersion = "4") {
   const conversationRule =
     history.length === 0
       ? "This is the first reply in this chat. A short natural greeting is allowed once, but answer the user's request immediately."
@@ -149,7 +151,7 @@ function buildWoohyukmonSystemInstruction(history: ClientMessage[], mode = "chat
 
   const postDraftRule =
     mode === "post_draft"
-      ? `\n\nWoohyukmon 3.0 board draft task:\n- Draft an ECC free-board post from the user's request and the attached file names.\n- Start with exactly \"제목: \" for Korean or \"Title: \" for English, followed by a concise title.\n- Then write \"내용:\" or \"Content:\" and a finished post body.\n- Do not say the post has already been uploaded. The user must confirm publication separately.\n- Attached files: ${attachmentNames.join(", ") || "none"}.`
+      ? `\n\nWoohyukmon ${modelVersion}.0 board draft task:\n- Draft an ECC free-board post from the user's request and the attached file names.\n- Start with exactly \"제목: \" for Korean or \"Title: \" for English, followed by a concise title.\n- Then write \"내용:\" or \"Content:\" and a finished post body.\n- Do not say the post has already been uploaded. The user must confirm publication separately.\n- Attached files: ${attachmentNames.join(", ") || "none"}.`
       : "";
 
   return `${woohyukmonSystemInstruction}
@@ -158,7 +160,53 @@ Conversation continuity:
 - ${conversationRule}
 - Do not repeatedly introduce yourself or repeat K_LINE, ECC, Han-hwal, membership, or site navigation unless the user asks about that subject.
 - Focus on the user's exact request. If the subject changes, follow the new subject without redirecting it back to club information.
+- WooHyukmon 4.0 can read server-supplied Knowledge DB, Traditional Liquor DB, and non-identifying K_LINE operational summaries for every user. This is read-only access and never grants admin actions.
 - Never claim that you can view, edit, upload, publish, approve, or change live K_LINE data unless the server explicitly provides that authorized live action or data.${postDraftRule}`;
+}
+
+async function buildPublicV4OperationalContext(message: string) {
+  const normalized = message.toLowerCase();
+  const wantsFund = /자금|잔액|후원금|fund|balance|donation/.test(normalized);
+  const wantsApplications = /신청.*(?:현황|수|명단)|application.*(?:count|status)|신청자/.test(normalized);
+  const wantsMembers = /회원.*(?:현황|수|명단)|member.*(?:count|status|summary)|가입자/.test(normalized);
+  if (!wantsFund && !wantsApplications && !wantsMembers) return "";
+
+  const lines = [
+    "WOOHYUKMON 4.0 READ-ONLY K_LINE OPERATIONAL SUMMARY",
+    "Use aggregate values only. Never reveal or infer names, emails, contact details, payment identifiers, or applicant records."
+  ];
+
+  if (wantsFund) {
+    const rows = await supabaseRequest<Array<{ displayed_balance_krw: number; total_donation_krw: number; updated_at: string }>>(
+      "ecc_fund_settings?select=displayed_balance_krw,total_donation_krw,updated_at&id=eq.ecc&limit=1"
+    );
+    const fund = rows[0];
+    lines.push(fund
+      ? `ECC fund aggregate: displayed balance ${Number(fund.displayed_balance_krw)} KRW; cumulative donations ${Number(fund.total_donation_krw)} KRW; updated ${fund.updated_at}.`
+      : "ECC fund aggregate: no stored record.");
+  }
+
+  if (wantsApplications) {
+    const rows = await supabaseRequest<Array<{ activity_id: string; activity_title: string | null; status: string }>>(
+      "ecc_activity_applications?select=activity_id,activity_title,status&limit=2000"
+    );
+    const grouped = rows.reduce<Record<string, number>>((counts, row) => {
+      const key = row.activity_title || row.activity_id;
+      counts[key] = (counts[key] ?? 0) + 1;
+      return counts;
+    }, {});
+    lines.push(`ECC activity application aggregate: total ${rows.length}; by activity ${JSON.stringify(grouped)}.`);
+  }
+
+  if (wantsMembers) {
+    const [roles, siteMembers] = await Promise.all([
+      supabaseRequest<Array<{ official_member_status: string | null }>>("ecc_roles?select=official_member_status&limit=2000"),
+      supabaseRequest<Array<{ email: string }>>("site_members?select=email&limit=2000")
+    ]);
+    lines.push(`K_LINE member aggregate: registered users ${new Set(siteMembers.map((row) => row.email.toLowerCase())).size}; approved ECC official members ${roles.filter((row) => row.official_member_status === "approved").length}.`);
+  }
+
+  return lines.join("\n");
 }
 
 function cleanMessages(history: unknown): ClientMessage[] {
@@ -507,7 +555,8 @@ async function streamGeminiAnswer({
   history,
   message,
   mode,
-  attachmentNames
+  attachmentNames,
+  modelVersion
 }: {
   ai: GoogleGenAI;
   controller: ReadableStreamDefaultController<Uint8Array>;
@@ -516,12 +565,13 @@ async function streamGeminiAnswer({
   message: string;
   mode?: string;
   attachmentNames?: string[];
+  modelVersion?: string;
 }) {
   const responseStream = await ai.models.generateContentStream({
     model: getGeminiModel(),
     contents: buildContents(message, history, externalSearchContext),
     config: {
-      systemInstruction: buildWoohyukmonSystemInstruction(history, mode, attachmentNames),
+      systemInstruction: buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion),
       temperature: externalSearchContext ? 0.12 : 0.35,
       maxOutputTokens: getMaxOutputTokens()
     }
@@ -549,10 +599,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
   }
 
-  let body: { attachmentNames?: unknown; message?: unknown; history?: unknown; mode?: unknown };
+  let body: { attachmentNames?: unknown; message?: unknown; history?: unknown; mode?: unknown; modelVersion?: unknown };
 
   try {
-    body = (await request.json()) as { message?: unknown; history?: unknown };
+    body = (await request.json()) as { attachmentNames?: unknown; message?: unknown; history?: unknown; mode?: unknown; modelVersion?: unknown };
   } catch {
     return Response.json({ error: "Invalid JSON request body." }, { status: 400 });
   }
@@ -565,6 +615,8 @@ export async function POST(request: Request) {
 
   const history = cleanMessages(body.history);
   const mode = body.mode === "post_draft" ? "post_draft" : "chat";
+  const modelVersion = body.modelVersion === "2" || body.modelVersion === "3" ? body.modelVersion : "4";
+  const isPublicV4 = modelVersion === "4";
   const attachmentNames = Array.isArray(body.attachmentNames)
     ? body.attachmentNames
         .filter((name): name is string => typeof name === "string")
@@ -580,7 +632,7 @@ export async function POST(request: Request) {
     async start(controller) {
       try {
         const configuredProviders = getConfiguredSearchProviders();
-        const traditionalLiquorQuestion = developerAccess.isDeveloper && isTraditionalLiquorQuestion(message);
+        const traditionalLiquorQuestion = (developerAccess.isDeveloper || isPublicV4) && isTraditionalLiquorQuestion(message);
         const traditionalLiquor = traditionalLiquorQuestion
           ? await buildTraditionalLiquorAssistantContext(message).catch((error) => {
               console.error("WooHyukmon traditional liquor retrieval failed", error);
@@ -602,27 +654,37 @@ export async function POST(request: Request) {
         const { results: externalResults, usedProviders } = needsExternalSearch
           ? await searchExternalSources(message)
           : { results: [], usedProviders: [] };
-        const knowledgeResults = developerAccess.isDeveloper
+        const knowledgeResults = developerAccess.isDeveloper || isPublicV4
           ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
               console.error("WooHyukmon private knowledge retrieval failed", error);
               return [];
             })
           : [];
         const traditionalLiquorContext = traditionalLiquor?.text ?? "";
-        const knowledgeSources = knowledgeResults.map((result) => ({
-          title: result.fileName,
-          url: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://kline-nine-wheat.vercel.app"}/developer/woohyukmon-training?file=${encodeURIComponent(result.fileId)}`
-        }));
+        const operationalContext = isPublicV4
+          ? await buildPublicV4OperationalContext(message).catch((error) => {
+              console.error("WooHyukmon operational summary retrieval failed", error);
+              return "";
+            })
+          : "";
+        const knowledgeSources = developerAccess.isDeveloper
+          ? knowledgeResults.map((result) => ({
+              title: result.fileName,
+              url: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://kline-nine-wheat.vercel.app"}/developer/woohyukmon-training?file=${encodeURIComponent(result.fileId)}`
+            }))
+          : [];
         const externalSources = externalResults.map((result) => ({
           title: result.title,
           url: result.url
         }));
 
         const allSources = [...knowledgeSources, ...externalSources];
-        const groundedContextCount = allSources.length + (traditionalLiquorContext ? 1 : 0);
+        const publicKnowledgeCount = isPublicV4 && !developerAccess.isDeveloper ? knowledgeResults.length : 0;
+        const groundedContextCount = allSources.length + publicKnowledgeCount + (traditionalLiquorContext ? 1 : 0) + (operationalContext ? 1 : 0);
         const allProviders = [
-          ...(knowledgeSources.length > 0 ? ["WooHyukmon DB"] : []),
+          ...(knowledgeResults.length > 0 ? ["WooHyukmon DB"] : []),
           ...(traditionalLiquorContext ? ["Traditional Liquor DB"] : []),
+          ...(operationalContext ? ["K_LINE Operational DB"] : []),
           ...usedProviders
         ];
 
@@ -671,14 +733,16 @@ export async function POST(request: Request) {
           ai,
           controller,
           externalSearchContext: [
-            developerAccess.isDeveloper ? formatKnowledgeContext(knowledgeResults) : "",
+            developerAccess.isDeveloper || isPublicV4 ? formatKnowledgeContext(knowledgeResults) : "",
             traditionalLiquorContext,
+            operationalContext,
             buildExternalSearchContext(externalResults)
           ].filter(Boolean).join("\n\n"),
           history,
           message,
           mode,
-          attachmentNames
+          attachmentNames,
+          modelVersion
         });
 
         controller.enqueue(

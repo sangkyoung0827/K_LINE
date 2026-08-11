@@ -52,8 +52,8 @@ export async function buildTraditionalLiquorAssistantContext(message: string) {
 
   return {
     hasRecords,
-    text: `AUTHORIZED PRIVATE TRADITIONAL LIQUOR DATABASE CONTEXT
-The following records come from K_LINE's server-side Traditional Liquor DB and are available only for this authorized developer request.
+    text: `WOOHYUKMON 4.0 TRADITIONAL LIQUOR DATABASE CONTEXT
+The following read-only records come from K_LINE's server-side Traditional Liquor DB.
 Use these records as the primary and default evidence for the user's traditional-liquor question. Do not use external search material when the database answers the question. Distinguish stored price observations from general market facts. Do not invent missing values. Mention the data check time when relevant.
 Dataset summary: ${summary}
 Price-sorted offer records (lowest first, up to 120):
