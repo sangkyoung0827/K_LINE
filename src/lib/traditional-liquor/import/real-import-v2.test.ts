@@ -191,3 +191,15 @@ test("TEST 19: supplied 148-row MARKET_OFFER workbook is detected and validates"
   assert.equal(results.filter(({ preview }) => !preview.seller || preview.price === null || !preview.platform).length, 0);
   assert.deepEqual(results.slice(0, 5).map(({ preview }) => [preview.seller, preview.price]), [["11번가", 2980], ["DOSU", 2900], ["별주막닷컴", 2890], ["술마켓", 2800], ["쿠팡", 2900]]);
 });
+
+test("TEST 20: discarded Batch migration preserves Production entities", async () => {
+  const sql = await readFile(join(process.cwd(), "supabase/traditional_liquor_import_batch_discard.sql"), "utf8");
+  assert.match(sql, /'DISCARDED'/);
+  assert.match(sql, /production_committed_at/);
+  assert.match(sql, /BATCH_MUST_BE_DISCARDED_FIRST/);
+  assert.match(sql, /COMMITTED_BATCH_CANNOT_BE_DELETED/);
+  assert.match(sql, /traditional_liquor_offers[\s\S]*import_batch_id = p_batch_id/);
+  assert.match(sql, /delete from public\.traditional_liquor_import_errors/);
+  assert.match(sql, /delete from public\.traditional_liquor_import_staging_rows/);
+  assert.doesNotMatch(sql, /delete from public\.traditional_liquor_(products|breweries|sellers|offers|price_history)/);
+});

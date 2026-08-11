@@ -1,13 +1,14 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Download, ExternalLink, FileSearch, Link2, LoaderCircle, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleSlash2, Download, ExternalLink, FileSearch, Link2, LoaderCircle, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { CommitResult, RealStagingRow, ResolutionResult } from "@/lib/traditional-liquor/import/real-import-repository";
 import { createImportPreview, formatPreviewPrice } from "@/lib/traditional-liquor/import/import-preview";
 import { fieldsForImportType, type ColumnMapping, type RealImportAnalysis, type RealImportType } from "@/lib/traditional-liquor/import/real-import-types";
 
 const endpoint = "/api/v4/traditional-liquor/import";
-type Batch = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string };
+type Batch = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string; discarded_at?: string | null; discard_reason?: string | null; production_committed_at?: string | null };
+type BatchFilter = "ACTIVE" | "COMPLETED" | "DISCARDED";
 
 async function jsonRequest<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, init);
@@ -29,6 +30,9 @@ export function TraditionalLiquorRealImportPanel() {
   const [resolution, setResolution] = useState<ResolutionResult | null>(null);
   const [commitResult, setCommitResult] = useState<CommitResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [batchFilter, setBatchFilter] = useState<BatchFilter>("ACTIVE");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -98,19 +102,30 @@ export function TraditionalLiquorRealImportPanel() {
     finally { setBusy(false); }
   }
 
-  async function discard() {
-    if (!selectedBatch || !window.confirm("Production에 반영되지 않은 이 Import Batch를 폐기하시겠습니까?")) return;
+  async function discard(reason: string) {
+    if (!selectedBatch) return;
     setBusy(true); setError("");
     try {
-      await jsonRequest(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "discard", batchId: selectedBatch.id }) });
-      setSelectedBatch(null); setRows([]); setResolution(null); await loadBatches();
+      await jsonRequest(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "discard", batchId: selectedBatch.id, reason }) });
+      setDiscardOpen(false); setBatchFilter("DISCARDED"); await openBatch(selectedBatch.id);
     } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Batch 폐기에 실패했습니다."); }
+    finally { setBusy(false); }
+  }
+
+  async function permanentlyDelete() {
+    if (!selectedBatch) return;
+    setBusy(true); setError("");
+    try {
+      await jsonRequest(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "permanently-delete", batchId: selectedBatch.id }) });
+      setDeleteOpen(false); setSelectedBatch(null); setRows([]); setResolution(null); await loadBatches();
+    } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Batch 완전 삭제에 실패했습니다."); }
     finally { setBusy(false); }
   }
 
   const reviewCount = rows.filter((row) => row.validation_status === "VALID" && row.resolution_status === "MANUAL_REVIEW").length;
   const unresolvedCount = rows.filter((row) => row.validation_status === "VALID" && row.resolution_status === "UNRESOLVED").length;
   const committable = !!selectedBatch && selectedBatch.status === "READY" && rows.some((row) => row.validation_status === "VALID" && row.review_action !== "EXCLUDE") && reviewCount === 0 && unresolvedCount === 0;
+  const filteredBatches = batches.filter((batch) => batchFilter === "ACTIVE" ? !["COMPLETED", "DISCARDED"].includes(batch.status) : batch.status === batchFilter);
 
   return <section className="mt-6 border border-white/10 bg-white/[0.025]">
     <header className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 p-5">
@@ -133,11 +148,13 @@ export function TraditionalLiquorRealImportPanel() {
       void analyzeFile(analysis.detectedImportType, false);
     }} onKeepCurrent={() => void analyzeFile(analysis.requestedImportType, true)} busy={busy} /> : null}
     <div className="grid lg:grid-cols-[280px_1fr]">
-      <div className="border-b border-white/10 p-4 lg:border-b-0 lg:border-r"><p className="px-1 text-xs font-bold text-white/55">실제 Import Batch</p><div className="mt-3 max-h-[520px] space-y-2 overflow-auto">{batches.map((batch) => <button key={batch.id} type="button" onClick={() => void openBatch(batch.id)} className={`w-full border p-3 text-left ${selectedBatch?.id === batch.id ? "border-[#f7c76b] bg-[#f7c76b]/7" : "border-white/10 bg-black/10"}`}><div className="flex justify-between gap-2"><span className="truncate text-xs font-bold text-white/75">{batch.file_name}</span><span className="text-[9px] font-bold text-[#f7c76b]">{batch.status}</span></div><p className="mt-1 text-[10px] text-white/34">{batch.import_type} · {batch.total_rows}행 · 오류 {batch.invalid_rows}</p></button>)}</div></div>
-      <div className="min-w-0 p-5">{selectedBatch ? <BatchWorkspace batch={selectedBatch} rows={rows} resolution={resolution} busy={busy} committable={committable} onResolve={() => void resolve()} onReview={review} onCommit={() => setConfirmOpen(true)} onDiscard={() => void discard()} /> : <div className="grid min-h-48 place-items-center text-sm text-white/32">분석할 실제 Import Batch를 선택하세요.</div>}</div>
+      <div className="border-b border-white/10 p-4 lg:border-b-0 lg:border-r"><p className="px-1 text-xs font-bold text-white/55">실제 Import Batch</p><div className="mt-3 grid grid-cols-3 gap-1">{(["ACTIVE", "COMPLETED", "DISCARDED"] as BatchFilter[]).map((filter) => <button key={filter} type="button" onClick={() => { setBatchFilter(filter); setSelectedBatch(null); setRows([]); }} className={`h-8 border text-[9px] font-bold ${batchFilter === filter ? "border-[#f7c76b] bg-[#f7c76b]/10 text-[#f7c76b]" : "border-white/10 text-white/38"}`}>{filter === "ACTIVE" ? "활성" : filter === "COMPLETED" ? "Production 완료" : "폐기됨"}</button>)}</div><div className="mt-3 max-h-[520px] space-y-2 overflow-auto">{filteredBatches.length ? filteredBatches.map((batch) => <button key={batch.id} type="button" onClick={() => void openBatch(batch.id)} className={`w-full border p-3 text-left ${selectedBatch?.id === batch.id ? "border-[#f7c76b] bg-[#f7c76b]/7" : "border-white/10 bg-black/10"}`}><div className="flex justify-between gap-2"><span className="truncate text-xs font-bold text-white/75">{batch.file_name}</span><span className="text-[9px] font-bold text-[#f7c76b]">{batch.status}</span></div><p className="mt-1 text-[10px] text-white/34">{batch.import_type} · {batch.total_rows}행 · 오류 {batch.invalid_rows}</p></button>) : <p className="px-1 py-6 text-center text-[10px] text-white/28">해당 Batch가 없습니다.</p>}</div></div>
+      <div className="min-w-0 p-5">{selectedBatch ? <BatchWorkspace batch={selectedBatch} rows={rows} resolution={resolution} busy={busy} committable={committable} onResolve={() => void resolve()} onReview={review} onCommit={() => setConfirmOpen(true)} onDiscard={() => setDiscardOpen(true)} onDelete={() => setDeleteOpen(true)} /> : <div className="grid min-h-48 place-items-center text-sm text-white/32">분석할 실제 Import Batch를 선택하세요.</div>}</div>
     </div>
     {commitResult ? <div className="border-t border-emerald-300/20 bg-emerald-300/7 p-5"><div className="flex items-center gap-2 text-sm font-bold text-emerald-300"><CheckCircle2 className="h-5 w-5" />Production 반영 완료</div><p className="mt-2 text-xs text-white/55">Products +{commitResult.productsInserted} / Updated {commitResult.productsUpdated} · Breweries +{commitResult.breweriesInserted} · Sellers +{commitResult.sellersInserted} · Offers +{commitResult.offersInserted} / Updated {commitResult.offersUpdated} · History +{commitResult.priceHistoryInserted}</p></div> : null}
     {confirmOpen && selectedBatch ? <CommitModal batch={selectedBatch} rows={rows} onCancel={() => setConfirmOpen(false)} onConfirm={() => void commit()} /> : null}
+    {discardOpen && selectedBatch ? <DiscardModal batch={selectedBatch} busy={busy} onCancel={() => setDiscardOpen(false)} onConfirm={(reason) => void discard(reason)} /> : null}
+    {deleteOpen && selectedBatch ? <DeleteBatchModal batch={selectedBatch} busy={busy} onCancel={() => setDeleteOpen(false)} onConfirm={() => void permanentlyDelete()} /> : null}
   </section>;
 }
 
@@ -156,9 +173,10 @@ function MappingEditor({ analysis, mapping, onChange, onStage, onUseDetected, on
   </div>;
 }
 
-function BatchWorkspace({ batch, rows, resolution, busy, committable, onResolve, onReview, onCommit, onDiscard }: { batch: Batch; rows: RealStagingRow[]; resolution: ResolutionResult | null; busy: boolean; committable: boolean; onResolve: () => void; onReview: (row: RealStagingRow, action: "LINK_EXISTING" | "CREATE_NEW" | "EXCLUDE", ids?: Record<string, string>) => void; onCommit: () => void; onDiscard: () => void }) {
+function BatchWorkspace({ batch, rows, resolution, busy, committable, onResolve, onReview, onCommit, onDiscard, onDelete }: { batch: Batch; rows: RealStagingRow[]; resolution: ResolutionResult | null; busy: boolean; committable: boolean; onResolve: () => void; onReview: (row: RealStagingRow, action: "LINK_EXISTING" | "CREATE_NEW" | "EXCLUDE", ids?: Record<string, string>) => void; onCommit: () => void; onDiscard: () => void; onDelete: () => void }) {
   const importType = batch.import_type ?? "MARKET_OFFER";
-  return <><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-base font-bold">{batch.file_name}</h3><p className="mt-1 text-xs text-white/35">총 {batch.total_rows} · VALID {batch.valid_rows} · INVALID {batch.invalid_rows} · {batch.status === "READY" ? "READY (검증 완료 / 반영 전)" : batch.status === "COMPLETED" ? "COMPLETED (Production 반영 완료)" : batch.status}</p></div><div className="flex flex-wrap gap-2">{!['COMPLETED', 'IMPORTING'].includes(batch.status) ? <button type="button" onClick={onDiscard} disabled={busy} title="Batch 폐기" className="grid h-9 w-9 place-items-center border border-red-300/25 text-red-200 disabled:opacity-35"><Trash2 className="h-4 w-4" /></button> : null}<button type="button" onClick={onResolve} disabled={busy || batch.status !== "READY"} className="h-9 border border-[#f7c76b]/50 px-3 text-[10px] font-bold text-[#f7c76b] disabled:opacity-35">Entity Resolution 실행</button><button type="button" onClick={onCommit} disabled={busy || !committable} className="h-9 bg-[#f7c76b] px-3 text-[10px] font-bold text-[#17191a] disabled:opacity-35">Production DB에 반영</button></div></div>
+  const deleteAllowed = batch.status === "DISCARDED" && !batch.production_committed_at;
+  return <><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-base font-bold">{batch.file_name}</h3><p className="mt-1 text-xs text-white/35">총 {batch.total_rows} · VALID {batch.valid_rows} · INVALID {batch.invalid_rows} · {batch.status === "READY" ? "READY (검증 완료 / 반영 전)" : batch.status === "COMPLETED" ? "COMPLETED (Production 반영 완료)" : batch.status === "DISCARDED" ? "DISCARDED (폐기됨)" : batch.status}</p>{batch.status === "DISCARDED" ? <p className="mt-2 text-xs text-red-200/70">폐기 사유: {batch.discard_reason || "기록 없음"}{batch.production_committed_at ? " · Production 반영 이력 있음" : ""}</p> : null}</div><div className="flex flex-wrap gap-2"><button type="button" onClick={onDiscard} disabled={busy || ["DISCARDED", "IMPORTING"].includes(batch.status)} className="inline-flex h-9 items-center gap-1.5 border border-red-300/25 px-3 text-[10px] font-bold text-red-200 disabled:opacity-30"><CircleSlash2 className="h-3.5 w-3.5" />폐기</button><button type="button" onClick={onDelete} disabled={busy || !deleteAllowed} title={batch.production_committed_at ? "Production 반영 이력이 있는 Batch는 삭제할 수 없습니다." : batch.status !== "DISCARDED" ? "먼저 Batch를 폐기하세요." : "Batch 완전 삭제"} className="inline-flex h-9 items-center gap-1.5 border border-red-300/25 px-3 text-[10px] font-bold text-red-200 disabled:opacity-30"><Trash2 className="h-3.5 w-3.5" />완전 삭제</button><button type="button" onClick={onResolve} disabled={busy || batch.status !== "READY"} className="h-9 border border-[#f7c76b]/50 px-3 text-[10px] font-bold text-[#f7c76b] disabled:opacity-35">Entity Resolution 실행</button><button type="button" onClick={onCommit} disabled={busy || !committable || batch.status === "DISCARDED"} className="h-9 bg-[#f7c76b] px-3 text-[10px] font-bold text-[#17191a] disabled:opacity-35">Production DB에 반영</button></div></div>
     {resolution ? <p className="mt-3 text-xs text-white/48">MATCHED {resolution.matched} · NEW {resolution.newEntity} · REVIEW {resolution.manualReview} · INVALID {resolution.invalid}</p> : null}
     <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[1100px] border-collapse text-left text-xs"><thead className="border-y border-white/10 text-white/35"><tr><th className="px-3 py-2">행</th><th className="px-3 py-2">제품 / Listing</th><th className="px-3 py-2">{importType === "MARKET_OFFER" ? "판매업체" : "양조장"}</th>{importType === "MARKET_OFFER" ? <><th className="px-3 py-2">가격</th><th className="px-3 py-2">플랫폼</th><th className="px-3 py-2">용량 × 수량</th><th className="px-3 py-2">URL</th></> : null}<th className="px-3 py-2">Validation</th><th className="px-3 py-2">Resolution</th><th className="px-3 py-2">검토</th></tr></thead><tbody>{rows.map((row) => { const preview = createImportPreview(importType, row.normalized_data, row.raw_data); return <tr key={row.id} className="border-b border-white/8"><td className="px-3 py-3 text-white/30">{row.row_number}</td><td className="max-w-64 truncate px-3 py-3 font-semibold text-white/75">{String(preview.title ?? "-")}</td><td className="px-3 py-3 text-white/48">{String(preview.seller ?? "-")}</td>{importType === "MARKET_OFFER" ? <><td className="px-3 py-3 text-[#f7c76b]">{formatPreviewPrice(preview.price)}</td><td className="px-3 py-3 text-white/48">{String(preview.platform ?? "-")}</td><td className="px-3 py-3 text-white/48">{preview.volumeMl ? `${preview.volumeMl}ml` : "-"} × {String(preview.quantity ?? "-")}</td><td className="px-3 py-3">{preview.listingUrl ? <a href={String(preview.listingUrl)} target="_blank" rel="noreferrer" title="판매 URL 열기" className="text-[#f7c76b]"><ExternalLink className="h-3.5 w-3.5" /></a> : "-"}</td></> : null}<td className={row.validation_status === "VALID" ? "px-3 py-3 text-emerald-300" : "px-3 py-3 text-red-300"}>{row.validation_status}</td><td className={`px-3 py-3 font-bold ${row.resolution_status === "MANUAL_REVIEW" ? "text-red-300" : row.resolution_status === "NEW_ENTITY" ? "text-[#f7c76b]" : "text-white/55"}`}>{row.review_action === "EXCLUDE" ? "EXCLUDED" : row.resolution_status}</td><td className="px-3 py-3">{row.resolution_status === "MANUAL_REVIEW" ? <ReviewActions row={row} onReview={onReview} /> : "-"}</td></tr>; })}</tbody></table></div></>;
 }
@@ -168,6 +186,15 @@ function ReviewActions({ row, onReview }: { row: RealStagingRow; onReview: (row:
   const [ids, setIds] = useState<Record<string, string>>({ productId: candidates.products?.[0]?.id ?? "", sellerId: candidates.sellers?.[0]?.id ?? "", platformId: candidates.platforms?.[0]?.id ?? "", breweryId: candidates.breweries?.[0]?.id ?? "" });
   const groups = [["products", "productId", "제품"], ["sellers", "sellerId", "업체"], ["platforms", "platformId", "플랫폼"], ["breweries", "breweryId", "양조장"]] as const;
   return <div className="min-w-56 space-y-1.5">{groups.filter(([group]) => candidates[group]?.length).map(([group, key, label]) => <select key={group} aria-label={`${label} 후보`} value={ids[key]} onChange={(event) => setIds({ ...ids, [key]: event.target.value })} className="h-7 w-full border border-white/12 bg-[#0e1112] px-2 text-[9px] text-white/65"><option value="">{label} 선택</option>{candidates[group].map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select>)}<div className="flex gap-1"><button type="button" onClick={() => onReview(row, "LINK_EXISTING", ids)} className="h-7 border border-white/15 px-2 text-[9px] text-white/60"><Link2 className="mr-1 inline h-3 w-3" />기존 연결</button><button type="button" onClick={() => onReview(row, "CREATE_NEW", ids)} className="h-7 border border-white/15 px-2 text-[9px] text-white/60">신규 생성</button><button type="button" onClick={() => onReview(row, "EXCLUDE")} className="h-7 border border-red-300/20 px-2 text-[9px] text-red-200">제외</button></div></div>;
+}
+
+function DiscardModal({ batch, busy, onCancel, onConfirm }: { batch: Batch; busy: boolean; onCancel: () => void; onConfirm: (reason: string) => void }) {
+  const [reason, setReason] = useState("");
+  return <div className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-5"><div role="dialog" aria-modal="true" aria-labelledby="discard-title" className="w-full max-w-md border border-red-300/20 bg-[#17191a] p-5 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold text-red-200">AUDIT-PRESERVING ACTION</p><h3 id="discard-title" className="mt-2 text-xl font-bold">이 Batch를 폐기하시겠습니까?</h3></div><button type="button" onClick={onCancel} title="닫기" className="grid h-8 w-8 place-items-center text-white/50"><X className="h-4 w-4" /></button></div><p className="mt-4 text-sm leading-6 text-white/60">Staging 데이터는 Production 반영 대상에서 제외됩니다.<br />이미 존재하는 Production DB 데이터에는 영향을 주지 않습니다.</p>{batch.production_committed_at || batch.status === "COMPLETED" ? <p className="mt-3 border border-amber-300/20 bg-amber-300/7 p-3 text-xs leading-5 text-amber-100">이 Batch에는 Production 반영 이력이 있습니다. 폐기 기록은 남지만 기존 Production 데이터는 유지되며 완전 삭제는 허용되지 않습니다.</p> : null}<label className="mt-4 block"><span className="text-xs font-bold text-white/55">폐기 사유</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} placeholder="잘못된 Import Type, 테스트 Batch 등" className="mt-2 min-h-24 w-full resize-y border border-white/15 bg-[#0e1112] p-3 text-sm text-white outline-none focus:border-red-300/50" /></label><div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={onCancel} disabled={busy} className="h-11 border border-white/15 text-xs font-bold text-white/60">취소</button><button type="button" onClick={() => onConfirm(reason)} disabled={busy || !reason.trim()} className="h-11 bg-red-200 text-xs font-bold text-[#17191a] disabled:opacity-35">폐기 처리</button></div></div></div>;
+}
+
+function DeleteBatchModal({ batch, busy, onCancel, onConfirm }: { batch: Batch; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+  return <div className="fixed inset-0 z-[100] grid place-items-center bg-black/80 p-5"><div role="dialog" aria-modal="true" aria-labelledby="delete-batch-title" className="w-full max-w-md border border-red-300/25 bg-[#17191a] p-5 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold text-red-200">DEVELOPER-ONLY DESTRUCTIVE ACTION</p><h3 id="delete-batch-title" className="mt-2 text-xl font-bold">Import Batch 완전 삭제</h3></div><button type="button" onClick={onCancel} title="닫기" className="grid h-8 w-8 place-items-center text-white/50"><X className="h-4 w-4" /></button></div><p className="mt-4 text-sm leading-6 text-white/60">이 Batch와 종속 Staging, Error, 임시 Resolution 데이터가 영구 삭제됩니다. Products, Breweries, Sellers, Offers, Price History는 삭제하지 않습니다.</p><p className="mt-3 truncate border border-white/10 p-3 text-xs text-white/40">{batch.file_name}</p><div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={onCancel} disabled={busy} className="h-11 border border-white/15 text-xs font-bold text-white/60">취소</button><button type="button" onClick={onConfirm} disabled={busy} className="h-11 bg-red-200 text-xs font-bold text-[#17191a] disabled:opacity-35">완전 삭제</button></div></div></div>;
 }
 
 function CommitModal({ batch, rows, onCancel, onConfirm }: { batch: Batch; rows: RealStagingRow[]; onCancel: () => void; onConfirm: () => void }) {

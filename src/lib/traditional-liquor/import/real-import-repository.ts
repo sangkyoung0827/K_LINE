@@ -8,7 +8,7 @@ import { supabaseRequest } from "@/lib/supabaseServer";
 
 const representationHeaders = { Prefer: "return=representation" };
 type IdRow = { id: string };
-type BatchRow = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string };
+type BatchRow = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string; discarded_at?: string | null; discard_reason?: string | null; production_committed_at?: string | null };
 export type RealStagingRow = { id: string; batch_id: string; row_number: number; raw_data: Record<string, unknown>; normalized_data: Record<string, unknown>; validation_status: "VALID" | "INVALID"; resolution_status: ResolutionStatus; resolved_product_id: string | null; resolved_seller_id: string | null; resolved_platform_id: string | null; resolved_brewery_id: string | null; resolution_data: Record<string, unknown>; review_action: string | null; };
 export type { ResolutionStatus } from "@/lib/traditional-liquor/import/entity-resolution";
 
@@ -53,25 +53,26 @@ export class RealImportRepository {
   }
 
   async listRealBatches(limit = 30) {
-    return supabaseRequest<BatchRow[]>(`traditional_liquor_import_batches?select=id,status,total_rows,valid_rows,invalid_rows,inserted_rows,updated_rows,skipped_rows,file_name,import_type,created_at&import_type=not.is.null&order=created_at.desc&limit=${Math.min(Math.max(limit, 1), 50)}`);
+    return supabaseRequest<BatchRow[]>(`traditional_liquor_import_batches?select=*&import_type=not.is.null&order=created_at.desc&limit=${Math.min(Math.max(limit, 1), 100)}`);
   }
 
   async getRows(batchId: string) {
     return supabaseRequest<RealStagingRow[]>(`traditional_liquor_import_staging_rows?select=*&batch_id=eq.${encodeURIComponent(batchId)}&order=row_number.asc&limit=10000`);
   }
 
-  async discardBatch(batchId: string) {
-    const batches = await supabaseRequest<BatchRow[]>(`traditional_liquor_import_batches?select=id,status,total_rows,valid_rows,invalid_rows,inserted_rows,updated_rows,skipped_rows,file_name,import_type,created_at&id=eq.${encodeURIComponent(batchId)}&limit=1`);
-    const batch = batches[0];
-    if (!batch) throw new Error("IMPORT_BATCH_NOT_FOUND");
-    if (batch.status === "COMPLETED" || batch.status === "IMPORTING") throw new Error("COMMITTED_BATCH_CANNOT_BE_DISCARDED");
-    await supabaseRequest(`traditional_liquor_import_errors?batch_id=eq.${encodeURIComponent(batchId)}`, { method: "DELETE" });
-    await supabaseRequest(`traditional_liquor_import_staging_rows?batch_id=eq.${encodeURIComponent(batchId)}`, { method: "DELETE" });
-    await supabaseRequest(`traditional_liquor_import_batches?id=eq.${encodeURIComponent(batchId)}`, { method: "DELETE" });
-    return { batchId, discarded: true };
+  async discardBatch(batchId: string, reason?: string | null) {
+    return supabaseRequest<{ batchId: string; discarded: boolean; productionCommitted: boolean }>("rpc/discard_traditional_liquor_import_batch", { method: "POST", body: JSON.stringify({ p_batch_id: batchId, p_reason: reason?.trim().slice(0, 500) || null }) });
+  }
+
+  async permanentlyDeleteBatch(batchId: string) {
+    return supabaseRequest<{ batchId: string; deleted: boolean; stagingRowsDeleted: number; errorsDeleted: number }>("rpc/delete_uncommitted_traditional_liquor_import_batch", { method: "POST", body: JSON.stringify({ p_batch_id: batchId }) });
   }
 
   async resolveBatch(batchId: string): Promise<ResolutionResult> {
+    const batches = await supabaseRequest<BatchRow[]>(`traditional_liquor_import_batches?select=*&id=eq.${encodeURIComponent(batchId)}&limit=1`);
+    if (!batches[0]) throw new Error("IMPORT_BATCH_NOT_FOUND");
+    if (batches[0].status === "DISCARDED") throw new Error("BATCH_DISCARDED");
+    if (batches[0].status !== "READY") throw new Error("BATCH_NOT_READY");
     const [rows, products, breweries, sellers, platforms, productAliases, sellerAliases] = await Promise.all([
       this.getRows(batchId),
       supabaseRequest<ProductEntity[]>("traditional_liquor_products?select=id,brewery_id,name,canonical_name,normalized_name,abv,volume_ml&is_active=eq.true&limit=10000"),
@@ -97,6 +98,9 @@ export class RealImportRepository {
   async reviewRow(rowId: string, action: "LINK_EXISTING" | "CREATE_NEW" | "EXCLUDE", ids: { productId?: string | null; sellerId?: string | null; platformId?: string | null; breweryId?: string | null }) {
     const rows = await supabaseRequest<RealStagingRow[]>(`traditional_liquor_import_staging_rows?select=*&id=eq.${encodeURIComponent(rowId)}&limit=1`);
     if (!rows[0]) throw new Error("STAGING_ROW_NOT_FOUND");
+    const batches = await supabaseRequest<BatchRow[]>(`traditional_liquor_import_batches?select=*&id=eq.${encodeURIComponent(rows[0].batch_id)}&limit=1`);
+    if (!batches[0]) throw new Error("IMPORT_BATCH_NOT_FOUND");
+    if (batches[0].status === "DISCARDED") throw new Error("BATCH_DISCARDED");
     const importType = String(rows[0].normalized_data.importType);
     if (action === "LINK_EXISTING" && !ids.productId) throw new Error("PRODUCT_LINK_REQUIRED");
     if (importType === "MARKET_OFFER" && action !== "EXCLUDE" && !ids.platformId && !rows[0].resolved_platform_id) throw new Error("PLATFORM_LINK_REQUIRED");

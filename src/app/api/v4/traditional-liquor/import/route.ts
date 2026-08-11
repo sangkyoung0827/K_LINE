@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 function validImportType(value: unknown): value is RealImportType { return value === "PRODUCT_MASTER" || value === "MARKET_OFFER"; }
 function safeError(error: unknown) {
   console.error("Traditional liquor real import error", error);
-  const known = error instanceof Error && /^(MANUAL_REVIEW_REQUIRED|BATCH_NOT_READY|IMPORT_BATCH_NOT_FOUND|NOT_A_REAL_IMPORT_BATCH|NO_COMMITTABLE_ROWS|STAGING_ROW_NOT_FOUND|PRODUCT_LINK_REQUIRED|SELLER_LINK_REQUIRED|PLATFORM_LINK_REQUIRED|COMMITTED_BATCH_CANNOT_BE_DISCARDED)/.test(error.message);
+  const known = error instanceof Error && /^(MANUAL_REVIEW_REQUIRED|BATCH_NOT_READY|BATCH_DISCARDED|IMPORT_BATCH_NOT_FOUND|NOT_A_REAL_IMPORT_BATCH|NO_COMMITTABLE_ROWS|STAGING_ROW_NOT_FOUND|PRODUCT_LINK_REQUIRED|SELLER_LINK_REQUIRED|PLATFORM_LINK_REQUIRED|IMPORTING_BATCH_CANNOT_BE_DISCARDED|BATCH_MUST_BE_DISCARDED_FIRST|COMMITTED_BATCH_CANNOT_BE_DELETED)/.test(error.message);
   const message = known ? (error as Error).message : "실제 전통주 Import 작업을 처리하지 못했습니다.";
   return NextResponse.json({ error: message, debugCode: "TL_REAL_IMPORT_V2" }, { status: known ? 409 : 500 });
 }
@@ -74,7 +74,8 @@ export async function POST(request: Request) {
     const body = await request.json() as Record<string, unknown>;
     if (body.action === "resolve" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.resolveBatch(body.batchId) });
     if (body.action === "commit" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.commitBatch(body.batchId) });
-    if (body.action === "discard" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.discardBatch(body.batchId) });
+    if (body.action === "discard" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.discardBatch(body.batchId, typeof body.reason === "string" ? body.reason : null) });
+    if (body.action === "permanently-delete" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.permanentlyDeleteBatch(body.batchId) });
     if (body.action === "stage-json" && validImportType(body.importType) && Array.isArray(body.records)) {
       const sourceName = typeof body.sourceName === "string" ? body.sourceName.slice(0, 160) : "JSON API";
       const parsed = parseJsonBuffer(Buffer.from(JSON.stringify(body.records)), typeof body.fileName === "string" ? body.fileName : "collector-import.json", body.importType, sourceName);

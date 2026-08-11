@@ -98,7 +98,7 @@ create table if not exists public.traditional_liquor_import_batches (
   source_id uuid not null references public.traditional_liquor_data_sources(id) on delete restrict,
   file_name text,
   status text not null default 'PENDING' check (
-    status in ('PENDING','PARSING','VALIDATING','READY','IMPORTING','COMPLETED','FAILED')
+    status in ('PENDING','PARSING','VALIDATING','READY','IMPORTING','COMPLETED','FAILED','DISCARDED')
   ),
   total_rows integer not null default 0 check (total_rows >= 0),
   valid_rows integer not null default 0 check (valid_rows >= 0),
@@ -108,6 +108,9 @@ create table if not exists public.traditional_liquor_import_batches (
   skipped_rows integer not null default 0 check (skipped_rows >= 0),
   started_at timestamptz,
   finished_at timestamptz,
+  discarded_at timestamptz,
+  discard_reason text,
+  production_committed_at timestamptz,
   created_at timestamptz not null default now(),
   check (finished_at is null or started_at is null or finished_at >= started_at)
 );
@@ -351,4 +354,3 @@ grant select, insert, update, delete on table public.traditional_liquor_import_b
 grant select, insert, update, delete on table public.traditional_liquor_import_staging_rows to service_role;
 grant select, insert, update, delete on table public.traditional_liquor_import_errors to service_role;
 grant select on table public.v_traditional_liquor_market to service_role;
-
