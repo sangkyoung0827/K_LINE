@@ -357,7 +357,7 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
   return data;
 }
 
-export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
+export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
   const { language } = useLanguage();
   const access = useSuperAdmin();
   const router = useRouter();
@@ -370,7 +370,7 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [modelVersion, setModelVersion] = useState<"2" | "3">("3");
+  const [modelVersion, setModelVersion] = useState<"2" | "3" | "4">(edition);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [saveWarning, setSaveWarning] = useState("");
   const [loading, setLoading] = useState(false);
@@ -741,7 +741,7 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
       return;
     }
 
-    const liveKind = modelVersion === "3" ? getLiveKind(trimmed) : null;
+    const liveKind = modelVersion !== "2" ? getLiveKind(trimmed) : null;
     if (liveKind) {
       try {
         const answer = await loadLiveSummary(liveKind);
@@ -765,7 +765,7 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
       }
     }
 
-    const postIntent = modelVersion === "3" && attachments.length > 0 && isPostInstruction(trimmed);
+    const postIntent = modelVersion !== "2" && attachments.length > 0 && isPostInstruction(trimmed);
     const attachmentsForPost = postIntent ? attachments : [];
 
     const coreAnswer = getCoreAnswer(trimmed, language);
@@ -981,10 +981,10 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
     <form
       onSubmit={submit}
       onDragOver={(event) => {
-        if (modelVersion === "3") event.preventDefault();
+        if (modelVersion !== "2") event.preventDefault();
       }}
       onDrop={(event) => {
-        if (modelVersion !== "3") return;
+        if (modelVersion === "2") return;
         event.preventDefault();
         addAttachments(event.dataTransfer.files);
       }}
@@ -994,7 +994,7 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
           : "border-t border-navy/10 bg-white/82 p-3 md:p-4"
       }`}
     >
-      {modelVersion === "3" ? (
+      {modelVersion !== "2" ? (
         <>
           <input
             ref={attachmentInputRef}
@@ -1036,7 +1036,7 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
           aria-expanded={modelMenuOpen}
           aria-label={language === "ko" ? "모델 설정" : "Model settings"}
         >
-          {language === "ko" ? `우혁몬 ${edition}.0` : `Woohyukmon ${edition}.0`}
+          {language === "ko" ? `우혁몬 ${modelVersion}.0` : `Woohyukmon ${modelVersion}.0`}
         </button>
         {modelMenuOpen ? (
           <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-20 w-44 rounded-lg border border-navy/12 bg-white p-2 text-xs text-ink shadow-lift">
@@ -1044,12 +1044,6 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
               {language === "ko" ? "현재 모델" : "Current model"}
             </p>
             <div className="rounded-md bg-brass/14 px-2 py-2 font-semibold">
-              {edition === "4" ? (
-                <p className="rounded-md bg-brass/14 px-2 py-1">
-                  {language === "ko" ? "우혁몬 4.0" : "Woohyukmon 4.0"}
-                </p>
-              ) : (
-                <>
               <button
                 type="button"
                 onClick={() => {
@@ -1070,8 +1064,16 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
               >
                 {language === "ko" ? "우혁몬 3.0" : "Woohyukmon 3.0"}
               </button>
-                </>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setModelVersion("4");
+                  setModelMenuOpen(false);
+                }}
+                className={`mt-1 w-full rounded-md px-2 py-1 text-left ${modelVersion === "4" ? "bg-brass/14" : "hover:bg-navy/6"}`}
+              >
+                {language === "ko" ? "우혁몬 4.0" : "Woohyukmon 4.0"}
+              </button>
             </div>
           </div>
         ) : null}
@@ -1084,7 +1086,7 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
       >
         <Send aria-hidden className="h-4 w-4" />
       </button>
-      {modelVersion === "3" && attachments.length > 0 ? (
+      {modelVersion !== "2" && attachments.length > 0 ? (
         <div className="absolute left-2 right-2 top-[calc(100%+0.35rem)] z-20 flex flex-wrap gap-1 rounded-lg border border-navy/12 bg-white p-2 text-xs shadow-lift">
           {attachments.map((attachment) => (
             <span key={attachment.id} className="inline-flex max-w-full items-center gap-1 rounded-md bg-paper px-2 py-1 text-ink/72">
@@ -1111,7 +1113,7 @@ export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
             {language === "ko" ? "저장된 대화" : "Saved Conversations"}
           </p>
-          <p className="mt-1 text-lg font-semibold">Woohyukmon {edition}.0</p>
+          <p className="mt-1 text-lg font-semibold">Woohyukmon {modelVersion}.0</p>
         </div>
         <button
           type="button"
