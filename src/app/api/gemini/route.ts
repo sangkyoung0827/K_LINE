@@ -639,15 +639,26 @@ export async function POST(request: Request) {
               return null;
             })
           : null;
-        const needsExternalSearch = !traditionalLiquorQuestion || !traditionalLiquor?.hasRecords || explicitlyRequestsExternalResearch(message);
+        const operationalContext = isPublicV4
+          ? await buildPublicV4OperationalContext(message).catch((error) => {
+              console.error("WooHyukmon operational summary retrieval failed", error);
+              return "";
+            })
+          : "";
+        const databaseProviders = [
+          ...(traditionalLiquor?.hasRecords ? ["Traditional Liquor DB"] : []),
+          ...(operationalContext ? ["K_LINE Operational DB"] : [])
+        ];
+        const needsExternalSearch = explicitlyRequestsExternalResearch(message)
+          || (databaseProviders.length === 0 && (!traditionalLiquorQuestion || !traditionalLiquor?.hasRecords));
 
         controller.enqueue(
           ndjson({
             type: "status",
             status: needsExternalSearch ? "external_search_started" : "database_search_started",
-            label: needsExternalSearch ? `${configuredProviders.join(" · ")} 검색 중` : "Traditional Liquor DB 조회 완료",
-            providers: needsExternalSearch ? configuredProviders : ["Traditional Liquor DB"],
-            sourceCount: traditionalLiquor?.hasRecords ? 1 : 0
+            label: needsExternalSearch ? `${configuredProviders.join(" · ")} 검색 중` : `${databaseProviders.join(" · ")} 조회 완료`,
+            providers: needsExternalSearch ? configuredProviders : databaseProviders,
+            sourceCount: (traditionalLiquor?.hasRecords ? 1 : 0) + (operationalContext ? 1 : 0)
           })
         );
 
@@ -661,12 +672,6 @@ export async function POST(request: Request) {
             })
           : [];
         const traditionalLiquorContext = traditionalLiquor?.text ?? "";
-        const operationalContext = isPublicV4
-          ? await buildPublicV4OperationalContext(message).catch((error) => {
-              console.error("WooHyukmon operational summary retrieval failed", error);
-              return "";
-            })
-          : "";
         const knowledgeSources = developerAccess.isDeveloper
           ? knowledgeResults.map((result) => ({
               title: result.fileName,
