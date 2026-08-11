@@ -3,6 +3,7 @@
 import { ArrowLeft, Building2, Database, LoaderCircle, PackageSearch, Search, Store } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { traditionalLiquorService } from "@/lib/traditional-liquor/service";
+import { TraditionalLiquorCollectionPanel } from "@/components/traditional-liquor/TraditionalLiquorCollectionPanel";
 import type { Offer, Platform, PlatformResult, ProductResult, Seller, SellerResult, TraditionalLiquorSearchResult, TraditionalLiquorView } from "@/lib/traditional-liquor/types";
 
 const tabs: Array<{ id: TraditionalLiquorView; label: string }> = [
@@ -79,6 +80,7 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
           {activeView === "seller" ? <SellerView sellers={results.sellers} /> : null}
         </> : null}
       </section>
+      <TraditionalLiquorCollectionPanel />
     </main>
   );
 }
@@ -125,4 +127,3 @@ function DataFact({ label, value }: { label: string; value: string }) { return <
 function StateMessage({ icon, label }: { icon?: React.ReactNode; label: string }) { return <div className="flex min-h-48 items-center justify-center gap-3 border border-white/10 bg-white/[0.025] text-sm text-white/45">{icon}{label}</div>; }
 function formatPrice(value: number) { return `${new Intl.NumberFormat("ko-KR").format(value)}원`; }
 function formatCheckedAt(value: string) { return new Intl.DateTimeFormat("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
-

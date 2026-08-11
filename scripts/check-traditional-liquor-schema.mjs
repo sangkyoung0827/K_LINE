@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const schema = readFileSync(resolve("supabase/traditional_liquor_market.sql"), "utf8").toLowerCase();
+const collectionSchema = readFileSync(resolve("supabase/traditional_liquor_collection_engine.sql"), "utf8").toLowerCase();
 
 const tables = [
   "traditional_liquor_breweries",
@@ -43,5 +44,18 @@ if (schema.includes("references public.knowledge_") || schema.includes("embeddin
   throw new Error("Traditional liquor Market DB must remain independent from the Knowledge System.");
 }
 
-console.log(`Traditional liquor schema check passed (${tables.length} tables + market view).`);
+const collectionRequired = [
+  "create table if not exists public.traditional_liquor_collection_queries",
+  "create table if not exists public.traditional_liquor_collection_runs",
+  "unique (normalized_query, query_type)",
+  "references public.traditional_liquor_import_batches",
+  "enable row level security",
+  "revoke all on table public.traditional_liquor_collection_queries from anon, authenticated",
+  "grant select, insert, update, delete on table public.traditional_liquor_collection_runs to service_role"
+];
+const missingCollection = collectionRequired.filter((needle) => !collectionSchema.includes(needle));
+if (missingCollection.length) {
+  throw new Error(`Traditional liquor collection schema validation failed. Missing: ${missingCollection.join(", ")}`);
+}
 
+console.log(`Traditional liquor schema check passed (${tables.length} tables + market view).`);
