@@ -1,5 +1,24 @@
 # K_LINE
 
+## Traditional Liquor Real Data Import V2
+
+Developer route: `/v4/traditional-liquor`
+
+Database migration order:
+
+1. `supabase/traditional_liquor_market.sql`
+2. `supabase/traditional_liquor_collection_engine.sql`
+3. `supabase/traditional_liquor_real_import_v2.sql`
+
+The V2 workflow is `CSV/XLSX/JSON -> mapping -> validation -> staging -> deterministic entity resolution -> manual review -> atomic Production RPC`. Uploading or staging never writes Product, Seller, Offer, or Price History records. Only a developer-confirmed call to `commit_traditional_liquor_import_batch` can commit a fully resolved batch.
+
+Templates:
+
+- `/templates/traditional_liquor_product_master_template.csv`
+- `/templates/traditional_liquor_market_offer_template.csv`
+
+Run `npm run test:traditional-liquor-real-import` for the 16 V2 validation checks. The Fixture Browser remains available below the real importer as `FIXTURE / TEST` for regression testing only.
+
 K_LINE Production Site:
 https://kline-nine-wheat.vercel.app
 

@@ -2,8 +2,8 @@
 
 import { ArrowLeft, Building2, Database, LoaderCircle, PackageSearch, Search, Store } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { traditionalLiquorService } from "@/lib/traditional-liquor/service";
 import { TraditionalLiquorCollectionPanel } from "@/components/traditional-liquor/TraditionalLiquorCollectionPanel";
+import { TraditionalLiquorRealImportPanel } from "@/components/traditional-liquor/TraditionalLiquorRealImportPanel";
 import type { Offer, Platform, PlatformResult, ProductResult, Seller, SellerResult, TraditionalLiquorSearchResult, TraditionalLiquorView } from "@/lib/traditional-liquor/types";
 
 const tabs: Array<{ id: TraditionalLiquorView; label: string }> = [
@@ -23,7 +23,11 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
     let active = true;
     const timer = window.setTimeout(() => {
       setStatus("loading");
-      traditionalLiquorService.search(query).then((nextResults) => {
+      fetch(`/api/v4/traditional-liquor/market?q=${encodeURIComponent(query)}`, { cache: "no-store" }).then(async (response) => {
+        const body = await response.json() as { results?: TraditionalLiquorSearchResult; error?: string };
+        if (!response.ok || !body.results) throw new Error(body.error ?? "실제 Market DB를 불러오지 못했습니다.");
+        return body.results;
+      }).then((nextResults) => {
         if (!active) return;
         const count = nextResults.products.length + nextResults.platforms.length + nextResults.sellers.length + nextResults.breweries.length;
         setResults(nextResults);
@@ -54,7 +58,7 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
           <h1 className="mt-3 text-3xl font-semibold text-white md:text-5xl">전통주 DATABASE</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-white/56">제품, 판매 플랫폼, 판매업체의 관계를 조회하는 우혁몬 4.0 전통주 시장 데이터 모듈입니다.</p>
         </div>
-        <span className="border border-[#f7c76b]/30 bg-[#f7c76b]/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.12em] text-[#f7c76b]">LOCAL SAMPLE DATA</span>
+        <span className="border border-[#f7c76b]/30 bg-[#f7c76b]/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.12em] text-[#f7c76b]">POSTGRESQL MARKET DATA</span>
       </div>
 
       <section className="mt-8 border border-white/10 bg-white/[0.035]">
@@ -80,6 +84,7 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
           {activeView === "seller" ? <SellerView sellers={results.sellers} /> : null}
         </> : null}
       </section>
+      <TraditionalLiquorRealImportPanel />
       <TraditionalLiquorCollectionPanel />
     </main>
   );

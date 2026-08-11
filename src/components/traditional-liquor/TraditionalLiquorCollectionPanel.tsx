@@ -77,7 +77,7 @@ export function TraditionalLiquorCollectionPanel() {
 
   return <section className="mt-10 border border-white/10 bg-white/[0.025]">
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 p-5">
-      <div><div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.15em] text-[#f7c76b]"><DatabaseZap className="h-4 w-4" />DATA COLLECTION V1</div><h2 className="mt-2 text-xl font-semibold text-white">수집 및 Import Preview</h2><p className="mt-1 text-xs leading-5 text-white/42">Fixture 수집 결과를 검증·정규화하여 Staging까지만 저장합니다.</p></div>
+      <div><div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.15em] text-[#f7c76b]"><DatabaseZap className="h-4 w-4" />FIXTURE / TEST</div><h2 className="mt-2 text-xl font-semibold text-white">Regression Collection Preview</h2><p className="mt-1 text-xs leading-5 text-white/42">테스트 Fixture를 검증·정규화하여 Staging까지만 저장합니다. 실제 데이터 입력은 위 V2 Import를 사용합니다.</p></div>
       <button type="button" onClick={() => void load()} disabled={busy} title="새로고침" className="grid h-10 w-10 place-items-center border border-white/15 text-white/60 transition hover:border-[#f7c76b] hover:text-[#f7c76b] disabled:opacity-40"><RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} /></button>
     </header>
 
@@ -103,7 +103,7 @@ export function TraditionalLiquorCollectionPanel() {
 
       <div className="p-5">
         <h3 className="text-sm font-bold text-white">수집 실행</h3>
-        <dl className="mt-4 grid grid-cols-[90px_1fr] gap-y-3 text-xs"><dt className="text-white/35">Source</dt><dd className="font-semibold text-white/72">Fixture Browser</dd><dt className="text-white/35">Query</dt><dd className="font-semibold text-[#f7c76b]">{selectedQuery?.query ?? "선택되지 않음"}</dd><dt className="text-white/35">Commit</dt><dd className="text-white/45">Staging only</dd></dl>
+        <dl className="mt-4 grid grid-cols-[90px_1fr] gap-y-3 text-xs"><dt className="text-white/35">Source</dt><dd className="font-semibold text-white/72">FIXTURE / TEST</dd><dt className="text-white/35">Query</dt><dd className="font-semibold text-[#f7c76b]">{selectedQuery?.query ?? "선택되지 않음"}</dd><dt className="text-white/35">Commit</dt><dd className="text-white/45">Staging only</dd></dl>
         <button type="button" onClick={() => void runCollection()} disabled={busy || !selectedQuery?.enabled} className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 bg-[#f7c76b] text-sm font-bold text-[#17191a] disabled:opacity-40">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}수집 시작</button>
         {result ? <div className="mt-4 border border-emerald-300/20 bg-emerald-300/7 p-4"><div className="flex items-center gap-2 text-xs font-bold text-emerald-300"><CheckCircle2 className="h-4 w-4" />수집 완료 · READY</div><p className="mt-2 text-xs text-white/55">{result.total} listings · {result.valid} VALID · {result.invalid} INVALID</p><p className="mt-1 truncate text-[10px] text-white/28">Batch {result.batchId}</p></div> : null}
       </div>

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 const schema = readFileSync(resolve("supabase/traditional_liquor_market.sql"), "utf8").toLowerCase();
 const collectionSchema = readFileSync(resolve("supabase/traditional_liquor_collection_engine.sql"), "utf8").toLowerCase();
+const realImportSchema = readFileSync(resolve("supabase/traditional_liquor_real_import_v2.sql"), "utf8").toLowerCase();
 
 const tables = [
   "traditional_liquor_breweries",
@@ -56,6 +57,24 @@ const collectionRequired = [
 const missingCollection = collectionRequired.filter((needle) => !collectionSchema.includes(needle));
 if (missingCollection.length) {
   throw new Error(`Traditional liquor collection schema validation failed. Missing: ${missingCollection.join(", ")}`);
+}
+
+const realImportRequired = [
+  "add column if not exists import_type text",
+  "add column if not exists resolved_brewery_id uuid",
+  "create table if not exists public.traditional_liquor_mapping_profiles",
+  "create or replace function public.commit_traditional_liquor_import_batch",
+  "security definer",
+  "manual_review_required",
+  "insert into public.traditional_liquor_price_history",
+  "platform_id = v_platform_id and external_offer_id =",
+  "platform_id = v_platform_id and external_offer_id is null and listing_url =",
+  "revoke all on function public.commit_traditional_liquor_import_batch(uuid) from public, anon, authenticated",
+  "grant execute on function public.commit_traditional_liquor_import_batch(uuid) to service_role"
+];
+const missingRealImport = realImportRequired.filter((needle) => !realImportSchema.includes(needle));
+if (missingRealImport.length) {
+  throw new Error(`Traditional liquor V2 real import schema validation failed. Missing: ${missingRealImport.join(", ")}`);
 }
 
 console.log(`Traditional liquor schema check passed (${tables.length} tables + market view).`);

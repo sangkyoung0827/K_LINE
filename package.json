@@ -11,15 +11,17 @@
     "verify:browser-metadata": "node scripts/verify-browser-metadata.mjs",
     "verify:traditional-liquor-schema": "node scripts/check-traditional-liquor-schema.mjs",
     "test:traditional-liquor-collection": "tsx --test src/lib/traditional-liquor/collection/collection-engine.test.ts",
+    "test:traditional-liquor-real-import": "tsx --test src/lib/traditional-liquor/import/real-import-v2.test.ts",
     "check:traditional-liquor-collection": "node scripts/check-traditional-liquor-collection-safety.mjs",
     "check:v4-isolation": "node scripts/check-v4-isolation.mjs",
     "check:browser-safety": "node scripts/check-browser-safety.mjs",
-    "test": "npm run typecheck && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run check:traditional-liquor-collection && npm run check:browser-safety",
+    "test": "npm run typecheck && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run test:traditional-liquor-real-import && npm run check:traditional-liquor-collection && npm run check:browser-safety",
     "check": "npm run test && npm run build && npm run check:v4-isolation"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",
     "@napi-rs/canvas": "^1.0.5",
+    "csv-parse": "^7.0.2",
     "hash-wasm": "^4.12.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.468.0",
@@ -31,6 +33,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "read-excel-file": "^9.3.10",
     "tus-js-client": "^4.3.1"
   },
   "devDependencies": {
