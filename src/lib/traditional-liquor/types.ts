@@ -56,13 +56,25 @@ export type Offer = {
   lastCheckedAt: string;
 };
 
+export type PriceHistory = {
+  id: string;
+  offerId: string;
+  observedAt: string;
+  price: number | null;
+  originalPrice: number | null;
+  shippingFee: number | null;
+  stockStatus: string | null;
+  reviewCount: number | null;
+  rating: number | null;
+};
+
 export type TraditionalLiquorDataset = {
   breweries: Brewery[];
   offers: Offer[];
   platforms: Platform[];
   products: Product[];
   sellers: Seller[];
-  source: "mock" | "api";
+  source: "mock" | "postgresql" | "api";
 };
 
 export type ProductResult = Product & {
@@ -90,4 +102,3 @@ export type TraditionalLiquorSearchResult = {
   sellers: SellerResult[];
   source: TraditionalLiquorDataset["source"];
 };
-
