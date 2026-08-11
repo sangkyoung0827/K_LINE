@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { BarChart3, Bot, MessageSquare, ShieldCheck, WalletCards } from "lucide-react";
+import { BarChart3, Bot, Database, MessageSquare, ShieldCheck, WalletCards } from "lucide-react";
 
 const workspaceLinks = [
   { href: "/v4#toss-securities", label: "Toss Securities", icon: WalletCards },
   { href: "/v4#trade-proposal", label: "Trade Proposal", icon: ShieldCheck },
   { href: "/v4#performance", label: "Performance", icon: BarChart3 },
-  { href: "/v4#chat", label: "Chat", icon: MessageSquare }
+  { href: "/v4#chat", label: "Chat", icon: MessageSquare },
+  { href: "/v4/traditional-liquor", label: "전통주 DB", icon: Database }
 ];
 
 export function WoohyukmonV4Shell({ children }: { children: ReactNode }) {

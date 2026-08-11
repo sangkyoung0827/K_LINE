@@ -3,6 +3,8 @@
 import { BarChart3, Bot, ExternalLink, LoaderCircle, Send, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 import type { ComponentType, FormEvent, SVGProps } from "react";
 import { useEffect, useState } from "react";
+import { TraditionalLiquorDatabase } from "@/components/traditional-liquor/TraditionalLiquorDatabase";
+import { detectTraditionalLiquorIntent } from "@/lib/traditional-liquor/intents";
 
 type Analysis = {
   id: string; symbol: string; createdAt: string; summary: string; persistence: "saved" | "unavailable";
@@ -117,6 +119,7 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [workspaceView, setWorkspaceView] = useState<"default" | "traditional-liquor">("default");
 
   const loadData = async () => {
     const localPortfolioRequest: Promise<{ ok: boolean; data: PortfolioResponse }> = fetch(`${LOCAL_TOSS_BRIDGE}/portfolio`, { cache: "no-store" })
@@ -224,6 +227,10 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); const message = input.trim(); if (!message || loading) return;
     setInput(""); setError(""); setLines((current) => [...current, { role: "user", content: message }]);
+    if (detectTraditionalLiquorIntent(message) === "OPEN_TRADITIONAL_LIQUOR_DATABASE") {
+      setWorkspaceView("traditional-liquor");
+      return;
+    }
     if (asksForPortfolio(message)) {
       if (!portfolio) {
         setLines((current) => [...current, { role: "assistant", content: "Toss Securities data is not loaded on this MacBook yet. Start the local bridge, then use Refresh in the Toss Securities panel." }]);
@@ -256,6 +263,10 @@ export function WoohyukmonV4Dashboard({ chatOnly = false }: { chatOnly?: boolean
   };
 
   const selectedChart = selected?.marketSnapshot.candles ?? [];
+
+  if (workspaceView === "traditional-liquor") {
+    return <TraditionalLiquorDatabase onBack={() => setWorkspaceView("default")} />;
+  }
 
   if (chatOnly) return (
     <main className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-5xl flex-col px-5 py-8 md:px-8">
