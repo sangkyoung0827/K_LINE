@@ -203,3 +203,23 @@ test("TEST 20: discarded Batch migration preserves Production entities", async (
   assert.match(sql, /delete from public\.traditional_liquor_import_staging_rows/);
   assert.doesNotMatch(sql, /delete from public\.traditional_liquor_(products|breweries|sellers|offers|price_history)/);
 });
+
+test("TEST 21: detected import type cannot be force-overridden in the production upload flow", async () => {
+  const route = await readFile(join(process.cwd(), "src/app/api/v4/traditional-liquor/import/route.ts"), "utf8");
+  const panel = await readFile(join(process.cwd(), "src/components/traditional-liquor/TraditionalLiquorRealImportPanel.tsx"), "utf8");
+  assert.doesNotMatch(route, /form\.get\(["']forceImportType["']\)/);
+  assert.match(route, /TL_IMPORT_TYPE_CONFLICT/);
+  assert.doesNotMatch(panel, /현재 선택 유지|onKeepCurrent/);
+});
+
+test("TEST 22: production database screen does not expose the fixture collector", async () => {
+  const database = await readFile(join(process.cwd(), "src/components/traditional-liquor/TraditionalLiquorDatabase.tsx"), "utf8");
+  assert.doesNotMatch(database, /TraditionalLiquorCollectionPanel/);
+});
+
+test("TEST 23: WooHyukmon uses Traditional Liquor DB before optional external search", async () => {
+  const route = await readFile(join(process.cwd(), "src/app/api/gemini/route.ts"), "utf8");
+  assert.match(route, /traditionalLiquor\?\.hasRecords/);
+  assert.match(route, /explicitlyRequestsExternalResearch/);
+  assert.match(route, /needsExternalSearch\s*\?\s*await searchExternalSources/);
+});

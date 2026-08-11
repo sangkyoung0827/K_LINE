@@ -50,10 +50,9 @@ export async function POST(request: Request) {
       const importType = form.get("importType");
       const action = String(form.get("action") ?? "analyze");
       const sourceName = String(form.get("sourceName") ?? "직접 조사").trim().slice(0, 160);
-      const forceImportType = form.get("forceImportType") === "true";
       const sheetName = form.get("sheetName")?.toString() || undefined;
       if (!(file instanceof File) || !validImportType(importType)) return NextResponse.json({ error: "파일과 데이터 유형이 필요합니다." }, { status: 400 });
-      const parsed = await parseImportFile(file, importType, sourceName, { forceImportType, sheetName });
+      const parsed = await parseImportFile(file, importType, sourceName, { sheetName });
       const suggestedMapping = suggestColumnMapping(parsed.headers, parsed.importType);
       if (action === "analyze") return NextResponse.json({ analysis: {
         fileType: parsed.fileType, fileName: parsed.fileName, importType: parsed.importType,
@@ -64,6 +63,7 @@ export async function POST(request: Request) {
         suggestedMapping, sampleRows: parsed.records.slice(0, 10).map((item) => item.rawData), totalRows: parsed.records.length
       } });
       if (action === "stage") {
+        if (parsed.hasTypeConflict) return NextResponse.json({ error: `파일 형식이 ${parsed.detectedImportType}로 감지되었습니다. 감지된 데이터 유형으로 다시 분석하세요.`, debugCode: "TL_IMPORT_TYPE_CONFLICT" }, { status: 409 });
         const mapping = safeMapping(form.get("mapping")?.toString() ?? null, parsed);
         const result = await repository.stageFile(parsed, mapping, sourceName, form.get("observedAt")?.toString() || null);
         return NextResponse.json({ result }, { status: 201 });

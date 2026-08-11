@@ -10,7 +10,7 @@ export function isTraditionalLiquorQuestion(message: string) {
 }
 
 export async function buildTraditionalLiquorAssistantContext(message: string) {
-  if (!isTraditionalLiquorQuestion(message)) return "";
+  if (!isTraditionalLiquorQuestion(message)) return null;
 
   const dataset = await new PostgreSQLTraditionalLiquorRepository().getDataset();
   const productById = new Map(dataset.products.map((product) => [product.id, product]));
@@ -48,10 +48,15 @@ export async function buildTraditionalLiquorAssistantContext(message: string) {
     `양조장 ${dataset.breweries.length}개`
   ].join(" · ");
 
-  return `AUTHORIZED PRIVATE TRADITIONAL LIQUOR DATABASE CONTEXT
+  const hasRecords = dataset.products.length > 0 || dataset.offers.length > 0;
+
+  return {
+    hasRecords,
+    text: `AUTHORIZED PRIVATE TRADITIONAL LIQUOR DATABASE CONTEXT
 The following records come from K_LINE's server-side Traditional Liquor DB and are available only for this authorized developer request.
-Use these records as the primary evidence for the user's traditional-liquor question. Distinguish stored price observations from general market facts. Do not invent missing values. Mention the data check time when relevant.
+Use these records as the primary and default evidence for the user's traditional-liquor question. Do not use external search material when the database answers the question. Distinguish stored price observations from general market facts. Do not invent missing values. Mention the data check time when relevant.
 Dataset summary: ${summary}
 Price-sorted offer records (lowest first, up to 120):
-${offers.length > 0 ? offers.join("\n") : "No active offer records are currently stored."}`;
+${offers.length > 0 ? offers.join("\n") : "No active offer records are currently stored."}`
+  };
 }

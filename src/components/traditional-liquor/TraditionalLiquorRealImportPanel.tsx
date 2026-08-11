@@ -42,20 +42,19 @@ export function TraditionalLiquorRealImportPanel() {
   }, []);
   useEffect(() => { void loadBatches(); }, [loadBatches]);
 
-  function formData(action: "analyze" | "stage", requestedType: RealImportType, forceImportType: boolean) {
+  function formData(action: "analyze" | "stage", requestedType: RealImportType) {
     if (!file) throw new Error("CSV, XLSX 또는 JSON 파일을 선택하세요.");
     if (!sourceName.trim()) throw new Error("Source 이름을 입력하세요.");
     const form = new FormData();
     form.set("action", action); form.set("file", file); form.set("importType", requestedType); form.set("sourceName", sourceName.trim());
-    form.set("forceImportType", String(forceImportType));
     if (observedAt) form.set("observedAt", new Date(observedAt).toISOString());
     if (action === "stage") form.set("mapping", JSON.stringify(mapping));
     return form;
   }
 
-  async function analyzeFile(requestedType: RealImportType = importType, forceImportType = false) {
+  async function analyzeFile(requestedType: RealImportType = importType) {
     setBusy(true); setAnalysis(null); setError(""); setCommitResult(null);
-    try { const body = await jsonRequest<{ analysis: RealImportAnalysis }>(endpoint, { method: "POST", body: formData("analyze", requestedType, forceImportType) }); setAnalysis(body.analysis); setMapping(body.analysis.suggestedMapping); }
+    try { const body = await jsonRequest<{ analysis: RealImportAnalysis }>(endpoint, { method: "POST", body: formData("analyze", requestedType) }); setAnalysis(body.analysis); setMapping(body.analysis.suggestedMapping); }
     catch (requestError) { setError(requestError instanceof Error ? requestError.message : "파일을 분석하지 못했습니다."); }
     finally { setBusy(false); }
   }
@@ -64,7 +63,7 @@ export function TraditionalLiquorRealImportPanel() {
     setBusy(true); setError("");
     try {
       if (!analysis || analysis.hasTypeConflict) throw new Error("파일 형식 충돌을 먼저 확인하세요.");
-      const body = await jsonRequest<{ result: { batchId: string } }>(endpoint, { method: "POST", body: formData("stage", analysis.importType, analysis.typeOverrideApplied) });
+      const body = await jsonRequest<{ result: { batchId: string } }>(endpoint, { method: "POST", body: formData("stage", analysis.importType) });
       await loadBatches(); await openBatch(body.result.batchId); setAnalysis(null);
     } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Staging 저장에 실패했습니다."); }
     finally { setBusy(false); }
@@ -145,8 +144,8 @@ export function TraditionalLiquorRealImportPanel() {
     {analysis ? <MappingEditor analysis={analysis} mapping={mapping} onChange={setMapping} onStage={() => void stageFile()} onUseDetected={() => {
       if (!analysis.detectedImportType) return;
       setImportType(analysis.detectedImportType);
-      void analyzeFile(analysis.detectedImportType, false);
-    }} onKeepCurrent={() => void analyzeFile(analysis.requestedImportType, true)} busy={busy} /> : null}
+      void analyzeFile(analysis.detectedImportType);
+    }} busy={busy} /> : null}
     <div className="grid lg:grid-cols-[280px_1fr]">
       <div className="border-b border-white/10 p-4 lg:border-b-0 lg:border-r"><p className="px-1 text-xs font-bold text-white/55">실제 Import Batch</p><div className="mt-3 grid grid-cols-3 gap-1">{(["ACTIVE", "COMPLETED", "DISCARDED"] as BatchFilter[]).map((filter) => <button key={filter} type="button" onClick={() => { setBatchFilter(filter); setSelectedBatch(null); setRows([]); }} className={`h-8 border text-[9px] font-bold ${batchFilter === filter ? "border-[#f7c76b] bg-[#f7c76b]/10 text-[#f7c76b]" : "border-white/10 text-white/38"}`}>{filter === "ACTIVE" ? "활성" : filter === "COMPLETED" ? "Production 완료" : "폐기됨"}</button>)}</div><div className="mt-3 max-h-[520px] space-y-2 overflow-auto">{filteredBatches.length ? filteredBatches.map((batch) => <button key={batch.id} type="button" onClick={() => void openBatch(batch.id)} className={`w-full border p-3 text-left ${selectedBatch?.id === batch.id ? "border-[#f7c76b] bg-[#f7c76b]/7" : "border-white/10 bg-black/10"}`}><div className="flex justify-between gap-2"><span className="truncate text-xs font-bold text-white/75">{batch.file_name}</span><span className="text-[9px] font-bold text-[#f7c76b]">{batch.status}</span></div><p className="mt-1 text-[10px] text-white/34">{batch.import_type} · {batch.total_rows}행 · 오류 {batch.invalid_rows}</p></button>) : <p className="px-1 py-6 text-center text-[10px] text-white/28">해당 Batch가 없습니다.</p>}</div></div>
       <div className="min-w-0 p-5">{selectedBatch ? <BatchWorkspace batch={selectedBatch} rows={rows} resolution={resolution} busy={busy} committable={committable} onResolve={() => void resolve()} onReview={review} onCommit={() => setConfirmOpen(true)} onDiscard={() => setDiscardOpen(true)} onDelete={() => setDeleteOpen(true)} /> : <div className="grid min-h-48 place-items-center text-sm text-white/32">분석할 실제 Import Batch를 선택하세요.</div>}</div>
@@ -160,12 +159,11 @@ export function TraditionalLiquorRealImportPanel() {
 
 function TypeButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) { return <button type="button" onClick={onClick} className={`min-h-11 border px-3 text-xs font-bold ${active ? "border-[#f7c76b] bg-[#f7c76b]/12 text-[#f7c76b]" : "border-white/12 text-white/48"}`}>{children}</button>; }
 
-function MappingEditor({ analysis, mapping, onChange, onStage, onUseDetected, onKeepCurrent, busy }: { analysis: RealImportAnalysis; mapping: ColumnMapping; onChange: (mapping: ColumnMapping) => void; onStage: () => void; onUseDetected: () => void; onKeepCurrent: () => void; busy: boolean }) {
+function MappingEditor({ analysis, mapping, onChange, onStage, onUseDetected, busy }: { analysis: RealImportAnalysis; mapping: ColumnMapping; onChange: (mapping: ColumnMapping) => void; onStage: () => void; onUseDetected: () => void; busy: boolean }) {
   const fields = fieldsForImportType(analysis.importType);
   const previews = analysis.sampleRows.map((row) => createImportPreview(analysis.importType, {}, row, mapping));
   return <div className="border-b border-white/10 p-5">
-    {analysis.hasTypeConflict && analysis.detectedImportType ? <div className="mb-5 border border-amber-300/30 bg-amber-300/8 p-4"><div className="flex gap-2 text-sm font-bold text-amber-200"><AlertTriangle className="h-4 w-4 shrink-0" />업로드한 파일은 {analysis.detectedImportType === "MARKET_OFFER" ? "시장 판매정보 Offer" : "제품 / 양조장 Master"} 형식으로 감지되었습니다.</div><p className="mt-2 text-xs text-white/45">선택: {analysis.requestedImportType} · 감지: {analysis.detectedImportType} · 신뢰도: {analysis.detectionConfidence}{analysis.sheetName ? ` · 시트: ${analysis.sheetName}` : ""}</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={onUseDetected} disabled={busy} className="h-9 bg-[#f7c76b] px-4 text-[11px] font-bold text-[#17191a]">{analysis.detectedImportType}로 변경</button><button type="button" onClick={onKeepCurrent} disabled={busy} className="h-9 border border-white/15 px-4 text-[11px] font-bold text-white/60">현재 선택 유지</button></div></div> : null}
-    {analysis.typeOverrideApplied ? <div className="mb-5 border border-white/12 bg-white/[0.03] px-4 py-3 text-xs text-white/48">자동 감지 결과와 다르지만 사용자가 선택한 {analysis.importType} 형식을 유지합니다.</div> : null}
+    {analysis.hasTypeConflict && analysis.detectedImportType ? <div className="mb-5 border border-amber-300/30 bg-amber-300/8 p-4"><div className="flex gap-2 text-sm font-bold text-amber-200"><AlertTriangle className="h-4 w-4 shrink-0" />업로드한 파일은 {analysis.detectedImportType === "MARKET_OFFER" ? "시장 판매정보 Offer" : "제품 / 양조장 Master"} 형식으로 감지되었습니다.</div><p className="mt-2 text-xs text-white/45">잘못된 유형으로 Production 데이터가 생성되지 않도록 감지된 형식으로만 진행할 수 있습니다. 선택: {analysis.requestedImportType} · 감지: {analysis.detectedImportType} · 신뢰도: {analysis.detectionConfidence}{analysis.sheetName ? ` · 시트: ${analysis.sheetName}` : ""}</p><div className="mt-3"><button type="button" onClick={onUseDetected} disabled={busy} className="h-9 bg-[#f7c76b] px-4 text-[11px] font-bold text-[#17191a]">{analysis.detectedImportType}로 변경</button></div></div> : null}
     <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-sm font-bold">Column Mapping</h3><p className="mt-1 text-xs text-white/38">{analysis.fileName} · {analysis.importType} · {analysis.totalRows}행 · {analysis.fileType}{analysis.sheetName ? ` · ${analysis.sheetName} 시트` : ""}</p></div><button type="button" onClick={onStage} disabled={busy || analysis.hasTypeConflict || Object.keys(mapping).length === 0} className="h-10 bg-[#f7c76b] px-5 text-xs font-bold text-[#17191a] disabled:opacity-40">Staging에 저장</button></div>
     <div className="mt-4 grid gap-2 md:grid-cols-2">{analysis.headers.map((header) => <label key={header} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 border border-white/8 bg-black/10 p-2"><span className="truncate text-xs text-white/55">{header}</span><select value={mapping[header] ?? ""} onChange={(event) => onChange({ ...mapping, [header]: event.target.value })} className="h-8 min-w-0 border border-white/12 bg-[#0e1112] px-2 text-[11px] text-white"><option value="">사용 안 함</option>{fields.map((field) => <option key={field} value={field}>{field}</option>)}</select></label>)}</div>
     <h4 className="mt-5 text-xs font-bold text-white/60">Preview · 첫 {previews.length}행</h4>

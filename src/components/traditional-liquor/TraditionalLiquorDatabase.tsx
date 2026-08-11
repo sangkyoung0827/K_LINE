@@ -2,7 +2,6 @@
 
 import { ArrowLeft, Building2, Database, LoaderCircle, PackageSearch, Search, Store } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { TraditionalLiquorCollectionPanel } from "@/components/traditional-liquor/TraditionalLiquorCollectionPanel";
 import { TraditionalLiquorRealImportPanel } from "@/components/traditional-liquor/TraditionalLiquorRealImportPanel";
 import type { Offer, Platform, PlatformResult, ProductResult, Seller, SellerResult, TraditionalLiquorSearchResult, TraditionalLiquorView } from "@/lib/traditional-liquor/types";
 
@@ -77,7 +76,7 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
       <section className="mt-4">
         {status === "initial" || status === "loading" ? <StateMessage icon={<LoaderCircle className="h-5 w-5 animate-spin" />} label="전통주 데이터를 불러오는 중입니다." /> : null}
         {status === "error" ? <StateMessage label={error || "데이터를 불러오지 못했습니다."} /> : null}
-        {status === "empty" || (status === "success" && visibleCount === 0) ? <StateMessage label="검색 결과가 없습니다." /> : null}
+        {status === "empty" || (status === "success" && visibleCount === 0) ? <StateMessage label={query ? "검색 결과가 없습니다." : "등록된 실제 전통주 데이터가 없습니다. 아래 Import에서 검증된 파일을 등록하세요."} /> : null}
         {status === "success" && results ? <>
           {activeView === "product" ? <ProductView products={results.products} query={query} breweries={results.breweries} /> : null}
           {activeView === "platform" ? <PlatformView platforms={results.platforms} /> : null}
@@ -85,7 +84,6 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
         </> : null}
       </section>
       <TraditionalLiquorRealImportPanel />
-      <TraditionalLiquorCollectionPanel />
     </main>
   );
 }

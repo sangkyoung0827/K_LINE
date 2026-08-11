@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
 import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
-import { buildTraditionalLiquorAssistantContext } from "@/lib/traditional-liquor/assistant-context";
+import { buildTraditionalLiquorAssistantContext, isTraditionalLiquorQuestion } from "@/lib/traditional-liquor/assistant-context";
 
 export const maxDuration = 60;
 
@@ -111,6 +111,7 @@ Security and permission rules:
 - Never expose developer information, admin-only data, private member information, API keys, environment variables, database structure, or hidden routes.
 - Private Knowledge DB context is available only when the server explicitly supplies it for a developer account. Never infer private records without that context.
 - Traditional Liquor DB context is available only when the server explicitly supplies it for a developer account. Analyze its stored products and price observations, but never claim that missing or stale records are current facts.
+- For traditional-liquor questions, treat Traditional Liquor DB records as the primary source. Use external search results only when the DB has no usable records for the request or the user explicitly requests additional/current web research. Clearly distinguish DB facts from externally researched facts.
 - If a user asks for something restricted, explain that only approved official members or authorized officers can access it.
 
 Answer style:
@@ -238,6 +239,10 @@ function getConfiguredSearchProviders() {
     "DuckDuckGo",
     "Wikipedia"
   ];
+}
+
+function explicitlyRequestsExternalResearch(message: string) {
+  return /(?:외부|인터넷|웹|구글|네이버)\s*(?:검색|조사)|추가\s*(?:검색|조사)|search\s+(?:the\s+)?web|external\s+(?:search|research)|latest\s+(?:news|web)/i.test(message);
 }
 
 function buildExternalSearchContext(results: ExternalSearchResult[]) {
@@ -575,30 +580,35 @@ export async function POST(request: Request) {
     async start(controller) {
       try {
         const configuredProviders = getConfiguredSearchProviders();
+        const traditionalLiquorQuestion = developerAccess.isDeveloper && isTraditionalLiquorQuestion(message);
+        const traditionalLiquor = traditionalLiquorQuestion
+          ? await buildTraditionalLiquorAssistantContext(message).catch((error) => {
+              console.error("WooHyukmon traditional liquor retrieval failed", error);
+              return null;
+            })
+          : null;
+        const needsExternalSearch = !traditionalLiquorQuestion || !traditionalLiquor?.hasRecords || explicitlyRequestsExternalResearch(message);
 
         controller.enqueue(
           ndjson({
             type: "status",
-            status: "external_search_started",
-            label: `${configuredProviders.join(" · ")} 검색 중`,
-            providers: configuredProviders,
-            sourceCount: 0
+            status: needsExternalSearch ? "external_search_started" : "database_search_started",
+            label: needsExternalSearch ? `${configuredProviders.join(" · ")} 검색 중` : "Traditional Liquor DB 조회 완료",
+            providers: needsExternalSearch ? configuredProviders : ["Traditional Liquor DB"],
+            sourceCount: traditionalLiquor?.hasRecords ? 1 : 0
           })
         );
 
-        const { results: externalResults, usedProviders } = await searchExternalSources(message);
+        const { results: externalResults, usedProviders } = needsExternalSearch
+          ? await searchExternalSources(message)
+          : { results: [], usedProviders: [] };
         const knowledgeResults = developerAccess.isDeveloper
           ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
               console.error("WooHyukmon private knowledge retrieval failed", error);
               return [];
             })
           : [];
-        const traditionalLiquorContext = developerAccess.isDeveloper
-          ? await buildTraditionalLiquorAssistantContext(message).catch((error) => {
-              console.error("WooHyukmon traditional liquor retrieval failed", error);
-              return "";
-            })
-          : "";
+        const traditionalLiquorContext = traditionalLiquor?.text ?? "";
         const knowledgeSources = knowledgeResults.map((result) => ({
           title: result.fileName,
           url: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://kline-nine-wheat.vercel.app"}/developer/woohyukmon-training?file=${encodeURIComponent(result.fileId)}`
@@ -623,14 +633,14 @@ export async function POST(request: Request) {
               groundingChunks: allSources,
               providers: allProviders,
               sourceCount: groundedContextCount,
-              webSearchQueries: [message]
+              webSearchQueries: needsExternalSearch ? [message] : []
             })
           );
           controller.enqueue(
             ndjson({
               type: "status",
-              status: "external_search_done",
-              label: `${allProviders.join(" · ") || "검색"} 검색 완료 · ${groundedContextCount}개 자료 확인`,
+              status: needsExternalSearch ? "external_search_done" : "database_search_done",
+              label: `${allProviders.join(" · ") || "검색"} 조회 완료 · ${groundedContextCount}개 자료 확인`,
               providers: allProviders,
               sourceCount: groundedContextCount
             })
@@ -678,7 +688,7 @@ export async function POST(request: Request) {
             groundingChunks: allSources,
             providers: allProviders,
             sourceCount: groundedContextCount,
-            webSearchQueries: [message]
+            webSearchQueries: needsExternalSearch ? [message] : []
           })
         );
       } catch (error) {

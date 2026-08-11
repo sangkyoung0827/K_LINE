@@ -1,4 +1,3 @@
-import { MockTraditionalLiquorRepository } from "@/lib/traditional-liquor/mock-repository";
 import type { TraditionalLiquorRepository } from "@/lib/traditional-liquor/repository";
 import type { PlatformResult, ProductResult, SellerResult, TraditionalLiquorDataset, TraditionalLiquorSearchResult } from "@/lib/traditional-liquor/types";
 
@@ -71,6 +70,3 @@ export class TraditionalLiquorDataService {
     });
   }
 }
-
-export const traditionalLiquorService = new TraditionalLiquorDataService(new MockTraditionalLiquorRepository());
-
