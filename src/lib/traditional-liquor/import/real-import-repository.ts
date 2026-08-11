@@ -7,6 +7,9 @@ import type { ColumnMapping, ParsedImportFile, RealImportType } from "@/lib/trad
 import { supabaseRequest } from "@/lib/supabaseServer";
 
 const representationHeaders = { Prefer: "return=representation" };
+const canonicalPlatforms: Record<string, { name: string; base_url: string; platform_type: string }> = {
+  NAVER: { name: "네이버", base_url: "https://shopping.naver.com", platform_type: "MARKETPLACE" }
+};
 type IdRow = { id: string };
 type BatchRow = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string; discarded_at?: string | null; discard_reason?: string | null; production_committed_at?: string | null };
 export type RealStagingRow = { id: string; batch_id: string; row_number: number; raw_data: Record<string, unknown>; normalized_data: Record<string, unknown>; validation_status: "VALID" | "INVALID"; resolution_status: ResolutionStatus; resolved_product_id: string | null; resolved_seller_id: string | null; resolved_platform_id: string | null; resolved_brewery_id: string | null; resolution_data: Record<string, unknown>; review_action: string | null; };
@@ -17,6 +20,26 @@ export interface ResolutionResult { batchId: string; matched: number; newEntity:
 export interface CommitResult { productsInserted: number; productsUpdated: number; breweriesInserted: number; sellersInserted: number; offersInserted: number; offersUpdated: number; priceHistoryInserted: number; skipped: number; batchId: string; }
 
 export class RealImportRepository {
+  private async ensureCanonicalPlatforms(rows: RealStagingRow[]) {
+    const requestedCodes = new Set(
+      rows
+        .filter((row) => row.validation_status === "VALID" && row.normalized_data.importType === "MARKET_OFFER")
+        .map((row) => String(row.normalized_data.platformCode ?? "").trim().toUpperCase())
+        .filter((code) => code in canonicalPlatforms)
+    );
+    if (!requestedCodes.size) return;
+
+    await supabaseRequest("traditional_liquor_platforms?on_conflict=code", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify([...requestedCodes].map((code) => ({
+        code,
+        ...canonicalPlatforms[code],
+        is_active: true
+      })))
+    });
+  }
+
   async ensureSource(name: string, sourceType: string, baseUrl?: string | null) {
     const existing = await supabaseRequest<IdRow[]>(`traditional_liquor_data_sources?select=id&name=eq.${encodeURIComponent(name)}&limit=1`);
     if (existing[0]) return existing[0].id;
@@ -73,8 +96,9 @@ export class RealImportRepository {
     if (!batches[0]) throw new Error("IMPORT_BATCH_NOT_FOUND");
     if (batches[0].status === "DISCARDED") throw new Error("BATCH_DISCARDED");
     if (batches[0].status !== "READY") throw new Error("BATCH_NOT_READY");
-    const [rows, products, breweries, sellers, platforms, productAliases, sellerAliases] = await Promise.all([
-      this.getRows(batchId),
+    const rows = await this.getRows(batchId);
+    await this.ensureCanonicalPlatforms(rows);
+    const [products, breweries, sellers, platforms, productAliases, sellerAliases] = await Promise.all([
       supabaseRequest<ProductEntity[]>("traditional_liquor_products?select=id,brewery_id,name,canonical_name,normalized_name,abv,volume_ml&is_active=eq.true&limit=10000"),
       supabaseRequest<BreweryEntity[]>("traditional_liquor_breweries?select=id,name,normalized_name,region,province,city&is_active=eq.true&limit=10000"),
       supabaseRequest<SellerEntity[]>("traditional_liquor_sellers?select=id,name,normalized_name&is_active=eq.true&limit=10000"),
