@@ -50,7 +50,7 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
   }, [activeView, results]);
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-5 py-8 md:px-8 md:py-10">
+    <main className="mx-auto min-h-screen w-full max-w-7xl bg-[#111718] px-5 py-8 text-white md:px-8 md:py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           {onBack ? <button type="button" onClick={onBack} className="mb-5 inline-flex h-9 items-center gap-2 border border-white/15 px-3 text-xs font-semibold text-white/65 transition hover:border-[#f7c76b]/60 hover:text-[#f7c76b]"><ArrowLeft className="h-4 w-4" />우혁몬 4.0으로 돌아가기</button> : null}
