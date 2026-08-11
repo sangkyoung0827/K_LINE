@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
 import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
+import { buildTraditionalLiquorAssistantContext } from "@/lib/traditional-liquor/assistant-context";
 
 export const maxDuration = 60;
 
@@ -101,6 +102,7 @@ Main support areas:
 9. General questions about ECC, Hanhwal, K_LINE, and campus club activities
 10. Web-assisted answers using only the external search sources supplied in the prompt
 11. Developer-only answers grounded in WooHyukmon private Knowledge DB sources supplied by the server
+12. Developer-only traditional liquor market analysis grounded in Traditional Liquor DB records supplied by the server
 
 Security and permission rules:
 - Never reveal the ECC official team chat link or QR code unless the system-provided user context says the user is an approved official member.
@@ -108,6 +110,7 @@ Security and permission rules:
 - Never approve payments, change roles, or modify member status.
 - Never expose developer information, admin-only data, private member information, API keys, environment variables, database structure, or hidden routes.
 - Private Knowledge DB context is available only when the server explicitly supplies it for a developer account. Never infer private records without that context.
+- Traditional Liquor DB context is available only when the server explicitly supplies it for a developer account. Analyze its stored products and price observations, but never claim that missing or stale records are current facts.
 - If a user asks for something restricted, explain that only approved official members or authorized officers can access it.
 
 Answer style:
@@ -590,6 +593,12 @@ export async function POST(request: Request) {
               return [];
             })
           : [];
+        const traditionalLiquorContext = developerAccess.isDeveloper
+          ? await buildTraditionalLiquorAssistantContext(message).catch((error) => {
+              console.error("WooHyukmon traditional liquor retrieval failed", error);
+              return "";
+            })
+          : "";
         const knowledgeSources = knowledgeResults.map((result) => ({
           title: result.fileName,
           url: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://kline-nine-wheat.vercel.app"}/developer/woohyukmon-training?file=${encodeURIComponent(result.fileId)}`
@@ -600,18 +609,20 @@ export async function POST(request: Request) {
         }));
 
         const allSources = [...knowledgeSources, ...externalSources];
+        const groundedContextCount = allSources.length + (traditionalLiquorContext ? 1 : 0);
         const allProviders = [
           ...(knowledgeSources.length > 0 ? ["WooHyukmon DB"] : []),
+          ...(traditionalLiquorContext ? ["Traditional Liquor DB"] : []),
           ...usedProviders
         ];
 
-        if (allSources.length > 0) {
+        if (groundedContextCount > 0) {
           controller.enqueue(
             ndjson({
               type: "grounding",
               groundingChunks: allSources,
               providers: allProviders,
-              sourceCount: allSources.length,
+              sourceCount: groundedContextCount,
               webSearchQueries: [message]
             })
           );
@@ -619,9 +630,9 @@ export async function POST(request: Request) {
             ndjson({
               type: "status",
               status: "external_search_done",
-              label: `${allProviders.join(" · ") || "검색"} 검색 완료 · ${allSources.length}개 자료 확인`,
+              label: `${allProviders.join(" · ") || "검색"} 검색 완료 · ${groundedContextCount}개 자료 확인`,
               providers: allProviders,
-              sourceCount: allSources.length
+              sourceCount: groundedContextCount
             })
           );
         } else {
@@ -642,7 +653,7 @@ export async function POST(request: Request) {
             status: "answer_stream_started",
             label: "우혁몬이 답변을 정리하는 중",
             providers: allProviders,
-            sourceCount: allSources.length
+            sourceCount: groundedContextCount
           })
         );
 
@@ -651,6 +662,7 @@ export async function POST(request: Request) {
           controller,
           externalSearchContext: [
             developerAccess.isDeveloper ? formatKnowledgeContext(knowledgeResults) : "",
+            traditionalLiquorContext,
             buildExternalSearchContext(externalResults)
           ].filter(Boolean).join("\n\n"),
           history,
@@ -662,10 +674,10 @@ export async function POST(request: Request) {
         controller.enqueue(
           ndjson({
             type: "done",
-            grounded: allSources.length > 0,
+            grounded: groundedContextCount > 0,
             groundingChunks: allSources,
             providers: allProviders,
-            sourceCount: allSources.length,
+            sourceCount: groundedContextCount,
             webSearchQueries: [message]
           })
         );

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = createNoIndexMetadata({
   title: "WooHyukmon 4.0",
-  description: "Private developer-only WooHyukmon 4.0 finance control plane.",
+  description: "Private developer-only WooHyukmon 4.0 knowledge and data workspace.",
   path: "/v4"
 });
 
@@ -25,4 +25,3 @@ export default async function WoohyukmonV4Layout({ children }: { children: React
 
   return <WoohyukmonV4Shell>{children}</WoohyukmonV4Shell>;
 }
-

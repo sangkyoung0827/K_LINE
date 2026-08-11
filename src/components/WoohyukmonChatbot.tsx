@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  BrainCircuit,
   Calculator,
   FolderPlus,
   ImagePlus,
@@ -14,10 +15,13 @@ import {
   Send,
   X
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { detectTraditionalLiquorIntent } from "@/lib/traditional-liquor/intents";
 
 type GroundingSource = {
   title: string;
@@ -353,9 +357,10 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
   return data;
 }
 
-export function WoohyukmonChatbot() {
+export function WoohyukmonChatbot({ edition = "3" }: { edition?: "3" | "4" }) {
   const { language } = useLanguage();
   const access = useSuperAdmin();
+  const router = useRouter();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [projects, setProjects] = useState<SavedProject[]>([]);
@@ -717,6 +722,25 @@ export function WoohyukmonChatbot() {
       );
     }
 
+    if (detectTraditionalLiquorIntent(trimmed) === "OPEN_TRADITIONAL_LIQUOR_DATABASE") {
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: access.isDeveloper
+          ? language === "ko"
+            ? "권한을 확인했습니다. 전통주 데이터베이스를 엽니다."
+            : "Access confirmed. Opening the Traditional Liquor Database."
+          : language === "ko"
+            ? "전통주 데이터베이스는 허가된 개발자만 열 수 있습니다."
+            : "The Traditional Liquor Database is restricted to authorized developers.",
+        status: language === "ko" ? "권한 확인 완료" : "Access checked"
+      };
+      setMessages((current) => [...current, assistantMessage]);
+      await saveMessage(chatId, assistantMessage);
+      if (access.isDeveloper) router.push("/v4/traditional-liquor");
+      return;
+    }
+
     const liveKind = modelVersion === "3" ? getLiveKind(trimmed) : null;
     if (liveKind) {
       try {
@@ -1012,7 +1036,7 @@ export function WoohyukmonChatbot() {
           aria-expanded={modelMenuOpen}
           aria-label={language === "ko" ? "모델 설정" : "Model settings"}
         >
-          {language === "ko" ? `우혁몬 ${modelVersion}.0` : `Woohyukmon ${modelVersion}.0`}
+          {language === "ko" ? `우혁몬 ${edition}.0` : `Woohyukmon ${edition}.0`}
         </button>
         {modelMenuOpen ? (
           <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-20 w-44 rounded-lg border border-navy/12 bg-white p-2 text-xs text-ink shadow-lift">
@@ -1020,6 +1044,12 @@ export function WoohyukmonChatbot() {
               {language === "ko" ? "현재 모델" : "Current model"}
             </p>
             <div className="rounded-md bg-brass/14 px-2 py-2 font-semibold">
+              {edition === "4" ? (
+                <p className="rounded-md bg-brass/14 px-2 py-1">
+                  {language === "ko" ? "우혁몬 4.0" : "Woohyukmon 4.0"}
+                </p>
+              ) : (
+                <>
               <button
                 type="button"
                 onClick={() => {
@@ -1040,6 +1070,8 @@ export function WoohyukmonChatbot() {
               >
                 {language === "ko" ? "우혁몬 3.0" : "Woohyukmon 3.0"}
               </button>
+                </>
+              )}
             </div>
           </div>
         ) : null}
@@ -1079,7 +1111,7 @@ export function WoohyukmonChatbot() {
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
             {language === "ko" ? "저장된 대화" : "Saved Conversations"}
           </p>
-          <p className="mt-1 text-lg font-semibold">Woohyukmon</p>
+          <p className="mt-1 text-lg font-semibold">Woohyukmon {edition}.0</p>
         </div>
         <button
           type="button"
@@ -1108,6 +1140,16 @@ export function WoohyukmonChatbot() {
           <MessageSquarePlus aria-hidden className="h-4 w-4" />
           {language === "ko" ? "새 채팅" : "New Chat"}
         </button>
+        {access.isDeveloper ? (
+          <Link
+            href="/developer/woohyukmon-training"
+            onClick={() => setSidebarOpen(false)}
+            className="flex min-h-11 items-center justify-start gap-2 rounded-lg px-3 text-sm font-bold text-ink transition hover:bg-navy/8"
+          >
+            <BrainCircuit aria-hidden className="h-4 w-4" />
+            {language === "ko" ? "우혁몬 교육" : "Woohyukmon Training"}
+          </Link>
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">

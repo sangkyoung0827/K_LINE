@@ -753,21 +753,6 @@ https://kline-nine-wheat.vercel.app/contact
 
 7. Confirm Google can crawl the site by checking URL Inspection, robots.txt status, and sitemap status.
 8. Do not submit private routes such as `/admin`, `/login`, `/api/*`, `/developer/*`, or role-management/action pages.
-# Private Toss Securities portfolio connection
-
-WooHyukmon 4.0 can show a developer-only, read-only Toss Securities portfolio and create manual research proposals. It never sends orders or conditional orders.
-
-The production dashboard now uses a **registered-MacBook local bridge**. It never calls Toss from Vercel and never sends brokerage credentials to the browser. Do not put Toss credentials in Vercel for this mode.
-
-On the MacBook whose public IP is registered in Toss WTS:
-
-1. Copy `.toss-local.env.example` to `.toss-local.env`.
-2. Add only the existing Toss `TOSS_CLIENT_ID` and `TOSS_CLIENT_SECRET` values to that ignored local file.
-3. Run `npm run toss:bridge` and keep that terminal session running.
-4. In the same MacBook browser, sign in as the developer and open `/v4`. Use **Refresh** in the Toss Securities panel.
-
-The bridge binds only to `127.0.0.1:45821`, provides only `GET /health` and `GET /portfolio`, and has no order, transfer, or conditional-order endpoint. It accepts browser requests only from the K_LINE production origin. If the home or office public IP changes, update the Toss WTS allowlist before refreshing the dashboard.
-
 ## WooHyukmon Knowledge Training
 
 Developer accounts can open `/developer/woohyukmon-training` to upload and manage private
@@ -810,13 +795,12 @@ npm run check:browser-safety
 npm run check:v4-isolation
 ```
 
-The local bridge reads these values from `.toss-local.env`. Never prefix them with `NEXT_PUBLIC_` and never commit or share their values:
+WooHyukmon 4.0 now uses the shared chat workspace. Developer accounts can open WooHyukmon
+Training from the chat sidebar. Uploaded originals and processed knowledge remain stored in the
+private Supabase knowledge tables and bucket when the user navigates back to chat.
 
-```text
-TOSSINVEST_CLIENT_ID=
-TOSSINVEST_CLIENT_SECRET=
-# Optional. When omitted, the first eligible brokerage account is used.
-TOSSINVEST_ACCOUNT_SEQ=
-```
-
-Existing projects that already use `TOSS_CLIENT_ID` and `TOSS_CLIENT_SECRET` are supported as compatible aliases. In Toss Securities WTS, retain the registered MacBook network public IP. Toss blocks calls from an unregistered IP.
+The Traditional Liquor Database remains developer-only. It is not shown as a public navigation
+item and opens from chat only for either exact Korean command: `전통주 DB열어` or
+`전통주 데이터베이스 열어`. Ordinary traditional-liquor questions are answered with
+server-side database context for authorized developer sessions without exposing service-role
+credentials to the browser.
