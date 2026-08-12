@@ -1,14 +1,18 @@
 "use client";
 
 import { ArrowLeft, Building2, Database, LoaderCircle, PackageSearch, Search, Store } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TraditionalLiquorRealImportPanel } from "@/components/traditional-liquor/TraditionalLiquorRealImportPanel";
+import { TraditionalLiquorPriceAnalytics } from "@/components/traditional-liquor/TraditionalLiquorPriceAnalytics";
+import { TraditionalLiquorSalesAnalytics } from "@/components/traditional-liquor/TraditionalLiquorSalesAnalytics";
 import type { Offer, Platform, PlatformResult, ProductResult, Seller, SellerResult, TraditionalLiquorSearchResult, TraditionalLiquorView } from "@/lib/traditional-liquor/types";
 
 const tabs: Array<{ id: TraditionalLiquorView; label: string }> = [
   { id: "product", label: "제품별" },
   { id: "platform", label: "플랫폼별" },
-  { id: "seller", label: "업체별" }
+  { id: "seller", label: "업체별" },
+  { id: "price", label: "가격별" },
+  { id: "sales", label: "판매량별" }
 ];
 
 export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
@@ -19,6 +23,28 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedView = params.get("view") as TraditionalLiquorView | null;
+    if (requestedView && tabs.some((tab) => tab.id === requestedView)) setActiveView(requestedView);
+    setQuery(params.get("q") ?? "");
+  }, []);
+
+  const syncUrl = useCallback((values: Record<string, string>) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", activeView);
+    Object.entries(values).forEach(([key, value]) => value ? params.set(key, value) : params.delete(key));
+    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  }, [activeView]);
+
+  function selectView(view: TraditionalLiquorView) {
+    setActiveView(view);
+    const params = new URLSearchParams(); params.set("view", view);
+    if (query) params.set("q", query);
+    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  }
+
+  useEffect(() => {
+    if (activeView === "price" || activeView === "sales") return;
     let active = true;
     const timer = window.setTimeout(() => {
       setStatus("loading");
@@ -39,13 +65,14 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
       });
     }, query ? 180 : 0);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [query]);
+  }, [activeView, query]);
 
   const visibleCount = useMemo(() => {
     if (!results) return 0;
     if (activeView === "product") return results.products.length;
     if (activeView === "platform") return results.platforms.length;
-    return results.sellers.length;
+    if (activeView === "seller") return results.sellers.length;
+    return 0;
   }, [activeView, results]);
 
   return (
@@ -62,27 +89,34 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
 
       <section className="mt-8 border border-white/10 bg-white/[0.035]">
         <div className="flex overflow-x-auto border-b border-white/10" role="tablist" aria-label="전통주 데이터 분류">
-          {tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={activeView === tab.id} onClick={() => setActiveView(tab.id)} className={`min-h-12 min-w-28 border-r border-white/10 px-5 text-sm font-bold transition ${activeView === tab.id ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>{tab.label}</button>)}
+          {tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={activeView === tab.id} onClick={() => selectView(tab.id)} className={`min-h-12 min-w-28 border-r border-white/10 px-5 text-sm font-bold transition ${activeView === tab.id ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>{tab.label}</button>)}
         </div>
         <div className="p-4 md:p-5">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/34" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="전통주, 플랫폼, 업체를 검색하세요" className="h-12 w-full border border-white/15 bg-[#0e1112] pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/32 focus:border-[#f7c76b]" />
+            <input value={query} onChange={(event) => { setQuery(event.target.value); syncUrl({ q: event.target.value, page: "1" }); }} placeholder="전통주, 플랫폼, 업체를 검색하세요" className="h-12 w-full border border-white/15 bg-[#0e1112] pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/32 focus:border-[#f7c76b]" />
           </label>
-          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/38"><span>PRODUCT · PLATFORM · SELLER · BREWERY 통합 검색</span><span>{status === "loading" ? "검색 중" : `${visibleCount}개 결과`}</span></div>
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/38"><span>PRODUCT · PLATFORM · SELLER · BREWERY 통합 검색</span>{activeView === "price" || activeView === "sales" ? null : <span>{status === "loading" ? "검색 중" : `${visibleCount}개 결과`}</span>}</div>
         </div>
       </section>
 
       <section className="mt-4">
-        {status === "initial" || status === "loading" ? <StateMessage icon={<LoaderCircle className="h-5 w-5 animate-spin" />} label="전통주 데이터를 불러오는 중입니다." /> : null}
-        {status === "error" ? <StateMessage label={error || "데이터를 불러오지 못했습니다."} /> : null}
-        {status === "empty" || (status === "success" && visibleCount === 0) ? <StateMessage label={query ? "검색 결과가 없습니다." : "등록된 실제 전통주 데이터가 없습니다. 아래 Import에서 검증된 파일을 등록하세요."} /> : null}
-        {status === "success" && results ? <>
+        {activeView === "price" ? <TraditionalLiquorPriceAnalytics query={query} syncUrl={syncUrl} /> : null}
+        {activeView === "sales" ? <TraditionalLiquorSalesAnalytics query={query} syncUrl={syncUrl} /> : null}
+        {activeView !== "price" && activeView !== "sales" && (status === "initial" || status === "loading") ? <StateMessage icon={<LoaderCircle className="h-5 w-5 animate-spin" />} label="전통주 데이터를 불러오는 중입니다." /> : null}
+        {activeView !== "price" && activeView !== "sales" && status === "error" ? <StateMessage label={error || "데이터를 불러오지 못했습니다."} /> : null}
+        {activeView !== "price" && activeView !== "sales" && (status === "empty" || (status === "success" && visibleCount === 0)) ? <StateMessage label={query ? "검색 결과가 없습니다." : "등록된 실제 전통주 데이터가 없습니다. 아래 Import에서 검증된 파일을 등록하세요."} /> : null}
+        {activeView !== "price" && activeView !== "sales" && status === "success" && results ? <>
           {activeView === "product" ? <ProductView products={results.products} query={query} breweries={results.breweries} /> : null}
           {activeView === "platform" ? <PlatformView platforms={results.platforms} /> : null}
           {activeView === "seller" ? <SellerView sellers={results.sellers} /> : null}
         </> : null}
       </section>
+      <div className="mt-12 border-t border-white/12 pt-8">
+        <p className="text-[11px] font-bold tracking-[0.16em] text-[#f7c76b]">DEVELOPER DATA MANAGEMENT</p>
+        <h2 className="mt-2 text-2xl font-semibold text-white">Real Data Import</h2>
+        <p className="mt-2 text-sm text-white/48">분석 화면과 분리된 Production 데이터 검증·반영 영역입니다.</p>
+      </div>
       <TraditionalLiquorRealImportPanel />
     </main>
   );
@@ -97,17 +131,19 @@ function ProductView({ breweries, products, query }: { breweries: TraditionalLiq
 
 function ProductSection({ product }: { product: ProductResult }) {
   const platformGroups = Array.from(new Map(product.offers.map((offer) => [offer.platformId, offer.platform])).entries());
+  const minimumPrice = product.offers.length ? Math.min(...product.offers.map((offer) => offer.price)) : null;
+  const sellerCount = new Set(product.offers.map((offer) => offer.sellerId)).size;
   return <article className="border border-white/10 bg-white/[0.035]">
     <header className="grid gap-5 border-b border-white/10 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
       <div><div className="flex items-center gap-2"><PackageSearch className="h-4 w-4 text-[#f7c76b]" /><p className="text-xs font-bold text-[#f7c76b]">{product.category} · {product.subCategory}</p></div><h2 className="mt-2 text-2xl font-semibold text-white">{product.name}</h2><p className="mt-3 text-sm leading-6 text-white/52">{product.description}</p></div>
-      <dl className="grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-3"><DataFact label="제조사" value={product.brewery?.name ?? "확인되지 않음"} /><DataFact label="지역" value={product.region} /><DataFact label="주종" value={product.subCategory} /><DataFact label="도수" value={`${product.abv}%`} /><DataFact label="용량" value={`${product.volumeMl}ml`} /></dl>
+      <dl className="grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-3"><DataFact label="제조사" value={product.brewery?.name ?? "확인되지 않음"} /><DataFact label="주종" value={product.subCategory || "-"} /><DataFact label="도수" value={product.abv ? `${product.abv}%` : "-"} /><DataFact label="용량" value={product.volumeMl ? `${product.volumeMl}ml` : "-"} /><DataFact label="최저가" value={minimumPrice === null ? "-" : formatPrice(minimumPrice)} /><DataFact label="플랫폼 / 업체" value={`${platformGroups.length} / ${sellerCount}`} /></dl>
     </header>
     <div className="p-5"><p className="text-xs font-bold tracking-[0.12em] text-white/38">판매 현황</p><div className="mt-4 space-y-5">{platformGroups.map(([platformId, platform]) => <div key={platformId}><div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-bold text-[#f7c76b]">{platform?.name ?? "플랫폼 미확인"}</h3><span className="text-xs text-white/35">{product.offers.filter((offer) => offer.platformId === platformId).length} offers</span></div><OfferTable offers={product.offers.filter((offer) => offer.platformId === platformId)} sellerFor={(offer) => offer.seller} /></div>)}</div></div>
   </article>;
 }
 
 function PlatformView({ platforms }: { platforms: PlatformResult[] }) {
-  return <div className="space-y-4">{platforms.map((platform) => <article key={platform.id} className="border border-white/10 bg-white/[0.035] p-5"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold text-[#f7c76b]">PLATFORM</p><h2 className="mt-1 text-2xl font-semibold">{platform.name}</h2></div><dl className="flex gap-6"><DataFact label="판매 전통주" value={`${platform.productCount}개`} /><DataFact label="판매업체" value={`${platform.sellerCount}개`} /></dl></div><div className="mt-5"><PlatformOfferTable platform={platform} /></div></article>)}</div>;
+  return <div className="space-y-4">{platforms.map((platform) => <article key={platform.id} className="border border-white/10 bg-white/[0.035] p-5"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold text-[#f7c76b]">PLATFORM</p><h2 className="mt-1 text-2xl font-semibold">{platform.name}</h2></div><dl className="flex gap-6"><DataFact label="등록 Offer" value={`${platform.offers.length}개`} /><DataFact label="판매 전통주" value={`${platform.productCount}개`} /><DataFact label="판매업체" value={`${platform.sellerCount}개`} /></dl></div><div className="mt-5"><PlatformOfferTable platform={platform} /></div></article>)}</div>;
 }
 
 function SellerView({ sellers }: { sellers: SellerResult[] }) {

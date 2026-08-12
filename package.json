@@ -12,10 +12,11 @@
     "test:traditional-liquor-collection": "tsx --test src/lib/traditional-liquor/collection/collection-engine.test.ts",
     "test:traditional-liquor-real-import": "tsx --test src/lib/traditional-liquor/import/real-import-v2.test.ts",
     "test:traditional-liquor-intents": "tsx --test src/lib/traditional-liquor/intents.test.ts",
+    "test:traditional-liquor-analytics": "tsx --test src/lib/traditional-liquor/analytics.test.ts",
     "check:traditional-liquor-collection": "node scripts/check-traditional-liquor-collection-safety.mjs",
     "check:v4-isolation": "node scripts/check-v4-isolation.mjs",
     "check:browser-safety": "node scripts/check-browser-safety.mjs",
-    "test": "npm run typecheck && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run test:traditional-liquor-real-import && npm run test:traditional-liquor-intents && npm run check:traditional-liquor-collection && npm run check:browser-safety",
+    "test": "npm run typecheck && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run test:traditional-liquor-real-import && npm run test:traditional-liquor-intents && npm run test:traditional-liquor-analytics && npm run check:traditional-liquor-collection && npm run check:browser-safety",
     "check": "npm run test && npm run build && npm run check:v4-isolation"
   },
   "dependencies": {

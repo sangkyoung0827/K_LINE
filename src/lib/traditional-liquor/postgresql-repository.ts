@@ -41,7 +41,8 @@ type BreweryRow = { id: string; name: string; region: string | null; description
 type ProductRow = { id: string; brewery_id: string | null; name: string; canonical_name: string | null; region: string | null; category: string | null; sub_category: string | null; abv: number | null; volume_ml: number | null; description: string | null };
 type PlatformRow = { id: string; name: string; code: string };
 type SellerRow = { id: string; name: string };
-type OfferRow = { id: string; product_id: string; platform_id: string; seller_id: string; listing_title: string | null; listing_url: string | null; price: number; original_price: number | null; listing_volume_ml: number | null; quantity: number; shipping_fee: number | null; last_checked_at: string | null };
+type OfferRow = { id: string; product_id: string; platform_id: string; seller_id: string; listing_title: string | null; listing_url: string | null; price: number; original_price: number | null; listing_volume_ml: number | null; quantity: number; shipping_fee: number | null; last_checked_at: string | null; import_batch_id: string | null };
+type ImportBatchRow = { id: string; status: string; production_committed_at: string | null };
 type PriceHistoryRow = { id: string; offer_id: string; observed_at: string; price: number | null; original_price: number | null; shipping_fee: number | null; stock_status: string | null; review_count: number | null; rating: number | null };
 
 function encoded(value: string) {
@@ -72,19 +73,27 @@ function marketRowsToDataset(rows: MarketRow[]): TraditionalLiquorDataset {
 
 export class PostgreSQLTraditionalLiquorRepository implements TraditionalLiquorRepository {
   async getDataset(query = "") {
-    const [breweryRows, productRows, platformRows, sellerRows, offerRows] = await Promise.all([
+    const [breweryRows, productRows, platformRows, sellerRows, offerRows, importBatchRows] = await Promise.all([
       supabaseRequest<BreweryRow[]>("traditional_liquor_breweries?select=id,name,region,description&is_active=eq.true&order=name.asc&limit=5000"),
       supabaseRequest<ProductRow[]>("traditional_liquor_products?select=id,brewery_id,name,canonical_name,region,category,sub_category,abv,volume_ml,description&is_active=eq.true&order=name.asc&limit=10000"),
       supabaseRequest<PlatformRow[]>("traditional_liquor_platforms?select=id,name,code&is_active=eq.true&order=name.asc&limit=1000"),
       supabaseRequest<SellerRow[]>("traditional_liquor_sellers?select=id,name&is_active=eq.true&order=name.asc&limit=10000"),
-      supabaseRequest<OfferRow[]>("traditional_liquor_offers?select=id,product_id,platform_id,seller_id,listing_title,listing_url,price,original_price,listing_volume_ml,quantity,shipping_fee,last_checked_at&is_active=eq.true&order=last_checked_at.desc.nullslast&limit=20000")
+      supabaseRequest<OfferRow[]>("traditional_liquor_offers?select=id,product_id,platform_id,seller_id,listing_title,listing_url,price,original_price,listing_volume_ml,quantity,shipping_fee,last_checked_at,import_batch_id&is_active=eq.true&order=last_checked_at.desc.nullslast&limit=20000"),
+      supabaseRequest<ImportBatchRow[]>("traditional_liquor_import_batches?select=id,status,production_committed_at&limit=10000")
     ]);
+    const committedBatchIds = new Set(importBatchRows.filter((batch) => batch.status === "COMPLETED" && batch.production_committed_at).map((batch) => batch.id));
     const needle = query.trim().toLocaleLowerCase("ko-KR");
     const breweries = breweryRows.map((row) => ({ id: row.id, name: row.name, region: row.region ?? "", description: row.description ?? "" }));
-    const products = productRows.map((row) => ({ id: row.id, name: row.name, canonicalName: row.canonical_name ?? row.name, breweryId: row.brewery_id ?? "", region: row.region ?? "", category: row.category ?? "", subCategory: row.sub_category ?? "", abv: Number(row.abv ?? 0), volumeMl: Number(row.volume_ml ?? 0), description: row.description ?? "" }));
-    const platforms = platformRows.map((row) => ({ id: row.id, name: row.name, code: row.code }));
-    const sellers = sellerRows.map((row) => ({ id: row.id, name: row.name }));
-    const offers = offerRows.map((row) => ({ id: row.id, productId: row.product_id, platformId: row.platform_id, sellerId: row.seller_id, listingTitle: row.listing_title ?? "", price: Number(row.price), originalPrice: row.original_price === null ? null : Number(row.original_price), volumeMl: Number(row.listing_volume_ml ?? 0), quantity: Number(row.quantity), shippingFee: Number(row.shipping_fee ?? 0), url: row.listing_url, lastCheckedAt: row.last_checked_at ?? "" }));
+    const productionOfferRows = offerRows.filter((row) => row.import_batch_id === null || committedBatchIds.has(row.import_batch_id));
+    const activeProductIds = new Set(productionOfferRows.map((row) => row.product_id));
+    const activePlatformIds = new Set(productionOfferRows.map((row) => row.platform_id));
+    const activeSellerIds = new Set(productionOfferRows.map((row) => row.seller_id));
+    const products = productRows.filter((row) => activeProductIds.has(row.id) && !row.name.toUpperCase().startsWith("TEST")).map((row) => ({ id: row.id, name: row.name, canonicalName: row.canonical_name ?? row.name, breweryId: row.brewery_id ?? "", region: row.region ?? "", category: row.category ?? "", subCategory: row.sub_category ?? "", abv: Number(row.abv ?? 0), volumeMl: Number(row.volume_ml ?? 0), description: row.description ?? "" }));
+    const platforms = platformRows.filter((row) => activePlatformIds.has(row.id)).map((row) => ({ id: row.id, name: row.name, code: row.code }));
+    const sellers = sellerRows.filter((row) => activeSellerIds.has(row.id) && !row.name.toUpperCase().startsWith("TEST")).map((row) => ({ id: row.id, name: row.name }));
+    const eligibleProductIds = new Set(products.map((item) => item.id));
+    const eligibleSellerIds = new Set(sellers.map((item) => item.id));
+    const offers = productionOfferRows.filter((row) => eligibleProductIds.has(row.product_id) && eligibleSellerIds.has(row.seller_id)).map((row) => ({ id: row.id, productId: row.product_id, platformId: row.platform_id, sellerId: row.seller_id, listingTitle: row.listing_title ?? "", price: Number(row.price), originalPrice: row.original_price === null ? null : Number(row.original_price), volumeMl: Number(row.listing_volume_ml ?? 0), quantity: Number(row.quantity), shippingFee: Number(row.shipping_fee ?? 0), url: row.listing_url, lastCheckedAt: row.last_checked_at ?? "" }));
     if (!needle) return { breweries, products, platforms, sellers, offers, source: "postgresql" as const };
     const productIds = new Set(products.filter((item) => [item.name, item.canonicalName, item.region, item.category, item.subCategory].join(" ").toLocaleLowerCase("ko-KR").includes(needle)).map((item) => item.id));
     offers.filter((item) => item.listingTitle.toLocaleLowerCase("ko-KR").includes(needle)).forEach((item) => productIds.add(item.productId));

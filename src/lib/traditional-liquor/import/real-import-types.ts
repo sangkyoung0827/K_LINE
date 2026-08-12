@@ -57,7 +57,7 @@ export const productMasterFields = [
 ] as const;
 
 export const marketOfferFields = [
-  "listing_title", "product_name", "platform_code", "seller_name", "price", "original_price", "shipping_fee", "volume_ml", "quantity", "total_volume_ml", "stock_status", "review_count", "rating", "external_offer_id", "listing_url", "query", "collected_at", "source_name"
+  "listing_title", "product_name", "platform_code", "seller_name", "price", "original_price", "shipping_fee", "volume_ml", "quantity", "total_volume_ml", "stock_status", "source_purchase_count", "keep_count", "review_count", "wish_count", "search_rank", "gift_rank", "category_rank", "metric_scope", "source_entity_id", "rating", "external_offer_id", "listing_url", "query", "collected_at", "source_name"
 ] as const;
 
 export function fieldsForImportType(importType: RealImportType) {

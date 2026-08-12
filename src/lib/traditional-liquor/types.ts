@@ -1,4 +1,78 @@
-export type TraditionalLiquorView = "product" | "platform" | "seller";
+export type TraditionalLiquorView = "product" | "platform" | "seller" | "price" | "sales";
+
+export type TraditionalLiquorPriceSort = "LOWEST" | "HIGHEST" | "PER_100ML";
+export type TraditionalLiquorMetricType =
+  | "SOURCE_PURCHASE_COUNT"
+  | "KEEP_COUNT"
+  | "REVIEW_COUNT"
+  | "WISH_COUNT"
+  | "SEARCH_RANK"
+  | "GIFT_RANK"
+  | "CATEGORY_RANK";
+export type TraditionalLiquorMetricPeriod = "LATEST" | "7D" | "30D" | "HISTORY";
+export type TraditionalLiquorMetricDataStatus = "AVAILABLE" | "INSUFFICIENT_DATA" | "NO_CURRENT_DATA";
+
+export type TraditionalLiquorMetricPoint = {
+  observedAt: string;
+  value: number;
+  deltaFromPrevious: number | null;
+};
+
+export type TraditionalLiquorSalesAvailability = {
+  latest: boolean;
+  sevenDays: boolean;
+  thirtyDays: boolean;
+  history: boolean;
+};
+
+export type TraditionalLiquorAnalyticsPlatform = {
+  code: string;
+  name: string;
+};
+
+export type TraditionalLiquorPriceRow = {
+  offerId: string;
+  productName: string;
+  platformCode: string;
+  platformName: string;
+  sellerName: string;
+  price: number;
+  totalVolumeMl: number | null;
+  pricePer100ml: number | null;
+  lastCheckedAt: string | null;
+};
+
+export type TraditionalLiquorSalesRow = {
+  productId: string;
+  offerId: string;
+  productName: string;
+  platformCode: string;
+  platformName: string;
+  sellerName: string;
+  metricType: TraditionalLiquorMetricType;
+  metricScope: "OFFER" | "PRODUCT" | "CATALOG";
+  sourceEntityId: string;
+  period: TraditionalLiquorMetricPeriod;
+  dataStatus: TraditionalLiquorMetricDataStatus;
+  latestValue: number;
+  latestObservedAt: string;
+  baselineValue: number | null;
+  baselineObservedAt: string | null;
+  deltaValue: number | null;
+  deltaPercent: number | null;
+  historyCount: number;
+  history: TraditionalLiquorMetricPoint[];
+};
+
+export type TraditionalLiquorPagedResult<T> = {
+  rows: T[];
+  platforms: TraditionalLiquorAnalyticsPlatform[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  availability?: TraditionalLiquorSalesAvailability;
+};
 
 export type TraditionalLiquorEntityType = "PRODUCT" | "PLATFORM" | "SELLER" | "BREWERY";
 

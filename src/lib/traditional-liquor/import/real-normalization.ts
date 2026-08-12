@@ -33,7 +33,9 @@ export function normalizeRealImportRecord(record: MappedImportRecord) {
   return {
     importType: record.importType, listingTitle, normalizedListingTitle: normalizeSearchText(listingTitle), productName, normalizedProductName: normalizeSearchText(productName), platformCode: text(data.platform_code)?.toUpperCase(),
     sellerName: text(data.seller_name), normalizedSellerName: normalizeSearchText(text(data.seller_name)), price: number(data.price), originalPrice: number(data.original_price), shippingFee: number(data.shipping_fee),
-    listingVolumeMl: volumeMl, quantity, totalVolumeMl: number(data.total_volume_ml) ?? (volumeMl && quantity ? volumeMl * quantity : null), stockStatus: text(data.stock_status), reviewCount: number(data.review_count), rating: number(data.rating),
+    listingVolumeMl: volumeMl, quantity, totalVolumeMl: number(data.total_volume_ml) ?? (volumeMl && quantity ? volumeMl * quantity : null), stockStatus: text(data.stock_status),
+    sourcePurchaseCount: number(data.source_purchase_count), keepCount: number(data.keep_count), reviewCount: number(data.review_count), wishCount: number(data.wish_count),
+    searchRank: number(data.search_rank), giftRank: number(data.gift_rank), categoryRank: number(data.category_rank), metricScope: text(data.metric_scope)?.toUpperCase() ?? "OFFER", sourceEntityId: text(data.source_entity_id), rating: number(data.rating),
     externalOfferId: text(data.external_offer_id), listingUrl: url(data.listing_url), query: text(data.query), collectedAt: dateTime(data.collected_at) ?? new Date().toISOString(), sourceName: record.sourceName
   };
 }
@@ -61,6 +63,13 @@ export function validateRealImportRecord(normalized: ReturnType<typeof normalize
     if (normalized.shippingFee !== null && normalized.shippingFee < 0) add("INVALID_SHIPPING_FEE", "shippingFee", "배송비는 0 이상이어야 합니다.");
     if (normalized.quantity === null || normalized.quantity <= 0 || !Number.isInteger(normalized.quantity)) add("INVALID_QUANTITY", "quantity", "수량은 1 이상의 정수여야 합니다.");
     if (normalized.reviewCount !== null && (normalized.reviewCount < 0 || !Number.isInteger(normalized.reviewCount))) add("INVALID_REVIEW_COUNT", "reviewCount", "리뷰 수는 0 이상의 정수여야 합니다.");
+    for (const field of ["sourcePurchaseCount", "keepCount", "wishCount"] as const) {
+      if (normalized[field] !== null && (normalized[field] < 0 || !Number.isInteger(normalized[field]))) add("INVALID_METRIC_VALUE", field, `${field} 값은 0 이상의 정수여야 합니다.`);
+    }
+    for (const field of ["searchRank", "giftRank", "categoryRank"] as const) {
+      if (normalized[field] !== null && (normalized[field] <= 0 || !Number.isInteger(normalized[field]))) add("INVALID_RANK_VALUE", field, `${field} 값은 1 이상의 정수여야 합니다.`);
+    }
+    if (!["OFFER", "PRODUCT", "CATALOG"].includes(normalized.metricScope)) add("INVALID_METRIC_SCOPE", "metricScope", "metric_scope는 OFFER, PRODUCT, CATALOG 중 하나여야 합니다.");
     if (normalized.rating !== null && (normalized.rating < 0 || normalized.rating > 5)) add("INVALID_RATING", "rating", "평점은 0~5여야 합니다.");
     if (normalized.listingVolumeMl !== null && normalized.listingVolumeMl <= 0) add("INVALID_VOLUME", "listingVolumeMl", "용량은 0보다 커야 합니다.");
     if (normalized.collectedAt && Number.isNaN(Date.parse(normalized.collectedAt))) add("INVALID_COLLECTED_AT", "collectedAt", "수집 시각 형식이 올바르지 않습니다.");

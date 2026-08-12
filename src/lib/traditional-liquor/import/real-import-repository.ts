@@ -17,6 +17,14 @@ const canonicalPlatformAliases: Record<string, string[]> = {
 };
 type IdRow = { id: string };
 type BatchRow = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string; discarded_at?: string | null; discard_reason?: string | null; production_committed_at?: string | null };
+type CommittedOfferRow = {
+  id: string;
+  product_id: string;
+  platform_id: string;
+  source_id: string | null;
+  external_offer_id: string | null;
+  listing_url: string | null;
+};
 export type RealStagingRow = { id: string; batch_id: string; row_number: number; raw_data: Record<string, unknown>; normalized_data: Record<string, unknown>; validation_status: "VALID" | "INVALID"; resolution_status: ResolutionStatus; resolved_product_id: string | null; resolved_seller_id: string | null; resolved_platform_id: string | null; resolved_brewery_id: string | null; resolution_data: Record<string, unknown>; review_action: string | null; };
 export type { ResolutionStatus } from "@/lib/traditional-liquor/import/entity-resolution";
 
@@ -179,6 +187,102 @@ export class RealImportRepository {
   }
 
   async commitBatch(batchId: string): Promise<CommitResult> {
-    return supabaseRequest<CommitResult>("rpc/commit_traditional_liquor_import_batch", { method: "POST", body: JSON.stringify({ p_batch_id: batchId }) });
+    const result = await supabaseRequest<CommitResult>("rpc/commit_traditional_liquor_import_batch", { method: "POST", body: JSON.stringify({ p_batch_id: batchId }) });
+    await this.captureCommittedMarketMetrics(batchId).catch((error) => {
+      // The database trigger is authoritative; this fallback keeps older deployments collecting snapshots.
+      console.error("Traditional liquor metric snapshot fallback failed.", error);
+    });
+    return result;
   }
+
+  private async captureCommittedMarketMetrics(batchId: string) {
+    const [rows, offers] = await Promise.all([
+      this.getRows(batchId),
+      supabaseRequest<CommittedOfferRow[]>(
+        `traditional_liquor_offers?select=id,product_id,platform_id,source_id,external_offer_id,listing_url&import_batch_id=eq.${encodeURIComponent(batchId)}&limit=10000`
+      )
+    ]);
+    if (!rows.length || !offers.length) return;
+
+    const byExternalId = new Map(offers.filter((offer) => offer.external_offer_id).map((offer) => [`${offer.platform_id}:${offer.external_offer_id}`, offer]));
+    const byUrl = new Map(offers.filter((offer) => offer.listing_url).map((offer) => [`${offer.platform_id}:${offer.listing_url}`, offer]));
+    const observations = new Map<string, Record<string, unknown>>();
+    const metricFields = [
+      ["sourcePurchaseCount", "SOURCE_PURCHASE_COUNT"], ["keepCount", "KEEP_COUNT"],
+      ["reviewCount", "REVIEW_COUNT"], ["wishCount", "WISH_COUNT"],
+      ["searchRank", "SEARCH_RANK"], ["giftRank", "GIFT_RANK"],
+      ["categoryRank", "CATEGORY_RANK"]
+    ] as const;
+
+    for (const row of rows) {
+      if (row.validation_status !== "VALID" || row.normalized_data.importType !== "MARKET_OFFER" || !row.resolved_platform_id) continue;
+      const externalOfferId = stringValue(row.normalized_data.externalOfferId);
+      const listingUrl = stringValue(row.normalized_data.listingUrl);
+      const offer = (externalOfferId ? byExternalId.get(`${row.resolved_platform_id}:${externalOfferId}`) : undefined)
+        ?? (listingUrl ? byUrl.get(`${row.resolved_platform_id}:${listingUrl}`) : undefined);
+      if (!offer) continue;
+
+      const observedAt = validIsoDate(row.normalized_data.collectedAt);
+      const metricScope = validMetricScope(row.normalized_data.metricScope);
+      const sourceEntityId = stringValue(row.normalized_data.sourceEntityId)
+        ?? (metricScope === "OFFER" ? externalOfferId ?? listingUrl ?? offer.id : offer.product_id);
+
+      for (const [field, metricType] of metricFields) {
+        const metricValue = integerValue(row.normalized_data[field]);
+        if (metricValue === null) continue;
+        const key = `${offer.platform_id}:${metricScope}:${sourceEntityId}:${metricType}:${observedAt}`;
+        observations.set(key, {
+          offer_id: offer.id,
+          product_id: offer.product_id,
+          platform_id: offer.platform_id,
+          metric_type: metricType,
+          metric_value: metricValue,
+          observed_at: observedAt,
+          source_id: offer.source_id,
+          import_batch_id: batchId,
+          metric_scope: metricScope,
+          source_entity_id: sourceEntityId,
+          metadata: { origin: "REAL_IMPORT_V2", rowNumber: row.row_number }
+        });
+      }
+    }
+
+    const payload = [...observations.values()];
+    if (!payload.length) return;
+    try {
+      await supabaseRequest(
+        "traditional_liquor_market_metrics_history?on_conflict=platform_id,metric_scope,source_entity_id,metric_type,observed_at",
+        { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(payload) }
+      );
+    } catch {
+      const legacyPayload = payload.map(({ metric_scope, source_entity_id, ...observation }) => ({
+        ...observation,
+        metadata: { ...(observation.metadata as Record<string, unknown>), metricScope: metric_scope, sourceEntityId: source_entity_id }
+      }));
+      await supabaseRequest(
+        "traditional_liquor_market_metrics_history?on_conflict=offer_id,metric_type,observed_at",
+        { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(legacyPayload) }
+      );
+    }
+  }
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function integerValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
+function validIsoDate(value: unknown) {
+  const text = stringValue(value);
+  return text && !Number.isNaN(Date.parse(text)) ? new Date(text).toISOString() : new Date().toISOString();
+}
+
+function validMetricScope(value: unknown): "OFFER" | "PRODUCT" | "CATALOG" {
+  const scope = stringValue(value)?.toUpperCase();
+  return scope === "PRODUCT" || scope === "CATALOG" ? scope : "OFFER";
 }

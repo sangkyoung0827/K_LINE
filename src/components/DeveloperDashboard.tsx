@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, Eye, FlaskConical, Globe2, MessageSquareText, Settings, ShieldCheck, UserCheck } from "lucide-react";
+import { BarChart3, Database, Eye, FlaskConical, Globe2, MessageSquareText, Settings, ShieldCheck, UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type SiteAnalyticsMember = {
@@ -163,6 +163,12 @@ export function DeveloperDashboard() {
               icon={<FlaskConical aria-hidden className="h-5 w-5" />}
               title="WooHyukmon 4.0"
               description="Open the integrated private workspace for chat, WooHyukmon training, and authorized data analysis."
+            />
+            <DeveloperMenuCard
+              href="/v4/traditional-liquor"
+              icon={<Database aria-hidden className="h-5 w-5" />}
+              title="전통주 DB"
+              description="제품·플랫폼·판매업체·가격·시장 지표별 Production 데이터를 조회합니다."
             />
           </div>
         </div>

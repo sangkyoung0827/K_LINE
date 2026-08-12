@@ -13,7 +13,13 @@ const aliases: Record<string, string[]> = {
   listing_title: ["listingtitle", "listing", "판매상품명", "등록상품명", "상품제목"], platform_code: ["platformcode", "platform", "플랫폼", "판매플랫폼"],
   seller_name: ["sellername", "seller", "판매처", "판매자", "업체명"], price: ["price", "판매가", "가격"], original_price: ["originalprice", "정가", "원가"],
   shipping_fee: ["shippingfee", "배송비"], quantity: ["quantity", "수량", "개수"], total_volume_ml: ["totalvolumeml", "총용량", "총용량ml"],
-  stock_status: ["stockstatus", "재고", "재고상태"], review_count: ["reviewcount", "리뷰수", "후기수"], rating: ["rating", "평점"],
+  stock_status: ["stockstatus", "재고", "재고상태"],
+  source_purchase_count: ["sourcepurchasecount", "purchasecount", "누적구매수", "구매수", "판매수"],
+  keep_count: ["keepcount", "찜수", "보관수"], review_count: ["reviewcount", "리뷰수", "후기수"],
+  wish_count: ["wishcount", "위시수", "관심수"], search_rank: ["searchrank", "검색순위"],
+  gift_rank: ["giftrank", "선물순위", "선물랭킹"], category_rank: ["categoryrank", "카테고리순위", "카테고리랭킹"],
+  metric_scope: ["metricscope", "지표범위", "집계단위"], source_entity_id: ["sourceentityid", "catalogid", "원본엔티티id", "카탈로그id"],
+  rating: ["rating", "평점"],
   external_offer_id: ["externalofferid", "offerid", "외부상품id"], listing_url: ["listingurl", "url", "판매url", "상품url"], query: ["query", "검색어"], collected_at: ["collectedat", "수집일", "수집시각", "기준일"]
 };
 
