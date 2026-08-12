@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { CommitResult, RealStagingRow, ResolutionResult } from "@/lib/traditional-liquor/import/real-import-repository";
 import { createImportPreview, formatPreviewPrice } from "@/lib/traditional-liquor/import/import-preview";
 import { fieldsForImportType, type ColumnMapping, type RealImportAnalysis, type RealImportType } from "@/lib/traditional-liquor/import/real-import-types";
+import { TraditionalLiquorMarketCollectorPanel } from "@/components/traditional-liquor/TraditionalLiquorMarketCollectorPanel";
 
 const endpoint = "/api/v4/traditional-liquor/import";
 type Batch = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string; discarded_at?: string | null; discard_reason?: string | null; production_committed_at?: string | null };
@@ -146,6 +147,7 @@ export function TraditionalLiquorRealImportPanel() {
   const filteredBatches = batches.filter((batch) => batchFilter === "ACTIVE" ? !["COMPLETED", "DISCARDED"].includes(batch.status) : batch.status === batchFilter);
 
   return <section className="mt-6 border border-white/10 bg-white/[0.025]">
+    <TraditionalLiquorMarketCollectorPanel onBatchReady={(batchId) => { void loadBatches(); void openBatch(batchId); }} />
     <header className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 p-5">
       <div><div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.14em] text-[#f7c76b]"><Upload className="h-4 w-4" />REAL DATA IMPORT V2</div><h2 className="mt-2 text-xl font-semibold">전통주 실제 데이터 가져오기</h2><p className="mt-1 text-xs leading-5 text-white/42">CSV · XLSX · JSON (최대 4MB / 10,000행) → Staging → Entity Resolution → 관리자 승인 → Production</p></div>
       <div className="flex gap-2"><a href="/templates/traditional_liquor_product_master_template.csv" download className="inline-flex h-9 items-center gap-2 border border-white/12 px-3 text-[10px] font-bold text-white/55 hover:text-white"><Download className="h-3.5 w-3.5" />Master Template</a><a href="/templates/traditional_liquor_market_offer_template.csv" download className="inline-flex h-9 items-center gap-2 border border-white/12 px-3 text-[10px] font-bold text-white/55 hover:text-white"><Download className="h-3.5 w-3.5" />Offer Template</a></div>

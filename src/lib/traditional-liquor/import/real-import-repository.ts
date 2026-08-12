@@ -2,7 +2,7 @@ import "server-only";
 
 import { applyColumnMapping } from "@/lib/traditional-liquor/import/column-mapping";
 import { normalizeSearchText } from "@/lib/traditional-liquor/collection/normalization";
-import { resolveImportRow, type AliasEntity, type BreweryEntity, type PlatformAliasEntity, type PlatformEntity, type ProductEntity, type ResolutionStatus, type SellerEntity } from "@/lib/traditional-liquor/import/entity-resolution";
+import { resolveImportRow, type AliasEntity, type BreweryEntity, type OfferEntity, type PlatformAliasEntity, type PlatformEntity, type ProductEntity, type ResolutionStatus, type SellerEntity } from "@/lib/traditional-liquor/import/entity-resolution";
 import { normalizeRealImportRecord, validateRealImportRecord } from "@/lib/traditional-liquor/import/real-normalization";
 import type { ColumnMapping, ParsedImportFile, RealImportType } from "@/lib/traditional-liquor/import/real-import-types";
 import { supabaseRequest } from "@/lib/supabaseServer";
@@ -77,8 +77,8 @@ export class RealImportRepository {
     return rows[0].id;
   }
 
-  async stageFile(parsed: ParsedImportFile, mapping: ColumnMapping, sourceName: string, observedAt?: string | null): Promise<StageImportResult> {
-    const sourceId = await this.ensureSource(sourceName, parsed.fileType === "JSON" ? "MANUAL" : parsed.fileType);
+  async stageFile(parsed: ParsedImportFile, mapping: ColumnMapping, sourceName: string, observedAt?: string | null, sourceType?: "MANUAL" | "CSV" | "XLSX" | "COLLECTOR"): Promise<StageImportResult> {
+    const sourceId = await this.ensureSource(sourceName, sourceType ?? (parsed.fileType === "JSON" ? "MANUAL" : parsed.fileType));
     const batches = await supabaseRequest<BatchRow[]>("traditional_liquor_import_batches", { method: "POST", headers: representationHeaders, body: JSON.stringify({ source_id: sourceId, file_name: parsed.fileName, import_type: parsed.importType, mapping_data: mapping, status: "PARSING", started_at: new Date().toISOString() }) });
     const batchId = batches[0].id;
     try {
@@ -132,11 +132,12 @@ export class RealImportRepository {
     if (batches[0].status !== "READY") throw new Error("BATCH_NOT_READY");
     const rows = await this.getRows(batchId);
     await this.ensureCanonicalPlatforms(rows);
-    const [products, breweries, sellers, platforms, storedPlatformAliases, productAliases, sellerAliases] = await Promise.all([
+    const [products, breweries, sellers, platforms, offers, storedPlatformAliases, productAliases, sellerAliases] = await Promise.all([
       supabaseRequest<ProductEntity[]>("traditional_liquor_products?select=id,brewery_id,name,canonical_name,normalized_name,abv,volume_ml&is_active=eq.true&limit=10000"),
       supabaseRequest<BreweryEntity[]>("traditional_liquor_breweries?select=id,name,normalized_name,region,province,city&is_active=eq.true&limit=10000"),
       supabaseRequest<SellerEntity[]>("traditional_liquor_sellers?select=id,name,normalized_name&is_active=eq.true&limit=10000"),
       supabaseRequest<PlatformEntity[]>("traditional_liquor_platforms?select=id,code,name&is_active=eq.true&limit=1000"),
+      supabaseRequest<OfferEntity[]>("traditional_liquor_offers?select=id,product_id,platform_id,seller_id,external_offer_id,listing_url&limit=20000"),
       supabaseRequest<PlatformAliasEntity[]>("traditional_liquor_platform_aliases?select=platform_id,alias_name,normalized_alias&is_active=eq.true&limit=5000").catch(() => []),
       supabaseRequest<AliasEntity[]>("traditional_liquor_product_aliases?select=product_id,normalized_alias&limit=20000"),
       supabaseRequest<AliasEntity[]>("traditional_liquor_seller_aliases?select=seller_id,normalized_alias&limit=20000")
@@ -147,7 +148,7 @@ export class RealImportRepository {
     for (const row of rows) {
       if (row.validation_status === "INVALID") { invalid += 1; continue; }
       const data = row.normalized_data;
-      const resolution = resolveImportRow(data, { products, breweries, sellers, platforms, platformAliases, productAliases, sellerAliases });
+      const resolution = resolveImportRow(data, { products, breweries, sellers, platforms, offers, platformAliases, productAliases, sellerAliases });
       if (resolution.status === "MATCHED") matched += 1;
       if (resolution.status === "NEW_ENTITY") newEntity += 1;
       if (resolution.status === "MANUAL_REVIEW") manualReview += 1;

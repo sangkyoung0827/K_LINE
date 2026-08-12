@@ -1,0 +1,29 @@
+[
+  {
+    "code": "NAVER",
+    "displayName": "네이버",
+    "collector": "NAVER_SHOPPING",
+    "targetUrlTemplate": "https://search.shopping.naver.com/search/all?query={query}",
+    "metrics": [
+      { "type": "PRICE", "displayName": "가격", "category": "OFFER", "availability": "AVAILABLE" },
+      { "type": "SOURCE_PURCHASE_COUNT", "displayName": "구매수", "category": "SALES", "availability": "AVAILABLE_WHEN_PUBLIC" },
+      { "type": "REVIEW_COUNT", "displayName": "후기수", "category": "POPULARITY", "availability": "AVAILABLE_WHEN_PUBLIC" },
+      { "type": "KEEP_COUNT", "displayName": "찜", "category": "POPULARITY", "availability": "AVAILABLE_WHEN_PUBLIC" },
+      { "type": "RATING", "displayName": "평점", "category": "POPULARITY", "availability": "AVAILABLE_WHEN_PUBLIC" },
+      { "type": "SEARCH_RANK", "displayName": "검색순위", "category": "RANK", "availability": "AVAILABLE" }
+    ]
+  },
+  {
+    "code": "KAKAO_GIFT",
+    "displayName": "카카오톡 선물하기",
+    "collector": "KAKAO_GIFT",
+    "targetUrlTemplate": "https://gift.kakao.com/search/result?query={query}",
+    "metrics": [
+      { "type": "PRICE", "displayName": "가격", "category": "OFFER", "availability": "AVAILABLE" },
+      { "type": "WISH_COUNT", "displayName": "위시수", "category": "POPULARITY", "availability": "AVAILABLE_WHEN_PUBLIC" },
+      { "type": "REVIEW_COUNT", "displayName": "후기수", "category": "POPULARITY", "availability": "AVAILABLE_WHEN_PUBLIC" },
+      { "type": "SEARCH_RANK", "displayName": "노출순위", "category": "RANK", "availability": "AVAILABLE" },
+      { "type": "SOURCE_PURCHASE_COUNT", "displayName": "직접 구매수", "category": "SALES", "availability": "UNAVAILABLE", "note": "현재 공개 데이터에서 확보 불가" }
+    ]
+  }
+]

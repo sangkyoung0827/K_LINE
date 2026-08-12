@@ -5,6 +5,7 @@ export type ProductEntity = { id: string; brewery_id: string | null; name: strin
 export type BreweryEntity = { id: string; name: string; normalized_name: string | null; region: string | null; province: string | null; city: string | null };
 export type SellerEntity = { id: string; name: string; normalized_name: string | null };
 export type PlatformEntity = { id: string; code: string; name: string };
+export type OfferEntity = { id: string; product_id: string; platform_id: string; seller_id: string; external_offer_id: string | null; listing_url: string | null };
 export type AliasEntity = { product_id?: string; seller_id?: string; normalized_alias: string | null };
 export type PlatformAliasEntity = { platform_id: string; alias_name: string; normalized_alias: string | null };
 
@@ -13,6 +14,7 @@ export interface ResolutionEntities {
   breweries: BreweryEntity[];
   sellers: SellerEntity[];
   platforms: PlatformEntity[];
+  offers?: OfferEntity[];
   platformAliases: PlatformAliasEntity[];
   productAliases: AliasEntity[];
   sellerAliases: AliasEntity[];
@@ -90,6 +92,14 @@ export function resolveImportRow(data: Record<string, unknown>, entities: Resolu
   const aliasPlatforms = entities.platforms.filter((item) => aliasPlatformIds.has(item.id));
   const platform = exactPlatform ?? (aliasPlatforms.length === 1 ? aliasPlatforms[0] : null);
   const platformMatch = exactPlatform ? "CODE_EXACT" : platform ? "ALIAS_EXACT" : null;
+  const externalOfferId = String(data.externalOfferId ?? "").trim();
+  const listingUrl = String(data.listingUrl ?? "").trim();
+  const exactOffer = platform
+    ? (entities.offers ?? []).find((item) => item.platform_id === platform.id && (
+        (externalOfferId && item.external_offer_id === externalOfferId)
+        || (!externalOfferId && listingUrl && item.listing_url === listingUrl)
+      )) ?? null
+    : null;
 
   const normalizedSeller = comparable(data.normalizedSellerName ?? data.sellerName);
   let sellerMatches = normalizedSeller
@@ -100,7 +110,7 @@ export function resolveImportRow(data: Record<string, unknown>, entities: Resolu
     sellerMatches = entities.sellers.filter((item) => aliasIds.has(item.id));
   }
   const sellerSuggestions = sellerMatches.length ? sellerMatches : fuzzyCandidates(normalizedSeller, entities.sellers);
-  const sellerId = sellerMatches.length === 1 ? sellerMatches[0].id : null;
+  const sellerId = exactOffer?.seller_id ?? (sellerMatches.length === 1 ? sellerMatches[0].id : null);
 
   const normalizedProduct = comparable(data.normalizedProductName ?? data.productName ?? data.listingTitle);
   let productMatches = normalizedProduct
@@ -114,16 +124,16 @@ export function resolveImportRow(data: Record<string, unknown>, entities: Resolu
   const abv = data.abv === null || data.abv === undefined || data.abv === "" ? null : Number(data.abv);
   const volume = Number(data.volumeMl ?? data.listingVolumeMl ?? 0) || null;
   const exactSku = productMatches.filter((item) => (abv === null || Number(item.abv) === abv) && (volume === null || Number(item.volume_ml) === volume));
-  const productId = exactSku.length === 1 && (!normalizedBrewery || breweryId) ? exactSku[0].id : null;
+  const productId = exactOffer?.product_id ?? (exactSku.length === 1 && (!normalizedBrewery || breweryId) ? exactSku[0].id : null);
   const productSuggestions = exactSku.length ? exactSku : productMatches;
 
   const reasons: string[] = [];
   if (importType === "MARKET_OFFER" && !platform) reasons.push("UNKNOWN_PLATFORM");
   if (breweryMatches.length > 1) reasons.push("AMBIGUOUS_BREWERY");
-  if (sellerMatches.length > 1) reasons.push("AMBIGUOUS_SELLER");
-  if (exactSku.length > 1 || (productMatches.length > 0 && exactSku.length === 0)) reasons.push("AMBIGUOUS_PRODUCT");
-  if (!productMatches.length && fuzzyCandidates(normalizedProduct, entities.products).length) reasons.push("SIMILAR_PRODUCT_CANDIDATE");
-  if (!sellerMatches.length && sellerSuggestions.length) reasons.push("SIMILAR_SELLER_CANDIDATE");
+  if (!exactOffer && sellerMatches.length > 1) reasons.push("AMBIGUOUS_SELLER");
+  if (!exactOffer && (exactSku.length > 1 || (productMatches.length > 0 && exactSku.length === 0))) reasons.push("AMBIGUOUS_PRODUCT");
+  if (!exactOffer && !productMatches.length && fuzzyCandidates(normalizedProduct, entities.products).length) reasons.push("SIMILAR_PRODUCT_CANDIDATE");
+  if (!exactOffer && !sellerMatches.length && sellerSuggestions.length) reasons.push("SIMILAR_SELLER_CANDIDATE");
   if (!breweryMatches.length && brewerySuggestions.length) reasons.push("SIMILAR_BREWERY_CANDIDATE");
 
   const requiresReview = reasons.length > 0;

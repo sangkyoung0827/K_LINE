@@ -2,6 +2,8 @@ node_modules
 .next
 out
 dist
+!extensions/woo-hyukmon-market-collector/dist/
+!extensions/woo-hyukmon-market-collector/dist/**
 .env
 .env*.local
 .toss-local.env

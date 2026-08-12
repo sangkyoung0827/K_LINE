@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["DOM", "DOM.Iterable", "ES2020", "WebWorker"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "module": "none",
+    "types": []
+  },
+  "include": ["src/**/*.ts"]
+}
