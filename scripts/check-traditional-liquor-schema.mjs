@@ -9,6 +9,7 @@ const tables = [
   "traditional_liquor_breweries",
   "traditional_liquor_products",
   "traditional_liquor_platforms",
+  "traditional_liquor_platform_aliases",
   "traditional_liquor_sellers",
   "traditional_liquor_offers",
   "traditional_liquor_price_history",

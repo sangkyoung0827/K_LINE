@@ -8,6 +8,7 @@ import { fieldsForImportType, type ColumnMapping, type RealImportAnalysis, type 
 
 const endpoint = "/api/v4/traditional-liquor/import";
 type Batch = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string; discarded_at?: string | null; discard_reason?: string | null; production_committed_at?: string | null };
+type Platform = { id: string; code: string; name: string };
 type BatchFilter = "ACTIVE" | "COMPLETED" | "DISCARDED";
 
 async function jsonRequest<T>(url: string, init?: RequestInit) {
@@ -27,6 +28,7 @@ export function TraditionalLiquorRealImportPanel() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [rows, setRows] = useState<RealStagingRow[]>([]);
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [resolution, setResolution] = useState<ResolutionResult | null>(null);
   const [commitResult, setCommitResult] = useState<CommitResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -41,6 +43,11 @@ export function TraditionalLiquorRealImportPanel() {
     catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Import Batch를 불러오지 못했습니다."); }
   }, []);
   useEffect(() => { void loadBatches(); }, [loadBatches]);
+  useEffect(() => {
+    void jsonRequest<{ platforms: Platform[] }>(`${endpoint}?resource=platforms`)
+      .then((body) => setPlatforms(body.platforms))
+      .catch((requestError) => setError(requestError instanceof Error ? requestError.message : "플랫폼을 불러오지 못했습니다."));
+  }, []);
 
   function formData(action: "analyze" | "stage", requestedType: RealImportType) {
     if (!file) throw new Error("CSV, XLSX 또는 JSON 파일을 선택하세요.");
@@ -90,6 +97,18 @@ export function TraditionalLiquorRealImportPanel() {
       await jsonRequest(endpoint, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rowId: row.id, action, ...ids }) });
       if (selectedBatch) await openBatch(selectedBatch.id);
     } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "검토 결과를 저장하지 못했습니다."); }
+    finally { setBusy(false); }
+  }
+
+  async function assignPlatform(platformId: string) {
+    if (!selectedBatch || !platformId) return;
+    setBusy(true); setError("");
+    try {
+      await jsonRequest(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "assign-platform", batchId: selectedBatch.id, platformId }) });
+      await openBatch(selectedBatch.id);
+      const body = await jsonRequest<{ result: ResolutionResult }>(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "resolve", batchId: selectedBatch.id }) });
+      await openBatch(selectedBatch.id); setResolution(body.result);
+    } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "플랫폼 일괄 지정에 실패했습니다."); }
     finally { setBusy(false); }
   }
 
@@ -148,7 +167,7 @@ export function TraditionalLiquorRealImportPanel() {
     }} busy={busy} /> : null}
     <div className="grid lg:grid-cols-[280px_1fr]">
       <div className="border-b border-white/10 p-4 lg:border-b-0 lg:border-r"><p className="px-1 text-xs font-bold text-white/55">실제 Import Batch</p><div className="mt-3 grid grid-cols-3 gap-1">{(["ACTIVE", "COMPLETED", "DISCARDED"] as BatchFilter[]).map((filter) => <button key={filter} type="button" onClick={() => { setBatchFilter(filter); setSelectedBatch(null); setRows([]); }} className={`h-8 border text-[9px] font-bold ${batchFilter === filter ? "border-[#f7c76b] bg-[#f7c76b]/10 text-[#f7c76b]" : "border-white/10 text-white/38"}`}>{filter === "ACTIVE" ? "활성" : filter === "COMPLETED" ? "Production 완료" : "폐기됨"}</button>)}</div><div className="mt-3 max-h-[520px] space-y-2 overflow-auto">{filteredBatches.length ? filteredBatches.map((batch) => <button key={batch.id} type="button" onClick={() => void openBatch(batch.id)} className={`w-full border p-3 text-left ${selectedBatch?.id === batch.id ? "border-[#f7c76b] bg-[#f7c76b]/7" : "border-white/10 bg-black/10"}`}><div className="flex justify-between gap-2"><span className="truncate text-xs font-bold text-white/75">{batch.file_name}</span><span className="text-[9px] font-bold text-[#f7c76b]">{batch.status}</span></div><p className="mt-1 text-[10px] text-white/34">{batch.import_type} · {batch.total_rows}행 · 오류 {batch.invalid_rows}</p></button>) : <p className="px-1 py-6 text-center text-[10px] text-white/28">해당 Batch가 없습니다.</p>}</div></div>
-      <div className="min-w-0 p-5">{selectedBatch ? <BatchWorkspace batch={selectedBatch} rows={rows} resolution={resolution} busy={busy} committable={committable} onResolve={() => void resolve()} onReview={review} onCommit={() => setConfirmOpen(true)} onDiscard={() => setDiscardOpen(true)} onDelete={() => setDeleteOpen(true)} /> : <div className="grid min-h-48 place-items-center text-sm text-white/32">분석할 실제 Import Batch를 선택하세요.</div>}</div>
+      <div className="min-w-0 p-5">{selectedBatch ? <BatchWorkspace batch={selectedBatch} rows={rows} platforms={platforms} resolution={resolution} busy={busy} committable={committable} onResolve={() => void resolve()} onAssignPlatform={(platformId) => void assignPlatform(platformId)} onReview={review} onCommit={() => setConfirmOpen(true)} onDiscard={() => setDiscardOpen(true)} onDelete={() => setDeleteOpen(true)} /> : <div className="grid min-h-48 place-items-center text-sm text-white/32">분석할 실제 Import Batch를 선택하세요.</div>}</div>
     </div>
     {commitResult ? <div className="border-t border-emerald-300/20 bg-emerald-300/7 p-5"><div className="flex items-center gap-2 text-sm font-bold text-emerald-300"><CheckCircle2 className="h-5 w-5" />Production 반영 완료</div><p className="mt-2 text-xs text-white/55">Products +{commitResult.productsInserted} / Updated {commitResult.productsUpdated} · Breweries +{commitResult.breweriesInserted} · Sellers +{commitResult.sellersInserted} · Offers +{commitResult.offersInserted} / Updated {commitResult.offersUpdated} · History +{commitResult.priceHistoryInserted}</p></div> : null}
     {confirmOpen && selectedBatch ? <CommitModal batch={selectedBatch} rows={rows} onCancel={() => setConfirmOpen(false)} onConfirm={() => void commit()} /> : null}
@@ -171,7 +190,7 @@ function MappingEditor({ analysis, mapping, onChange, onStage, onUseDetected, bu
   </div>;
 }
 
-function BatchWorkspace({ batch, rows, resolution, busy, committable, onResolve, onReview, onCommit, onDiscard, onDelete }: { batch: Batch; rows: RealStagingRow[]; resolution: ResolutionResult | null; busy: boolean; committable: boolean; onResolve: () => void; onReview: (row: RealStagingRow, action: "LINK_EXISTING" | "CREATE_NEW" | "EXCLUDE", ids?: Record<string, string>) => void; onCommit: () => void; onDiscard: () => void; onDelete: () => void }) {
+function BatchWorkspace({ batch, rows, platforms, resolution, busy, committable, onResolve, onAssignPlatform, onReview, onCommit, onDiscard, onDelete }: { batch: Batch; rows: RealStagingRow[]; platforms: Platform[]; resolution: ResolutionResult | null; busy: boolean; committable: boolean; onResolve: () => void; onAssignPlatform: (platformId: string) => void; onReview: (row: RealStagingRow, action: "LINK_EXISTING" | "CREATE_NEW" | "EXCLUDE", ids?: Record<string, string>) => void; onCommit: () => void; onDiscard: () => void; onDelete: () => void }) {
   const importType = batch.import_type ?? "MARKET_OFFER";
   const deleteAllowed = batch.status === "DISCARDED" && !batch.production_committed_at;
   const unresolved = rows.filter((row) => row.validation_status === "VALID" && row.resolution_status === "UNRESOLVED").length;
@@ -181,6 +200,8 @@ function BatchWorkspace({ batch, rows, resolution, busy, committable, onResolve,
     for (const reason of reasons) counts[String(reason)] = (counts[String(reason)] ?? 0) + 1;
     return counts;
   }, {}));
+  const unknownPlatformRows = reviewRows.filter((row) => Array.isArray(row.resolution_data?.reasons) && row.resolution_data.reasons.includes("UNKNOWN_PLATFORM")).length;
+  const validRows = rows.filter((row) => row.validation_status === "VALID").length;
   const commitHint = batch.status !== "READY"
     ? "READY 상태의 Batch만 반영할 수 있습니다."
     : unresolved
@@ -191,7 +212,16 @@ function BatchWorkspace({ batch, rows, resolution, busy, committable, onResolve,
   return <><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-base font-bold">{batch.file_name}</h3><p className="mt-1 text-xs text-white/35">총 {batch.total_rows} · VALID {batch.valid_rows} · INVALID {batch.invalid_rows} · {batch.status === "READY" ? "READY (검증 완료 / 반영 전)" : batch.status === "COMPLETED" ? "COMPLETED (Production 반영 완료)" : batch.status === "DISCARDED" ? "DISCARDED (폐기됨)" : batch.status}</p>{batch.status === "DISCARDED" ? <p className="mt-2 text-xs text-red-200/70">폐기 사유: {batch.discard_reason || "기록 없음"}{batch.production_committed_at ? " · Production 반영 이력 있음" : ""}</p> : null}</div><div className="flex flex-wrap gap-2"><button type="button" onClick={onDiscard} disabled={busy || ["DISCARDED", "IMPORTING"].includes(batch.status)} className="inline-flex h-9 items-center gap-1.5 border border-red-300/25 px-3 text-[10px] font-bold text-red-200 disabled:opacity-30"><CircleSlash2 className="h-3.5 w-3.5" />폐기</button><button type="button" onClick={onDelete} disabled={busy || !deleteAllowed} title={batch.production_committed_at ? "Production 반영 이력이 있는 Batch는 삭제할 수 없습니다." : batch.status !== "DISCARDED" ? "먼저 Batch를 폐기하세요." : "Batch 완전 삭제"} className="inline-flex h-9 items-center gap-1.5 border border-red-300/25 px-3 text-[10px] font-bold text-red-200 disabled:opacity-30"><Trash2 className="h-3.5 w-3.5" />완전 삭제</button><button type="button" onClick={onResolve} disabled={busy || batch.status !== "READY"} className="h-9 border border-[#f7c76b]/50 px-3 text-[10px] font-bold text-[#f7c76b] disabled:opacity-35">Entity Resolution 실행</button><button type="button" onClick={onCommit} disabled={busy || !committable || batch.status === "DISCARDED"} title={commitHint} className="h-9 bg-[#f7c76b] px-3 text-[10px] font-bold text-[#17191a] disabled:opacity-35">Production DB에 반영</button></div></div>
     {resolution ? <p className="mt-3 text-xs text-white/48">MATCHED {resolution.matched} · NEW {resolution.newEntity} · REVIEW {resolution.manualReview} · INVALID {resolution.invalid}</p> : null}
     {!committable && batch.status === "READY" ? <div className="mt-3 border border-amber-300/20 bg-amber-300/7 px-3 py-2 text-xs text-amber-100"><strong>반영 대기:</strong> {commitHint}{blockingReasons.length ? ` 차단 사유: ${blockingReasons.map(([reason, count]) => `${reason} ${count}개`).join(", ")}` : ""}</div> : null}
+    {unknownPlatformRows > 0 ? <BatchPlatformAssignment platforms={platforms} rowCount={validRows} busy={busy} onAssign={onAssignPlatform} /> : null}
     <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[1100px] border-collapse text-left text-xs"><thead className="border-y border-white/10 text-white/35"><tr><th className="px-3 py-2">행</th><th className="px-3 py-2">제품 / Listing</th><th className="px-3 py-2">{importType === "MARKET_OFFER" ? "판매업체" : "양조장"}</th>{importType === "MARKET_OFFER" ? <><th className="px-3 py-2">가격</th><th className="px-3 py-2">플랫폼</th><th className="px-3 py-2">용량 × 수량</th><th className="px-3 py-2">URL</th></> : null}<th className="px-3 py-2">Validation</th><th className="px-3 py-2">Resolution</th><th className="px-3 py-2">검토</th></tr></thead><tbody>{rows.map((row) => { const preview = createImportPreview(importType, row.normalized_data, row.raw_data); return <tr key={row.id} className="border-b border-white/8"><td className="px-3 py-3 text-white/30">{row.row_number}</td><td className="max-w-64 truncate px-3 py-3 font-semibold text-white/75">{String(preview.title ?? "-")}</td><td className="px-3 py-3 text-white/48">{String(preview.seller ?? "-")}</td>{importType === "MARKET_OFFER" ? <><td className="px-3 py-3 text-[#f7c76b]">{formatPreviewPrice(preview.price)}</td><td className="px-3 py-3 text-white/48">{String(preview.platform ?? "-")}</td><td className="px-3 py-3 text-white/48">{preview.volumeMl ? `${preview.volumeMl}ml` : "-"} × {String(preview.quantity ?? "-")}</td><td className="px-3 py-3">{preview.listingUrl ? <a href={String(preview.listingUrl)} target="_blank" rel="noreferrer" title="판매 URL 열기" className="text-[#f7c76b]"><ExternalLink className="h-3.5 w-3.5" /></a> : "-"}</td></> : null}<td className={row.validation_status === "VALID" ? "px-3 py-3 text-emerald-300" : "px-3 py-3 text-red-300"}>{row.validation_status}</td><td className={`px-3 py-3 font-bold ${row.resolution_status === "MANUAL_REVIEW" ? "text-red-300" : row.resolution_status === "NEW_ENTITY" ? "text-[#f7c76b]" : "text-white/55"}`}>{row.review_action === "EXCLUDE" ? "EXCLUDED" : row.resolution_status}</td><td className="px-3 py-3">{row.resolution_status === "MANUAL_REVIEW" ? <ReviewActions row={row} onReview={onReview} /> : "-"}</td></tr>; })}</tbody></table></div></>;
+}
+
+function BatchPlatformAssignment({ platforms, rowCount, busy, onAssign }: { platforms: Platform[]; rowCount: number; busy: boolean; onAssign: (platformId: string) => void }) {
+  const [platformId, setPlatformId] = useState(platforms.find((platform) => platform.code === "KAKAO_GIFT")?.id ?? platforms[0]?.id ?? "");
+  useEffect(() => {
+    if (!platformId && platforms.length) setPlatformId(platforms.find((platform) => platform.code === "KAKAO_GIFT")?.id ?? platforms[0].id);
+  }, [platformId, platforms]);
+  return <div className="mt-3 flex flex-wrap items-end gap-2 border border-[#f7c76b]/25 bg-[#f7c76b]/7 p-3"><label className="min-w-56 flex-1"><span className="text-[10px] font-bold text-[#f7c76b]">플랫폼 일괄 지정</span><select value={platformId} onChange={(event) => setPlatformId(event.target.value)} className="mt-1 h-9 w-full border border-white/15 bg-[#0e1112] px-2 text-xs text-white"><option value="">플랫폼 선택</option>{platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name} ({platform.code})</option>)}</select></label><button type="button" disabled={busy || !platformId} onClick={() => onAssign(platformId)} className="h-9 bg-[#f7c76b] px-4 text-[10px] font-bold text-[#17191a] disabled:opacity-35">{rowCount}개 행 전체 적용</button></div>;
 }
 
 function ReviewActions({ row, onReview }: { row: RealStagingRow; onReview: (row: RealStagingRow, action: "LINK_EXISTING" | "CREATE_NEW" | "EXCLUDE", ids?: Record<string, string>) => void }) {

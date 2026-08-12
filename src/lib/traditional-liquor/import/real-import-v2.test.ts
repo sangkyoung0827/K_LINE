@@ -15,7 +15,14 @@ const entities: ResolutionEntities = {
   breweries: [{ id: "brewery-1", name: "명인 양조장", normalized_name: "명인 양조장", region: "안동", province: "경북", city: "안동" }],
   products: [{ id: "product-1", brewery_id: "brewery-1", name: "명인 안동소주", canonical_name: "명인 안동소주", normalized_name: "명인 안동소주", abv: 45, volume_ml: 375 }],
   sellers: [{ id: "seller-1", name: "우리술상회", normalized_name: "우리술상회" }],
-  platforms: [{ id: "platform-1", code: "NAVER", name: "네이버" }],
+  platforms: [{ id: "platform-1", code: "NAVER", name: "네이버" }, { id: "platform-2", code: "KAKAO_GIFT", name: "카카오톡 선물하기" }],
+  platformAliases: [
+    { platform_id: "platform-2", alias_name: "KAKAO", normalized_alias: "kakao" },
+    { platform_id: "platform-2", alias_name: "카카오", normalized_alias: "카카오" },
+    { platform_id: "platform-2", alias_name: "카카오 선물하기", normalized_alias: "카카오 선물하기" },
+    { platform_id: "platform-2", alias_name: "카카오톡 선물하기", normalized_alias: "카카오톡 선물하기" },
+    { platform_id: "platform-2", alias_name: "gift.kakao.com", normalized_alias: "gift kakao com" }
+  ],
   productAliases: [],
   sellerAliases: [{ seller_id: "seller-1", normalized_alias: "우리 술 상회" }]
 };
@@ -104,6 +111,31 @@ test("TEST 9: unknown Platform always requires manual review", () => {
   const result = resolveImportRow(marketRow({ platformCode: "UNKNOWN_PLATFORM" }), entities);
   assert.equal(result.status, "MANUAL_REVIEW");
   assert.ok(result.details.reasons.includes("UNKNOWN_PLATFORM"));
+});
+
+test("TEST 9A: KAKAO_GIFT canonical code exact-matches", () => {
+  const result = resolveImportRow(marketRow({ platformCode: "KAKAO_GIFT" }), entities);
+  assert.equal(result.platformId, "platform-2");
+  assert.equal(result.details.platform?.match, "CODE_EXACT");
+  assert.ok(!result.details.reasons.includes("UNKNOWN_PLATFORM"));
+});
+
+test("TEST 9B: Kakao Gift aliases exact-match after code lookup", () => {
+  for (const alias of ["KAKAO", "카카오", "카카오 선물하기", "카카오톡 선물하기", "gift.kakao.com"]) {
+    const result = resolveImportRow(marketRow({ platformCode: alias }), entities);
+    assert.equal(result.platformId, "platform-2");
+    assert.equal(result.details.platform?.match, "ALIAS_EXACT");
+    assert.ok(!result.details.reasons.includes("UNKNOWN_PLATFORM"));
+  }
+});
+
+test("TEST 9C: KAKAO_GIFT migration is idempotent and supports batch assignment", async () => {
+  const sql = await readFile(join(process.cwd(), "supabase/traditional_liquor_kakao_gift_platform_resolution.sql"), "utf8");
+  assert.match(sql, /on conflict \(code\) do update/);
+  assert.match(sql, /KAKAO_GIFT/);
+  assert.match(sql, /gift\.kakao\.com/);
+  assert.match(sql, /assign_traditional_liquor_batch_platform/);
+  assert.match(sql, /where row\.batch_id = p_batch_id/);
 });
 
 test("TEST 10: staging API does not write Production tables before commit", async () => {

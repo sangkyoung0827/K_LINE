@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 function validImportType(value: unknown): value is RealImportType { return value === "PRODUCT_MASTER" || value === "MARKET_OFFER"; }
 function safeError(error: unknown) {
   console.error("Traditional liquor real import error", error);
-  const known = error instanceof Error && /^(MANUAL_REVIEW_REQUIRED|BATCH_NOT_READY|BATCH_DISCARDED|IMPORT_BATCH_NOT_FOUND|NOT_A_REAL_IMPORT_BATCH|NO_COMMITTABLE_ROWS|STAGING_ROW_NOT_FOUND|PRODUCT_LINK_REQUIRED|SELLER_LINK_REQUIRED|PLATFORM_LINK_REQUIRED|IMPORTING_BATCH_CANNOT_BE_DISCARDED|BATCH_MUST_BE_DISCARDED_FIRST|COMMITTED_BATCH_CANNOT_BE_DELETED)/.test(error.message);
+  const known = error instanceof Error && /^(MANUAL_REVIEW_REQUIRED|BATCH_NOT_READY|BATCH_DISCARDED|IMPORT_BATCH_NOT_FOUND|NOT_A_REAL_IMPORT_BATCH|NO_COMMITTABLE_ROWS|STAGING_ROW_NOT_FOUND|PRODUCT_LINK_REQUIRED|SELLER_LINK_REQUIRED|PLATFORM_LINK_REQUIRED|PLATFORM_NOT_FOUND|IMPORTING_BATCH_CANNOT_BE_DISCARDED|BATCH_MUST_BE_DISCARDED_FIRST|COMMITTED_BATCH_CANNOT_BE_DELETED)/.test(error.message);
   const message = known ? (error as Error).message : "실제 전통주 Import 작업을 처리하지 못했습니다.";
   return NextResponse.json({ error: message, debugCode: "TL_REAL_IMPORT_V2" }, { status: known ? 409 : 500 });
 }
@@ -29,6 +29,7 @@ export async function GET(request: Request) {
   const repository = new RealImportRepository();
   try {
     if ((url.searchParams.get("resource") ?? "batches") === "batches") return NextResponse.json({ batches: await repository.listRealBatches() });
+    if (url.searchParams.get("resource") === "platforms") return NextResponse.json({ platforms: await repository.listPlatforms() });
     if (url.searchParams.get("resource") === "rows") {
       const batchId = url.searchParams.get("batchId")?.trim();
       if (!batchId) return NextResponse.json({ error: "batchId is required." }, { status: 400 });
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
 
     const body = await request.json() as Record<string, unknown>;
     if (body.action === "resolve" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.resolveBatch(body.batchId) });
+    if (body.action === "assign-platform" && typeof body.batchId === "string" && typeof body.platformId === "string") return NextResponse.json({ result: await repository.assignPlatformToBatch(body.batchId, body.platformId) });
     if (body.action === "commit" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.commitBatch(body.batchId) });
     if (body.action === "discard" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.discardBatch(body.batchId, typeof body.reason === "string" ? body.reason : null) });
     if (body.action === "permanently-delete" && typeof body.batchId === "string") return NextResponse.json({ result: await repository.permanentlyDeleteBatch(body.batchId) });

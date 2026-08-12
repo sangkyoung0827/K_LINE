@@ -6,12 +6,14 @@ export type BreweryEntity = { id: string; name: string; normalized_name: string 
 export type SellerEntity = { id: string; name: string; normalized_name: string | null };
 export type PlatformEntity = { id: string; code: string; name: string };
 export type AliasEntity = { product_id?: string; seller_id?: string; normalized_alias: string | null };
+export type PlatformAliasEntity = { platform_id: string; alias_name: string; normalized_alias: string | null };
 
 export interface ResolutionEntities {
   products: ProductEntity[];
   breweries: BreweryEntity[];
   sellers: SellerEntity[];
   platforms: PlatformEntity[];
+  platformAliases: PlatformAliasEntity[];
   productAliases: AliasEntity[];
   sellerAliases: AliasEntity[];
 }
@@ -25,6 +27,7 @@ export interface ImportRowResolution {
   details: {
     reasons: string[];
     candidates: Record<string, Array<{ id: string; name: string }>>;
+    platform: { id: string; code: string; name: string; match: "CODE_EXACT" | "ALIAS_EXACT" | null } | null;
   };
 }
 
@@ -75,8 +78,18 @@ export function resolveImportRow(data: Record<string, unknown>, entities: Resolu
   const brewerySuggestions = breweryMatches.length ? breweryMatches : fuzzyCandidates(normalizedBrewery, entities.breweries);
   const breweryId = breweryMatches.length === 1 ? breweryMatches[0].id : null;
 
-  const platformCode = String(data.platformCode ?? "").trim().toUpperCase();
-  const platform = entities.platforms.find((item) => item.code.trim().toUpperCase() === platformCode) ?? null;
+  const rawPlatformCode = String(data.platformCode ?? "").trim();
+  const platformCode = rawPlatformCode.toUpperCase();
+  const exactPlatform = entities.platforms.find((item) => item.code.trim().toUpperCase() === platformCode) ?? null;
+  const normalizedPlatformAlias = comparable(rawPlatformCode);
+  const aliasPlatformIds = !exactPlatform && normalizedPlatformAlias
+    ? new Set(entities.platformAliases
+        .filter((item) => comparable(item.normalized_alias ?? item.alias_name) === normalizedPlatformAlias)
+        .map((item) => item.platform_id))
+    : new Set<string>();
+  const aliasPlatforms = entities.platforms.filter((item) => aliasPlatformIds.has(item.id));
+  const platform = exactPlatform ?? (aliasPlatforms.length === 1 ? aliasPlatforms[0] : null);
+  const platformMatch = exactPlatform ? "CODE_EXACT" : platform ? "ALIAS_EXACT" : null;
 
   const normalizedSeller = comparable(data.normalizedSellerName ?? data.sellerName);
   let sellerMatches = normalizedSeller
@@ -131,7 +144,8 @@ export function resolveImportRow(data: Record<string, unknown>, entities: Resolu
         breweries: candidates(brewerySuggestions),
         sellers: candidates(sellerSuggestions),
         platforms: platform ? candidates([platform]) : candidates(entities.platforms).slice(0, 50)
-      }
+      },
+      platform: platform ? { id: platform.id, code: platform.code, name: platform.name, match: platformMatch } : null
     }
   };
 }

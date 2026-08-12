@@ -1,14 +1,19 @@
 import "server-only";
 
 import { applyColumnMapping } from "@/lib/traditional-liquor/import/column-mapping";
-import { resolveImportRow, type AliasEntity, type BreweryEntity, type PlatformEntity, type ProductEntity, type ResolutionStatus, type SellerEntity } from "@/lib/traditional-liquor/import/entity-resolution";
+import { normalizeSearchText } from "@/lib/traditional-liquor/collection/normalization";
+import { resolveImportRow, type AliasEntity, type BreweryEntity, type PlatformAliasEntity, type PlatformEntity, type ProductEntity, type ResolutionStatus, type SellerEntity } from "@/lib/traditional-liquor/import/entity-resolution";
 import { normalizeRealImportRecord, validateRealImportRecord } from "@/lib/traditional-liquor/import/real-normalization";
 import type { ColumnMapping, ParsedImportFile, RealImportType } from "@/lib/traditional-liquor/import/real-import-types";
 import { supabaseRequest } from "@/lib/supabaseServer";
 
 const representationHeaders = { Prefer: "return=representation" };
 const canonicalPlatforms: Record<string, { name: string; base_url: string; platform_type: string }> = {
-  NAVER: { name: "네이버", base_url: "https://shopping.naver.com", platform_type: "MARKETPLACE" }
+  NAVER: { name: "네이버", base_url: "https://shopping.naver.com", platform_type: "MARKETPLACE" },
+  KAKAO_GIFT: { name: "카카오톡 선물하기", base_url: "https://gift.kakao.com", platform_type: "MARKETPLACE" }
+};
+const canonicalPlatformAliases: Record<string, string[]> = {
+  KAKAO_GIFT: ["KAKAO_GIFT", "KAKAO", "카카오", "카카오 선물하기", "카카오톡 선물하기", "gift.kakao.com"]
 };
 type IdRow = { id: string };
 type BatchRow = { id: string; status: string; total_rows: number; valid_rows: number; invalid_rows: number; inserted_rows: number; updated_rows: number; skipped_rows: number; file_name: string | null; import_type: RealImportType | null; created_at: string; discarded_at?: string | null; discard_reason?: string | null; production_committed_at?: string | null };
@@ -38,6 +43,23 @@ export class RealImportRepository {
         is_active: true
       })))
     });
+
+    const platforms = await supabaseRequest<PlatformEntity[]>(`traditional_liquor_platforms?select=id,code,name&code=in.(${[...requestedCodes].map(encodeURIComponent).join(",")})`);
+    const aliases = platforms.flatMap((platform) => (canonicalPlatformAliases[platform.code] ?? []).map((alias) => ({
+      platform_id: platform.id,
+      alias_name: alias,
+      normalized_alias: normalizeSearchText(alias),
+      is_active: true
+    })));
+    if (aliases.length) {
+      await supabaseRequest("traditional_liquor_platform_aliases?on_conflict=normalized_alias", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify(aliases)
+      }).catch((error) => {
+        console.warn("Platform alias seed is unavailable until the KAKAO_GIFT migration is applied.", error);
+      });
+    }
   }
 
   async ensureSource(name: string, sourceType: string, baseUrl?: string | null) {
@@ -83,6 +105,10 @@ export class RealImportRepository {
     return supabaseRequest<RealStagingRow[]>(`traditional_liquor_import_staging_rows?select=*&batch_id=eq.${encodeURIComponent(batchId)}&order=row_number.asc&limit=10000`);
   }
 
+  async listPlatforms() {
+    return supabaseRequest<PlatformEntity[]>("traditional_liquor_platforms?select=id,code,name&is_active=eq.true&order=name.asc&limit=1000");
+  }
+
   async discardBatch(batchId: string, reason?: string | null) {
     return supabaseRequest<{ batchId: string; discarded: boolean; productionCommitted: boolean }>("rpc/discard_traditional_liquor_import_batch", { method: "POST", body: JSON.stringify({ p_batch_id: batchId, p_reason: reason?.trim().slice(0, 500) || null }) });
   }
@@ -98,25 +124,44 @@ export class RealImportRepository {
     if (batches[0].status !== "READY") throw new Error("BATCH_NOT_READY");
     const rows = await this.getRows(batchId);
     await this.ensureCanonicalPlatforms(rows);
-    const [products, breweries, sellers, platforms, productAliases, sellerAliases] = await Promise.all([
+    const [products, breweries, sellers, platforms, storedPlatformAliases, productAliases, sellerAliases] = await Promise.all([
       supabaseRequest<ProductEntity[]>("traditional_liquor_products?select=id,brewery_id,name,canonical_name,normalized_name,abv,volume_ml&is_active=eq.true&limit=10000"),
       supabaseRequest<BreweryEntity[]>("traditional_liquor_breweries?select=id,name,normalized_name,region,province,city&is_active=eq.true&limit=10000"),
       supabaseRequest<SellerEntity[]>("traditional_liquor_sellers?select=id,name,normalized_name&is_active=eq.true&limit=10000"),
       supabaseRequest<PlatformEntity[]>("traditional_liquor_platforms?select=id,code,name&is_active=eq.true&limit=1000"),
+      supabaseRequest<PlatformAliasEntity[]>("traditional_liquor_platform_aliases?select=platform_id,alias_name,normalized_alias&is_active=eq.true&limit=5000").catch(() => []),
       supabaseRequest<AliasEntity[]>("traditional_liquor_product_aliases?select=product_id,normalized_alias&limit=20000"),
       supabaseRequest<AliasEntity[]>("traditional_liquor_seller_aliases?select=seller_id,normalized_alias&limit=20000")
     ]);
+    const builtInPlatformAliases = platforms.flatMap((platform) => (canonicalPlatformAliases[platform.code] ?? []).map((alias) => ({ platform_id: platform.id, alias_name: alias, normalized_alias: normalizeSearchText(alias) })));
+    const platformAliases = [...storedPlatformAliases, ...builtInPlatformAliases];
     let matched = 0, newEntity = 0, manualReview = 0, invalid = 0;
     for (const row of rows) {
       if (row.validation_status === "INVALID") { invalid += 1; continue; }
       const data = row.normalized_data;
-      const resolution = resolveImportRow(data, { products, breweries, sellers, platforms, productAliases, sellerAliases });
+      const resolution = resolveImportRow(data, { products, breweries, sellers, platforms, platformAliases, productAliases, sellerAliases });
       if (resolution.status === "MATCHED") matched += 1;
       if (resolution.status === "NEW_ENTITY") newEntity += 1;
       if (resolution.status === "MANUAL_REVIEW") manualReview += 1;
       await supabaseRequest(`traditional_liquor_import_staging_rows?id=eq.${encodeURIComponent(row.id)}`, { method: "PATCH", body: JSON.stringify({ resolution_status: resolution.status, resolved_product_id: resolution.productId, resolved_seller_id: resolution.sellerId, resolved_platform_id: resolution.platformId, resolved_brewery_id: resolution.breweryId, resolution_data: resolution.details, review_action: null }) });
     }
     return { batchId, matched, newEntity, manualReview, invalid, committable: manualReview === 0 && rows.length > invalid };
+  }
+
+  async assignPlatformToBatch(batchId: string, platformId: string) {
+    const [batches, platforms] = await Promise.all([
+      supabaseRequest<BatchRow[]>(`traditional_liquor_import_batches?select=*&id=eq.${encodeURIComponent(batchId)}&limit=1`),
+      supabaseRequest<PlatformEntity[]>(`traditional_liquor_platforms?select=id,code,name&id=eq.${encodeURIComponent(platformId)}&is_active=eq.true&limit=1`)
+    ]);
+    const batch = batches[0];
+    const platform = platforms[0];
+    if (!batch) throw new Error("IMPORT_BATCH_NOT_FOUND");
+    if (batch.status !== "READY" || batch.import_type !== "MARKET_OFFER") throw new Error("BATCH_NOT_READY");
+    if (!platform) throw new Error("PLATFORM_NOT_FOUND");
+    return supabaseRequest<{ batchId: string; platformId: string; platformCode: string; appliedRows: number }>(
+      "rpc/assign_traditional_liquor_batch_platform",
+      { method: "POST", body: JSON.stringify({ p_batch_id: batchId, p_platform_id: platform.id }) }
+    );
   }
 
   async reviewRow(rowId: string, action: "LINK_EXISTING" | "CREATE_NEW" | "EXCLUDE", ids: { productId?: string | null; sellerId?: string | null; platformId?: string | null; breweryId?: string | null }) {

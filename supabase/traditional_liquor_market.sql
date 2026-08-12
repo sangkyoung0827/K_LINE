@@ -66,6 +66,16 @@ create table if not exists public.traditional_liquor_platforms (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.traditional_liquor_platform_aliases (
+  id uuid primary key default gen_random_uuid(),
+  platform_id uuid not null references public.traditional_liquor_platforms(id) on delete cascade,
+  alias_name text not null,
+  normalized_alias text not null unique,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.traditional_liquor_sellers (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -231,6 +241,8 @@ create index if not exists traditional_liquor_seller_aliases_trgm_idx
   on public.traditional_liquor_seller_aliases using gin (normalized_alias extensions.gin_trgm_ops);
 create index if not exists traditional_liquor_seller_aliases_seller_idx
   on public.traditional_liquor_seller_aliases (seller_id, platform_id);
+create index if not exists traditional_liquor_platform_aliases_platform_idx
+  on public.traditional_liquor_platform_aliases (platform_id, is_active);
 
 create unique index if not exists traditional_liquor_offers_external_unique_idx
   on public.traditional_liquor_offers (platform_id, external_offer_id)
@@ -259,6 +271,8 @@ drop trigger if exists traditional_liquor_products_updated_at on public.traditio
 create trigger traditional_liquor_products_updated_at before update on public.traditional_liquor_products for each row execute function public.set_traditional_liquor_updated_at();
 drop trigger if exists traditional_liquor_platforms_updated_at on public.traditional_liquor_platforms;
 create trigger traditional_liquor_platforms_updated_at before update on public.traditional_liquor_platforms for each row execute function public.set_traditional_liquor_updated_at();
+drop trigger if exists traditional_liquor_platform_aliases_updated_at on public.traditional_liquor_platform_aliases;
+create trigger traditional_liquor_platform_aliases_updated_at before update on public.traditional_liquor_platform_aliases for each row execute function public.set_traditional_liquor_updated_at();
 drop trigger if exists traditional_liquor_sellers_updated_at on public.traditional_liquor_sellers;
 create trigger traditional_liquor_sellers_updated_at before update on public.traditional_liquor_sellers for each row execute function public.set_traditional_liquor_updated_at();
 drop trigger if exists traditional_liquor_sources_updated_at on public.traditional_liquor_data_sources;
@@ -317,6 +331,7 @@ where product.is_active = true
 alter table public.traditional_liquor_breweries enable row level security;
 alter table public.traditional_liquor_products enable row level security;
 alter table public.traditional_liquor_platforms enable row level security;
+alter table public.traditional_liquor_platform_aliases enable row level security;
 alter table public.traditional_liquor_sellers enable row level security;
 alter table public.traditional_liquor_offers enable row level security;
 alter table public.traditional_liquor_price_history enable row level security;
@@ -330,6 +345,7 @@ alter table public.traditional_liquor_import_errors enable row level security;
 revoke all on table public.traditional_liquor_breweries from anon, authenticated;
 revoke all on table public.traditional_liquor_products from anon, authenticated;
 revoke all on table public.traditional_liquor_platforms from anon, authenticated;
+revoke all on table public.traditional_liquor_platform_aliases from anon, authenticated;
 revoke all on table public.traditional_liquor_sellers from anon, authenticated;
 revoke all on table public.traditional_liquor_offers from anon, authenticated;
 revoke all on table public.traditional_liquor_price_history from anon, authenticated;
@@ -344,6 +360,7 @@ revoke all on table public.v_traditional_liquor_market from anon, authenticated;
 grant select, insert, update, delete on table public.traditional_liquor_breweries to service_role;
 grant select, insert, update, delete on table public.traditional_liquor_products to service_role;
 grant select, insert, update, delete on table public.traditional_liquor_platforms to service_role;
+grant select, insert, update, delete on table public.traditional_liquor_platform_aliases to service_role;
 grant select, insert, update, delete on table public.traditional_liquor_sellers to service_role;
 grant select, insert, update, delete on table public.traditional_liquor_offers to service_role;
 grant select, insert, update, delete on table public.traditional_liquor_price_history to service_role;

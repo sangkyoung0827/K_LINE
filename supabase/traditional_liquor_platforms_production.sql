@@ -8,13 +8,9 @@ insert into public.traditional_liquor_platforms (
   platform_type,
   is_active
 )
-values (
-  'NAVER',
-  '네이버',
-  'https://shopping.naver.com',
-  'MARKETPLACE',
-  true
-)
+values
+  ('NAVER', '네이버', 'https://shopping.naver.com', 'MARKETPLACE', true),
+  ('KAKAO_GIFT', '카카오톡 선물하기', 'https://gift.kakao.com', 'MARKETPLACE', true)
 on conflict (code) do update set
   name = excluded.name,
   base_url = excluded.base_url,
