@@ -55,10 +55,25 @@ test("Kakao popularity remains distinct from purchase volume", async () => {
   assert.match(ui, /row\.dataStatus !== "AVAILABLE"/);
 });
 
-test("analytics APIs retain the developer-only server guard", async () => {
+test("read-only analytics APIs are public server routes while management stays developer-only", async () => {
   for (const view of ["price", "sales"]) {
     const source = await readFile(`${root}/src/app/api/v4/traditional-liquor/analytics/${view}/route.ts`, "utf8");
-    assert.match(source, /requireWoohyukmonV4DeveloperApi/);
+    assert.doesNotMatch(source, /requireWoohyukmonV4DeveloperApi|requireWoohyukmonV4AuthenticatedApi/);
     assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY/);
   }
+  const market = await readFile(`${root}/src/app/api/v4/traditional-liquor/market/route.ts`, "utf8");
+  const importer = await readFile(`${root}/src/app/api/v4/traditional-liquor/import/route.ts`, "utf8");
+  assert.doesNotMatch(market, /requireWoohyukmonV4DeveloperApi|requireWoohyukmonV4AuthenticatedApi/);
+  assert.match(importer, /requireWoohyukmonV4DeveloperApi/);
+});
+
+test("chat renders the reusable embedded analytics shell before Gemini", async () => {
+  const chat = await readFile(`${root}/src/components/WoohyukmonChatbot.tsx`, "utf8");
+  const database = await readFile(`${root}/src/components/traditional-liquor/TraditionalLiquorDatabase.tsx`, "utf8");
+  assert.match(chat, /detectTraditionalLiquorAnalytics\(trimmed, activeAnalyticsState\)/);
+  assert.match(chat, /TraditionalLiquorAnalyticsShell initialState/);
+  assert.ok(chat.indexOf("detectTraditionalLiquorAnalytics(trimmed") < chat.indexOf('fetch("/api/gemini"'));
+  assert.match(database, /mode="embedded"/);
+  assert.match(database, /!embedded \? <><div/);
+  assert.match(database, /전체 화면으로 열기/);
 });

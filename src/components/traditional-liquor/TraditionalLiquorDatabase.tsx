@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowLeft, Building2, Database, LoaderCircle, PackageSearch, Search, Store } from "lucide-react";
+import { ArrowLeft, Building2, Database, ExternalLink, LoaderCircle, PackageSearch, Search, Store } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TraditionalLiquorRealImportPanel } from "@/components/traditional-liquor/TraditionalLiquorRealImportPanel";
 import { TraditionalLiquorPriceAnalytics } from "@/components/traditional-liquor/TraditionalLiquorPriceAnalytics";
 import { TraditionalLiquorSalesAnalytics } from "@/components/traditional-liquor/TraditionalLiquorSalesAnalytics";
-import type { Offer, Platform, PlatformResult, ProductResult, Seller, SellerResult, TraditionalLiquorSearchResult, TraditionalLiquorView } from "@/lib/traditional-liquor/types";
+import type { Offer, Platform, PlatformResult, ProductResult, Seller, SellerResult, TraditionalLiquorAnalyticsResponse, TraditionalLiquorSearchResult, TraditionalLiquorView } from "@/lib/traditional-liquor/types";
 
 const tabs: Array<{ id: TraditionalLiquorView; label: string }> = [
   { id: "product", label: "제품별" },
@@ -15,29 +16,38 @@ const tabs: Array<{ id: TraditionalLiquorView; label: string }> = [
   { id: "sales", label: "판매량별" }
 ];
 
-export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
-  const [activeView, setActiveView] = useState<TraditionalLiquorView>("product");
-  const [query, setQuery] = useState("");
+export function TraditionalLiquorDatabase({ initialState, mode = "page", onBack }: { initialState?: TraditionalLiquorAnalyticsResponse; mode?: "page" | "embedded"; onBack?: () => void }) {
+  const embedded = mode === "embedded";
+  const showAnalyticsNavigation = !embedded || initialState?.view === "OVERVIEW";
+  const [activeView, setActiveView] = useState<TraditionalLiquorView>(() => analyticsViewToView(initialState?.view));
+  const [query, setQuery] = useState(initialState?.filters?.query ?? initialState?.filters?.productName ?? initialState?.filters?.sellerName ?? "");
+  const [fullscreenParameters, setFullscreenParameters] = useState<Record<string, string>>({});
   const [results, setResults] = useState<TraditionalLiquorSearchResult | null>(null);
   const [status, setStatus] = useState<"initial" | "loading" | "success" | "empty" | "error">("initial");
   const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    if (embedded) return;
     const params = new URLSearchParams(window.location.search);
     const requestedView = params.get("view") as TraditionalLiquorView | null;
     if (requestedView && tabs.some((tab) => tab.id === requestedView)) setActiveView(requestedView);
     setQuery(params.get("q") ?? "");
-  }, []);
+  }, [embedded]);
 
   const syncUrl = useCallback((values: Record<string, string>) => {
+    setFullscreenParameters((current) => ({ ...current, ...values }));
+    if (embedded) return;
     const params = new URLSearchParams(window.location.search);
     params.set("view", activeView);
     Object.entries(values).forEach(([key, value]) => value ? params.set(key, value) : params.delete(key));
     window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
-  }, [activeView]);
+  }, [activeView, embedded]);
 
   function selectView(view: TraditionalLiquorView) {
     setActiveView(view);
+    setFullscreenParameters({});
+    if (embedded) return;
     const params = new URLSearchParams(); params.set("view", view);
     if (query) params.set("q", query);
     window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
@@ -65,7 +75,7 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
       });
     }, query ? 180 : 0);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [activeView, query]);
+  }, [activeView, query, retry]);
 
   const visibleCount = useMemo(() => {
     if (!results) return 0;
@@ -76,21 +86,21 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
   }, [activeView, results]);
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl bg-[#111718] px-5 py-8 text-white md:px-8 md:py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <main className={`${embedded ? "w-full bg-[#111718] p-3 sm:p-4" : "mx-auto min-h-screen w-full max-w-7xl bg-[#111718] px-5 py-8 md:px-8 md:py-10"} text-white`}>
+      <div className={`flex flex-wrap items-start justify-between gap-4 ${embedded ? "border-b border-white/10 pb-4" : ""}`}>
         <div>
           {onBack ? <button type="button" onClick={onBack} className="mb-5 inline-flex h-9 items-center gap-2 border border-white/15 px-3 text-xs font-semibold text-white/65 transition hover:border-[#f7c76b]/60 hover:text-[#f7c76b]"><ArrowLeft className="h-4 w-4" />우혁몬 4.0으로 돌아가기</button> : null}
           <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.16em] text-[#f7c76b]"><Database className="h-4 w-4" />STRUCTURED MARKET DATA</div>
-          <h1 className="mt-3 text-3xl font-semibold text-white md:text-5xl">전통주 DATABASE</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-white/56">제품, 판매 플랫폼, 판매업체의 관계를 조회하는 우혁몬 4.0 전통주 시장 데이터 모듈입니다.</p>
+          <h1 className={`${embedded ? "mt-2 text-xl sm:text-2xl" : "mt-3 text-3xl md:text-5xl"} font-semibold text-white`}>전통주 DATABASE</h1>
+          {!embedded ? <p className="mt-3 max-w-3xl text-sm leading-6 text-white/56">제품, 판매 플랫폼, 판매업체의 관계를 조회하는 우혁몬 4.0 전통주 시장 데이터 모듈입니다.</p> : null}
         </div>
-        <span className="border border-[#f7c76b]/30 bg-[#f7c76b]/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.12em] text-[#f7c76b]">POSTGRESQL MARKET DATA</span>
+        {embedded ? <Link href={buildFullscreenHref(activeView, query, fullscreenParameters)} className="inline-flex min-h-9 items-center gap-2 border border-[#f7c76b]/35 px-3 text-[10px] font-bold text-[#f7c76b] transition hover:bg-[#f7c76b] hover:text-[#17191a]">전체 화면으로 열기<ExternalLink className="h-3.5 w-3.5" /></Link> : <span className="border border-[#f7c76b]/30 bg-[#f7c76b]/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.12em] text-[#f7c76b]">POSTGRESQL MARKET DATA</span>}
       </div>
 
-      <section className="mt-8 border border-white/10 bg-white/[0.035]">
-        <div className="flex overflow-x-auto border-b border-white/10" role="tablist" aria-label="전통주 데이터 분류">
+      <section className={`${embedded ? "mt-4" : "mt-8"} border border-white/10 bg-white/[0.035]`}>
+        {showAnalyticsNavigation ? <div className="flex overflow-x-auto border-b border-white/10" role="tablist" aria-label="전통주 데이터 분류">
           {tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={activeView === tab.id} onClick={() => selectView(tab.id)} className={`min-h-12 min-w-28 border-r border-white/10 px-5 text-sm font-bold transition ${activeView === tab.id ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>{tab.label}</button>)}
-        </div>
+        </div> : null}
         <div className="p-4 md:p-5">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/34" />
@@ -101,10 +111,10 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
       </section>
 
       <section className="mt-4">
-        {activeView === "price" ? <TraditionalLiquorPriceAnalytics query={query} syncUrl={syncUrl} /> : null}
-        {activeView === "sales" ? <TraditionalLiquorSalesAnalytics query={query} syncUrl={syncUrl} /> : null}
+        {activeView === "price" ? <TraditionalLiquorPriceAnalytics initialFilters={initialState?.filters} mode={mode} query={query} syncUrl={syncUrl} /> : null}
+        {activeView === "sales" ? <TraditionalLiquorSalesAnalytics initialFilters={initialState?.filters} mode={mode} query={query} syncUrl={syncUrl} /> : null}
         {activeView !== "price" && activeView !== "sales" && (status === "initial" || status === "loading") ? <StateMessage icon={<LoaderCircle className="h-5 w-5 animate-spin" />} label="전통주 데이터를 불러오는 중입니다." /> : null}
-        {activeView !== "price" && activeView !== "sales" && status === "error" ? <StateMessage label={error || "데이터를 불러오지 못했습니다."} /> : null}
+        {activeView !== "price" && activeView !== "sales" && status === "error" ? <StateMessage label={error || "전통주 데이터를 불러오지 못했습니다."} onRetry={() => setRetry((current) => current + 1)} /> : null}
         {activeView !== "price" && activeView !== "sales" && (status === "empty" || (status === "success" && visibleCount === 0)) ? <StateMessage label={query ? "검색 결과가 없습니다." : "등록된 실제 전통주 데이터가 없습니다. 아래 Import에서 검증된 파일을 등록하세요."} /> : null}
         {activeView !== "price" && activeView !== "sales" && status === "success" && results ? <>
           {activeView === "product" ? <ProductView products={results.products} query={query} breweries={results.breweries} /> : null}
@@ -112,14 +122,33 @@ export function TraditionalLiquorDatabase({ onBack }: { onBack?: () => void }) {
           {activeView === "seller" ? <SellerView sellers={results.sellers} /> : null}
         </> : null}
       </section>
-      <div className="mt-12 border-t border-white/12 pt-8">
+      {!embedded ? <><div className="mt-12 border-t border-white/12 pt-8">
         <p className="text-[11px] font-bold tracking-[0.16em] text-[#f7c76b]">DEVELOPER DATA MANAGEMENT</p>
         <h2 className="mt-2 text-2xl font-semibold text-white">Real Data Import</h2>
         <p className="mt-2 text-sm text-white/48">분석 화면과 분리된 Production 데이터 검증·반영 영역입니다.</p>
       </div>
-      <TraditionalLiquorRealImportPanel />
+      <TraditionalLiquorRealImportPanel /></> : null}
     </main>
   );
+}
+
+export function TraditionalLiquorAnalyticsShell({ initialState }: { initialState: TraditionalLiquorAnalyticsResponse }) {
+  return <TraditionalLiquorDatabase initialState={initialState} mode="embedded" />;
+}
+
+function analyticsViewToView(view?: TraditionalLiquorAnalyticsResponse["view"]): TraditionalLiquorView {
+  if (view === "PLATFORM") return "platform";
+  if (view === "SELLER") return "seller";
+  if (view === "PRICE") return "price";
+  if (view === "SALES") return "sales";
+  return "product";
+}
+
+function buildFullscreenHref(view: TraditionalLiquorView, query: string, values: Record<string, string>) {
+  const params = new URLSearchParams({ view });
+  if (query) params.set("q", query);
+  Object.entries(values).forEach(([key, value]) => value ? params.set(key, value) : params.delete(key));
+  return `/v4/traditional-liquor?${params.toString()}`;
 }
 
 function ProductView({ breweries, products, query }: { breweries: TraditionalLiquorSearchResult["breweries"]; products: ProductResult[]; query: string }) {
@@ -163,6 +192,6 @@ function SellerOfferTable({ seller }: { seller: SellerResult }) {
 }
 
 function DataFact({ label, value }: { label: string; value: string }) { return <div><dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/34">{label}</dt><dd className="mt-1 text-sm font-semibold text-white/72">{value}</dd></div>; }
-function StateMessage({ icon, label }: { icon?: React.ReactNode; label: string }) { return <div className="flex min-h-48 items-center justify-center gap-3 border border-white/10 bg-white/[0.025] text-sm text-white/45">{icon}{label}</div>; }
+function StateMessage({ icon, label, onRetry }: { icon?: React.ReactNode; label: string; onRetry?: () => void }) { return <div className="flex min-h-48 flex-col items-center justify-center gap-3 border border-white/10 bg-white/[0.025] text-center text-sm text-white/45"><span className="inline-flex items-center gap-3">{icon}{label}</span>{onRetry ? <button type="button" onClick={onRetry} className="border border-[#f7c76b]/45 px-3 py-2 text-xs font-bold text-[#f7c76b]">다시 시도</button> : null}</div>; }
 function formatPrice(value: number) { return `${new Intl.NumberFormat("ko-KR").format(value)}원`; }
 function formatCheckedAt(value: string) { return new Intl.DateTimeFormat("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }

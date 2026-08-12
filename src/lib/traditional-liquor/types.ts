@@ -1,5 +1,33 @@
 export type TraditionalLiquorView = "product" | "platform" | "seller" | "price" | "sales";
 
+export type TraditionalLiquorAnalyticsView =
+  | "OVERVIEW"
+  | "PRODUCT"
+  | "PLATFORM"
+  | "SELLER"
+  | "PRICE"
+  | "SALES";
+
+export type TraditionalLiquorAnalyticsFilters = {
+  query?: string;
+  platformCode?: string;
+  sellerId?: string;
+  sellerName?: string;
+  productId?: string;
+  productName?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sort?: TraditionalLiquorPriceSort;
+  metricType?: TraditionalLiquorMetricType;
+  period?: TraditionalLiquorMetricPeriod;
+};
+
+export type TraditionalLiquorAnalyticsResponse = {
+  type: "TRADITIONAL_LIQUOR_ANALYTICS";
+  view: TraditionalLiquorAnalyticsView;
+  filters?: TraditionalLiquorAnalyticsFilters;
+};
+
 export type TraditionalLiquorPriceSort = "LOWEST" | "HIGHEST" | "PER_100ML";
 export type TraditionalLiquorMetricType =
   | "SOURCE_PURCHASE_COUNT"
@@ -78,6 +106,12 @@ export type TraditionalLiquorEntityType = "PRODUCT" | "PLATFORM" | "SELLER" | "B
 
 export type TraditionalLiquorQueryIntent =
   | "OPEN_TRADITIONAL_LIQUOR_DATABASE"
+  | "TRADITIONAL_LIQUOR_DATABASE_OVERVIEW"
+  | "TRADITIONAL_LIQUOR_PRODUCT_VIEW"
+  | "TRADITIONAL_LIQUOR_PLATFORM_VIEW"
+  | "TRADITIONAL_LIQUOR_SELLER_VIEW"
+  | "TRADITIONAL_LIQUOR_PRICE_VIEW"
+  | "TRADITIONAL_LIQUOR_SALES_VIEW"
   | "TRADITIONAL_LIQUOR_PRODUCT_SEARCH"
   | "TRADITIONAL_LIQUOR_PLATFORM_SEARCH"
   | "TRADITIONAL_LIQUOR_SELLER_SEARCH"

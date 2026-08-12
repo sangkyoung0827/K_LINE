@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { parseOptionalPrice, parsePage, parsePriceSort, TraditionalLiquorAnalyticsService } from "@/lib/traditional-liquor/analytics";
-import { requireWoohyukmonV4DeveloperApi } from "@/lib/woohyukmon-v4-api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const access = await requireWoohyukmonV4DeveloperApi();
-  if (access instanceof NextResponse) return access;
   try {
     const params = new URL(request.url).searchParams;
     const results = await new TraditionalLiquorAnalyticsService().getPriceAnalytics({

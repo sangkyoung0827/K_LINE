@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { TraditionalLiquorPagedResult, TraditionalLiquorPriceRow, TraditionalLiquorPriceSort } from "@/lib/traditional-liquor/types";
+import type { TraditionalLiquorAnalyticsFilters, TraditionalLiquorPagedResult, TraditionalLiquorPriceRow, TraditionalLiquorPriceSort } from "@/lib/traditional-liquor/types";
 
 const ranges = [
   { label: "전체", min: "", max: "" }, { label: "1만원 이하", min: "", max: "10000" },
@@ -10,23 +10,25 @@ const ranges = [
   { label: "5만원 이상", min: "50000", max: "" }
 ];
 
-export function TraditionalLiquorPriceAnalytics({ query, syncUrl }: { query: string; syncUrl: (values: Record<string, string>) => void }) {
-  const [ready, setReady] = useState(false);
-  const [platform, setPlatform] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [sort, setSort] = useState<TraditionalLiquorPriceSort>("LOWEST");
+export function TraditionalLiquorPriceAnalytics({ initialFilters, mode = "page", query, syncUrl }: { initialFilters?: TraditionalLiquorAnalyticsFilters; mode?: "page" | "embedded"; query: string; syncUrl: (values: Record<string, string>) => void }) {
+  const [ready, setReady] = useState(mode === "embedded");
+  const [platform, setPlatform] = useState(initialFilters?.platformCode ?? "");
+  const [minPrice, setMinPrice] = useState(initialFilters?.minPrice === undefined ? "" : String(initialFilters.minPrice));
+  const [maxPrice, setMaxPrice] = useState(initialFilters?.maxPrice === undefined ? "" : String(initialFilters.maxPrice));
+  const [sort, setSort] = useState<TraditionalLiquorPriceSort>(initialFilters?.sort ?? "LOWEST");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<TraditionalLiquorPagedResult<TraditionalLiquorPriceRow> | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    if (mode === "embedded") return;
     const params = new URLSearchParams(window.location.search);
     setPlatform(params.get("platform") ?? ""); setMinPrice(params.get("min") ?? "");
     setMaxPrice(params.get("max") ?? ""); setSort((params.get("sort") as TraditionalLiquorPriceSort) || "LOWEST");
     setPage(Math.max(1, Number(params.get("page")) || 1)); setReady(true);
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     if (!ready) return;
@@ -39,7 +41,7 @@ export function TraditionalLiquorPriceAnalytics({ query, syncUrl }: { query: str
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     syncUrl({ platform, min: minPrice, max: maxPrice, sort, page: String(page) });
     return () => controller.abort();
-  }, [maxPrice, minPrice, page, platform, query, ready, sort, syncUrl]);
+  }, [maxPrice, minPrice, page, platform, query, ready, retry, sort, syncUrl]);
 
   function applyRange(min: string, max: string) { setMinPrice(min); setMaxPrice(max); setPage(1); }
 
@@ -50,7 +52,7 @@ export function TraditionalLiquorPriceAnalytics({ query, syncUrl }: { query: str
       <Filter label="정렬"><select value={sort} onChange={(event) => { setSort(event.target.value as TraditionalLiquorPriceSort); setPage(1); }} className={controlClass}><option value="LOWEST">최저가순</option><option value="HIGHEST">최고가순</option><option value="PER_100ML">100ml당 최저가순</option></select></Filter>
     </div>
     <div className="mt-4 grid gap-3 sm:grid-cols-2"><Filter label="최소가격"><input inputMode="numeric" value={minPrice} onChange={(event) => { setMinPrice(event.target.value.replace(/\D/g, "")); setPage(1); }} className={controlClass} placeholder="0" /></Filter><Filter label="최대가격"><input inputMode="numeric" value={maxPrice} onChange={(event) => { setMaxPrice(event.target.value.replace(/\D/g, "")); setPage(1); }} className={controlClass} placeholder="제한 없음" /></Filter></div>
-    {loading ? <Message><LoaderCircle className="h-5 w-5 animate-spin" />가격 데이터를 계산하는 중입니다.</Message> : error ? <Message>{error}<span className="text-xs text-white/35">Supabase 분석 migration 적용 여부를 확인하세요.</span></Message> : data?.rows.length ? <>
+    {loading ? <Message><LoaderCircle className="h-5 w-5 animate-spin" />전통주 데이터를 불러오는 중...</Message> : error ? <Message>전통주 데이터를 불러오지 못했습니다.<button type="button" onClick={() => setRetry((current) => current + 1)} className="border border-[#f7c76b]/45 px-3 py-2 text-xs font-bold text-[#f7c76b]">다시 시도</button></Message> : data?.rows.length ? <>
       <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[820px] text-left text-xs"><thead className="border-y border-white/10 text-white/40"><tr><th className="px-3 py-3">상품</th><th className="px-3 py-3">플랫폼</th><th className="px-3 py-3">업체</th><th className="px-3 py-3">가격</th><th className="px-3 py-3">총 용량</th><th className="px-3 py-3">100ml당</th></tr></thead><tbody>{data.rows.map((row) => <tr key={row.offerId} className="border-b border-white/8"><td className="px-3 py-3 font-semibold text-white/85">{row.productName}</td><td className="px-3 py-3 text-white/65">{row.platformName}</td><td className="px-3 py-3 text-white/55">{row.sellerName}</td><td className="px-3 py-3 font-bold text-[#f7c76b]">{money(row.price)}</td><td className="px-3 py-3 text-white/52">{row.totalVolumeMl ? `${row.totalVolumeMl}ml` : "-"}</td><td className="px-3 py-3 text-white/52">{row.pricePer100ml === null ? "-" : money(Math.round(row.pricePer100ml))}</td></tr>)}</tbody></table></div>
       <Pagination page={data.page} totalPages={data.totalPages} total={data.total} setPage={setPage} />
     </> : <Message>조건에 맞는 Production Offer가 없습니다.</Message>}
