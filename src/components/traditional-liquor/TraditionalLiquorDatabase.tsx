@@ -20,6 +20,7 @@ export function TraditionalLiquorDatabase({ initialState, mode = "page", onBack 
   const embedded = mode === "embedded";
   const showAnalyticsNavigation = !embedded || initialState?.view === "OVERVIEW";
   const [activeView, setActiveView] = useState<TraditionalLiquorView>(() => analyticsViewToView(initialState?.view));
+  const [dataCollectionOpen, setDataCollectionOpen] = useState(false);
   const [query, setQuery] = useState(initialState?.filters?.query ?? initialState?.filters?.productName ?? initialState?.filters?.sellerName ?? "");
   const [fullscreenParameters, setFullscreenParameters] = useState<Record<string, string>>({});
   const [results, setResults] = useState<TraditionalLiquorSearchResult | null>(null);
@@ -32,6 +33,7 @@ export function TraditionalLiquorDatabase({ initialState, mode = "page", onBack 
     const params = new URLSearchParams(window.location.search);
     const requestedView = params.get("view") as TraditionalLiquorView | null;
     if (requestedView && tabs.some((tab) => tab.id === requestedView)) setActiveView(requestedView);
+    setDataCollectionOpen(params.get("section") === "collection");
     setQuery(params.get("q") ?? "");
   }, [embedded]);
 
@@ -45,6 +47,7 @@ export function TraditionalLiquorDatabase({ initialState, mode = "page", onBack 
   }, [activeView, embedded]);
 
   function selectView(view: TraditionalLiquorView) {
+    setDataCollectionOpen(false);
     setActiveView(view);
     setFullscreenParameters({});
     if (embedded) return;
@@ -53,8 +56,16 @@ export function TraditionalLiquorDatabase({ initialState, mode = "page", onBack 
     window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
   }
 
+  function openDataCollection() {
+    if (embedded) return;
+    setDataCollectionOpen(true);
+    setFullscreenParameters({});
+    const params = new URLSearchParams(); params.set("section", "collection");
+    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  }
+
   useEffect(() => {
-    if (activeView === "price" || activeView === "sales") return;
+    if (dataCollectionOpen || activeView === "price" || activeView === "sales") return;
     let active = true;
     const timer = window.setTimeout(() => {
       setStatus("loading");
@@ -75,7 +86,7 @@ export function TraditionalLiquorDatabase({ initialState, mode = "page", onBack 
       });
     }, query ? 180 : 0);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [activeView, query, retry]);
+  }, [activeView, dataCollectionOpen, query, retry]);
 
   const visibleCount = useMemo(() => {
     if (!results) return 0;
@@ -99,35 +110,31 @@ export function TraditionalLiquorDatabase({ initialState, mode = "page", onBack 
 
       <section className={`${embedded ? "mt-4" : "mt-8"} border border-white/10 bg-white/[0.035]`}>
         {showAnalyticsNavigation ? <div className="flex overflow-x-auto border-b border-white/10" role="tablist" aria-label="전통주 데이터 분류">
-          {tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={activeView === tab.id} onClick={() => selectView(tab.id)} className={`min-h-12 min-w-28 border-r border-white/10 px-5 text-sm font-bold transition ${activeView === tab.id ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>{tab.label}</button>)}
+          {tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={!dataCollectionOpen && activeView === tab.id} onClick={() => selectView(tab.id)} className={`min-h-12 min-w-28 border-r border-white/10 px-5 text-sm font-bold transition ${!dataCollectionOpen && activeView === tab.id ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>{tab.label}</button>)}
+          {!embedded ? <button type="button" role="tab" aria-selected={dataCollectionOpen} onClick={openDataCollection} className={`min-h-12 min-w-28 border-r border-white/10 px-5 text-sm font-bold transition ${dataCollectionOpen ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>데이터 수집</button> : null}
         </div> : null}
-        <div className="p-4 md:p-5">
+        {!dataCollectionOpen ? <div className="p-4 md:p-5">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/34" />
             <input value={query} onChange={(event) => { setQuery(event.target.value); syncUrl({ q: event.target.value, page: "1" }); }} placeholder="전통주, 플랫폼, 업체를 검색하세요" className="h-12 w-full border border-white/15 bg-[#0e1112] pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/32 focus:border-[#f7c76b]" />
           </label>
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/38"><span>PRODUCT · PLATFORM · SELLER · BREWERY 통합 검색</span>{activeView === "price" || activeView === "sales" ? null : <span>{status === "loading" ? "검색 중" : `${visibleCount}개 결과`}</span>}</div>
-        </div>
+        </div> : null}
       </section>
 
-      <section className="mt-4">
+      {!dataCollectionOpen ? <section className="mt-4">
         {activeView === "price" ? <TraditionalLiquorPriceAnalytics initialFilters={initialState?.filters} mode={mode} query={query} syncUrl={syncUrl} /> : null}
         {activeView === "sales" ? <TraditionalLiquorSalesAnalytics initialFilters={initialState?.filters} mode={mode} query={query} syncUrl={syncUrl} /> : null}
         {activeView !== "price" && activeView !== "sales" && (status === "initial" || status === "loading") ? <StateMessage icon={<LoaderCircle className="h-5 w-5 animate-spin" />} label="전통주 데이터를 불러오는 중입니다." /> : null}
         {activeView !== "price" && activeView !== "sales" && status === "error" ? <StateMessage label={error || "전통주 데이터를 불러오지 못했습니다."} onRetry={() => setRetry((current) => current + 1)} /> : null}
-        {activeView !== "price" && activeView !== "sales" && (status === "empty" || (status === "success" && visibleCount === 0)) ? <StateMessage label={query ? "검색 결과가 없습니다." : "등록된 실제 전통주 데이터가 없습니다. 아래 Import에서 검증된 파일을 등록하세요."} /> : null}
+        {activeView !== "price" && activeView !== "sales" && (status === "empty" || (status === "success" && visibleCount === 0)) ? <StateMessage label={query ? "검색 결과가 없습니다." : "등록된 실제 전통주 데이터가 없습니다."} /> : null}
         {activeView !== "price" && activeView !== "sales" && status === "success" && results ? <>
           {activeView === "product" ? <ProductView products={results.products} query={query} breweries={results.breweries} /> : null}
           {activeView === "platform" ? <PlatformView platforms={results.platforms} /> : null}
           {activeView === "seller" ? <SellerView sellers={results.sellers} /> : null}
         </> : null}
-      </section>
-      {!embedded ? <><div className="mt-12 border-t border-white/12 pt-8">
-        <p className="text-[11px] font-bold tracking-[0.16em] text-[#f7c76b]">DEVELOPER DATA MANAGEMENT</p>
-        <h2 className="mt-2 text-2xl font-semibold text-white">Real Data Import</h2>
-        <p className="mt-2 text-sm text-white/48">분석 화면과 분리된 Production 데이터 검증·반영 영역입니다.</p>
-      </div>
-      <TraditionalLiquorRealImportPanel /></> : null}
+      </section> : null}
+      {!embedded && dataCollectionOpen ? <TraditionalLiquorRealImportPanel /> : null}
     </main>
   );
 }
