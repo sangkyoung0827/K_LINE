@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
+import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import { getSupabaseConfig } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,18 @@ function safeName(value: string) {
 
 export async function POST(request: Request) {
   try {
-    const access = await getCurrentEccAccess();
+    const body = (await request.json()) as {
+      boardId?: unknown;
+      files?: Array<{ name?: unknown; type?: unknown }>;
+    };
+    const boardId = body.boardId === "hanhwal" ? "hanhwal" : "ecc";
+    const access = boardId === "hanhwal" ? await getCurrentHanhwalAccess() : await getCurrentEccAccess();
     if (!access.isAdmin) {
-      return NextResponse.json({ error: "Admin access is required to upload files for Woohyukmon 3.0." }, { status: 403 });
+      return NextResponse.json(
+        { error: `${boardId === "hanhwal" ? "Hanhwal" : "ECC"} admin access is required to upload club files.` },
+        { status: access.isLoggedIn ? 403 : 401 }
+      );
     }
-    const body = (await request.json()) as { files?: Array<{ name?: unknown; type?: unknown }> };
     const files = Array.isArray(body.files) ? body.files.slice(0, 12) : [];
     if (files.length === 0) {
       return NextResponse.json({ error: "Select at least one file." }, { status: 400 });
@@ -31,7 +39,7 @@ export async function POST(request: Request) {
         if (!allowedPrefixes.some((prefix) => type.startsWith(prefix)) && !allowedExactTypes.has(type)) {
           throw new Error(`Unsupported file type: ${type || name}`);
         }
-        const path = `${access.email.replace(/[^a-zA-Z0-9]/g, "-")}/${Date.now()}-${index}-${name}`;
+        const path = `${boardId}/${access.email.replace(/[^a-zA-Z0-9]/g, "-")}/${Date.now()}-${index}-${name}`;
         const response = await fetch(`${config.url}/storage/v1/object/upload/sign/${bucket}/${path}`, {
           method: "POST",
           headers: {

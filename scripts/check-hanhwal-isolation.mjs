@@ -12,16 +12,20 @@ const isolatedFiles = [
   "src/hooks/useHanhwalAccess.ts",
   "src/components/HanhwalActivityPanel.tsx",
   "src/components/HanhwalDonationPanel.tsx",
+  "src/components/HanhwalFreeBoardDetailPage.tsx",
+  "src/components/HanhwalFreeBoardPage.tsx",
   "src/components/HanhwalMemberRegistrationForm.tsx",
   "src/components/HanhwalMemberRegistrationManagementPanel.tsx",
   "src/components/HanhwalPermissionManagementPanel.tsx",
-  "src/components/HanhwalPermissionRequestCard.tsx"
+  "src/components/HanhwalPermissionRequestCard.tsx",
+  "src/app/api/hanhwal/posts/route.ts",
+  "src/app/api/hanhwal/roles/route.ts"
 ];
 
 for (const file of isolatedFiles) {
   const source = read(file);
 
-  if (/ecc_|\/api\/ecc|@\/lib\/ecc|useEccAccess/.test(source)) {
+  if (/ecc_|\/api\/ecc|@\/lib\/ecc|useEccAccess|\/api\/club-board-posts|club_board_posts|freeBoardStorage/.test(source)) {
     throw new Error(`${file} contains an ECC storage or permission dependency.`);
   }
 
@@ -36,7 +40,8 @@ for (const table of [
   "hanhwal_member_registrations",
   "hanhwal_activity_applications",
   "hanhwal_activity_statuses",
-  "hanhwal_fund_settings"
+  "hanhwal_fund_settings",
+  "hanhwal_board_posts"
 ]) {
   if (!migration.includes(`public.${table}`)) {
     throw new Error(`Hanhwal migration is missing ${table}.`);
@@ -57,6 +62,20 @@ for (const permission of ["isOfficialMember", "isAdmin", "isSuperAdmin", "isDeve
   if (!roles.includes(permission)) {
     throw new Error(`Hanhwal role API is missing ${permission} enforcement.`);
   }
+}
+
+if (roles.includes("listSiteMembers") || roles.includes("site_members?select")) {
+  throw new Error("Hanhwal role management must not list unrelated site accounts.");
+}
+
+const access = read("src/lib/hanhwalAccess.ts");
+if (/adminAccess\.isSuperAdmin\s*\|\|\s*roleRow/.test(access)) {
+  throw new Error("Global/ECC super-admin status must not grant Hanhwal super-admin access.");
+}
+
+const hanhwalPosts = read("src/app/api/hanhwal/posts/route.ts");
+if (!hanhwalPosts.includes('const tableName = "hanhwal_board_posts"')) {
+  throw new Error("Hanhwal posts must use the dedicated Hanhwal table.");
 }
 
 console.log("Hanhwal club isolation and permission checks passed.");

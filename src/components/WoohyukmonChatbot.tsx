@@ -253,6 +253,10 @@ function isPostInstruction(value: string) {
   return /게시물|게시글|업로드|올려s*줘|올려줘|post|publish/i.test(value);
 }
 
+function postBoardFromInstruction(value: string): "ecc" | "hanhwal" {
+  return /한활|hanhwal/i.test(value) ? "hanhwal" : "ecc";
+}
+
 function getLiveKind(value: string): LiveKind | null {
   const normalized = value.toLowerCase();
   if (/자금|잔액|남은 금액|fund|balance|donation/.test(normalized)) return "fund";
@@ -677,7 +681,10 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
       }>("/api/woohyukmon/uploads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: action.attachments.map(({ name, type }) => ({ name, type })) })
+        body: JSON.stringify({
+          boardId: action.boardId,
+          files: action.attachments.map(({ name, type }) => ({ name, type }))
+        })
       });
       await Promise.all(
         uploadPlan.uploads.map(async (upload, index) => {
@@ -703,7 +710,11 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
       updateAssistantMessage(messageId, (current) => ({
         ...current,
         action: undefined,
-        content: `${current.content}\n\n${language === "ko" ? "ECC 게시판에 게시했습니다." : "Published to the ECC board."}`.trim()
+        content: `${current.content}\n\n${
+          language === "ko"
+            ? `${action.boardId === "hanhwal" ? "한활" : "ECC"} 게시판에 게시했습니다.`
+            : `Published to the ${action.boardId === "hanhwal" ? "Hanhwal" : "ECC"} board.`
+        }`.trim()
       }));
       setAttachments([]);
     } catch (publishError) {
@@ -920,11 +931,12 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
 
       if (postIntent) {
         const draft = postDraftFromAnswer(assistantSnapshot.content, trimmed);
+        const boardId = postBoardFromInstruction(trimmed);
         assistantSnapshot = {
           ...assistantSnapshot,
           action: {
             attachments: attachmentsForPost,
-            boardId: "ecc",
+            boardId,
             content: draft.content,
             title: draft.title,
             type: "publish_board_post"

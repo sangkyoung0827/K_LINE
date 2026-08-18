@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import {
   getDeveloperEmails,
-  getSuperAdminEmails,
   isDeveloperEmail,
   normalizeEmail
 } from "@/lib/admin";
@@ -23,18 +22,6 @@ import {
 } from "@/lib/hanhwalAccess";
 
 export const dynamic = "force-dynamic";
-
-type SiteMemberRow = {
-  id: string;
-  created_at: string;
-  email: string;
-  name: string | null;
-  image_url: string | null;
-  status: string | null;
-  last_login_at: string | null;
-};
-
-const siteMemberColumns = "id,created_at,email,name,image_url,status,last_login_at";
 
 function parseSupabaseError(error: SupabaseRequestError) {
   try {
@@ -117,12 +104,6 @@ function toRoleSummary(row?: HanhwalRoleRow | null) {
   };
 }
 
-async function listSiteMembers() {
-  return supabaseRequest<SiteMemberRow[]>(
-    `site_members?select=${siteMemberColumns}&order=last_login_at.desc.nullslast&limit=500`
-  );
-}
-
 async function listHanhwalRoles() {
   return supabaseRequest<HanhwalRoleRow[]>(
     `${hanhwalRolesTable}?select=${hanhwalRoleColumns}&order=updated_at.desc.nullslast&limit=500`
@@ -194,31 +175,26 @@ async function buildResponse() {
     };
   }
 
-  const [siteMembers, roleRows] = await Promise.all([listSiteMembers(), listHanhwalRoles()]);
+  const roleRows = await listHanhwalRoles();
   const rolesByEmail = latestRoleMap(roleRows);
-  const mergedEmails = new Set<string>();
-
-  siteMembers.forEach((member) => mergedEmails.add(normalizeEmail(member.email)));
-  roleRows.forEach((row) => mergedEmails.add(normalizeEmail(row.email)));
 
   const allMembers = await Promise.all(
-    Array.from(mergedEmails)
+    Array.from(rolesByEmail.keys())
       .filter(Boolean)
       .sort()
       .map(async (email) => {
-        const siteMember = siteMembers.find((member) => normalizeEmail(member.email) === email);
         const roleRow = rolesByEmail.get(email);
         const memberAccess = await getHanhwalAccessForEmail(email);
 
         return {
           access: memberAccess,
-          avatarUrl: roleRow?.avatar_url || siteMember?.image_url || "",
-          createdAt: roleRow?.created_at || siteMember?.created_at || "",
+          avatarUrl: roleRow?.avatar_url || "",
+          createdAt: roleRow?.created_at || "",
           email,
-          lastLoginAt: siteMember?.last_login_at ?? "",
-          name: roleRow?.name || siteMember?.name || "",
+          lastLoginAt: "",
+          name: roleRow?.name || "",
           roleStatus: toRoleSummary(roleRow),
-          siteStatus: siteMember?.status ?? ""
+          siteStatus: ""
         };
       })
   );
@@ -231,7 +207,10 @@ async function buildResponse() {
       ? {
           developerEmails: getDeveloperEmails(),
           hanhwalOfficialTeamChatUrl: getHanhwalOfficialTeamChatUrl(),
-          superAdminEmails: getSuperAdminEmails()
+          superAdminEmails: roleRows
+            .filter((row) => row.super_admin_status === "approved")
+            .map((row) => normalizeEmail(row.email))
+            .filter(Boolean)
         }
       : null,
     me: access,

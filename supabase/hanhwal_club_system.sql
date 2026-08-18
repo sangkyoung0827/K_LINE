@@ -134,23 +134,67 @@ insert into public.hanhwal_fund_settings (id)
 values ('hanhwal')
 on conflict (id) do nothing;
 
+create table if not exists public.hanhwal_board_posts (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  author_name text not null default '',
+  author_email text not null default '',
+  content text not null,
+  media jsonb not null default '[]'::jsonb,
+  status text not null default 'published',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint hanhwal_board_posts_status_check
+    check (status in ('draft', 'published', 'archived'))
+);
+
+create index if not exists hanhwal_board_posts_status_created_idx
+  on public.hanhwal_board_posts (status, created_at desc);
+
+-- Move only legacy Hanhwal rows out of the old shared board table. ECC rows and
+-- every other ECC table remain unchanged. Dynamic SQL keeps this migration safe
+-- when the legacy table was never installed.
+do $$
+begin
+  if to_regclass('public.club_board_posts') is not null then
+    execute $migration$
+      insert into public.hanhwal_board_posts (
+        id, title, author_name, author_email, content, media, status, created_at, updated_at
+      )
+      select
+        id, title, author_name, author_email, content, media, status, created_at, updated_at
+      from public.club_board_posts
+      where board_id = 'hanhwal'
+      on conflict (id) do nothing
+    $migration$;
+
+    execute $migration$
+      delete from public.club_board_posts where board_id = 'hanhwal'
+    $migration$;
+  end if;
+end
+$$;
+
 alter table public.hanhwal_roles enable row level security;
 alter table public.hanhwal_member_registrations enable row level security;
 alter table public.hanhwal_activity_applications enable row level security;
 alter table public.hanhwal_activity_statuses enable row level security;
 alter table public.hanhwal_fund_settings enable row level security;
+alter table public.hanhwal_board_posts enable row level security;
 
 revoke all on table public.hanhwal_roles from anon, authenticated;
 revoke all on table public.hanhwal_member_registrations from anon, authenticated;
 revoke all on table public.hanhwal_activity_applications from anon, authenticated;
 revoke all on table public.hanhwal_activity_statuses from anon, authenticated;
 revoke all on table public.hanhwal_fund_settings from anon, authenticated;
+revoke all on table public.hanhwal_board_posts from anon, authenticated;
 
 grant all on table public.hanhwal_roles to service_role;
 grant all on table public.hanhwal_member_registrations to service_role;
 grant all on table public.hanhwal_activity_applications to service_role;
 grant all on table public.hanhwal_activity_statuses to service_role;
 grant all on table public.hanhwal_fund_settings to service_role;
+grant all on table public.hanhwal_board_posts to service_role;
 
 drop policy if exists "Service role manages Hanhwal roles" on public.hanhwal_roles;
 create policy "Service role manages Hanhwal roles"
@@ -183,6 +227,13 @@ drop policy if exists "Service role manages Hanhwal fund settings"
   on public.hanhwal_fund_settings;
 create policy "Service role manages Hanhwal fund settings"
   on public.hanhwal_fund_settings for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+drop policy if exists "Service role manages Hanhwal board posts"
+  on public.hanhwal_board_posts;
+create policy "Service role manages Hanhwal board posts"
+  on public.hanhwal_board_posts for all
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 

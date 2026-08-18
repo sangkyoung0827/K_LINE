@@ -8,7 +8,6 @@ import { useHanhwalAccess } from "@/hooks/useHanhwalAccess";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard, FreeBoardPost } from "@/types";
-import { readFreeBoardPosts, writeFreeBoardPosts } from "@/lib/freeBoardStorage";
 
 type HanhwalFreeBoardDetailPageProps = {
   board: FreeBoard;
@@ -32,31 +31,56 @@ export function HanhwalFreeBoardDetailPage({
   boardPath = `/our-activities/${board.slug}`
 }: HanhwalFreeBoardDetailPageProps) {
   const [posts, setPosts] = useState<FreeBoardPost[]>([]);
-  const { isSuperAdmin } = useHanhwalAccess();
+  const [loading, setLoading] = useState(true);
+  const [requestError, setRequestError] = useState("");
+  const { isAdmin } = useHanhwalAccess();
   const { language } = useLanguage();
   const router = useRouter();
 
   useEffect(() => {
-    const localPosts = readFreeBoardPosts(board);
-    setPosts(localPosts);
-    fetch(`/api/club-board-posts?board=${encodeURIComponent(board.id)}`)
-      .then((response) => response.json())
-      .then((data: { posts?: FreeBoardPost[] }) => {
-        if (Array.isArray(data.posts)) setPosts([...data.posts, ...localPosts]);
+    fetch("/api/hanhwal/posts")
+      .then(async (response) => {
+        const data = (await response.json()) as { error?: string; posts?: FreeBoardPost[] };
+        if (!response.ok) throw new Error(data.error || "Hanhwal posts could not be loaded.");
+        return data;
       })
-      .catch(() => undefined);
-  }, [board]);
+      .then((data) => {
+        if (Array.isArray(data.posts)) setPosts(data.posts);
+      })
+      .catch((error: unknown) => {
+        setRequestError(error instanceof Error ? error.message : "Hanhwal posts could not be loaded.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const post = useMemo(() => posts.find((item) => item.id === postId), [postId, posts]);
   const boardDisplayTitle = language === "ko" ? board.koreanTitle : board.title;
   const boardDisplayLabel =
     language === "ko" && board.id === "hanhwal" ? "한활" : board.label;
-  const deletePost = () => {
-    const nextPosts = posts.filter((item) => item.id !== postId);
-    writeFreeBoardPosts(board, nextPosts);
-    setPosts(nextPosts);
-    router.push(boardPath);
+  const deletePost = async () => {
+    setRequestError("");
+    try {
+      const response = await fetch(`/api/hanhwal/posts?id=${encodeURIComponent(postId)}`, {
+        method: "DELETE"
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "The Hanhwal post could not be deleted.");
+      router.push(boardPath);
+      router.refresh();
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "The Hanhwal post could not be deleted.");
+    }
   };
+
+  if (loading) {
+    return (
+      <section className="bg-paper py-20">
+        <div className="mx-auto max-w-3xl px-5 text-center text-sm font-semibold text-ink/62 md:px-8">
+          <I18nText en="Loading Hanhwal post..." ko="한활 게시글을 불러오는 중..." />
+        </div>
+      </section>
+    );
+  }
 
   if (!post) {
     return (
@@ -117,7 +141,7 @@ export function HanhwalFreeBoardDetailPage({
             <ArrowLeft aria-hidden className="h-4 w-4" />
             <I18nText en="Back to board" ko="게시판으로 돌아가기" />
           </Link>
-          {isSuperAdmin ? (
+          {isAdmin ? (
             <button
               type="button"
               onClick={deletePost}
@@ -127,6 +151,7 @@ export function HanhwalFreeBoardDetailPage({
               <I18nText en="Delete Post" ko="게시글 삭제" />
             </button>
           ) : null}
+          {requestError ? <p className="mt-4 text-sm font-semibold text-red-700">{requestError}</p> : null}
         </div>
       </section>
     </>

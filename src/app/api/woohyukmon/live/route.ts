@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
+import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import { cleanText, SupabaseConfigError, SupabaseRequestError, supabaseRequest } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,8 @@ type MemberRow = { email: string; role: string | null; official_member_status: s
 type SiteMemberRow = { email: string };
 type BoardPostRow = { id: string; created_at: string; title: string };
 
-const boardColumns = "id,created_at,board_id,title,author_name,author_email,content,media,status";
+const eccBoardColumns = "id,created_at,board_id,title,author_name,author_email,content,media,status";
+const hanhwalBoardColumns = "id,created_at,title,author_name,author_email,content,media,status";
 
 function failure(error: unknown) {
   if (error instanceof SupabaseConfigError) {
@@ -93,10 +95,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const access = await getCurrentEccAccess();
-    if (!access.isAdmin) {
-      return NextResponse.json({ error: "Admin access is required to publish a club post." }, { status: 403 });
-    }
     const body = (await request.json()) as Record<string, unknown>;
     const boardId = cleanText(body.boardId, 20);
     const title = cleanText(body.title, 180);
@@ -113,17 +111,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Board, title, and content are required." }, { status: 400 });
     }
 
-    const rows = await supabaseRequest<BoardPostRow[]>(`club_board_posts?select=${boardColumns}`, {
+    const access = boardId === "hanhwal" ? await getCurrentHanhwalAccess() : await getCurrentEccAccess();
+    if (!access.isAdmin) {
+      return NextResponse.json(
+        { error: `${boardId === "hanhwal" ? "Hanhwal" : "ECC"} admin access is required to publish this post.` },
+        { status: access.isLoggedIn ? 403 : 401 }
+      );
+    }
+
+    const tableName = boardId === "hanhwal" ? "hanhwal_board_posts" : "club_board_posts";
+    const selectedColumns = boardId === "hanhwal" ? hanhwalBoardColumns : eccBoardColumns;
+    const rows = await supabaseRequest<BoardPostRow[]>(`${tableName}?select=${selectedColumns}`, {
       method: "POST",
       headers: { Prefer: "return=representation" },
       body: JSON.stringify({
         author_email: access.email,
         author_name: access.email,
-        board_id: boardId,
         content,
         media,
         status: "published",
-        title
+        title,
+        ...(boardId === "ecc" ? { board_id: "ecc" } : {})
       })
     });
     try {

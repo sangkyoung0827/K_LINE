@@ -7,11 +7,6 @@ import { useHanhwalAccess } from "@/hooks/useHanhwalAccess";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { FreeBoard, FreeBoardPost } from "@/types";
-import {
-  readFreeBoardPosts,
-  sortPostsByNewest,
-  writeFreeBoardPosts
-} from "@/lib/freeBoardStorage";
 
 type HanhwalFreeBoardPageProps = {
   board: FreeBoard;
@@ -37,6 +32,13 @@ function formatDate(value: string, locale: "en" | "ko") {
   }).format(new Date(value));
 }
 
+function sortPostsByNewest(posts: FreeBoardPost[]) {
+  return [...posts].sort(
+    (first, second) =>
+      new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+  );
+}
+
 export function HanhwalFreeBoardPage({
   board,
   returnHref,
@@ -45,20 +47,25 @@ export function HanhwalFreeBoardPage({
   const [posts, setPosts] = useState<FreeBoardPost[]>([]);
   const [form, setForm] = useState(initialForm);
   const [imageError, setImageError] = useState("");
+  const [requestError, setRequestError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { isAdmin } = useHanhwalAccess();
   const { language } = useLanguage();
 
   useEffect(() => {
-    const localPosts = readFreeBoardPosts(board);
-    setPosts(localPosts);
-    fetch(`/api/club-board-posts?board=${encodeURIComponent(board.id)}`)
-      .then((response) => response.json())
-      .then((data: { posts?: FreeBoardPost[] }) => {
-        if (!Array.isArray(data.posts)) return;
-        setPosts(sortPostsByNewest([...data.posts, ...localPosts]));
+    fetch("/api/hanhwal/posts")
+      .then(async (response) => {
+        const data = (await response.json()) as { error?: string; posts?: FreeBoardPost[] };
+        if (!response.ok) throw new Error(data.error || "Hanhwal posts could not be loaded.");
+        return data;
       })
-      .catch(() => undefined);
-  }, [board]);
+      .then((data) => {
+        if (Array.isArray(data.posts)) setPosts(sortPostsByNewest(data.posts));
+      })
+      .catch((error: unknown) => {
+        setRequestError(error instanceof Error ? error.message : "Hanhwal posts could not be loaded.");
+      });
+  }, []);
 
   const sortedPosts = useMemo(() => sortPostsByNewest(posts), [posts]);
   const basePath = `/our-activities/${board.slug}`;
@@ -67,17 +74,11 @@ export function HanhwalFreeBoardPage({
     language === "ko" && board.id === "hanhwal" ? "한활" : board.label;
   const boardDisplayDescription =
     language === "ko"
-      ? board.id === "ecc"
-        ? "ECC 활동 기록, 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
-        : "한활 연습 기록, 국궁 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
+      ? "한활 연습 기록, 국궁 사진, 질문, 자유로운 글을 공유하는 커뮤니티 게시판입니다."
       : board.description;
   const backLabel =
     language === "ko"
-      ? returnLabel === "Back to ECC Menu"
-        ? "ECC 메뉴로 돌아가기"
-        : returnLabel === "Back"
-          ? "돌아가기"
-          : returnLabel
+      ? returnLabel === "Back" ? "돌아가기" : returnLabel === "Back to Hanhwal Menu" ? "한활 메뉴로 돌아가기" : returnLabel
       : returnLabel;
 
   const update = (field: keyof typeof initialForm, value: string) => {
@@ -120,30 +121,43 @@ export function HanhwalFreeBoardPage({
     reader.readAsDataURL(file);
   };
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const now = new Date().toISOString();
-    const nextPost: FreeBoardPost = {
-      id: `${board.id}-${Date.now()}`,
-      boardId: board.id,
-      title: form.title.trim(),
-      author: form.author.trim(),
-      content: form.content.trim(),
-      createdAt: now,
-      imageDataUrl: form.imageDataUrl || undefined,
-      imageName: form.imageName || undefined
-    };
-    const nextPosts = [nextPost, ...posts];
-    writeFreeBoardPosts(board, nextPosts);
-    setPosts(nextPosts);
-    setForm(initialForm);
-    setImageError("");
+    setSubmitting(true);
+    setRequestError("");
+
+    try {
+      const response = await fetch("/api/hanhwal/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
+      const data = (await response.json()) as { error?: string; post?: FreeBoardPost | null };
+      if (!response.ok || !data.post) {
+        throw new Error(data.error || "The Hanhwal post could not be saved.");
+      }
+      setPosts((current) => sortPostsByNewest([data.post!, ...current]));
+      setForm(initialForm);
+      setImageError("");
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "The Hanhwal post could not be saved.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const deletePost = (postId: string) => {
-    const nextPosts = posts.filter((post) => post.id !== postId);
-    writeFreeBoardPosts(board, nextPosts);
-    setPosts(nextPosts);
+  const deletePost = async (postId: string) => {
+    setRequestError("");
+    try {
+      const response = await fetch(`/api/hanhwal/posts?id=${encodeURIComponent(postId)}`, {
+        method: "DELETE"
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "The Hanhwal post could not be deleted.");
+      setPosts((current) => current.filter((post) => post.id !== postId));
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "The Hanhwal post could not be deleted.");
+    }
   };
 
   return (
@@ -234,11 +248,13 @@ export function HanhwalFreeBoardPage({
 
             <button
               type="submit"
-              className="inline-flex min-h-11 items-center justify-center gap-2 bg-ink px-5 py-3 text-sm font-semibold text-paper transition hover:bg-navy"
+              disabled={submitting}
+              className="inline-flex min-h-11 items-center justify-center gap-2 bg-ink px-5 py-3 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Send aria-hidden className="h-4 w-4" />
-              <I18nText en="Post" ko="게시하기" />
+              {submitting ? <I18nText en="Saving..." ko="저장 중..." /> : <I18nText en="Post" ko="게시하기" />}
             </button>
+            {requestError ? <p className="text-sm font-semibold text-red-700">{requestError}</p> : null}
           </form>
 
           <div>

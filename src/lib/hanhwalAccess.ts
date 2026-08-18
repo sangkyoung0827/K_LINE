@@ -134,7 +134,7 @@ export async function getHanhwalAccessForEmail(email?: string | null): Promise<H
 
   const roleRow = await getHanhwalRoleRow(normalized);
 
-  if (adminAccess.isSuperAdmin || roleRow?.super_admin_status === "approved") {
+  if (roleRow?.super_admin_status === "approved") {
     return toHanhwalAccess(normalized, "super_admin");
   }
 
