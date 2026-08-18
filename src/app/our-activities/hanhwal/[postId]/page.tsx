@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { FreeBoardDetailPage } from "@/components/FreeBoardDetailPage";
+import { notFound } from "next/navigation";
+import { HanhwalFreeBoardDetailPage } from "@/components/HanhwalFreeBoardDetailPage";
 import { getActivityBoardById } from "@/data/activityBoards";
+import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 type PageProps = {
@@ -15,7 +17,19 @@ export const metadata: Metadata = createNoIndexMetadata({
   path: "/our-activities/hanhwal"
 });
 
-export default async function HanhwalFreeBoardDetailPage({ params }: PageProps) {
+export default async function HanhwalBoardDetailRoutePage({ params }: PageProps) {
+  const access = await getCurrentHanhwalAccess();
+
+  if (!access.isOfficialMember) {
+    notFound();
+  }
+
   const { postId } = await params;
-  return <FreeBoardDetailPage board={board!} postId={postId} />;
+  return (
+    <HanhwalFreeBoardDetailPage
+      board={board!}
+      postId={postId}
+      boardPath="/our-activities/hanhwal/free-board"
+    />
+  );
 }

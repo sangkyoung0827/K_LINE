@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseRequest, SupabaseConfigError, SupabaseRequestError } from "@/lib/supabaseServer";
+import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,17 @@ export async function GET(request: Request) {
     const board = new URL(request.url).searchParams.get("board");
     if (board !== "ecc" && board !== "hanhwal") {
       return NextResponse.json({ error: "A valid board is required." }, { status: 400 });
+    }
+
+    if (board === "hanhwal") {
+      const access = await getCurrentHanhwalAccess();
+
+      if (!access.isOfficialMember) {
+        return NextResponse.json(
+          { error: "Hanhwal official membership is required." },
+          { status: access.isLoggedIn ? 403 : 401 }
+        );
+      }
     }
     const rows = await supabaseRequest<Row[]>(
       `club_board_posts?select=id,board_id,title,author_name,content,media,created_at&board_id=eq.${board}&status=eq.published&order=created_at.desc&limit=120`

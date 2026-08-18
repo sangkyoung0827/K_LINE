@@ -19,7 +19,8 @@
     "check:traditional-liquor-collection": "node scripts/check-traditional-liquor-collection-safety.mjs",
     "check:v4-isolation": "node scripts/check-v4-isolation.mjs",
     "check:browser-safety": "node scripts/check-browser-safety.mjs",
-    "test": "npm run typecheck && npm run typecheck:market-collector && npm run build:market-collector && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run test:traditional-liquor-real-import && npm run test:traditional-liquor-intents && npm run test:traditional-liquor-analytics && npm run test:market-collector && npm run check:traditional-liquor-collection && npm run check:browser-safety",
+    "check:hanhwal-isolation": "node scripts/check-hanhwal-isolation.mjs",
+    "test": "npm run typecheck && npm run typecheck:market-collector && npm run build:market-collector && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run test:traditional-liquor-real-import && npm run test:traditional-liquor-intents && npm run test:traditional-liquor-analytics && npm run test:market-collector && npm run check:traditional-liquor-collection && npm run check:browser-safety && npm run check:hanhwal-isolation",
     "check": "npm run test && npm run build && npm run check:v4-isolation"
   },
   "dependencies": {

@@ -11,6 +11,7 @@ import { useCart } from "@/components/CartProvider";
 import { LanguageSwitcher, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
 import { useEccAccess } from "@/hooks/useEccAccess";
+import { useHanhwalAccess } from "@/hooks/useHanhwalAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 
 const boardLabels = {
@@ -25,6 +26,7 @@ export function Navbar() {
   const { language, pick } = useLanguage();
   const { isDeveloper } = useSuperAdmin();
   const eccAccess = useEccAccess();
+  const hanhwalAccess = useHanhwalAccess();
 
   if (pathname === "/login") {
     return null;
@@ -157,6 +159,28 @@ export function Navbar() {
             {eccAccess.isAdmin ? (
               <MobileMenuLink href="/our-activities/ecc/members" onClick={() => setOpen(false)}>
                 <I18nNavText en="Member Management" ko="회원 관리" language={language} />
+              </MobileMenuLink>
+            ) : null}
+            {hanhwalAccess.isLoggedIn && !hanhwalAccess.isOfficialMember ? (
+              <MobileMenuLink href="/hanhwal-join" onClick={() => setOpen(false)}>
+                <I18nNavText
+                  en="Hanhwal New Member Registration"
+                  ko="한활 신규회원 등록"
+                  language={language}
+                />
+              </MobileMenuLink>
+            ) : null}
+            {hanhwalAccess.isOfficialMember ? (
+              <MobileMenuLink href="/hanhwal-official" onClick={() => setOpen(false)}>
+                HANHWAL OFFICIAL
+              </MobileMenuLink>
+            ) : null}
+            {hanhwalAccess.isAdmin ? (
+              <MobileMenuLink
+                href="/our-activities/hanhwal/members"
+                onClick={() => setOpen(false)}
+              >
+                <I18nNavText en="Hanhwal Member Management" ko="한활 회원 관리" language={language} />
               </MobileMenuLink>
             ) : null}
             {!eccAccess.isLoggedIn && !eccAccess.loading ? (

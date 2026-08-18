@@ -29,6 +29,8 @@ export default function robots(): MetadataRoute.Robots {
           "/donate",
           "/ecc-join",
           "/ecc-official",
+          "/hanhwal-join",
+          "/hanhwal-official",
           "/ecc-alumni/activity-inquiry",
           "/ecc-alumni/rejoin",
           "/ecc-alumni/status",
@@ -41,7 +43,12 @@ export default function robots(): MetadataRoute.Robots {
           "/our-activities/ecc/register",
           "/our-activities/ecc/activity",
           "/our-activities/ecc/fund",
-          "/our-activities/ecc/members"
+          "/our-activities/ecc/members",
+          "/our-activities/hanhwal/register",
+          "/our-activities/hanhwal/free-board",
+          "/our-activities/hanhwal/activity",
+          "/our-activities/hanhwal/fund",
+          "/our-activities/hanhwal/members"
         ]
       }
     ],
