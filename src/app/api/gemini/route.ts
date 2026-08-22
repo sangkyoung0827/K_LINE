@@ -1,6 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
+import {
+  detectBusinessCollectionRequest,
+  runEphemeralBusinessDataPipeline
+} from "@/lib/business-data/ephemeral-pipeline";
 import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
 import { supabaseRequest } from "@/lib/supabaseServer";
 import { buildTraditionalLiquorAssistantContext, isTraditionalLiquorQuestion } from "@/lib/traditional-liquor/assistant-context";
@@ -104,6 +108,7 @@ Main support areas:
 10. Web-assisted answers using only the external search sources supplied in the prompt
 11. WooHyukmon 4.0 answers grounded in Knowledge DB sources supplied by the server
 12. WooHyukmon 4.0 traditional liquor market analysis grounded in Traditional Liquor DB records supplied by the server
+13. WooHyukmon 4.0 one-time public business-data collection and Data Analytics reports supplied by the server
 
 Security and permission rules:
 - Never reveal the ECC official team chat link or QR code unless the system-provided user context says the user is an approved official member.
@@ -114,6 +119,7 @@ Security and permission rules:
 - Never reveal raw member names, email addresses, contact details, payment identifiers, team-chat links, QR codes, API keys, environment variables, internal database identifiers, or hidden admin routes from any supplied context.
 - Analyze stored traditional-liquor products and price observations, but never claim that missing or stale records are current facts.
 - For traditional-liquor questions, treat Traditional Liquor DB records as the primary source. Use external search results only when the DB has no usable records for the request or the user explicitly requests additional/current web research. Clearly distinguish DB facts from externally researched facts.
+- For an ephemeral business-data report, use the supplied Data Analytics context. Never claim that temporary rows were saved to the permanent K_LINE Production database. State limitations when search evidence does not contain verified sales volume, market share, or demographic data.
 - If a user asks for something restricted, explain that only approved official members or authorized officers can access it.
 
 Answer style:
@@ -632,6 +638,9 @@ export async function POST(request: Request) {
     async start(controller) {
       try {
         const configuredProviders = getConfiguredSearchProviders();
+        const businessCollectionRequest = isPublicV4
+          ? detectBusinessCollectionRequest(message)
+          : null;
         const traditionalLiquorQuestion = (developerAccess.isDeveloper || isPublicV4) && isTraditionalLiquorQuestion(message);
         const traditionalLiquor = traditionalLiquorQuestion
           ? await buildTraditionalLiquorAssistantContext(message).catch((error) => {
@@ -649,22 +658,51 @@ export async function POST(request: Request) {
           ...(traditionalLiquor?.hasRecords ? ["Traditional Liquor DB"] : []),
           ...(operationalContext ? ["K_LINE Operational DB"] : [])
         ];
-        const needsExternalSearch = explicitlyRequestsExternalResearch(message)
+        const needsExternalSearch = Boolean(businessCollectionRequest)
+          || explicitlyRequestsExternalResearch(message)
           || (databaseProviders.length === 0 && (!traditionalLiquorQuestion || !traditionalLiquor?.hasRecords));
 
         controller.enqueue(
           ndjson({
             type: "status",
-            status: needsExternalSearch ? "external_search_started" : "database_search_started",
-            label: needsExternalSearch ? `${configuredProviders.join(" · ")} 검색 중` : `${databaseProviders.join(" · ")} 조회 완료`,
+            status: businessCollectionRequest
+              ? "business_collection_started"
+              : needsExternalSearch
+                ? "external_search_started"
+                : "database_search_started",
+            label: businessCollectionRequest
+              ? `비즈니스 데이터 수집 시작 · ${configuredProviders.join(" · ")}`
+              : needsExternalSearch
+                ? `${configuredProviders.join(" · ")} 검색 중`
+                : `${databaseProviders.join(" · ")} 조회 완료`,
             providers: needsExternalSearch ? configuredProviders : databaseProviders,
             sourceCount: (traditionalLiquor?.hasRecords ? 1 : 0) + (operationalContext ? 1 : 0)
           })
         );
 
         const { results: externalResults, usedProviders } = needsExternalSearch
-          ? await searchExternalSources(message)
+          ? await searchExternalSources(businessCollectionRequest?.query ?? message)
           : { results: [], usedProviders: [] };
+        const businessCollection = businessCollectionRequest
+          ? runEphemeralBusinessDataPipeline(businessCollectionRequest, externalResults)
+          : null;
+        if (businessCollection) {
+          const pipelineSteps = [
+            ["business_staging_done", `Staging 완료 · ${businessCollection.summary.stagedRows}행`],
+            ["business_resolution_done", `Entity Resolution 완료 · ${businessCollection.summary.entityCount}개 출처`],
+            ["business_approval_done", `자동 승인 완료 · ${businessCollection.summary.approvedRows}행`],
+            ["business_analytics_started", "일회성 Production 스냅샷 · Data Analytics 실행 중"]
+          ];
+          for (const [status, label] of pipelineSteps) {
+            controller.enqueue(ndjson({
+              type: "status",
+              status,
+              label,
+              providers: [...usedProviders, "Data Analytics"],
+              sourceCount: businessCollection.summary.approvedRows
+            }));
+          }
+        }
         const knowledgeResults = developerAccess.isDeveloper || isPublicV4
           ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
               console.error("WooHyukmon private knowledge retrieval failed", error);
@@ -672,6 +710,7 @@ export async function POST(request: Request) {
             })
           : [];
         const traditionalLiquorContext = traditionalLiquor?.text ?? "";
+        const businessCollectionContext = businessCollection?.context ?? "";
         const knowledgeSources = developerAccess.isDeveloper
           ? knowledgeResults.map((result) => ({
               title: result.fileName,
@@ -685,11 +724,16 @@ export async function POST(request: Request) {
 
         const allSources = [...knowledgeSources, ...externalSources];
         const publicKnowledgeCount = isPublicV4 && !developerAccess.isDeveloper ? knowledgeResults.length : 0;
-        const groundedContextCount = allSources.length + publicKnowledgeCount + (traditionalLiquorContext ? 1 : 0) + (operationalContext ? 1 : 0);
+        const groundedContextCount = allSources.length
+          + publicKnowledgeCount
+          + (traditionalLiquorContext ? 1 : 0)
+          + (operationalContext ? 1 : 0)
+          + (businessCollectionContext ? 1 : 0);
         const allProviders = [
           ...(knowledgeResults.length > 0 ? ["WooHyukmon DB"] : []),
           ...(traditionalLiquorContext ? ["Traditional Liquor DB"] : []),
           ...(operationalContext ? ["K_LINE Operational DB"] : []),
+          ...(businessCollectionContext ? ["Data Analytics"] : []),
           ...usedProviders
         ];
 
@@ -741,6 +785,7 @@ export async function POST(request: Request) {
             developerAccess.isDeveloper || isPublicV4 ? formatKnowledgeContext(knowledgeResults) : "",
             traditionalLiquorContext,
             operationalContext,
+            businessCollectionContext,
             buildExternalSearchContext(externalResults)
           ].filter(Boolean).join("\n\n"),
           history,
@@ -750,6 +795,14 @@ export async function POST(request: Request) {
           modelVersion
         });
 
+        if (businessCollection) {
+          controller.enqueue(ndjson({
+            type: "status",
+            status: "business_collection_purged",
+            label: "보고서 생성 완료 · 임시 수집 데이터 폐기",
+            providers: ["Data Analytics"]
+          }));
+        }
         controller.enqueue(
           ndjson({
             type: "done",

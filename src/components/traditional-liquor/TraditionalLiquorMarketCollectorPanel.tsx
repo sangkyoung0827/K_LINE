@@ -68,7 +68,7 @@ export function TraditionalLiquorMarketCollectorPanel({ onBatchReady }: { onBatc
   const summary = job?.resultSummary ?? {};
   return <div className="border-b border-white/10 bg-[#0f1415]">
     <header className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 p-5">
-      <div><div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.14em] text-[#f7c76b]"><DatabaseZap className="h-4 w-4" />MARKET DATA COLLECTION</div><h2 className="mt-2 text-xl font-semibold">WooHyukmon Market Collector</h2><p className="mt-1 text-xs leading-5 text-white/42">공개 페이지 → Browser Collector → 기존 Staging → Entity Resolution → 명시적 Production Commit</p></div>
+      <div><div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.14em] text-[#f7c76b]"><DatabaseZap className="h-4 w-4" />BUSINESS DATA COLLECTION</div><h2 className="mt-2 text-xl font-semibold">비즈니스 데이터 수집</h2><p className="mt-1 text-xs leading-5 text-white/42">공개 페이지 → Browser Collector → Staging → Entity Resolution → Production 검토</p><p className="mt-1 text-[10px] leading-4 text-white/32">우혁몬 4.0 채팅의 수집 명령은 별도의 일회성 자동 파이프라인으로 분석한 뒤 원자료를 저장하지 않습니다.</p></div>
       <button type="button" onClick={() => void pingExtension()} title="Collector 연결 확인" className="grid h-9 w-9 place-items-center border border-white/12 text-white/55 hover:text-[#f7c76b]"><RefreshCw className={`h-4 w-4 ${extension === "checking" ? "animate-spin" : ""}`} /></button>
     </header>
     <div className="grid gap-5 p-5 lg:grid-cols-[1fr_1fr]">

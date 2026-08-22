@@ -111,7 +111,7 @@ export function TraditionalLiquorDatabase({ initialState, mode = "page", onBack 
       <section className={`${embedded ? "mt-4" : "mt-8"} border border-white/10 bg-white/[0.035]`}>
         {showAnalyticsNavigation ? <div className="flex overflow-x-auto border-b border-white/10" role="tablist" aria-label="전통주 데이터 분류">
           {tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={!dataCollectionOpen && activeView === tab.id} onClick={() => selectView(tab.id)} className={`min-h-12 min-w-28 border-r border-white/10 px-5 text-sm font-bold transition ${!dataCollectionOpen && activeView === tab.id ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>{tab.label}</button>)}
-          {!embedded ? <button type="button" role="tab" aria-selected={dataCollectionOpen} onClick={openDataCollection} className={`order-first min-h-12 min-w-28 border-r border-white/10 px-5 text-sm font-bold transition ${dataCollectionOpen ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>데이터 수집</button> : null}
+          {!embedded ? <button type="button" role="tab" aria-selected={dataCollectionOpen} onClick={openDataCollection} className={`order-first min-h-12 min-w-40 border-r border-white/10 px-5 text-sm font-bold transition ${dataCollectionOpen ? "bg-[#f7c76b] text-[#17191a]" : "text-white/58 hover:bg-white/5 hover:text-white"}`}>비즈니스 데이터 수집</button> : null}
         </div> : null}
         {!dataCollectionOpen ? <div className="p-4 md:p-5">
           <label className="relative block">
