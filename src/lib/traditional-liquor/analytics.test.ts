@@ -74,6 +74,6 @@ test("chat renders the reusable embedded analytics shell before Gemini", async (
   assert.match(chat, /TraditionalLiquorAnalyticsShell initialState/);
   assert.ok(chat.indexOf("detectTraditionalLiquorAnalytics(trimmed") < chat.indexOf('fetch("/api/gemini"'));
   assert.match(database, /mode="embedded"/);
-  assert.match(database, /!embedded \? <><div/);
+  assert.match(database, /!embedded \? <p className=/);
   assert.match(database, /전체 화면으로 열기/);
 });
