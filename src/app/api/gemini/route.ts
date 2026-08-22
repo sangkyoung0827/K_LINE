@@ -561,6 +561,7 @@ async function searchExternalSources(query: string) {
 
 async function streamGeminiAnswer({
   ai,
+  businessReport = false,
   controller,
   externalSearchContext = "",
   history,
@@ -570,6 +571,7 @@ async function streamGeminiAnswer({
   modelVersion
 }: {
   ai: GoogleGenAI;
+  businessReport?: boolean;
   controller: ReadableStreamDefaultController<Uint8Array>;
   externalSearchContext?: string;
   history: ClientMessage[];
@@ -584,7 +586,8 @@ async function streamGeminiAnswer({
     config: {
       systemInstruction: buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion),
       temperature: externalSearchContext ? 0.12 : 0.35,
-      maxOutputTokens: getMaxOutputTokens()
+      maxOutputTokens: businessReport ? 1_100 : getMaxOutputTokens(),
+      ...(businessReport ? { thinkingConfig: { thinkingBudget: 0 } } : {})
     }
   });
 
@@ -708,7 +711,7 @@ export async function POST(request: Request) {
             }));
           }
         }
-        const knowledgeResults = developerAccess.isDeveloper || isPublicV4
+        const knowledgeResults = !businessCollectionRequest && (developerAccess.isDeveloper || isPublicV4)
           ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
               console.error("WooHyukmon private knowledge retrieval failed", error);
               return [];
@@ -785,6 +788,7 @@ export async function POST(request: Request) {
 
         await streamGeminiAnswer({
           ai,
+          businessReport: Boolean(businessCollectionContext),
           controller,
           externalSearchContext: [
             developerAccess.isDeveloper || isPublicV4 ? formatKnowledgeContext(knowledgeResults) : "",
