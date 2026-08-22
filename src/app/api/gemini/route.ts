@@ -586,8 +586,7 @@ async function streamGeminiAnswer({
     config: {
       systemInstruction: buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion),
       temperature: externalSearchContext ? 0.12 : 0.35,
-      maxOutputTokens: businessReport ? 1_100 : getMaxOutputTokens(),
-      ...(businessReport ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+      maxOutputTokens: businessReport ? 1_100 : getMaxOutputTokens()
     }
   });
 
