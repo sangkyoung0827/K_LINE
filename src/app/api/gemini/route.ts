@@ -74,6 +74,7 @@ type TavilySearchResponse = {
 };
 
 const encoder = new TextEncoder();
+const externalSearchTimeoutMs = 6_500;
 
 const woohyukmonSystemInstruction = `You are Woohyukmon, the official Campus AI Guide for K_LINE.
 
@@ -379,7 +380,8 @@ async function searchDuckDuckGo(query: string): Promise<ExternalSearchResult[]> 
   const response = await fetch(url, {
     headers: {
       Accept: "application/json"
-    }
+    },
+    signal: AbortSignal.timeout(externalSearchTimeoutMs)
   });
 
   if (!response.ok) {
@@ -421,7 +423,8 @@ async function searchWikipedia(query: string): Promise<ExternalSearchResult[]> {
       headers: {
         Accept: "application/json",
         "User-Agent": "K_LINE-Woohyukmon/1.0 (https://kline-nine-wheat.vercel.app)"
-      }
+      },
+      signal: AbortSignal.timeout(externalSearchTimeoutMs)
     });
 
     if (!response.ok) {
@@ -465,7 +468,8 @@ async function searchBrave(query: string): Promise<ExternalSearchResult[]> {
     headers: {
       Accept: "application/json",
       "X-Subscription-Token": apiKey
-    }
+    },
+    signal: AbortSignal.timeout(externalSearchTimeoutMs)
   });
 
   if (!response.ok) {
@@ -503,7 +507,8 @@ async function searchTavily(query: string): Promise<ExternalSearchResult[]> {
       max_results: 5,
       include_answer: false,
       include_raw_content: false
-    })
+    }),
+    signal: AbortSignal.timeout(externalSearchTimeoutMs)
   });
 
   if (!response.ok) {
