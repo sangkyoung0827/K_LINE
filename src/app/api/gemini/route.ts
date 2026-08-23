@@ -5,6 +5,7 @@ import {
   detectBusinessCollectionRequest,
   runEphemeralBusinessDataPipeline
 } from "@/lib/business-data/ephemeral-pipeline";
+import { detectEccAnnouncementRequest } from "@/lib/ecc/announcement";
 import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
 import { supabaseRequest } from "@/lib/supabaseServer";
 import { buildTraditionalLiquorAssistantContext, isTraditionalLiquorQuestion } from "@/lib/traditional-liquor/assistant-context";
@@ -648,6 +649,7 @@ export async function POST(request: Request) {
         const businessCollectionRequest = isPublicV4
           ? detectBusinessCollectionRequest(message)
           : null;
+        const eccAnnouncementRequest = detectEccAnnouncementRequest(message);
         const traditionalLiquorQuestion = (developerAccess.isDeveloper || isPublicV4) && isTraditionalLiquorQuestion(message);
         const traditionalLiquor = traditionalLiquorQuestion
           ? await buildTraditionalLiquorAssistantContext(message).catch((error) => {
@@ -662,12 +664,15 @@ export async function POST(request: Request) {
             })
           : "";
         const databaseProviders = [
+          ...(eccAnnouncementRequest ? ["ECC Notice Style"] : []),
           ...(traditionalLiquor?.hasRecords ? ["Traditional Liquor DB"] : []),
           ...(operationalContext ? ["K_LINE Operational DB"] : [])
         ];
         const needsExternalSearch = Boolean(businessCollectionRequest)
           || explicitlyRequestsExternalResearch(message)
-          || (databaseProviders.length === 0 && (!traditionalLiquorQuestion || !traditionalLiquor?.hasRecords));
+          || (!eccAnnouncementRequest
+            && databaseProviders.length === 0
+            && (!traditionalLiquorQuestion || !traditionalLiquor?.hasRecords));
 
         controller.enqueue(
           ndjson({
@@ -683,7 +688,9 @@ export async function POST(request: Request) {
                 ? `${configuredProviders.join(" · ")} 검색 중`
                 : `${databaseProviders.join(" · ")} 조회 완료`,
             providers: needsExternalSearch ? configuredProviders : databaseProviders,
-            sourceCount: (traditionalLiquor?.hasRecords ? 1 : 0) + (operationalContext ? 1 : 0)
+            sourceCount: (eccAnnouncementRequest ? 1 : 0)
+              + (traditionalLiquor?.hasRecords ? 1 : 0)
+              + (operationalContext ? 1 : 0)
           })
         );
 
@@ -710,7 +717,9 @@ export async function POST(request: Request) {
             }));
           }
         }
-        const knowledgeResults = !businessCollectionRequest && (developerAccess.isDeveloper || isPublicV4)
+        const knowledgeResults = !businessCollectionRequest
+          && !eccAnnouncementRequest
+          && (developerAccess.isDeveloper || isPublicV4)
           ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
               console.error("WooHyukmon private knowledge retrieval failed", error);
               return [];
@@ -718,6 +727,7 @@ export async function POST(request: Request) {
           : [];
         const traditionalLiquorContext = traditionalLiquor?.text ?? "";
         const businessCollectionContext = businessCollection?.context ?? "";
+        const eccAnnouncementContext = eccAnnouncementRequest?.context ?? "";
         const knowledgeSources = developerAccess.isDeveloper
           ? knowledgeResults.map((result) => ({
               title: result.fileName,
@@ -735,8 +745,10 @@ export async function POST(request: Request) {
           + publicKnowledgeCount
           + (traditionalLiquorContext ? 1 : 0)
           + (operationalContext ? 1 : 0)
-          + (businessCollectionContext ? 1 : 0);
+          + (businessCollectionContext ? 1 : 0)
+          + (eccAnnouncementContext ? 1 : 0);
         const allProviders = [
+          ...(eccAnnouncementContext ? ["ECC Notice Style"] : []),
           ...(knowledgeResults.length > 0 ? ["WooHyukmon DB"] : []),
           ...(traditionalLiquorContext ? ["Traditional Liquor DB"] : []),
           ...(operationalContext ? ["K_LINE Operational DB"] : []),
@@ -785,23 +797,30 @@ export async function POST(request: Request) {
           })
         );
 
-        await streamGeminiAnswer({
-          ai,
-          businessReport: Boolean(businessCollectionContext),
-          controller,
-          externalSearchContext: [
-            developerAccess.isDeveloper || isPublicV4 ? formatKnowledgeContext(knowledgeResults) : "",
-            traditionalLiquorContext,
-            operationalContext,
-            businessCollectionContext,
-            buildExternalSearchContext(externalResults)
-          ].filter(Boolean).join("\n\n"),
-          history,
-          message,
-          mode,
-          attachmentNames,
-          modelVersion
-        });
+        try {
+          await streamGeminiAnswer({
+            ai,
+            businessReport: Boolean(businessCollectionContext),
+            controller,
+            externalSearchContext: [
+              knowledgeResults.length > 0 ? formatKnowledgeContext(knowledgeResults) : "",
+              eccAnnouncementContext,
+              traditionalLiquorContext,
+              operationalContext,
+              businessCollectionContext,
+              buildExternalSearchContext(externalResults)
+            ].filter(Boolean).join("\n\n"),
+            history,
+            message,
+            mode,
+            attachmentNames,
+            modelVersion
+          });
+        } catch (error) {
+          if (!eccAnnouncementRequest) throw error;
+          console.error("ECC announcement generation failed; using the safe house-style draft", getErrorDetail(error));
+          controller.enqueue(ndjson({ type: "text", text: eccAnnouncementRequest.fallback }));
+        }
 
         if (businessCollection) {
           controller.enqueue(ndjson({

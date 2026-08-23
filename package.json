@@ -14,6 +14,7 @@
     "test:traditional-liquor-intents": "tsx --test src/lib/traditional-liquor/intents.test.ts",
     "test:traditional-liquor-analytics": "tsx --test src/lib/traditional-liquor/analytics.test.ts",
     "test:business-data-collection": "tsx --test src/lib/business-data/ephemeral-pipeline.test.ts",
+    "test:ecc-announcements": "tsx --test src/lib/ecc/announcement.test.ts",
     "build:market-collector": "node extensions/woo-hyukmon-market-collector/build.mjs",
     "typecheck:market-collector": "tsc -p extensions/woo-hyukmon-market-collector/tsconfig.json --noEmit",
     "test:market-collector": "tsx --test src/lib/traditional-liquor/collector/market-collector.test.ts",
@@ -21,7 +22,7 @@
     "check:v4-isolation": "node scripts/check-v4-isolation.mjs",
     "check:browser-safety": "node scripts/check-browser-safety.mjs",
     "check:hanhwal-isolation": "node scripts/check-hanhwal-isolation.mjs",
-    "test": "npm run typecheck && npm run typecheck:market-collector && npm run build:market-collector && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run test:traditional-liquor-real-import && npm run test:traditional-liquor-intents && npm run test:traditional-liquor-analytics && npm run test:business-data-collection && npm run test:market-collector && npm run check:traditional-liquor-collection && npm run check:browser-safety && npm run check:hanhwal-isolation",
+    "test": "npm run typecheck && npm run typecheck:market-collector && npm run build:market-collector && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run test:traditional-liquor-real-import && npm run test:traditional-liquor-intents && npm run test:traditional-liquor-analytics && npm run test:business-data-collection && npm run test:ecc-announcements && npm run test:market-collector && npm run check:traditional-liquor-collection && npm run check:browser-safety && npm run check:hanhwal-isolation",
     "check": "npm run test && npm run build && npm run check:v4-isolation"
   },
   "dependencies": {
