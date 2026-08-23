@@ -128,13 +128,11 @@ export default async function EccOfficialPage() {
                 title={<I18nText en="Member Management" ko="회원 관리" />}
               />
             ) : null}
-            {access.isSuperAdmin ? (
-              <OfficialRow
-                href="/our-activities/ecc/fund"
-                icon={Banknote}
-                title={<I18nText en="ECC Fund Management" ko="ECC 자금관리" />}
-              />
-            ) : null}
+            <OfficialRow
+              href="/our-activities/ecc/fund"
+              icon={Banknote}
+              title={<I18nText en="ECC Fund Management" ko="ECC 자금관리" />}
+            />
             {access.isDeveloper ? (
               <OfficialRow
                 href="/developer"

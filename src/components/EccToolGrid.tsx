@@ -72,19 +72,19 @@ const officialEccTools = [
   }
 ] as const;
 
-const superAdminOnlyTool = {
+const fundTool = {
   eyebrow: "Fund management",
   title: "ECC Fund",
   titleKo: "ECC 자금관리",
   description:
-    "The super-admin can enter and manage fund and account information.",
+    "Check the remaining ECC balance. Administrators can update the current fund.",
   descriptionKo:
-    "슈퍼관리자가 자금과 계좌 정보를 입력하고 관리합니다.",
+    "ECC의 남은 금액을 확인하고 관리자 이상 권한에서 현재 자금을 입력합니다.",
   href: "/our-activities/ecc/fund",
   cta: "Open Fund Page",
   ctaKo: "자금관리 열기",
   icon: Banknote,
-  minimumRole: "super_admin"
+  minimumRole: "official_member"
 } as const;
 
 const developerOnlyTool = {
@@ -111,7 +111,7 @@ const roleRank: Record<EccRole, number> = {
 };
 
 export function EccToolGrid({ role }: { role: EccRole }) {
-  const tools = [...officialEccTools, superAdminOnlyTool, developerOnlyTool].filter(
+  const tools = [...officialEccTools, fundTool, developerOnlyTool].filter(
     (tool) => roleRank[role] >= roleRank[tool.minimumRole]
   );
 
