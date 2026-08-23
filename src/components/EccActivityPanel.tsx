@@ -1097,11 +1097,11 @@ export function EccActivityPanel() {
   };
 
   return (
-    <div className="grid gap-8">
-      <section className="paper-panel flex flex-wrap items-center justify-between gap-5 p-5 md:p-6">
+    <div className="grid gap-5 sm:gap-8">
+      <section className="paper-panel flex flex-wrap items-center justify-between gap-4 p-4 sm:gap-5 sm:p-5 md:p-6">
         <div>
           <p className="text-sm font-semibold uppercase text-brass">{text.languageEyebrow}</p>
-          <h2 className="mt-2 font-serif text-3xl font-semibold text-ink">
+          <h2 className="mt-2 font-serif text-2xl font-semibold text-ink sm:text-3xl">
             {text.languageTitle}
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/64">
@@ -1124,7 +1124,7 @@ export function EccActivityPanel() {
         </div>
       </section>
 
-      <section className="paper-panel grid gap-6 p-6 md:p-8">
+      <section className="paper-panel grid gap-5 p-4 sm:gap-6 sm:p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper">
@@ -1133,7 +1133,7 @@ export function EccActivityPanel() {
             <p className="mt-5 text-sm font-semibold uppercase text-brass">
               {text.applicationEyebrow}
             </p>
-            <h2 className="mt-2 font-serif text-4xl font-semibold text-ink">
+            <h2 className="mt-2 font-serif text-3xl font-semibold text-ink sm:text-4xl">
               {text.applicationTitle}
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-ink/64">
@@ -1154,7 +1154,7 @@ export function EccActivityPanel() {
                   type="button"
                   onClick={() => selectApplicationType(item.type)}
                   aria-pressed={selected}
-                  className={`paper-panel min-h-44 p-5 text-left transition hover:border-brass hover:bg-white/70 ${
+                  className={`paper-panel min-h-0 p-4 text-left transition hover:border-brass hover:bg-white/70 sm:min-h-44 sm:p-5 ${
                     selected
                       ? "bg-navy text-paper shadow-lift ring-2 ring-brass ring-offset-2 ring-offset-paper"
                       : ""
@@ -1183,10 +1183,10 @@ export function EccActivityPanel() {
                       {isOpen ? text.applicationOpen : text.applicationClosed}
                     </span>
                   </div>
-                  <h3 className={`mt-4 font-serif text-3xl font-semibold ${selected ? "text-paper" : "text-ink"}`}>
+                  <h3 className={`mt-3 font-serif text-2xl font-semibold sm:mt-4 sm:text-3xl ${selected ? "text-paper" : "text-ink"}`}>
                     {item.labels[language].title}
                   </h3>
-                  <p className={`mt-3 text-sm leading-7 ${selected ? "text-paper/72" : "text-ink/62"}`}>
+                  <p className={`mt-2 text-sm leading-6 sm:mt-3 sm:leading-7 ${selected ? "text-paper/72" : "text-ink/62"}`}>
                     {item.labels[language].description}
                   </p>
                 </button>

@@ -19,16 +19,16 @@ export default async function EccActivityPage() {
   const access = await getCurrentEccAccess();
 
   return (
-    <section className="bg-paper py-14 md:py-20">
+    <section className="bg-paper py-10 sm:py-14 md:py-20">
       <div className="mx-auto max-w-7xl px-5 md:px-8">
         <Link
           href="/our-activities/ecc"
-          className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4"
+          className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4 sm:mb-8"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" />
           <I18nText en="Back to ECC Menu" ko="ECC 메뉴로 돌아가기" />
         </Link>
-        <ClubMark id="ecc" size="lg" className="mb-6 border-ink/10" />
+        <ClubMark id="ecc" size="lg" className="mb-4 !h-16 !w-16 border-ink/10 sm:mb-6 sm:!h-24 sm:!w-24" />
         <SectionHeader
           eyebrow={<I18nText en="ECC activity" ko="ECC 활동" />}
           title={<I18nText en="ECC Activity" ko="ECC 활동" />}
@@ -39,16 +39,16 @@ export default async function EccActivityPage() {
             />
           }
         />
-        <div className="mt-10">
+        <div className="mt-7 sm:mt-10">
           {access.isOfficialMember ? (
             <EccActivityPanel />
           ) : (
-            <div className="paper-panel flex items-start gap-4 p-6 md:p-8">
+            <div className="paper-panel flex flex-col items-start gap-4 p-5 sm:flex-row sm:p-6 md:p-8">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-navy text-paper">
                 <Lock aria-hidden className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="font-serif text-3xl font-semibold text-ink">
+                <h2 className="font-serif text-2xl font-semibold text-ink sm:text-3xl">
                   <I18nText en="ECC official membership required" ko="ECC 정식회원 권한이 필요합니다" />
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink/68">

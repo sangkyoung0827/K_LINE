@@ -34,9 +34,14 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-navy/8 bg-paper/96 backdrop-blur-xl">
-      <nav className="mx-auto flex min-h-[92px] max-w-7xl items-center justify-between px-5 md:px-8">
-        <Link href="/" aria-label="K_LINE home" className="shrink-0">
-          <Logo size="md" />
+      <nav className="mx-auto flex min-h-[76px] max-w-7xl items-center justify-between gap-2 px-4 sm:min-h-[92px] sm:px-5 md:px-8">
+        <Link href="/" aria-label="K_LINE home" className="min-w-0 shrink-0">
+          <span className="sm:hidden">
+            <Logo size="sm" showTagline={false} />
+          </span>
+          <span className="hidden sm:inline-flex">
+            <Logo size="md" />
+          </span>
         </Link>
 
         <div className="hidden items-center gap-9 lg:flex">
@@ -90,14 +95,14 @@ export function Navbar() {
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <LanguageSwitcher />
           <AuthStatus />
           {isDeveloper ? (
             <Link
               href="/cart"
               aria-label={language === "ko" ? "장바구니 열기" : "Open cart"}
-              className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-navy/12 bg-white/45 text-ink transition hover:border-brass hover:bg-brass/15"
+              className="relative hidden h-11 w-11 items-center justify-center rounded-xl border border-navy/12 bg-white/45 text-ink transition hover:border-brass hover:bg-brass/15 sm:inline-flex"
             >
               <ShoppingBag aria-hidden className="h-4 w-4" />
               {totalQuantity > 0 ? (
@@ -197,6 +202,15 @@ export function Navbar() {
                 <Code2 aria-hidden className="h-4 w-4" />
                 {language === "ko" ? "개발자" : "Developer"}
               </Link>
+            ) : null}
+            {isDeveloper ? (
+              <MobileMenuLink href="/cart" onClick={() => setOpen(false)}>
+                <span className="inline-flex items-center gap-2">
+                  <ShoppingBag aria-hidden className="h-4 w-4" />
+                  {language === "ko" ? "장바구니" : "Cart"}
+                  {totalQuantity > 0 ? ` (${totalQuantity})` : ""}
+                </span>
+              </MobileMenuLink>
             ) : null}
           </div>
         </div>

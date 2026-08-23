@@ -72,13 +72,13 @@ export default async function EccOfficialPage() {
   return (
     <OfficialShell>
       <section className="grid gap-6">
-        <div className="paper-panel mx-auto grid w-full max-w-5xl justify-items-center p-6 text-center md:p-10">
+        <div className="paper-panel mx-auto grid w-full max-w-5xl justify-items-center p-4 text-center sm:p-6 md:p-10">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
               <ShieldCheck aria-hidden className="h-4 w-4" />
               <I18nText en="Confirmed member" ko="정식회원 확인됨" />
             </div>
-            <h2 className="mt-5 font-serif text-3xl font-semibold text-ink md:text-4xl">
+            <h2 className="mt-4 font-serif text-2xl font-semibold text-ink sm:mt-5 sm:text-3xl md:text-4xl">
               <I18nText en="Join the ECC team chat" ko="ECC 팀채팅에 입장하세요" />
             </h2>
             <p className="mt-4 text-sm leading-7 text-ink/66">
@@ -88,7 +88,7 @@ export default async function EccOfficialPage() {
               />
             </p>
           </div>
-          <div className="mt-6 grid w-full max-w-60 gap-3">
+          <div className="mt-5 grid w-full max-w-52 gap-3 sm:mt-6 sm:max-w-60">
             <img
               src="/api/ecc/official-team-qr"
               alt="ECC official team chat QR code"
@@ -171,7 +171,7 @@ function OfficialShell({ children }: { children: React.ReactNode }) {
           <ClubMark id="ecc" size="xl" className="hidden border-4 border-white/70 shadow-lift md:inline-flex" />
         </div>
       </section>
-      <section className="bg-paper py-14 md:py-20">
+      <section className="bg-paper py-10 sm:py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">{children}</div>
       </section>
     </>
@@ -190,12 +190,12 @@ function AccessMessage({
   title: React.ReactNode;
 }) {
   return (
-    <div className="paper-panel flex items-start gap-4 p-6 md:p-8">
+    <div className="paper-panel flex flex-col items-start gap-4 p-5 sm:flex-row sm:p-6 md:p-8">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-navy text-paper">
         <Lock aria-hidden className="h-5 w-5" />
       </div>
       <div>
-        <h2 className="font-serif text-3xl font-semibold text-ink">{title}</h2>
+        <h2 className="font-serif text-2xl font-semibold text-ink sm:text-3xl">{title}</h2>
         <p className="mt-3 text-sm leading-7 text-ink/68">{description}</p>
         <Link
           href={href}
@@ -221,12 +221,12 @@ function OfficialRow({
   return (
     <Link
       href={href}
-      className="group flex min-h-20 items-center gap-4 border-b border-ink/10 px-5 py-4 last:border-b-0 transition hover:bg-white/70 md:px-6"
+      className="group flex min-h-16 items-center gap-3 border-b border-ink/10 px-4 py-3 last:border-b-0 transition hover:bg-white/70 sm:min-h-20 sm:gap-4 sm:px-5 sm:py-4 md:px-6"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
         <Icon aria-hidden className="h-5 w-5" />
       </div>
-      <span className="text-lg font-semibold text-ink md:text-xl">{title}</span>
+      <span className="text-base font-semibold text-ink sm:text-lg md:text-xl">{title}</span>
       <span className="ml-auto text-ink/45 transition group-hover:translate-x-1 group-hover:text-ink">
         <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
       </span>

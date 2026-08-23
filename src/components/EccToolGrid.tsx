@@ -120,7 +120,7 @@ export function EccToolGrid({ role }: { role: EccRole }) {
   }
 
   return (
-    <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className="mt-7 grid gap-3 sm:mt-10 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
       {tools.map((tool) => {
         const Icon = tool.icon;
 
@@ -128,23 +128,23 @@ export function EccToolGrid({ role }: { role: EccRole }) {
           <Link
             key={tool.href}
             href={tool.href}
-            className="paper-panel group grid min-h-72 content-between p-6 transition hover:border-brass hover:bg-white/70 hover:shadow-soft md:p-8"
+            className="paper-panel group grid min-h-0 content-between p-4 transition hover:border-brass hover:bg-white/70 hover:shadow-soft sm:p-6 md:min-h-72 md:p-8"
           >
             <div>
               <div className="flex h-12 w-12 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
                 <Icon aria-hidden className="h-5 w-5" />
               </div>
-              <p className="mt-6 text-sm font-semibold uppercase text-brass">
+              <p className="mt-4 text-sm font-semibold uppercase text-brass sm:mt-6">
                 <I18nText en={tool.eyebrow} ko={tool.eyebrow} />
               </p>
-              <h2 className="mt-3 font-serif text-4xl font-semibold text-ink">
+              <h2 className="mt-2 font-serif text-2xl font-semibold text-ink sm:mt-3 sm:text-4xl">
                 <I18nText en={tool.title} ko={tool.titleKo} />
               </h2>
-              <p className="mt-4 text-sm leading-7 text-ink/68">
+              <p className="mt-2 text-sm leading-6 text-ink/68 sm:mt-4 sm:leading-7">
                 <I18nText en={tool.description} ko={tool.descriptionKo} />
               </p>
             </div>
-            <span className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4">
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4 sm:mt-8">
               <I18nText en={tool.cta} ko={tool.ctaKo} />
               <ArrowRight
                 aria-hidden

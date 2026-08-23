@@ -22,20 +22,20 @@ export default async function HanhwalHubPage() {
   }
 
   return (
-    <section className="bg-paper py-16 md:py-24">
+    <section className="bg-paper py-10 sm:py-16 md:py-24">
       <div className="mx-auto max-w-4xl px-5 md:px-8">
-        <div className="flex items-center gap-5">
-          <ClubMark id="hanhwal" size="lg" className="border-ink/10" />
+        <div className="flex items-center gap-4 sm:gap-5">
+          <ClubMark id="hanhwal" size="lg" className="!h-16 !w-16 border-ink/10 sm:!h-24 sm:!w-24" />
           <div>
             <p className="text-sm font-semibold uppercase text-brass">Korean Traditional Archery Club</p>
-            <h1 className="mt-2 font-serif text-5xl font-semibold text-navy md:text-7xl">
+            <h1 className="mt-2 font-serif text-4xl font-semibold text-navy sm:text-5xl md:text-7xl">
               <I18nText en="Hanhwal" ko="한활" />
             </h1>
           </div>
         </div>
 
-        <div className="mt-10 border border-navy/10 bg-white p-8 shadow-soft md:p-10">
-          <h2 className="font-serif text-3xl font-semibold text-navy md:text-4xl">
+        <div className="mt-6 border border-navy/10 bg-white p-5 shadow-soft sm:mt-10 sm:p-8 md:p-10">
+          <h2 className="font-serif text-2xl font-semibold text-navy sm:text-3xl md:text-4xl">
             <I18nText en="New Member Registration" ko="신규 회원 등록" />
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-ink/68">
@@ -46,7 +46,7 @@ export default async function HanhwalHubPage() {
           </p>
           <Link
             href="/hanhwal-join"
-            className="mt-8 inline-flex min-h-12 items-center bg-navy px-6 text-sm font-semibold text-white shadow-soft transition hover:bg-ink"
+            className="mt-5 inline-flex min-h-11 items-center bg-navy px-6 text-sm font-semibold text-white shadow-soft transition hover:bg-ink sm:mt-8 sm:min-h-12"
           >
             <I18nText en="Register" ko="등록하기" />
           </Link>

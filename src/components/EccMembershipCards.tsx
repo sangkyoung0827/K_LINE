@@ -60,7 +60,7 @@ export function EccMembershipCards({ role }: { role: EccRole }) {
   }
 
   return (
-    <div className="mt-10 grid gap-5">
+    <div className="mt-7 grid gap-3 sm:mt-10 sm:gap-5">
       {visibleCards.map((card) => {
         const Icon = card.icon;
 
@@ -68,9 +68,9 @@ export function EccMembershipCards({ role }: { role: EccRole }) {
           <Link
             key={card.href}
             href={card.href}
-            className="paper-panel group grid min-h-44 content-between p-6 transition hover:border-brass hover:bg-white/70 hover:shadow-soft md:p-8"
+            className="paper-panel group grid min-h-0 content-between p-4 transition hover:border-brass hover:bg-white/70 hover:shadow-soft sm:min-h-44 sm:p-6 md:p-8"
           >
-            <div className="flex gap-5">
+            <div className="flex gap-3 sm:gap-5">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
                 <Icon aria-hidden className="h-5 w-5" />
               </div>
@@ -78,15 +78,15 @@ export function EccMembershipCards({ role }: { role: EccRole }) {
                 <p className="text-sm font-semibold uppercase text-brass">
                   <I18nText en={card.eyebrow} ko={card.eyebrowKo} />
                 </p>
-                <h2 className="mt-3 font-serif text-3xl font-semibold text-ink md:text-4xl">
+                <h2 className="mt-2 font-serif text-2xl font-semibold text-ink sm:mt-3 sm:text-3xl md:text-4xl">
                   <I18nText en={card.title} ko={card.titleKo} />
                 </h2>
-                <p className="mt-4 text-sm leading-7 text-ink/68">
+                <p className="mt-2 text-sm leading-6 text-ink/68 sm:mt-4 sm:leading-7">
                   <I18nText en={card.description} ko={card.descriptionKo} />
                 </p>
               </div>
             </div>
-            <span className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4">
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4 sm:mt-8">
               <I18nText en={card.cta} ko={card.ctaKo} />
               <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
             </span>

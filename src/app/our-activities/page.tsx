@@ -88,7 +88,7 @@ export default function OurActivitiesPage() {
         </div>
       </section>
 
-      <section className="bg-paper py-14 md:py-20">
+      <section className="bg-paper py-10 sm:py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow={<I18nText en="Club menus" ko="클럽 메뉴" />}
@@ -100,18 +100,18 @@ export default function OurActivitiesPage() {
               />
             }
           />
-          <div className="mt-10 grid gap-5 md:grid-cols-2">
+          <div className="mt-7 grid gap-3 sm:mt-10 sm:gap-5 md:grid-cols-2">
             {activityBoards.map((board) => (
               <Link
                 key={board.id}
                 href={`/our-activities/${board.slug}`}
-                className="paper-panel group grid min-h-72 content-between p-6 transition hover:border-brass hover:bg-white/70 hover:shadow-lift md:p-8"
+                className="paper-panel group grid min-w-0 content-between overflow-hidden p-4 transition hover:border-brass hover:bg-white/70 hover:shadow-lift sm:p-6 md:min-h-72 md:p-8"
               >
-                <div className="border-b border-ink/10 pb-6">
-                  <div className="flex items-center gap-5">
+                <div className="border-b border-ink/10 pb-4 sm:pb-6">
+                  <div className="flex min-w-0 items-center gap-3 sm:gap-5">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold uppercase text-brass">{board.label}</p>
-                      <h2 className="mt-4 font-serif text-4xl font-semibold text-ink md:text-5xl">
+                      <h2 className="mt-2 font-serif text-3xl font-semibold text-ink sm:mt-4 sm:text-4xl md:text-5xl">
                         <I18nText
                           en={clubDisplayTitles[board.id]}
                           ko={clubDisplayTitlesKo[board.id]}
@@ -122,10 +122,10 @@ export default function OurActivitiesPage() {
                     <ClubMark
                       id={board.id}
                       size="xl"
-                      className="border-2 border-ink/10 bg-white shadow-soft transition duration-500 group-hover:scale-105"
+                      className="!h-16 !w-16 border-2 border-ink/10 bg-white shadow-soft transition duration-500 group-hover:scale-105 sm:!h-20 sm:!w-20 md:!h-32 md:!w-32"
                     />
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-2 sm:mt-4">
                     <p className="text-sm font-semibold text-ink/58">
                       <I18nText
                         en={clubSubtitles[board.id].en}
@@ -134,8 +134,8 @@ export default function OurActivitiesPage() {
                     </p>
                   </div>
                 </div>
-                <div className="grid gap-4 pt-6">
-                  <p className="text-sm leading-7 text-ink/68">
+                <div className="grid gap-2 pt-4 sm:gap-4 sm:pt-6">
+                  <p className="text-sm leading-6 text-ink/68 sm:leading-7">
                     {board.id === "ecc" ? (
                       <I18nText
                         en="Open the full ECC space with board posts and activity applications."
@@ -162,7 +162,7 @@ export default function OurActivitiesPage() {
         </div>
       </section>
 
-      <section className="bg-white/45 py-14 md:py-20">
+      <section className="bg-white/45 py-10 sm:py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <SectionHeader
             eyebrow={<I18nText en="Club records" ko="클럽 기록" />}
@@ -174,13 +174,13 @@ export default function OurActivitiesPage() {
               />
             }
           />
-          <div className="mt-10 grid gap-5">
+          <div className="mt-7 grid gap-4 sm:mt-10 sm:gap-5">
             {latestClubRecords.map((record) => (
               <article
                 key={record.id}
-                className="paper-panel grid gap-5 overflow-hidden p-4 transition hover:border-brass hover:bg-white/65 md:grid-cols-[220px_1fr]"
+                className="paper-panel grid gap-4 overflow-hidden p-3 transition hover:border-brass hover:bg-white/65 sm:p-4 md:grid-cols-[220px_1fr] md:gap-5"
               >
-                <Link href={record.href} className="relative aspect-[4/3] overflow-hidden bg-hanji">
+                <Link href={record.href} className="relative aspect-video overflow-hidden bg-hanji md:aspect-[4/3]">
                   <img
                     src={record.image.src}
                     alt={record.image.alt}
@@ -196,7 +196,7 @@ export default function OurActivitiesPage() {
                     </span>
                     <span className="text-xs text-ink/52">{record.date}</span>
                   </div>
-                  <h2 className="font-serif text-3xl font-semibold text-ink">{record.title}</h2>
+                  <h2 className="font-serif text-2xl font-semibold text-ink sm:text-3xl">{record.title}</h2>
                   <p className="text-sm text-ink/58">By {record.author}</p>
                   <p className="text-sm leading-7 text-ink/70">{record.excerpt}</p>
                   <div className="flex flex-wrap gap-2">

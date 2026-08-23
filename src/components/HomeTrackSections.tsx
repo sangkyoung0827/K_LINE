@@ -49,9 +49,9 @@ const homeCards: HomeCard[] = [
 
 export function HomeTrackSections() {
   return (
-    <section className="bg-paper px-5 pb-14 md:px-8 md:pb-20">
+    <section className="bg-paper px-4 pb-10 sm:px-5 sm:pb-14 md:px-8 md:pb-20">
       <div className="mx-auto max-w-7xl">
-        <div className="grid gap-7 md:grid-cols-3">
+        <div className="grid gap-3 sm:gap-5 md:grid-cols-3 md:gap-7">
           {homeCards.map((card) => (
             <HomePortalCard key={card.href} card={card} />
           ))}
@@ -67,18 +67,18 @@ function HomePortalCard({ card }: { card: HomeCard }) {
   return (
     <Link
       href={card.href}
-      className="group relative flex min-h-[292px] flex-col rounded-2xl border border-navy/10 bg-white/58 p-6 text-left shadow-[0_18px_45px_rgba(31,42,68,0.06)] transition duration-200 hover:-translate-y-1 hover:border-brass/70 hover:bg-white/78 hover:shadow-[0_22px_55px_rgba(31,42,68,0.10)] md:p-8"
+      className="group relative flex min-h-0 flex-col rounded-xl border border-navy/10 bg-white/58 p-4 text-left shadow-[0_18px_45px_rgba(31,42,68,0.06)] transition duration-200 hover:-translate-y-1 hover:border-brass/70 hover:bg-white/78 hover:shadow-[0_22px_55px_rgba(31,42,68,0.10)] sm:p-5 md:min-h-[292px] md:rounded-2xl md:p-8"
     >
       <div className="flex items-start justify-between gap-4">
         {card.accent === "support" ? (
-          <span className="flex h-14 w-20 items-center justify-center rounded-xl bg-white shadow-[0_14px_28px_rgba(31,42,68,0.14)]">
-            <WoohyukmonGlassesIcon className="h-10 w-16" />
+          <span className="flex h-11 w-16 items-center justify-center rounded-lg bg-white shadow-[0_14px_28px_rgba(31,42,68,0.14)] sm:h-14 sm:w-20 sm:rounded-xl">
+            <WoohyukmonGlassesIcon className="h-8 w-12 sm:h-10 sm:w-16" />
           </span>
         ) : (
           <ClubMark
             id={card.accent === "ecc" ? "ecc" : "hanhwal"}
             size="md"
-            className="border-4 border-white bg-white shadow-[0_14px_28px_rgba(31,42,68,0.12)]"
+            className="!h-11 !w-11 border-4 border-white bg-white shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:!h-16 sm:!w-16"
           />
         )}
 
@@ -87,16 +87,16 @@ function HomePortalCard({ card }: { card: HomeCard }) {
         </span>
       </div>
 
-      <div className="mt-8 flex-1">
-        <h2 className="font-serif text-3xl font-semibold tracking-[-0.02em] text-navy md:text-4xl">
+      <div className="mt-4 flex-1 sm:mt-6 md:mt-8">
+        <h2 className="font-serif text-2xl font-semibold tracking-[-0.02em] text-navy sm:text-3xl md:text-4xl">
           {pick(card.title)}
         </h2>
-        <p className="mt-6 min-h-[4.5rem] text-sm font-medium leading-7 text-muted">
+        <p className="mt-2 text-sm font-medium leading-6 text-muted sm:mt-4 sm:leading-7 md:mt-6 md:min-h-[4.5rem]">
           {pick(card.description)}
         </p>
       </div>
 
-      <span className="mt-7 inline-flex items-center gap-2 text-sm font-bold text-navy">
+      <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-navy sm:mt-6 md:mt-7">
         <I18nText en="View Details" ko="자세히 보기" />
         <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
       </span>

@@ -988,7 +988,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
   };
 
   const quickActionCards = (
-    <div className="flex w-full flex-wrap justify-center gap-2.5">
+    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-center sm:gap-2.5">
       {[
         {
           icon: Calculator,
@@ -1018,7 +1018,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
             key={en}
             type="button"
             onClick={() => fillQuickPrompt(prompt)}
-            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-navy/15 bg-white/72 px-3.5 py-2 text-left text-xs font-semibold text-ink transition hover:border-brass hover:bg-white sm:px-4 sm:text-sm"
+            className="inline-flex min-h-12 w-full items-center gap-2 rounded-xl border border-navy/15 bg-white/72 px-3 py-2 text-left text-xs font-semibold leading-5 text-ink transition hover:border-brass hover:bg-white sm:min-h-10 sm:w-auto sm:rounded-full sm:px-4 sm:text-sm"
           >
             <Icon aria-hidden className="h-4 w-4 shrink-0 text-ink/70" />
             <span>{prompt}</span>
@@ -1029,7 +1029,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
         href={eccInstagramUrl}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-navy/15 bg-white/56 px-3.5 py-2 text-xs font-semibold text-ink/72 transition hover:border-brass hover:bg-white sm:px-4 sm:text-sm"
+        className="col-span-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-navy/15 bg-white/56 px-3 py-2 text-xs font-semibold text-ink/72 transition hover:border-brass hover:bg-white sm:min-h-10 sm:w-auto sm:rounded-full sm:px-4 sm:text-sm"
       >
         <Instagram aria-hidden className="h-4 w-4 shrink-0" />
         <span>
@@ -1085,21 +1085,24 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
         value={input}
         onChange={(event) => setInput(event.target.value)}
         placeholder={language === "ko" ? "우혁몬에게 무엇이든 물어보세요" : "Ask Woohyukmon anything"}
-        className={`min-h-12 flex-1 bg-paper px-4 text-sm text-ink outline-none transition focus:ring-2 focus:ring-brass/20 ${
+        className={`min-h-12 min-w-0 flex-1 bg-paper px-3 text-sm text-ink outline-none transition focus:ring-2 focus:ring-brass/20 sm:px-4 ${
           mode === "center"
             ? "rounded-xl border border-transparent focus:border-brass"
             : "rounded-xl border border-navy/14 focus:border-brass"
         }`}
       />
-      <div className="relative hidden shrink-0 sm:block">
+      <div className="relative block shrink-0">
         <button
           type="button"
           onClick={() => setModelMenuOpen((current) => !current)}
-          className="flex h-12 items-center rounded-xl border border-navy/12 bg-white px-3 text-[11px] font-bold text-navy transition hover:border-brass"
+          className="flex h-12 w-12 items-center justify-center rounded-xl border border-navy/12 bg-white px-1 text-[11px] font-bold text-navy transition hover:border-brass sm:w-auto sm:px-3"
           aria-expanded={modelMenuOpen}
           aria-label={language === "ko" ? "모델 설정" : "Model settings"}
         >
-          {language === "ko" ? `우혁몬 ${modelVersion}.0` : `Woohyukmon ${modelVersion}.0`}
+          <span className="sm:hidden">{modelVersion}.0</span>
+          <span className="hidden sm:inline">
+            {language === "ko" ? `우혁몬 ${modelVersion}.0` : `Woohyukmon ${modelVersion}.0`}
+          </span>
         </button>
         {modelMenuOpen ? (
           <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-20 w-44 rounded-lg border border-navy/12 bg-white p-2 text-xs text-ink shadow-lift">
@@ -1288,7 +1291,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
   );
 
   return (
-    <section className="flex w-full flex-col overflow-hidden border border-navy/12 bg-white/70 text-left shadow-[0_22px_60px_rgba(31,42,68,0.09)] lg:min-h-[calc(100svh-6.5rem)] lg:flex-row">
+    <section className="flex w-full flex-col overflow-hidden border-y border-navy/12 bg-white/70 text-left shadow-[0_22px_60px_rgba(31,42,68,0.09)] sm:border lg:min-h-[calc(100svh-6.5rem)] lg:flex-row">
       <div className="hidden lg:block">{sidebar}</div>
 
       {sidebarOpen ? (
@@ -1331,15 +1334,15 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
           </button>
         </div>
 
-        <div className="min-h-[440px] flex-1 overflow-y-auto p-5 md:p-7 lg:p-8">
+        <div className="min-h-[400px] flex-1 overflow-y-auto p-4 sm:min-h-[440px] sm:p-5 md:p-7 lg:p-8">
           {isEmptyConversation ? (
-            <div className="mx-auto flex min-h-[520px] w-full max-w-3xl flex-col items-center justify-center pb-8">
+            <div className="mx-auto flex min-h-[430px] w-full max-w-3xl flex-col items-center justify-center pb-5 sm:min-h-[520px] sm:pb-8">
               <WoohyukmonGlassesIcon
-                className="mb-7 h-20 w-40 md:h-24 md:w-48"
+                className="mb-5 h-16 w-32 sm:mb-7 sm:h-20 sm:w-40 md:h-24 md:w-48"
                 alt={language === "ko" ? "우혁몬 안경" : "Woohyukmon glasses"}
               />
               <div className="w-full">{chatComposer("center")}</div>
-              <div className="mt-4 w-full">{quickActionCards}</div>
+              <div className="mt-3 w-full sm:mt-4">{quickActionCards}</div>
             </div>
           ) : (
             <div className="grid gap-4">
