@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { redirect } from "next/navigation";
 import { ClubMark } from "@/components/ClubMark";
 import { DonationPanel } from "@/components/DonationPanel";
 import { I18nText } from "@/components/LanguageProvider";
@@ -17,6 +18,10 @@ export const metadata: Metadata = createNoIndexMetadata({
 
 export default async function EccFundPage() {
   const access = await getCurrentEccAccess();
+
+  if (!access.isAdmin) {
+    redirect("/ecc-official");
+  }
 
   return (
     <section className="bg-paper py-14 md:py-20">

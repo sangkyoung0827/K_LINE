@@ -84,7 +84,7 @@ const fundTool = {
   cta: "Open Fund Page",
   ctaKo: "자금관리 열기",
   icon: Banknote,
-  minimumRole: "official_member"
+  minimumRole: "admin"
 } as const;
 
 const developerOnlyTool = {

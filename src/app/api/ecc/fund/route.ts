@@ -40,6 +40,15 @@ async function requireAdmin() {
 
 export async function GET() {
   try {
+    const access = await getCurrentEccAccess();
+
+    if (!access.isAdmin) {
+      return NextResponse.json(
+        { error: "Administrator access required." },
+        { status: access.isLoggedIn ? 403 : 401 }
+      );
+    }
+
     const rows = await supabaseRequest<FundRow[]>(`ecc_fund_settings?select=${columns}&id=eq.ecc&limit=1`);
     return NextResponse.json({ fund: rows[0] ? toClient(rows[0]) : null });
   } catch (error) {
