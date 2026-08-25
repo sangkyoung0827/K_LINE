@@ -218,10 +218,7 @@ export function HanhwalMemberRegistrationManagementPanel() {
       <div className="border-b border-ink/10 p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
-            <p className="text-sm font-semibold uppercase text-brass">
-              <I18nText en="K_LINE internal registration" ko="K_LINE 내부 신규회원 등록" />
-            </p>
-            <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
+            <h2 className="font-serif text-3xl font-semibold text-ink">
               <I18nText en="Hanhwal New Member Approval" ko="한활 신규회원 승인" />
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/68">
