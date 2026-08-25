@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import {
+  getEccMemberRegistrationById,
   listEccMemberRegistrations,
   patchEccMemberRegistration
 } from "@/lib/eccMemberRegistrations";
+import { deleteKLineMemberData } from "@/lib/klineMemberDeletion";
 import {
   approveEccOfficialMember,
   getCurrentEccAccess,
@@ -161,6 +163,44 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       registrations,
       updatedCount: updated.length
+    });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const access = await getCurrentEccAccess();
+
+    if (!access.isDeveloper) {
+      return NextResponse.json(
+        {
+          error: "Developer access is required to permanently delete member data.",
+          debugCode: "ECC_MEMBER_REGISTRATIONS_DELETE_FORBIDDEN"
+        },
+        { status: access.isLoggedIn ? 403 : 401 }
+      );
+    }
+
+    const body = (await request.json()) as { id?: unknown };
+    const registration = await getEccMemberRegistrationById(cleanText(body.id, 120));
+
+    if (!registration) {
+      return NextResponse.json(
+        {
+          error: "ECC member registration was not found.",
+          debugCode: "ECC_MEMBER_REGISTRATION_NOT_FOUND"
+        },
+        { status: 404 }
+      );
+    }
+
+    const deleted = await deleteKLineMemberData(registration.googleEmail);
+
+    return NextResponse.json({
+      deleted,
+      registrations: await listEccMemberRegistrations()
     });
   } catch (error) {
     return apiErrorResponse(error);

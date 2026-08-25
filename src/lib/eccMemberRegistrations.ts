@@ -141,6 +141,22 @@ export async function getEccMemberRegistrationByEmail(email?: string | null) {
   return rows[0] ? toEccMemberRegistration(rows[0]) : null;
 }
 
+export async function getEccMemberRegistrationById(id?: string | null) {
+  const registrationId = cleanText(id, 120);
+
+  if (!registrationId) {
+    return null;
+  }
+
+  const rows = await supabaseRequest<EccMemberRegistrationRow[]>(
+    `${eccMemberRegistrationsTable}?select=${eccMemberRegistrationColumns}&id=eq.${encodeURIComponent(
+      registrationId
+    )}&limit=1`
+  );
+
+  return rows[0] ? toEccMemberRegistration(rows[0]) : null;
+}
+
 export async function listEccMemberRegistrations() {
   const rows = await supabaseRequest<EccMemberRegistrationRow[]>(
     `${eccMemberRegistrationsTable}?select=${eccMemberRegistrationColumns}&order=created_at.desc&limit=1000`

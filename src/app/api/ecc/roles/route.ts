@@ -21,6 +21,7 @@ import {
   getEccOfficialTeamChatUrl,
   type EccRoleRow
 } from "@/lib/eccAccess";
+import { deleteKLineMemberData } from "@/lib/klineMemberDeletion";
 
 export const dynamic = "force-dynamic";
 
@@ -328,6 +329,21 @@ export async function PATCH(request: Request) {
         { error: "Developer account information is available only to developer accounts." },
         { status: 403 }
       );
+    }
+
+    if (action === "delete_member_data") {
+      if (!access.isDeveloper) {
+        return NextResponse.json(
+          { error: "Developer access is required to permanently delete member data." },
+          { status: 403 }
+        );
+      }
+
+      const deleted = await deleteKLineMemberData(targetEmail);
+      return NextResponse.json({
+        ...(await buildResponse()),
+        deleted
+      });
     }
 
     if (action === "approve_official_member") {

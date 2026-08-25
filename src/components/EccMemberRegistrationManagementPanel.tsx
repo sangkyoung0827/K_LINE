@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Save, UserCheck } from "lucide-react";
+import { CheckCircle2, Loader2, Save, Trash2, UserCheck } from "lucide-react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
@@ -39,6 +39,13 @@ type DraftState = Record<
 >;
 
 type RegistrationListResponse = {
+  access?: {
+    email?: string;
+    isDeveloper?: boolean;
+  };
+  deleted?: {
+    email?: string;
+  };
   error?: string;
   registrations?: EccMemberRegistration[];
   updatedCount?: number;
@@ -64,14 +71,34 @@ function statusLabel(registration: EccMemberRegistration, language: "en" | "ko")
   return language === "ko" ? "회비 확인 대기" : "Payment pending";
 }
 
+function toDrafts(nextRegistrations: EccMemberRegistration[]) {
+  return Object.fromEntries(
+    nextRegistrations.map((registration) => [
+      registration.id,
+      {
+        adminNote: registration.adminNote,
+        paymentConfirmed: registration.paymentConfirmed
+      }
+    ])
+  );
+}
+
 export function EccMemberRegistrationManagementPanel() {
   const { language } = useLanguage();
   const [registrations, setRegistrations] = useState<EccMemberRegistration[]>([]);
   const [drafts, setDrafts] = useState<DraftState>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+  const [isDeveloper, setIsDeveloper] = useState(false);
+  const [developerEmail, setDeveloperEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const applyRegistrations = (nextRegistrations: EccMemberRegistration[]) => {
+    setRegistrations(nextRegistrations);
+    setDrafts(toDrafts(nextRegistrations));
+  };
 
   useEffect(() => {
     let active = true;
@@ -92,19 +119,9 @@ export function EccMemberRegistrationManagementPanel() {
           throw new Error(data.error || "ECC member registrations could not be loaded.");
         }
 
-        const loaded = data.registrations ?? [];
-        setRegistrations(loaded);
-        setDrafts(
-          Object.fromEntries(
-            loaded.map((registration) => [
-              registration.id,
-              {
-                adminNote: registration.adminNote,
-                paymentConfirmed: registration.paymentConfirmed
-              }
-            ])
-          )
-        );
+        applyRegistrations(data.registrations ?? []);
+        setIsDeveloper(Boolean(data.access?.isDeveloper));
+        setDeveloperEmail(data.access?.email ?? "");
       })
       .catch((loadError) => {
         if (!active) {
@@ -179,19 +196,7 @@ export function EccMemberRegistrationManagementPanel() {
         throw new Error(data.error || "ECC member registrations could not be saved.");
       }
 
-      const nextRegistrations = data.registrations ?? [];
-      setRegistrations(nextRegistrations);
-      setDrafts(
-        Object.fromEntries(
-          nextRegistrations.map((registration) => [
-            registration.id,
-            {
-              adminNote: registration.adminNote,
-              paymentConfirmed: registration.paymentConfirmed
-            }
-          ])
-        )
-      );
+      applyRegistrations(data.registrations ?? []);
       setMessage(
         language === "ko"
           ? `신규회원 등록 ${data.updatedCount ?? 0}건을 저장했습니다.`
@@ -201,6 +206,52 @@ export function EccMemberRegistrationManagementPanel() {
       setError(saveError instanceof Error ? saveError.message : "ECC member registrations could not be saved.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deleteRegistration = async (registration: EccMemberRegistration) => {
+    const confirmed = window.confirm(
+      language === "ko"
+        ? `${registration.fullName || registration.googleEmail}님의 가입 신청과 K_LINE에 연결된 계정 데이터를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
+        : `Permanently delete ${registration.fullName || registration.googleEmail}'s registration and K_LINE account-linked data? This cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(registration.id);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/ecc/member-registrations", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id: registration.id })
+      });
+      const data = (await response.json()) as RegistrationListResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error || "ECC member registration could not be deleted.");
+      }
+
+      applyRegistrations(data.registrations ?? []);
+      setMessage(
+        language === "ko"
+          ? "가입 신청과 연결된 K_LINE 계정 데이터를 삭제했습니다."
+          : "The member registration and linked K_LINE account data were deleted."
+      );
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "ECC member registration could not be deleted."
+      );
+    } finally {
+      setDeletingId("");
     }
   };
 
@@ -218,10 +269,7 @@ export function EccMemberRegistrationManagementPanel() {
       <div className="border-b border-ink/10 p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
-            <p className="text-sm font-semibold uppercase text-brass">
-              <I18nText en="K_LINE internal registration" ko="K_LINE 내부 신규회원 등록" />
-            </p>
-            <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
+            <h2 className="font-serif text-3xl font-semibold text-ink">
               <I18nText en="ECC New Member Approval" ko="ECC 신규회원 승인" />
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/68">
@@ -359,6 +407,21 @@ export function EccMemberRegistrationManagementPanel() {
                     value={draft.adminNote}
                     onChange={(event) => updateDraft(registration.id, { adminNote: event.target.value })}
                   />
+                  {isDeveloper && registration.googleEmail !== developerEmail ? (
+                    <button
+                      type="button"
+                      onClick={() => void deleteRegistration(registration)}
+                      disabled={saving || Boolean(deletingId)}
+                      className="inline-flex min-h-10 items-center justify-center gap-2 border border-red-900/25 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingId === registration.id ? (
+                        <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 aria-hidden className="h-4 w-4" />
+                      )}
+                      <I18nText en="Delete application" ko="신청 삭제" />
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );
@@ -367,8 +430,8 @@ export function EccMemberRegistrationManagementPanel() {
       ) : (
         <div className="p-8 text-sm leading-7 text-ink/62">
           <I18nText
-            en="No K_LINE internal ECC member registration has been submitted yet."
-            ko="아직 K_LINE 내부 ECC 신규회원 등록이 없습니다."
+            en="No ECC member registrations have been submitted yet."
+            ko="아직 ECC 신규회원 등록이 없습니다."
           />
         </div>
       )}
@@ -377,7 +440,7 @@ export function EccMemberRegistrationManagementPanel() {
         <button
           type="button"
           onClick={save}
-          disabled={saving || registrations.length === 0}
+          disabled={saving || Boolean(deletingId) || registrations.length === 0}
           className="inline-flex min-h-12 items-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Save aria-hidden className="h-4 w-4" />}

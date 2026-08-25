@@ -1,6 +1,15 @@
 "use client";
 
-import { CheckCircle2, RefreshCcw, Search, ShieldCheck, ShieldPlus, UserCheck, UserMinus } from "lucide-react";
+import {
+  CheckCircle2,
+  RefreshCcw,
+  Search,
+  ShieldCheck,
+  ShieldPlus,
+  Trash2,
+  UserCheck,
+  UserMinus
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { EccAccess, EccRole } from "@/lib/eccAccess";
@@ -99,6 +108,50 @@ export function EccPermissionManagementPanel() {
       setMessage(language === "ko" ? "권한 변경이 저장되었습니다." : "Permission change saved.");
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "ECC role change could not be saved.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteMemberData = async (member: ManagedMember) => {
+    const confirmed = window.confirm(
+      language === "ko"
+        ? `${member.name || member.email}님의 K_LINE 가입 정보와 연결된 데이터를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
+        : `Permanently delete ${member.name || member.email}'s K_LINE member data? This cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/ecc/roles", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ action: "delete_member_data", email: member.email })
+      });
+      const nextData = (await response.json()) as RolesResponse;
+
+      if (!response.ok) {
+        throw new Error(nextData.error || "K_LINE member data could not be deleted.");
+      }
+
+      setData(nextData);
+      setMessage(
+        language === "ko"
+          ? "가입자 정보와 연결된 K_LINE 데이터를 삭제했습니다."
+          : "The member data was deleted from K_LINE."
+      );
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error ? deleteError.message : "K_LINE member data could not be deleted."
+      );
     } finally {
       setLoading(false);
     }
@@ -316,6 +369,19 @@ export function EccPermissionManagementPanel() {
                         className="inline-flex min-h-9 items-center gap-2 border border-red-900/20 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         <I18nText en="Revoke super" ko="슈퍼관리자 해제" />
+                      </button>
+                    ) : null}
+                    {me?.isDeveloper &&
+                    !member.access.isDeveloper &&
+                    member.email !== me.email ? (
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => void deleteMemberData(member)}
+                        className="inline-flex min-h-9 items-center gap-2 border border-red-900/25 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                        <I18nText en="Delete" ko="삭제" />
                       </button>
                     ) : null}
                   </div>
