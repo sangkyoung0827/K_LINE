@@ -38,6 +38,7 @@ type RegistrationResponse = {
   error?: string;
   message?: string;
   registration?: EccMemberRegistration | null;
+  teamChatUrl?: string;
 };
 
 type FormState = {
@@ -237,6 +238,12 @@ export function EccMemberRegistrationForm() {
       setForm(registrationToForm(data.registration ?? null));
       setFieldErrors({});
       setEditing(false);
+
+      if (data.teamChatUrl) {
+        window.location.assign(data.teamChatUrl);
+        return;
+      }
+
       setMessage(
         language === "ko"
           ? "ECC 신규회원 등록이 제출되었습니다. 운영진이 회비 납부를 확인하면 정식회원 권한이 열립니다."

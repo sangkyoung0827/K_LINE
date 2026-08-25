@@ -6,7 +6,7 @@ import {
   upsertEccMemberRegistration,
   validateEccMemberRegistrationForm
 } from "@/lib/eccMemberRegistrations";
-import { getCurrentEccAccess } from "@/lib/eccAccess";
+import { getCurrentEccAccess, getEccOfficialTeamChatUrl } from "@/lib/eccAccess";
 import { registerSiteMember } from "@/lib/siteAnalytics";
 import {
   SupabaseConfigError,
@@ -145,7 +145,8 @@ export async function POST(request: Request) {
       {
         message:
           "Your ECC registration has been submitted. ECC officers will check your payment and approve your official membership soon.",
-        registration
+        registration,
+        teamChatUrl: getEccOfficialTeamChatUrl()
       },
       { status: existing ? 200 : 201 }
     );
