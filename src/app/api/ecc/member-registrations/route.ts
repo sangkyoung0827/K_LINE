@@ -4,7 +4,7 @@ import {
   listEccMemberRegistrations,
   patchEccMemberRegistration
 } from "@/lib/eccMemberRegistrations";
-import { deleteKLineMemberData } from "@/lib/klineMemberDeletion";
+import { resetEccMemberRegistrationData } from "@/lib/klineMemberDeletion";
 import {
   approveEccOfficialMember,
   getCurrentEccAccess,
@@ -176,7 +176,7 @@ export async function DELETE(request: Request) {
     if (!access.isDeveloper) {
       return NextResponse.json(
         {
-          error: "Developer access is required to permanently delete member data.",
+          error: "Developer access is required to reset ECC member registration data.",
           debugCode: "ECC_MEMBER_REGISTRATIONS_DELETE_FORBIDDEN"
         },
         { status: access.isLoggedIn ? 403 : 401 }
@@ -196,10 +196,10 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const deleted = await deleteKLineMemberData(registration.googleEmail);
+    const reset = await resetEccMemberRegistrationData(registration.googleEmail);
 
     return NextResponse.json({
-      deleted,
+      reset,
       registrations: await listEccMemberRegistrations()
     });
   } catch (error) {

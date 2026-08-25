@@ -43,7 +43,7 @@ type RegistrationListResponse = {
     email?: string;
     isDeveloper?: boolean;
   };
-  deleted?: {
+  reset?: {
     email?: string;
   };
   error?: string;
@@ -212,8 +212,8 @@ export function EccMemberRegistrationManagementPanel() {
   const deleteRegistration = async (registration: EccMemberRegistration) => {
     const confirmed = window.confirm(
       language === "ko"
-        ? `${registration.fullName || registration.googleEmail}님의 가입 신청과 K_LINE에 연결된 계정 데이터를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
-        : `Permanently delete ${registration.fullName || registration.googleEmail}'s registration and K_LINE account-linked data? This cannot be undone.`
+        ? `${registration.fullName || registration.googleEmail}님의 ECC 가입 신청과 ECC 자체 권한을 초기화하시겠습니까? 사이트 계정과 다른 K_LINE 데이터는 유지됩니다.`
+        : `Reset ${registration.fullName || registration.googleEmail}'s ECC registration and ECC-specific permission data? Their site account and other K_LINE data will remain.`
     );
 
     if (!confirmed) {
@@ -235,20 +235,20 @@ export function EccMemberRegistrationManagementPanel() {
       const data = (await response.json()) as RegistrationListResponse;
 
       if (!response.ok) {
-        throw new Error(data.error || "ECC member registration could not be deleted.");
+        throw new Error(data.error || "ECC member registration could not be reset.");
       }
 
       applyRegistrations(data.registrations ?? []);
       setMessage(
         language === "ko"
-          ? "가입 신청과 연결된 K_LINE 계정 데이터를 삭제했습니다."
-          : "The member registration and linked K_LINE account data were deleted."
+          ? "ECC 가입 신청과 ECC 자체 권한을 초기화했습니다."
+          : "The ECC registration and ECC-specific permission data were reset."
       );
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "ECC member registration could not be deleted."
+          : "ECC member registration could not be reset."
       );
     } finally {
       setDeletingId("");

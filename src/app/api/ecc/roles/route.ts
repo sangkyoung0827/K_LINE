@@ -21,7 +21,7 @@ import {
   getEccOfficialTeamChatUrl,
   type EccRoleRow
 } from "@/lib/eccAccess";
-import { deleteKLineMemberData } from "@/lib/klineMemberDeletion";
+import { resetEccMemberRegistrationData } from "@/lib/klineMemberDeletion";
 
 export const dynamic = "force-dynamic";
 
@@ -331,18 +331,18 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (action === "delete_member_data") {
+    if (action === "reset_ecc_member_data") {
       if (!access.isDeveloper) {
         return NextResponse.json(
-          { error: "Developer access is required to permanently delete member data." },
+          { error: "Developer access is required to reset ECC member registration data." },
           { status: 403 }
         );
       }
 
-      const deleted = await deleteKLineMemberData(targetEmail);
+      const reset = await resetEccMemberRegistrationData(targetEmail);
       return NextResponse.json({
         ...(await buildResponse()),
-        deleted
+        reset
       });
     }
 

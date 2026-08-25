@@ -116,8 +116,8 @@ export function EccPermissionManagementPanel() {
   const deleteMemberData = async (member: ManagedMember) => {
     const confirmed = window.confirm(
       language === "ko"
-        ? `${member.name || member.email}님의 K_LINE 가입 정보와 연결된 데이터를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
-        : `Permanently delete ${member.name || member.email}'s K_LINE member data? This cannot be undone.`
+        ? `${member.name || member.email}님의 ECC 가입 정보와 ECC 자체 권한을 초기화하시겠습니까? 사이트 계정과 다른 K_LINE 데이터는 유지됩니다.`
+        : `Reset ${member.name || member.email}'s ECC registration and ECC-specific permissions? Their site account and other K_LINE data will remain.`
     );
 
     if (!confirmed) {
@@ -134,23 +134,23 @@ export function EccPermissionManagementPanel() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ action: "delete_member_data", email: member.email })
+        body: JSON.stringify({ action: "reset_ecc_member_data", email: member.email })
       });
       const nextData = (await response.json()) as RolesResponse;
 
       if (!response.ok) {
-        throw new Error(nextData.error || "K_LINE member data could not be deleted.");
+        throw new Error(nextData.error || "ECC member data could not be reset.");
       }
 
       setData(nextData);
       setMessage(
         language === "ko"
-          ? "가입자 정보와 연결된 K_LINE 데이터를 삭제했습니다."
-          : "The member data was deleted from K_LINE."
+          ? "ECC 가입 정보와 ECC 자체 권한을 초기화했습니다."
+          : "The ECC registration and ECC-specific permission data were reset."
       );
     } catch (deleteError) {
       setError(
-        deleteError instanceof Error ? deleteError.message : "K_LINE member data could not be deleted."
+        deleteError instanceof Error ? deleteError.message : "ECC member data could not be reset."
       );
     } finally {
       setLoading(false);
