@@ -47,7 +47,7 @@ export const eccRolesTable = "ecc_roles";
 export const eccRoleColumns =
   "id,created_at,updated_at,email,name,avatar_url,role,is_official_member,payment_confirmed,payment_confirmed_by,payment_confirmed_at,official_member_status,admin_status,admin_requested_at,admin_approved_by,admin_approved_at,super_admin_status,super_admin_requested_at,super_admin_approved_by,super_admin_approved_at";
 
-export const defaultEccOfficialTeamChatUrl = "https://invite.kakao.com/tc/d3m2UO008Y";
+export const defaultEccOfficialTeamChatUrl = "https://invite.kakao.com/tc/RQerLbSgvH";
 
 const roleRank: Record<EccRole, number> = {
   user: 1,

@@ -422,7 +422,7 @@ Add these environment variables in Vercel when appropriate:
 ```bash
 DEVELOPER_EMAILS=developer@example.com
 SUPER_ADMIN_EMAILS=superadmin@example.com
-ECC_OFFICIAL_TEAM_CHAT_URL=https://invite.kakao.com/tc/d3m2UO008Y
+ECC_OFFICIAL_TEAM_CHAT_URL=https://invite.kakao.com/tc/RQerLbSgvH
 ```
 
 Protected ECC routes:
