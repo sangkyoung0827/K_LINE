@@ -7,6 +7,7 @@ import {
 } from "@/lib/business-data/ephemeral-pipeline";
 import { detectEccAnnouncementRequest } from "@/lib/ecc/announcement";
 import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
+import { buildJejuWoohyukmonContext } from "@/lib/jeju/ai-context";
 import { supabaseRequest } from "@/lib/supabaseServer";
 import { buildTraditionalLiquorAssistantContext, isTraditionalLiquorQuestion } from "@/lib/traditional-liquor/assistant-context";
 
@@ -151,7 +152,13 @@ Important behavior:
 
 You are not just answering questions. You are helping users complete the correct next step on K_LINE.`;
 
-function buildWoohyukmonSystemInstruction(history: ClientMessage[], mode = "chat", attachmentNames: string[] = [], modelVersion = "4") {
+function buildWoohyukmonSystemInstruction(
+  history: ClientMessage[],
+  mode = "chat",
+  attachmentNames: string[] = [],
+  modelVersion = "4",
+  experienceContext = ""
+) {
   const conversationRule =
     history.length === 0
       ? "This is the first reply in this chat. A short natural greeting is allowed once, but answer the user's request immediately."
@@ -162,6 +169,11 @@ function buildWoohyukmonSystemInstruction(history: ClientMessage[], mode = "chat
       ? `\n\nWoohyukmon ${modelVersion}.0 board draft task:\n- Draft an ECC free-board post from the user's request and the attached file names.\n- Start with exactly \"제목: \" for Korean or \"Title: \" for English, followed by a concise title.\n- Then write \"내용:\" or \"Content:\" and a finished post body.\n- Do not say the post has already been uploaded. The user must confirm publication separately.\n- Attached files: ${attachmentNames.join(", ") || "none"}.`
       : "";
 
+  const jejuGuideRule =
+    experienceContext === "jeju"
+      ? `\n\nJeju Explorer guide mode:\n- You are helping an international student explore Jeju Island through K_LINE Jeju Explorer.\n- Prioritize the server-supplied Jeju Explorer data over generic knowledge.\n- Use the current user's food preferences, allergies, dietary needs, visited places, ratings, and one-time location only for this answer.\n- Never repeat the user's precise location or expose private profile data.\n- Do not recommend a place that conflicts with a known allergy or dietary restriction without a clear warning.\n- Avoid repeating places the user has already visited unless they ask about them.\n- When the Jeju Explorer database has no relevant records, say so plainly; use external research only when the supplied result is necessary to help.`
+      : "";
+
   return `${woohyukmonSystemInstruction}
 
 Conversation continuity:
@@ -169,7 +181,7 @@ Conversation continuity:
 - Do not repeatedly introduce yourself or repeat K_LINE, ECC, Han-hwal, membership, or site navigation unless the user asks about that subject.
 - Focus on the user's exact request. If the subject changes, follow the new subject without redirecting it back to club information.
 - WooHyukmon 4.0 can read server-supplied Knowledge DB, Traditional Liquor DB, and non-identifying K_LINE operational summaries for every user. This is read-only access and never grants admin actions.
-- Never claim that you can view, edit, upload, publish, approve, or change live K_LINE data unless the server explicitly provides that authorized live action or data.${postDraftRule}`;
+- Never claim that you can view, edit, upload, publish, approve, or change live K_LINE data unless the server explicitly provides that authorized live action or data.${postDraftRule}${jejuGuideRule}`;
 }
 
 async function buildPublicV4OperationalContext(message: string) {
@@ -569,7 +581,8 @@ async function streamGeminiAnswer({
   message,
   mode,
   attachmentNames,
-  modelVersion
+  modelVersion,
+  experienceContext
 }: {
   ai: GoogleGenAI;
   businessReport?: boolean;
@@ -580,12 +593,13 @@ async function streamGeminiAnswer({
   mode?: string;
   attachmentNames?: string[];
   modelVersion?: string;
+  experienceContext?: string;
 }) {
   const responseStream = await ai.models.generateContentStream({
     model: getGeminiModel(),
     contents: buildContents(message, history, externalSearchContext),
     config: {
-      systemInstruction: buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion),
+      systemInstruction: buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion, experienceContext),
       temperature: externalSearchContext ? 0.12 : 0.35,
       maxOutputTokens: businessReport ? 2_200 : getMaxOutputTokens()
     }
@@ -613,10 +627,26 @@ export async function POST(request: Request) {
     return Response.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
   }
 
-  let body: { attachmentNames?: unknown; message?: unknown; history?: unknown; mode?: unknown; modelVersion?: unknown };
+  let body: {
+    attachmentNames?: unknown;
+    context?: unknown;
+    currentLocation?: unknown;
+    message?: unknown;
+    history?: unknown;
+    mode?: unknown;
+    modelVersion?: unknown;
+  };
 
   try {
-    body = (await request.json()) as { attachmentNames?: unknown; message?: unknown; history?: unknown; mode?: unknown; modelVersion?: unknown };
+    body = (await request.json()) as {
+      attachmentNames?: unknown;
+      context?: unknown;
+      currentLocation?: unknown;
+      message?: unknown;
+      history?: unknown;
+      mode?: unknown;
+      modelVersion?: unknown;
+    };
   } catch {
     return Response.json({ error: "Invalid JSON request body." }, { status: 400 });
   }
@@ -631,6 +661,7 @@ export async function POST(request: Request) {
   const mode = body.mode === "post_draft" ? "post_draft" : "chat";
   const modelVersion = body.modelVersion === "2" || body.modelVersion === "3" ? body.modelVersion : "4";
   const isPublicV4 = modelVersion === "4";
+  const experienceContext = body.context === "jeju" ? "jeju" : "";
   const attachmentNames = Array.isArray(body.attachmentNames)
     ? body.attachmentNames
         .filter((name): name is string => typeof name === "string")
@@ -642,35 +673,53 @@ export async function POST(request: Request) {
   const session = await auth();
   const developerAccess = await getAdminAccess(session?.user?.email ?? "");
 
+  if (experienceContext === "jeju" && !session?.user?.email) {
+    return Response.json({ error: "Google login is required for Jeju Explorer recommendations." }, { status: 401 });
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
         const configuredProviders = getConfiguredSearchProviders();
-        const businessCollectionRequest = isPublicV4
+        const jejuGuide = experienceContext === "jeju"
+          ? await buildJejuWoohyukmonContext({
+              email: session?.user?.email ?? "",
+              currentLocation: body.currentLocation
+            }).catch((error) => {
+              console.error("WooHyukmon Jeju Explorer retrieval failed", error);
+              return null;
+            })
+          : null;
+        const businessCollectionRequest = isPublicV4 && experienceContext !== "jeju"
           ? detectBusinessCollectionRequest(message)
           : null;
-        const eccAnnouncementRequest = detectEccAnnouncementRequest(message);
-        const traditionalLiquorQuestion = (developerAccess.isDeveloper || isPublicV4) && isTraditionalLiquorQuestion(message);
+        const eccAnnouncementRequest = experienceContext === "jeju" ? null : detectEccAnnouncementRequest(message);
+        const traditionalLiquorQuestion = experienceContext !== "jeju"
+          && (developerAccess.isDeveloper || isPublicV4)
+          && isTraditionalLiquorQuestion(message);
         const traditionalLiquor = traditionalLiquorQuestion
           ? await buildTraditionalLiquorAssistantContext(message).catch((error) => {
               console.error("WooHyukmon traditional liquor retrieval failed", error);
               return null;
             })
           : null;
-        const operationalContext = isPublicV4
+        const operationalContext = isPublicV4 && experienceContext !== "jeju"
           ? await buildPublicV4OperationalContext(message).catch((error) => {
               console.error("WooHyukmon operational summary retrieval failed", error);
               return "";
             })
           : "";
         const databaseProviders = [
+          ...(jejuGuide ? ["Jeju Explorer DB"] : []),
           ...(eccAnnouncementRequest ? ["ECC Notice Style"] : []),
           ...(traditionalLiquor?.hasRecords ? ["Traditional Liquor DB"] : []),
           ...(operationalContext ? ["K_LINE Operational DB"] : [])
         ];
         const needsExternalSearch = Boolean(businessCollectionRequest)
           || explicitlyRequestsExternalResearch(message)
-          || (!eccAnnouncementRequest
+          || (experienceContext === "jeju" && !jejuGuide?.hasPlaces)
+          || (experienceContext !== "jeju"
+            && !eccAnnouncementRequest
             && databaseProviders.length === 0
             && (!traditionalLiquorQuestion || !traditionalLiquor?.hasRecords));
 
@@ -688,7 +737,8 @@ export async function POST(request: Request) {
                 ? `${configuredProviders.join(" · ")} 검색 중`
                 : `${databaseProviders.join(" · ")} 조회 완료`,
             providers: needsExternalSearch ? configuredProviders : databaseProviders,
-            sourceCount: (eccAnnouncementRequest ? 1 : 0)
+            sourceCount: (jejuGuide ? 1 : 0)
+              + (eccAnnouncementRequest ? 1 : 0)
               + (traditionalLiquor?.hasRecords ? 1 : 0)
               + (operationalContext ? 1 : 0)
           })
@@ -717,7 +767,8 @@ export async function POST(request: Request) {
             }));
           }
         }
-        const knowledgeResults = !businessCollectionRequest
+        const knowledgeResults = experienceContext !== "jeju"
+          && !businessCollectionRequest
           && !eccAnnouncementRequest
           && (developerAccess.isDeveloper || isPublicV4)
           ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
@@ -728,6 +779,7 @@ export async function POST(request: Request) {
         const traditionalLiquorContext = traditionalLiquor?.text ?? "";
         const businessCollectionContext = businessCollection?.context ?? "";
         const eccAnnouncementContext = eccAnnouncementRequest?.context ?? "";
+        const jejuContext = jejuGuide?.text ?? "";
         const knowledgeSources = developerAccess.isDeveloper
           ? knowledgeResults.map((result) => ({
               title: result.fileName,
@@ -743,11 +795,13 @@ export async function POST(request: Request) {
         const publicKnowledgeCount = isPublicV4 && !developerAccess.isDeveloper ? knowledgeResults.length : 0;
         const groundedContextCount = allSources.length
           + publicKnowledgeCount
+          + (jejuContext ? 1 : 0)
           + (traditionalLiquorContext ? 1 : 0)
           + (operationalContext ? 1 : 0)
           + (businessCollectionContext ? 1 : 0)
           + (eccAnnouncementContext ? 1 : 0);
         const allProviders = [
+          ...(jejuContext ? ["Jeju Explorer DB"] : []),
           ...(eccAnnouncementContext ? ["ECC Notice Style"] : []),
           ...(knowledgeResults.length > 0 ? ["WooHyukmon DB"] : []),
           ...(traditionalLiquorContext ? ["Traditional Liquor DB"] : []),
@@ -803,6 +857,7 @@ export async function POST(request: Request) {
             businessReport: Boolean(businessCollectionContext),
             controller,
             externalSearchContext: [
+              jejuContext,
               knowledgeResults.length > 0 ? formatKnowledgeContext(knowledgeResults) : "",
               eccAnnouncementContext,
               traditionalLiquorContext,
@@ -814,7 +869,8 @@ export async function POST(request: Request) {
             message,
             mode,
             attachmentNames,
-            modelVersion
+            modelVersion,
+            experienceContext
           });
         } catch (error) {
           if (!eccAnnouncementRequest) throw error;

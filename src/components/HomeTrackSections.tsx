@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Compass } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
@@ -11,10 +11,20 @@ type HomeCard = {
   title: { en: string; ko: string };
   description: { en: string; ko: string };
   badge: { en: string; ko: string };
-  accent: "ecc" | "hanhwal" | "support";
+  accent: "ecc" | "hanhwal" | "jeju" | "support";
 };
 
 const homeCards: HomeCard[] = [
+  {
+    href: "/jeju",
+    title: { en: "Jeju Explorer", ko: "외국인의 제주 탐방 지도" },
+    description: {
+      en: "Explore Jeju, record your journey, and discover places that match your taste.",
+      ko: "제주를 탐방하고 나만의 여행 기록과 취향에 맞는 장소를 발견합니다."
+    },
+    badge: { en: "Travel Map", ko: "Travel Map" },
+    accent: "jeju"
+  },
   {
     href: "/our-activities/ecc",
     title: { en: "ECC", ko: "ECC" },
@@ -51,7 +61,7 @@ export function HomeTrackSections() {
   return (
     <section className="bg-paper px-4 pb-10 sm:px-5 sm:pb-14 md:px-8 md:pb-20">
       <div className="mx-auto max-w-7xl">
-        <div className="grid gap-3 sm:gap-5 md:grid-cols-3 md:gap-7">
+        <div className="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-4 md:gap-7">
           {homeCards.map((card) => (
             <HomePortalCard key={card.href} card={card} />
           ))}
@@ -73,6 +83,10 @@ function HomePortalCard({ card }: { card: HomeCard }) {
         {card.accent === "support" ? (
           <span className="flex h-11 w-16 items-center justify-center rounded-lg bg-white shadow-[0_14px_28px_rgba(31,42,68,0.14)] sm:h-14 sm:w-20 sm:rounded-xl">
             <WoohyukmonGlassesIcon className="h-8 w-12 sm:h-10 sm:w-16" />
+          </span>
+        ) : card.accent === "jeju" ? (
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dcefe8] text-[#0d5962] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
+            <Compass aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
           </span>
         ) : (
           <ClubMark
