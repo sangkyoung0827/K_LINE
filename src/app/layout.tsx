@@ -5,7 +5,7 @@ import { CartProvider } from "@/components/CartProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { Layout } from "@/components/Layout";
 import { SiteVisitTracker } from "@/components/SiteVisitTracker";
-import { seoKeywords, siteConfig } from "@/lib/seo";
+import { absoluteUrl, seoKeywords, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -59,20 +59,23 @@ export const metadata: Metadata = {
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
+  "@id": `${siteConfig.url}/#organization`,
   name: siteConfig.name,
-  alternateName: ["K_LINE", "KLINE", "K_LINE Campus K-Culture Hub", "K_LINE ECC", "Han-hwal", "한활", "Korean Lines"],
-  url: siteConfig.url,
+  alternateName: ["KLINE", "K_LINE Korea", "K_LINE Campus"],
+  url: `${siteConfig.url}/`,
+  logo: absoluteUrl("/k-line-mark.svg"),
   sameAs: [siteConfig.youtube],
   description: siteConfig.description,
   keywords: seoKeywords.join(", ")
 };
 
 const websiteJsonLd = {
-  "@context": "https://schema.org/",
+  "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": `${siteConfig.url}/#website`,
   name: siteConfig.name,
-  alternateName: ["K_LINE", "KLINE", "K_LINE Campus K-Culture Hub", "K_LINE ECC"],
-  url: siteConfig.url
+  alternateName: ["KLINE", "K_LINE Korea", "K_LINE Campus"],
+  url: `${siteConfig.url}/`
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

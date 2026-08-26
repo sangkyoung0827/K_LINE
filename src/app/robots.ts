@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: [
           "/",
-          "/k-culture-project",
+          "/archery-class",
           "/our-activities",
           "/our-activities/ecc",
           "/our-activities/hanhwal",
@@ -31,27 +31,26 @@ export default function robots(): MetadataRoute.Robots {
           "/ecc-official",
           "/hanhwal-join",
           "/hanhwal-official",
+          "/han-hwal",
           "/ecc-alumni/activity-inquiry",
           "/ecc-alumni/rejoin",
           "/ecc-alumni/status",
           "/goods",
           "/goods/",
+          "/jeju",
+          "/k-culture-project",
           "/k-culture-project/submit",
           "/products",
           "/products/",
           "/our-activities/write",
-          "/our-activities/ecc/register",
-          "/our-activities/ecc/activity",
-          "/our-activities/ecc/fund",
-          "/our-activities/ecc/members",
-          "/our-activities/hanhwal/register",
-          "/our-activities/hanhwal/free-board",
-          "/our-activities/hanhwal/activity",
-          "/our-activities/hanhwal/fund",
-          "/our-activities/hanhwal/members"
+          "/our-activities/ecc/",
+          "/our-activities/hanhwal/",
+          "/register",
+          "/v4"
         ]
       }
     ],
-    sitemap: `${siteConfig.url}/sitemap.xml`
+    sitemap: `${siteConfig.url}/sitemap.xml`,
+    host: siteConfig.url
   };
 }

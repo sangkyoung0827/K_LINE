@@ -163,8 +163,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       images: [project.image.src]
     },
     robots: {
-      index: true,
-      follow: true
+      index: false,
+      follow: false,
+      googleBot: {
+        index: false,
+        follow: false
+      }
     }
   };
 }

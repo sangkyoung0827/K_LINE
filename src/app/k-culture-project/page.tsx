@@ -5,9 +5,9 @@ import { ProjectCard } from "@/components/ProjectCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { projects } from "@/data/projects";
 import { requirePrivilegedAccess } from "@/lib/privilegedAccess";
-import { createPublicMetadata } from "@/lib/seo";
+import { createNoIndexMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = createPublicMetadata({
+export const metadata: Metadata = createNoIndexMetadata({
   title: "K-Culture Project",
   description:
     "K_LINE K-Culture Project introduces student-made international Korean culture projects and campus cultural exchange.",

@@ -691,6 +691,7 @@ The project includes:
 - image alt text
 - `robots.txt`
 - `sitemap.xml`
+- WebSite JSON-LD with the official site name `K_LINE`
 - Organization JSON-LD
 - Product JSON-LD
 - Project CreativeWork JSON-LD
@@ -711,12 +712,15 @@ https://kline-nine-wheat.vercel.app/robots.txt
 The sitemap intentionally includes only the main public discovery pages:
 
 - `/`
-- `/goods`
-- `/k-culture-project`
+- `/archery-class`
+- `/ecc-alumni`
+- `/ecc-alumni/notices`
 - `/our-activities`
 - `/our-activities/ecc`
 - `/our-activities/hanhwal`
 - `/contact`
+
+It also includes the currently published public International Clubs record pages.
 
 The following routes are intentionally blocked or marked noindex where applicable:
 
@@ -730,6 +734,8 @@ The following routes are intentionally blocked or marked noindex where applicabl
 - `/donate`
 - `/ecc-join`
 - `/ecc-official`
+- `/goods`
+- `/k-culture-project`
 - `/k-culture-project/submit`
 - `/our-activities/write`
 - `/our-activities/ecc/register`
@@ -790,8 +796,9 @@ https://kline-nine-wheat.vercel.app/sitemap.xml
 
 ```text
 https://kline-nine-wheat.vercel.app/
-https://kline-nine-wheat.vercel.app/goods
-https://kline-nine-wheat.vercel.app/k-culture-project
+https://kline-nine-wheat.vercel.app/archery-class
+https://kline-nine-wheat.vercel.app/ecc-alumni
+https://kline-nine-wheat.vercel.app/ecc-alumni/notices
 https://kline-nine-wheat.vercel.app/our-activities
 https://kline-nine-wheat.vercel.app/our-activities/ecc
 https://kline-nine-wheat.vercel.app/our-activities/hanhwal
@@ -800,6 +807,7 @@ https://kline-nine-wheat.vercel.app/contact
 
 7. Confirm Google can crawl the site by checking URL Inspection, robots.txt status, and sitemap status.
 8. Do not submit private routes such as `/admin`, `/login`, `/api/*`, `/developer/*`, or role-management/action pages.
+9. Google updates a result's visible site name after recrawling. After deployment, inspect and request indexing for the home page so Google can process the `K_LINE` WebSite and Organization data.
 ## WooHyukmon Knowledge Training
 
 Developer accounts can open `/developer/woohyukmon-training` to upload and manage private

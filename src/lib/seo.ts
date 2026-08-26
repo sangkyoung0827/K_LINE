@@ -1,19 +1,26 @@
 import type { Metadata } from "next";
 
+const fallbackSiteUrl = "https://kline-nine-wheat.vercel.app";
+
+function normalizeSiteUrl(value: string) {
+  return value.replace(/\/$/, "");
+}
+
 export const siteConfig = {
-  name: "K_LINE ECC and Clubs",
+  name: "K_LINE",
   shortName: "K_LINE",
   repositoryName: "K_LINE",
-  title: "K_LINE ECC and Clubs | Campus Club Platform",
-  homeTitle: "K_LINE ECC and Clubs | Campus K-Culture Hub",
+  title: "K_LINE | Korea Campus K-Culture & International Student Hub",
+  homeTitle: "K_LINE | Korea Campus K-Culture & International Student Hub",
   koreanTitle: "K_LINE",
   description:
-    "K_LINE is a campus-based club platform for ECC, international students, official member registration, K-culture activities, Han-hwal, and JBNU campus clubs.",
+    "K_LINE is a Korea-based campus K-culture and international student platform connecting international students, Korean university communities, clubs, local experiences and cultural programs.",
   homeDescription:
-    "K_LINE connects ECC, international student activities, Korean campus clubs, K-culture projects, and Han-hwal at Jeonbuk National University.",
+    "K_LINE connects international students with Korean campus communities, K-culture experiences, local activities, clubs and cultural programs.",
   socialDescription:
-    "K_LINE is a campus-based club platform for ECC, international students, official member registration, K-culture activities, and Korean campus clubs.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://kline-nine-wheat.vercel.app",
+    "K_LINE connects international students with Korean campus communities, K-culture experiences, local activities, clubs and cultural programs.",
+  manifestDescription: "Korea Campus K-Culture and International Student Hub",
+  url: normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL ?? fallbackSiteUrl),
   youtube: "https://www.youtube.com/@Weirdsang",
   instagramPlaceholder: "Instagram placeholder to be connected later",
   emailPlaceholder: "sangkyoung1004@naver.com"
@@ -21,6 +28,9 @@ export const siteConfig = {
 
 export const seoKeywords = [
   "K_LINE",
+  "KLINE",
+  "KLINE Korea",
+  "KLINE Campus",
   "K-Culture",
   "Korean culture project",
   "ECC",
@@ -33,6 +43,19 @@ export const seoKeywords = [
   "Korean traditional archery",
   "Korean archery class",
   "Han-hwal",
+  "Korean campus",
+  "Korean campus community",
+  "Korea international student",
+  "international students Korea",
+  "Korea international student community",
+  "Jeonbuk National University",
+  "JBNU international students",
+  "전북대학교",
+  "전북대학교 외국인",
+  "외국인 유학생",
+  "한국 유학생",
+  "한국 문화 체험",
+  "외국인 한국 문화",
   "Jeonbuk K-culture",
   "국궁",
   "한활",
@@ -40,7 +63,7 @@ export const seoKeywords = [
 ];
 
 export function absoluteUrl(path: string) {
-  return `${siteConfig.url}${path}`;
+  return new URL(path, `${siteConfig.url}/`).toString();
 }
 
 const defaultOgImage = {
