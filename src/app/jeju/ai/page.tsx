@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { JejuWoohyukmonPanel } from "@/components/jeju/JejuWoohyukmonPanel";
+import { redirect } from "next/navigation";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Ask Woohyukmon for Jeju",
-  description: "Private personalized Jeju Explorer recommendations from Woohyukmon.",
+  title: "Explore",
+  description: "This private Explore entry continues on the combined live map and Woohyukmon page.",
   path: "/jeju/ai"
 });
 
 export default function JejuAiPage() {
-  return <JejuWoohyukmonPanel />;
+  redirect("/jeju");
 }

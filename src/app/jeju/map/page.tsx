@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { JejuMapPageClient } from "@/components/jeju/JejuMapPageClient";
+import { redirect } from "next/navigation";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "My Jeju Map",
-  description: "Private Jeju Explorer visited-place map for signed-in K_LINE users.",
+  title: "Explore",
+  description: "This private Explore entry continues on the combined live map and Woohyukmon page.",
   path: "/jeju/map"
 });
 
 export default function JejuMapPage() {
-  return <JejuMapPageClient />;
+  redirect("/jeju");
 }

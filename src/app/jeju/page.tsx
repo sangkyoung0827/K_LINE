@@ -3,8 +3,8 @@ import { JejuExplorerDashboard } from "@/components/jeju/JejuExplorerDashboard";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Jeju Explorer",
-  description: "Private K_LINE Jeju Explorer map, memories, profile, programs, and Woohyukmon guide.",
+  title: "Explore",
+  description: "Private K_LINE Explore page with a live Google Map, profile settings, and Woohyukmon.",
   path: "/jeju"
 });
 

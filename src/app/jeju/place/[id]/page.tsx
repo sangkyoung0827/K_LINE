@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { JejuPlaceDetailClient } from "@/components/jeju/JejuPlaceDetailClient";
+import { redirect } from "next/navigation";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Jeju Explorer Place",
-  description: "Private Jeju Explorer place details, check-ins, reviews, and memories.",
+  title: "Explore",
+  description: "This private Explore entry continues on the combined live map and Woohyukmon page.",
   path: "/jeju/place"
 });
 
-export default async function JejuPlacePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <JejuPlaceDetailClient placeId={id} />;
+export default function JejuPlacePage() {
+  redirect("/jeju");
 }

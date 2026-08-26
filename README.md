@@ -31,12 +31,12 @@ K_LINE is a standalone Korean cultural dashboard platform for:
 1. Goods / 상품
 2. K-Culture Project / K-컬처 프로젝트
 3. International Clubs / 국제 학생 클럽
-4. Jeju Explorer / 외국인의 제주 탐방 지도
+4. Explore / 탐험
 
-## Jeju Explorer
+## Explore / 탐험
 
-Jeju Explorer is an independent, login-protected K_LINE service. It does not
-share ECC or Hanhwal tables, membership records, boards, or permissions.
+Explore is an independent, login-protected K_LINE service. It does not share
+ECC or Hanhwal tables, membership records, boards, or permissions.
 
 Run the following migration once in the Supabase SQL Editor before using the
 Jeju screens in production:
@@ -49,26 +49,22 @@ It creates only `jeju_*` tables and the `jeju-media` image bucket. The migration
 does not insert sample places, reviews, programs, or user data. Add verified
 places and programs from `/admin/jeju` after a K_LINE super-admin has logged in.
 
-Jeju Explorer uses the existing server-only `SUPABASE_URL`,
+Explore uses the existing server-only `SUPABASE_URL`,
 `SUPABASE_SERVICE_ROLE_KEY`, and `GEMINI_API_KEY` environment variables. No new
 browser-visible secret is required.
 
 Routes:
 
-- `/jeju`
-- `/jeju/map`
-- `/jeju/discover`
-- `/jeju/ai`
-- `/jeju/memories`
-- `/jeju/program`
-- `/jeju/profile`
-- `/admin/jeju` (Jeju admin or K_LINE super-admin only)
+- `/jeju`: the single user-facing Explore page, containing a live Google Map and Woohyukmon AI
+- `/jeju/profile`: private profile settings for Explore recommendations
+- `/admin/jeju`: Explore administration for verified data and programs
+- `/jeju/map`, `/jeju/discover`, `/jeju/ai`, `/jeju/memories`, `/jeju/program`, and `/jeju/place/[id]`: legacy private entries that redirect to `/jeju`
 
-GPS is requested only when a visitor presses **Check in**. The server validates
-the 150m radius and stores only a rounded check-in point for the verified visit.
-Jeju Explorer asks the existing Woohyukmon endpoint with `context: "jeju"`; it
-uses the signed-in user's Jeju profile, verified visits, and Jeju place records
-before optional external research.
+The live map uses Google Maps without a browser-visible API key. A location is
+requested only when the visitor presses **Use my location** and is never stored.
+Woohyukmon asks the existing endpoint with `context: "jeju"`; it uses the
+signed-in user's Explore profile, verified visits, confirmed place records, and
+open programs before optional external research.
 
 Main message:
 

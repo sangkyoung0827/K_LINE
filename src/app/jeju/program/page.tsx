@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { JejuProgramPanel } from "@/components/jeju/JejuProgramPanel";
+import { redirect } from "next/navigation";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Jeju Explorer Program",
-  description: "Private semester-based K_LINE Jeju Explorer program applications.",
+  title: "Explore",
+  description: "This private Explore entry continues on the combined live map and Woohyukmon page.",
   path: "/jeju/program"
 });
 
 export default function JejuProgramPage() {
-  return <JejuProgramPanel />;
+  redirect("/jeju");
 }

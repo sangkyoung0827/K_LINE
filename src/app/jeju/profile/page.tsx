@@ -3,8 +3,8 @@ import { JejuProfileForm } from "@/components/jeju/JejuProfileForm";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Jeju Explorer Profile",
-  description: "Private Jeju Explorer food, allergy, activity, and budget preferences.",
+  title: "Explore Profile",
+  description: "Private Explore food, allergy, activity, and budget preferences.",
   path: "/jeju/profile"
 });
 

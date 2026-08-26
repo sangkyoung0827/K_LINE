@@ -16,16 +16,6 @@ type HomeCard = {
 
 const homeCards: HomeCard[] = [
   {
-    href: "/jeju",
-    title: { en: "Jeju Explorer", ko: "외국인의 제주 탐방 지도" },
-    description: {
-      en: "Explore Jeju, record your journey, and discover places that match your taste.",
-      ko: "제주를 탐방하고 나만의 여행 기록과 취향에 맞는 장소를 발견합니다."
-    },
-    badge: { en: "Travel Map", ko: "Travel Map" },
-    accent: "jeju"
-  },
-  {
     href: "/our-activities/ecc",
     title: { en: "ECC", ko: "ECC" },
     description: {
@@ -54,6 +44,16 @@ const homeCards: HomeCard[] = [
     },
     badge: { en: "AI Guide", ko: "AI Guide" },
     accent: "support"
+  },
+  {
+    href: "/jeju",
+    title: { en: "Explore", ko: "탐험" },
+    description: {
+      en: "Explore Jeju with a live map and a personal guide from Woohyukmon.",
+      ko: "실시간 지도와 우혁몬으로 제주를 간결하게 탐험합니다."
+    },
+    badge: { en: "Map", ko: "지도" },
+    accent: "jeju"
   }
 ];
 

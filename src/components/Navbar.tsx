@@ -78,15 +78,15 @@ export function Navbar() {
             </div>
           </div>
 
+          <DesktopNavLink href="/contact" active={pathname.startsWith("/contact")}>
+            {language === "ko" ? "우혁몬" : "Woohyukmon"}
+          </DesktopNavLink>
+
           <DesktopNavLink href="/jeju" active={pathname.startsWith("/jeju")}>
             <span className="inline-flex items-center gap-1.5">
               <Compass aria-hidden className="h-3.5 w-3.5" />
-              Jeju Explorer
+              {language === "ko" ? "탐험" : "Explore"}
             </span>
-          </DesktopNavLink>
-
-          <DesktopNavLink href="/contact" active={pathname.startsWith("/contact")}>
-            {language === "ko" ? "우혁몬" : "Woohyukmon"}
           </DesktopNavLink>
 
           {isDeveloper ? (
@@ -145,11 +145,11 @@ export function Navbar() {
             <MobileMenuLink href="/our-activities/hanhwal" onClick={() => setOpen(false)}>
               <I18nNavText en="Hanhwal" ko="한활" language={language} />
             </MobileMenuLink>
-            <MobileMenuLink href="/jeju" onClick={() => setOpen(false)}>
-              <span className="inline-flex items-center gap-2"><Compass aria-hidden className="h-4 w-4" />Jeju Explorer</span>
-            </MobileMenuLink>
             <MobileMenuLink href="/contact" onClick={() => setOpen(false)}>
               <I18nNavText en="Woohyukmon" ko="우혁몬" language={language} />
+            </MobileMenuLink>
+            <MobileMenuLink href="/jeju" onClick={() => setOpen(false)}>
+              <span className="inline-flex items-center gap-2"><Compass aria-hidden className="h-4 w-4" /><I18nNavText en="Explore" ko="탐험" language={language} /></span>
             </MobileMenuLink>
             {eccAccess.isLoggedIn && !eccAccess.isOfficialMember ? (
               <>

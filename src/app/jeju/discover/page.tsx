@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { JejuDiscover } from "@/components/jeju/JejuDiscover";
+import { redirect } from "next/navigation";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Discover Jeju",
-  description: "Private K_LINE Jeju Explorer place discovery for signed-in users.",
+  title: "Explore",
+  description: "This private Explore entry continues on the combined live map and Woohyukmon page.",
   path: "/jeju/discover"
 });
 
 export default function JejuDiscoverPage() {
-  return <JejuDiscover />;
+  redirect("/jeju");
 }

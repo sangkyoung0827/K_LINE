@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getDistanceInMeters } from "@/lib/jeju/checkin";
-import { getJejuOverview, getJejuProfile, listJejuPlaces } from "@/lib/jeju/service";
+import { getJejuOverview, getJejuProfile, listJejuPlaces, listJejuPrograms } from "@/lib/jeju/service";
 import type { JejuPlace } from "@/lib/jeju/types";
 import { cleanText, supabaseRequest } from "@/lib/supabaseServer";
 
@@ -59,10 +59,11 @@ export async function buildJejuWoohyukmonContext(input: {
   currentLocation?: unknown;
 }) {
   const currentLocation = readCurrentLocation(input.currentLocation);
-  const [profile, overview, places, reviewRows] = await Promise.all([
+  const [profile, overview, places, programs, reviewRows] = await Promise.all([
     getJejuProfile(input.email),
     getJejuOverview(input.email),
     listJejuPlaces(),
+    listJejuPrograms(input.email),
     supabaseRequest<UserReviewRow[]>(
       `jeju_reviews?select=place_id,overall_rating,review_text,what_liked,would_recommend&user_email=eq.${encodeURIComponent(input.email)}&order=updated_at.desc&limit=30`
     )
@@ -80,6 +81,10 @@ export async function buildJejuWoohyukmonContext(input: {
     const place = placeById.get(review.place_id);
     return `- ${place?.nameEn || place?.name || "Visited place"} | rating=${review.overall_rating}/5 | recommended=${review.would_recommend !== false ? "yes" : "no"} | liked=${cleanText(review.what_liked, 280)} | review=${cleanText(review.review_text, 420)}`;
   });
+  const openPrograms = programs
+    .filter((program) => program.status === "open")
+    .slice(0, 8)
+    .map((program) => `- ${program.titleEn || program.title} | semester=${program.semester} | capacity=${program.capacityMin}-${program.capacityMax} | starts=${program.startsAt || "to be confirmed"} | meeting=${program.meetingPlace || "to be confirmed"} | my_application=${program.myApplication?.status || "none"}`);
 
   const profileLines = profile
     ? [
@@ -108,7 +113,9 @@ export async function buildJejuWoohyukmonContext(input: {
     "UNVISITED JEJU EXPLORER PLACES",
     ...(unvisitedPlaces.length > 0 ? unvisitedPlaces.map((place) => summarizePlace(place, currentLocation)) : ["- No unvisited active places are currently stored in Jeju Explorer."]),
     "CURRENT USER'S RECENT JEJU REVIEWS",
-    ...(userReviews.length > 0 ? userReviews : ["- No Jeju reviews recorded yet."])
+    ...(userReviews.length > 0 ? userReviews : ["- No Jeju reviews recorded yet."]),
+    "CURRENT OPEN JEJU PROGRAMS",
+    ...(openPrograms.length > 0 ? openPrograms : ["- No open Jeju programs are currently stored in K_LINE."])
   ].join("\n");
 
   return {
