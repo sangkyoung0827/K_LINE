@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { JejuGoogleMap } from "@/components/jeju/JejuGoogleMap";
+import { JejuExploreMap } from "@/components/jeju/JejuExploreMap";
 import { JejuShell } from "@/components/jeju/JejuShell";
 import { JejuWoohyukmonPanel } from "@/components/jeju/JejuWoohyukmonPanel";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -23,7 +23,7 @@ export function JejuExplorerDashboard() {
       }
     >
       <div className="mx-auto grid max-w-5xl gap-6 sm:gap-8">
-        <JejuGoogleMap />
+        <JejuExploreMap />
         <JejuWoohyukmonPanel embedded />
       </div>
     </JejuShell>

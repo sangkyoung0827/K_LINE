@@ -3,14 +3,20 @@ import "server-only";
 import { auth } from "@/auth";
 import { normalizeEmail } from "@/lib/admin";
 import { getDistanceInMeters, CHECK_IN_RADIUS_METERS } from "@/lib/jeju/checkin";
+import { isValidJejuLocation, roundExploreCoordinate, shouldPersistTrackPoint } from "@/lib/jeju/tracking";
 import { getJejuAccessForEmail } from "@/lib/jeju/access";
 import {
   jejuPlaceCategories,
   type JejuAccess,
+  type JejuExploreSession,
+  type JejuExploreTrackPoint,
+  type JejuExploreTracking,
   type JejuExplorerOverview,
   type JejuMemory,
   type JejuPlace,
   type JejuPlaceCategory,
+  type JejuPersonalPlacePhoto,
+  type JejuPersonalPlaceRecord,
   type JejuPriceRange,
   type JejuProfile,
   type JejuProgram,
@@ -75,6 +81,48 @@ type JejuVisitRow = {
   visited_at: string;
   checkin_distance_meters: number | null;
   created_at: string;
+};
+
+type JejuExploreSessionRow = {
+  id: string;
+  user_email: string;
+  started_at: string;
+  ended_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type JejuExploreTrackPointRow = {
+  id: string;
+  session_id: string;
+  user_email: string;
+  latitude: number | string;
+  longitude: number | string;
+  accuracy_meters: number | null;
+  recorded_at: string;
+  created_at: string;
+};
+
+type JejuPersonalPlaceRecordRow = {
+  id: string;
+  user_email: string;
+  google_place_id: string;
+  place_name: string;
+  formatted_address: string | null;
+  category: string;
+  latitude: number | string;
+  longitude: number | string;
+  rating: number | string;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type JejuPersonalPlacePhotoRow = {
+  id: string;
+  personal_place_record_id: string;
+  storage_path: string;
+  public_url: string;
 };
 
 type JejuReviewRow = {
@@ -170,6 +218,10 @@ const placeColumns =
 const profileColumns =
   "user_email,display_name,allergies,dietary_restrictions,vegetarian,vegan,spicy_food_preference,seafood_preference,budget_preference,preferred_foods,preferred_activities,places_want_to_visit,food_want_to_try,updated_at";
 const visitColumns = "id,user_email,place_id,visited_at,checkin_distance_meters,created_at";
+const exploreSessionColumns = "id,user_email,started_at,ended_at,created_at,updated_at";
+const exploreTrackPointColumns = "id,session_id,user_email,latitude,longitude,accuracy_meters,recorded_at,created_at";
+const personalPlaceRecordColumns = "id,user_email,google_place_id,place_name,formatted_address,category,latitude,longitude,rating,note,created_at,updated_at";
+const personalPlacePhotoColumns = "id,personal_place_record_id,storage_path,public_url";
 const reviewColumns =
   "id,place_id,visit_id,user_email,display_name,overall_rating,food_rating,price_rating,atmosphere_rating,what_liked,could_be_better,review_text,would_recommend,is_public,status,created_at,updated_at";
 const reviewPhotoColumns = "id,review_id,storage_path,public_url";
@@ -310,6 +362,57 @@ function toVisit(row: JejuVisitRow): JejuVisit {
     visitedAt: row.visited_at,
     checkinDistanceMeters: row.checkin_distance_meters,
     createdAt: row.created_at
+  };
+}
+
+function toExploreSession(row: JejuExploreSessionRow): JejuExploreSession {
+  return {
+    id: row.id,
+    userEmail: row.user_email,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function toExploreTrackPoint(row: JejuExploreTrackPointRow): JejuExploreTrackPoint {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    userEmail: row.user_email,
+    latitude: numberValue(row.latitude),
+    longitude: numberValue(row.longitude),
+    accuracyMeters: row.accuracy_meters === null ? null : Number(row.accuracy_meters),
+    recordedAt: row.recorded_at,
+    createdAt: row.created_at
+  };
+}
+
+function toPersonalPlacePhoto(row: JejuPersonalPlacePhotoRow): JejuPersonalPlacePhoto {
+  return {
+    id: row.id,
+    personalPlaceRecordId: row.personal_place_record_id,
+    publicUrl: row.public_url,
+    storagePath: row.storage_path
+  };
+}
+
+function toPersonalPlaceRecord(row: JejuPersonalPlaceRecordRow, photos: JejuPersonalPlacePhoto[] = []): JejuPersonalPlaceRecord {
+  return {
+    id: row.id,
+    userEmail: row.user_email,
+    googlePlaceId: row.google_place_id,
+    placeName: row.place_name,
+    formattedAddress: row.formatted_address ?? "",
+    category: categoryValue(row.category),
+    latitude: numberValue(row.latitude),
+    longitude: numberValue(row.longitude),
+    rating: Number(row.rating),
+    note: row.note ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    photos
   };
 }
 
@@ -552,6 +655,244 @@ export async function listJejuVisits(email: string) {
     `jeju_visits?select=${visitColumns}&user_email=eq.${encodeURIComponent(email)}&order=visited_at.desc&limit=1000`
   );
   return rows.map(toVisit);
+}
+
+function readExploreLocation(latitudeValue: unknown, longitudeValue: unknown) {
+  const location = { latitude: Number(latitudeValue), longitude: Number(longitudeValue) };
+  if (!isValidJejuLocation(location)) {
+    throw new JejuHttpError("A valid current Jeju location is required.", 400, "JEJU_TRACK_LOCATION_INVALID");
+  }
+  return location;
+}
+
+function readExploreAccuracy(value: unknown) {
+  const accuracy = Math.round(Number(value));
+  return Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 10_000 ? accuracy : null;
+}
+
+export async function listJejuExploreTracking(email: string): Promise<JejuExploreTracking> {
+  const sessionRows = await supabaseRequest<JejuExploreSessionRow[]>(
+    `jeju_explore_sessions?select=${exploreSessionColumns}&user_email=eq.${encodeURIComponent(email)}&order=started_at.desc&limit=30`
+  );
+  const sessions = sessionRows.map(toExploreSession);
+  const sessionIds = sessions.map((session) => session.id);
+  const pointRows = sessionIds.length > 0
+    ? await supabaseRequest<JejuExploreTrackPointRow[]>(
+        `jeju_explore_track_points?select=${exploreTrackPointColumns}&user_email=eq.${encodeURIComponent(email)}&session_id=in.(${sessionIds.join(",")})&order=recorded_at.asc&limit=4000`
+      )
+    : [];
+
+  return {
+    activeSession: sessions.find((session) => !session.endedAt) ?? null,
+    sessions,
+    points: pointRows.map(toExploreTrackPoint)
+  };
+}
+
+export async function startJejuExploreSession(input: {
+  email: string;
+  latitude: unknown;
+  longitude: unknown;
+  accuracyMeters?: unknown;
+}) {
+  const location = readExploreLocation(input.latitude, input.longitude);
+  const now = new Date().toISOString();
+
+  await supabaseRequest<JejuExploreSessionRow[]>(
+    `jeju_explore_sessions?user_email=eq.${encodeURIComponent(input.email)}&ended_at=is.null&select=${exploreSessionColumns}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ ended_at: now, updated_at: now })
+    }
+  );
+
+  const sessionRows = await supabaseRequest<JejuExploreSessionRow[]>(
+    `jeju_explore_sessions?select=${exploreSessionColumns}`,
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ created_at: now, started_at: now, updated_at: now, user_email: input.email })
+    }
+  );
+  const sessionRow = sessionRows[0];
+  if (!sessionRow) throw new JejuHttpError("The exploration record could not start.", 500, "JEJU_TRACK_START_FAILED");
+
+  const pointRows = await supabaseRequest<JejuExploreTrackPointRow[]>(
+    `jeju_explore_track_points?select=${exploreTrackPointColumns}`,
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        accuracy_meters: readExploreAccuracy(input.accuracyMeters),
+        created_at: now,
+        latitude: roundExploreCoordinate(location.latitude),
+        longitude: roundExploreCoordinate(location.longitude),
+        recorded_at: now,
+        session_id: sessionRow.id,
+        user_email: input.email
+      })
+    }
+  );
+
+  return { point: pointRows[0] ? toExploreTrackPoint(pointRows[0]) : null, session: toExploreSession(sessionRow) };
+}
+
+export async function recordJejuExploreTrackPoint(input: {
+  email: string;
+  sessionId: unknown;
+  latitude: unknown;
+  longitude: unknown;
+  accuracyMeters?: unknown;
+}) {
+  const sessionId = safeUuid(input.sessionId, "Explore session identifier");
+  const location = readExploreLocation(input.latitude, input.longitude);
+  const sessionRows = await supabaseRequest<JejuExploreSessionRow[]>(
+    `jeju_explore_sessions?select=${exploreSessionColumns}&id=eq.${encodeURIComponent(sessionId)}&user_email=eq.${encodeURIComponent(input.email)}&ended_at=is.null&limit=1`
+  );
+  const sessionRow = sessionRows[0];
+  if (!sessionRow) throw new JejuHttpError("This exploration session is not active.", 409, "JEJU_TRACK_SESSION_INACTIVE");
+
+  const previousRows = await supabaseRequest<JejuExploreTrackPointRow[]>(
+    `jeju_explore_track_points?select=${exploreTrackPointColumns}&session_id=eq.${encodeURIComponent(sessionId)}&user_email=eq.${encodeURIComponent(input.email)}&order=recorded_at.desc&limit=1`
+  );
+  const now = new Date().toISOString();
+  const next = { ...location, recordedAt: now };
+  const previous = previousRows[0] ? toExploreTrackPoint(previousRows[0]) : null;
+
+  if (!shouldPersistTrackPoint(previous, next)) {
+    return { point: previous, recorded: false, session: toExploreSession(sessionRow) };
+  }
+
+  const pointRows = await supabaseRequest<JejuExploreTrackPointRow[]>(
+    `jeju_explore_track_points?select=${exploreTrackPointColumns}`,
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        accuracy_meters: readExploreAccuracy(input.accuracyMeters),
+        created_at: now,
+        latitude: roundExploreCoordinate(location.latitude),
+        longitude: roundExploreCoordinate(location.longitude),
+        recorded_at: now,
+        session_id: sessionId,
+        user_email: input.email
+      })
+    }
+  );
+  const point = pointRows[0] ? toExploreTrackPoint(pointRows[0]) : null;
+  if (!point) throw new JejuHttpError("The exploration point could not be saved.", 500, "JEJU_TRACK_POINT_SAVE_FAILED");
+  return { point, recorded: true, session: toExploreSession(sessionRow) };
+}
+
+export async function stopJejuExploreSession(input: { email: string; sessionId: unknown }) {
+  const sessionId = safeUuid(input.sessionId, "Explore session identifier");
+  const now = new Date().toISOString();
+  const rows = await supabaseRequest<JejuExploreSessionRow[]>(
+    `jeju_explore_sessions?id=eq.${encodeURIComponent(sessionId)}&user_email=eq.${encodeURIComponent(input.email)}&ended_at=is.null&select=${exploreSessionColumns}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ ended_at: now, updated_at: now })
+    }
+  );
+  if (!rows[0]) throw new JejuHttpError("This exploration session is not active.", 409, "JEJU_TRACK_SESSION_INACTIVE");
+  return toExploreSession(rows[0]);
+}
+
+async function listJejuPersonalPlacePhotos(recordIds: string[]) {
+  if (recordIds.length === 0) return [];
+  const rows = await supabaseRequest<JejuPersonalPlacePhotoRow[]>(
+    `jeju_personal_place_record_photos?select=${personalPlacePhotoColumns}&personal_place_record_id=in.(${recordIds.join(",")})&order=created_at.asc&limit=1000`
+  );
+  return rows.map(toPersonalPlacePhoto);
+}
+
+function groupPersonalPlacePhotos(photos: JejuPersonalPlacePhoto[]) {
+  const grouped = new Map<string, JejuPersonalPlacePhoto[]>();
+  photos.forEach((photo) => {
+    const existing = grouped.get(photo.personalPlaceRecordId) ?? [];
+    existing.push(photo);
+    grouped.set(photo.personalPlaceRecordId, existing);
+  });
+  return grouped;
+}
+
+export async function listJejuPersonalPlaceRecords(email: string) {
+  const rows = await supabaseRequest<JejuPersonalPlaceRecordRow[]>(
+    `jeju_personal_place_records?select=${personalPlaceRecordColumns}&user_email=eq.${encodeURIComponent(email)}&order=updated_at.desc&limit=1000`
+  );
+  const photosByRecord = groupPersonalPlacePhotos(await listJejuPersonalPlacePhotos(rows.map((row) => row.id)));
+  return rows.map((row) => toPersonalPlaceRecord(row, photosByRecord.get(row.id) ?? []));
+}
+
+function normalizePersonalPlacePhotoInputs(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const photo = item as { publicUrl?: unknown; storagePath?: unknown };
+      const publicUrl = cleanText(photo.publicUrl, 2000);
+      const storagePath = cleanText(photo.storagePath, 1000);
+      if (!publicUrl || !storagePath || !storagePath.startsWith("personal-places/")) return [];
+      return [{ publicUrl, storagePath }];
+    })
+    .slice(0, 5);
+}
+
+export async function saveJejuPersonalPlaceRecord(input: { email: string; body: Record<string, unknown> }) {
+  const googlePlaceId = cleanText(input.body.googlePlaceId ?? input.body.google_place_id, 240);
+  const placeName = cleanText(input.body.placeName ?? input.body.place_name, 280);
+  const location = readExploreLocation(input.body.latitude, input.body.longitude);
+  if (!googlePlaceId || !placeName) {
+    throw new JejuHttpError("A map place and its name are required.", 400, "JEJU_PERSONAL_PLACE_INVALID");
+  }
+
+  const now = new Date().toISOString();
+  const payload = {
+    category: categoryValue(input.body.category),
+    formatted_address: cleanText(input.body.formattedAddress ?? input.body.formatted_address, 1000),
+    google_place_id: googlePlaceId,
+    latitude: roundExploreCoordinate(location.latitude),
+    longitude: roundExploreCoordinate(location.longitude),
+    note: cleanText(input.body.note, 5000),
+    place_name: placeName,
+    rating: ratingValue(input.body.rating),
+    updated_at: now,
+    user_email: input.email
+  };
+  const existingRows = await supabaseRequest<JejuPersonalPlaceRecordRow[]>(
+    `jeju_personal_place_records?select=${personalPlaceRecordColumns}&user_email=eq.${encodeURIComponent(input.email)}&google_place_id=eq.${encodeURIComponent(googlePlaceId)}&limit=1`
+  );
+  const rows = existingRows[0]
+    ? await supabaseRequest<JejuPersonalPlaceRecordRow[]>(
+        `jeju_personal_place_records?id=eq.${encodeURIComponent(existingRows[0].id)}&select=${personalPlaceRecordColumns}`,
+        { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(payload) }
+      )
+    : await supabaseRequest<JejuPersonalPlaceRecordRow[]>(`jeju_personal_place_records?select=${personalPlaceRecordColumns}`, {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ ...payload, created_at: now })
+      });
+  const recordRow = rows[0];
+  if (!recordRow) throw new JejuHttpError("The personal place record could not be saved.", 500, "JEJU_PERSONAL_PLACE_SAVE_FAILED");
+
+  const existingPhotos = await listJejuPersonalPlacePhotos([recordRow.id]);
+  const photoInputs = normalizePersonalPlacePhotoInputs(input.body.photos).slice(0, Math.max(0, 5 - existingPhotos.length));
+  if (photoInputs.length > 0) {
+    await supabaseRequest<JejuPersonalPlacePhotoRow[]>(`jeju_personal_place_record_photos?select=${personalPlacePhotoColumns}`, {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(photoInputs.map((photo) => ({
+        personal_place_record_id: recordRow.id,
+        public_url: photo.publicUrl,
+        storage_path: photo.storagePath
+      })))
+    });
+  }
+
+  const photos = await listJejuPersonalPlacePhotos([recordRow.id]);
+  return toPersonalPlaceRecord(recordRow, photos);
 }
 
 export async function checkInToJejuPlace(input: {

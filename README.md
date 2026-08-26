@@ -43,6 +43,7 @@ Jeju screens in production:
 
 ```text
 supabase/jeju_explorer.sql
+supabase/jeju_explore_tracking.sql
 ```
 
 It creates only `jeju_*` tables and the `jeju-media` image bucket. The migration
@@ -50,8 +51,9 @@ does not insert sample places, reviews, programs, or user data. Add verified
 places and programs from `/admin/jeju` after a K_LINE super-admin has logged in.
 
 Explore uses the existing server-only `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, and `GEMINI_API_KEY` environment variables. No new
-browser-visible secret is required.
+`SUPABASE_SERVICE_ROLE_KEY`, and `GEMINI_API_KEY` environment variables. Route
+recording and private map-place ratings use only authenticated K_LINE API routes;
+the browser never receives a Supabase secret.
 
 Routes:
 
@@ -60,8 +62,19 @@ Routes:
 - `/admin/jeju`: Explore administration for verified data and programs
 - `/jeju/map`, `/jeju/discover`, `/jeju/ai`, `/jeju/memories`, `/jeju/program`, and `/jeju/place/[id]`: legacy private entries that redirect to `/jeju`
 
-The live map uses Google Maps without a browser-visible API key. A location is
-requested only when the visitor presses **Use my location** and is never stored.
+For interactive Google map place clicks, enable **Maps JavaScript API** and
+**Places API** in Google Cloud, then set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in
+Vercel. Restrict that browser key by HTTP referrer to
+`https://kline-nine-wheat.vercel.app/*` (and the local development origin when
+needed). Without this key, the existing live Google map remains available, but
+K_LINE cannot receive a clicked map place from the iframe.
+
+Visitors can explicitly start and stop a private Explore recording session. While
+the Explore page is open, the browser sends a reduced Jeju route point after at
+least 35 m of movement and one minute, or every five minutes while stationary.
+It does not run in the background. Google map place ratings, notes, and optional
+photos are private personal Explore records intended for a future memory-book
+feature; they do not change the public K_LINE place directory.
 Woohyukmon asks the existing endpoint with `context: "jeju"`; it uses the
 signed-in user's Explore profile, verified visits, confirmed place records, and
 open programs before optional external research.

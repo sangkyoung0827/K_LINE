@@ -69,6 +69,55 @@ export type JejuVisit = {
   createdAt: string;
 };
 
+export type JejuExploreSession = {
+  id: string;
+  userEmail: string;
+  startedAt: string;
+  endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type JejuExploreTrackPoint = {
+  id: string;
+  sessionId: string;
+  userEmail: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number | null;
+  recordedAt: string;
+  createdAt: string;
+};
+
+export type JejuExploreTracking = {
+  activeSession: JejuExploreSession | null;
+  sessions: JejuExploreSession[];
+  points: JejuExploreTrackPoint[];
+};
+
+export type JejuPersonalPlacePhoto = {
+  id: string;
+  personalPlaceRecordId: string;
+  publicUrl: string;
+  storagePath: string;
+};
+
+export type JejuPersonalPlaceRecord = {
+  id: string;
+  userEmail: string;
+  googlePlaceId: string;
+  placeName: string;
+  formattedAddress: string;
+  category: JejuPlaceCategory;
+  latitude: number;
+  longitude: number;
+  rating: number;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+  photos: JejuPersonalPlacePhoto[];
+};
+
 export type JejuReviewPhoto = {
   id: string;
   reviewId: string;

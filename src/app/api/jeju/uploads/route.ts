@@ -23,7 +23,8 @@ export async function POST(request: Request) {
     const user = await getCurrentJejuUser();
     const formData = await request.formData();
     const file = formData.get("file");
-    const scope = formData.get("scope") === "places" ? "places" : "reviews";
+    const requestedScope = formData.get("scope");
+    const scope = requestedScope === "places" || requestedScope === "personal-places" ? requestedScope : "reviews";
 
     if (scope === "places" && !user.access.isAdmin) return jejuAdminDenied(true);
     if (!(file instanceof File)) {
