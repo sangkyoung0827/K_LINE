@@ -279,25 +279,36 @@ export function EccMemberRegistrationManagementPanel() {
               />
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="border border-ink/10 bg-white/45 p-3">
-              <p className="font-serif text-2xl font-semibold text-ink">{summary.total}</p>
-              <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
-                <I18nText en="Total" ko="전체" />
-              </p>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="border border-ink/10 bg-white/45 p-3">
+                <p className="font-serif text-2xl font-semibold text-ink">{summary.total}</p>
+                <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
+                  <I18nText en="Total" ko="전체" />
+                </p>
+              </div>
+              <div className="border border-pine/20 bg-pine/10 p-3">
+                <p className="font-serif text-2xl font-semibold text-pine">{summary.approved}</p>
+                <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
+                  <I18nText en="Approved" ko="승인" />
+                </p>
+              </div>
+              <div className="border border-brass/20 bg-brass/10 p-3">
+                <p className="font-serif text-2xl font-semibold text-ink">{summary.pending}</p>
+                <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
+                  <I18nText en="Pending" ko="대기" />
+                </p>
+              </div>
             </div>
-            <div className="border border-pine/20 bg-pine/10 p-3">
-              <p className="font-serif text-2xl font-semibold text-pine">{summary.approved}</p>
-              <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
-                <I18nText en="Approved" ko="승인" />
-              </p>
-            </div>
-            <div className="border border-brass/20 bg-brass/10 p-3">
-              <p className="font-serif text-2xl font-semibold text-ink">{summary.pending}</p>
-              <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
-                <I18nText en="Pending" ko="대기" />
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || Boolean(deletingId) || registrations.length === 0}
+              className="inline-flex min-h-12 items-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Save aria-hidden className="h-4 w-4" />}
+              {saving ? <I18nText en="Saving..." ko="저장 중..." /> : <I18nText en="Save" ko="저장" />}
+            </button>
           </div>
         </div>
       </div>
@@ -436,19 +447,12 @@ export function EccMemberRegistrationManagementPanel() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 p-5 md:p-6">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving || Boolean(deletingId) || registrations.length === 0}
-          className="inline-flex min-h-12 items-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Save aria-hidden className="h-4 w-4" />}
-          {saving ? <I18nText en="Saving..." ko="저장 중..." /> : <I18nText en="Save" ko="저장" />}
-        </button>
-        {message ? <p className="text-sm font-semibold text-pine">{message}</p> : null}
-        {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
-      </div>
+      {message || error ? (
+        <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 p-5 md:p-6">
+          {message ? <p className="text-sm font-semibold text-pine">{message}</p> : null}
+          {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
