@@ -304,6 +304,32 @@ Thank you! 💚`}</div>
         </div>
       </section>
 
+      <section className="paper-panel p-5 md:p-8">
+        <p className="text-sm font-semibold uppercase text-brass">📢 문의</p>
+        <p className="mt-3 text-sm leading-7 text-ink/72">
+          궁금한 점이 있다면 아래 오픈채팅으로 편하게 문의해주세요!
+        </p>
+        <p className="mt-3 text-sm leading-7 text-ink/72">
+          <a
+            href="https://open.kakao.com/o/saPt03Nh"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-navy underline decoration-brass/70 underline-offset-4 transition hover:text-brass"
+          >
+            https://open.kakao.com/o/saPt03Nh
+          </a>{" "}
+          또는 인스타그램{" "}
+          <a
+            href="https://www.instagram.com/ecc_jbnu/#"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-navy underline decoration-brass/70 underline-offset-4 transition hover:text-brass"
+          >
+            ecc_jbnu
+          </a>
+        </p>
+      </section>
+
       {loading ? (
         <div className="paper-panel flex items-center gap-3 p-6 text-sm font-semibold text-ink/62">
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
