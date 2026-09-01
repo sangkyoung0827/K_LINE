@@ -277,7 +277,7 @@ Bank Account: 3333-30-3496426 / ECC OFICIAL
 
 Cash Payment:
 If you do not have a Korean bank account, you can pay in cash at the ECC office.
-Cash payment is available until September 11th (Fri), from 17:00 to 18:00.
+Cash payment is available until September 4th (Fri), from 17:00 to 18:00.
 Location: ECC room, 2nd floor of 동아리 전용관.
 
 Notice:
