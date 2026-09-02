@@ -4,14 +4,13 @@ import Link from "next/link";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
-import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 
 type HomeCard = {
   href: string;
   title: { en: string; ko: string };
   description: { en: string; ko: string };
   badge: { en: string; ko: string };
-  accent: "ecc" | "hanhwal" | "jeju" | "support";
+  accent: "ecc" | "hanhwal" | "jeju";
 };
 
 const homeCards: HomeCard[] = [
@@ -34,16 +33,6 @@ const homeCards: HomeCard[] = [
     },
     badge: { en: "Traditional", ko: "국궁 Traditional" },
     accent: "hanhwal"
-  },
-  {
-    href: "/contact",
-    title: { en: "Woohyukmon", ko: "우혁몬" },
-    description: {
-      en: "Ask anything about ECC, K_LINE, registration, or site guidance.",
-      ko: "무엇이든 물어보세요. ECC, K_LINE, 가입과 사이트 이용을 안내합니다."
-    },
-    badge: { en: "AI Guide", ko: "AI Guide" },
-    accent: "support"
   },
   {
     href: "/jeju",
@@ -80,11 +69,7 @@ function HomePortalCard({ card }: { card: HomeCard }) {
       className="group relative flex min-h-0 flex-col rounded-xl border border-navy/10 bg-white/58 p-4 text-left shadow-[0_18px_45px_rgba(31,42,68,0.06)] transition duration-200 hover:-translate-y-1 hover:border-brass/70 hover:bg-white/78 hover:shadow-[0_22px_55px_rgba(31,42,68,0.10)] sm:p-5 md:min-h-[292px] md:rounded-2xl md:p-8"
     >
       <div className="flex items-start justify-between gap-4">
-        {card.accent === "support" ? (
-          <span className="flex h-11 w-16 items-center justify-center rounded-lg bg-white shadow-[0_14px_28px_rgba(31,42,68,0.14)] sm:h-14 sm:w-20 sm:rounded-xl">
-            <WoohyukmonGlassesIcon className="h-8 w-12 sm:h-10 sm:w-16" />
-          </span>
-        ) : card.accent === "jeju" ? (
+        {card.accent === "jeju" ? (
           <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dcefe8] text-[#0d5962] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
             <BookOpen aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
           </span>
