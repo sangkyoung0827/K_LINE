@@ -12,6 +12,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
+import { EccMemberRegistrationForm } from "@/components/EccMemberRegistrationForm";
 import { EccPermissionRequestCard } from "@/components/EccPermissionRequestCard";
 import { I18nText } from "@/components/LanguageProvider";
 import { getCurrentEccAccess, getEccOfficialTeamChatUrl } from "@/lib/eccAccess";
@@ -104,6 +105,10 @@ export default async function EccOfficialPage() {
               <I18nText en="Join ECC Official Team Chat" ko="ECC 공식 팀채팅 입장" />
             </a>
           </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-5xl">
+          <EccMemberRegistrationForm />
         </div>
 
         <div className="mx-auto w-full max-w-5xl">
