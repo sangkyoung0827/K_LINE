@@ -168,7 +168,7 @@ export function JejuExploreMap() {
 
   useEffect(() => {
     loadRecords().catch((error: unknown) => {
-      setLoadError(error instanceof Error ? error.message : "Your Explore records could not load.");
+      setLoadError(error instanceof Error ? error.message : "Your journey records could not load.");
     });
   }, [loadRecords]);
 
@@ -248,7 +248,7 @@ export function JejuExploreMap() {
       marker.addListener("click", () => {
         setSelectedPoi(null);
         setSelectedPlaceId(place.id);
-        setMapMessage(visitedPlaceIds.has(place.id) ? "This place is already in your Explore record." : "Check in here, then add your rating and photos.");
+        setMapMessage(visitedPlaceIds.has(place.id) ? "This place is already in your journey record." : "Check in here, then add your rating and photos.");
       });
       markerRefs.current.push(marker);
     });
@@ -270,7 +270,7 @@ export function JejuExploreMap() {
           longitude: record.longitude,
           placeName: record.placeName
         });
-        setMapMessage("Your saved personal Explore record is open below.");
+        setMapMessage("Your saved personal journey record is open below.");
       });
       markerRefs.current.push(marker);
     });
@@ -365,7 +365,7 @@ export function JejuExploreMap() {
       });
       activeSessionRef.current = result.session.id;
       setLivePosition(position);
-      setMapMessage("Exploration recording is on. K_LINE saves a reduced route only while this Explore page is open.");
+      setMapMessage("Journey recording is on. K_LINE saves a reduced route only while this My Journey page is open.");
       await loadRecords();
       startWatch(result.session);
     } catch (error) {
@@ -387,7 +387,7 @@ export function JejuExploreMap() {
         method: "POST"
       });
       activeSessionRef.current = null;
-      setMapMessage("Exploration recording is stopped. Your saved route remains private for a future memory book.");
+      setMapMessage("Journey recording is stopped. Your saved route remains private for a future memory book.");
       await loadRecords();
     } catch (error) {
       setMapMessage(error instanceof Error ? error.message : "Exploration recording could not stop.");
@@ -410,7 +410,7 @@ export function JejuExploreMap() {
           className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-2 px-4 text-xs font-bold transition disabled:cursor-wait disabled:opacity-60 ${activeSession ? "bg-[#173b3f] text-white hover:bg-[#0b2d31]" : "bg-[#0d5962] text-white hover:bg-[#073c44]"}`}
         >
           {activeSession ? <Square aria-hidden className="h-3.5 w-3.5 fill-current" /> : <Route aria-hidden className="h-4 w-4" />}
-          {trackingBusy ? "Updating…" : activeSession ? "Stop exploration record" : "Start exploration record"}
+          {trackingBusy ? "Updating…" : activeSession ? "Stop journey record" : "Start journey record"}
         </button>
       </div>
 
@@ -425,7 +425,7 @@ export function JejuExploreMap() {
       {selectedPlace && overview ? <VerifiedPlacePanel place={selectedPlace} visited={overview.visits.some((visit) => visit.placeId === selectedPlace.id)} livePosition={livePosition} onClose={() => setSelectedPlaceId(null)} onCheckedIn={(visit) => setOverview((current) => current ? { ...current, visits: [visit, ...current.visits] } : current)} /> : null}
       {selectedPoi ? <PersonalPlacePanel poi={selectedPoi} record={selectedPersonalRecord} onClose={() => setSelectedPoi(null)} onSaved={(record) => {
         setPersonalRecords((records) => [record, ...records.filter((item) => item.id !== record.id)]);
-        setMapMessage("Your personal Explore record has been saved for a future memory book.");
+        setMapMessage("Your personal journey record has been saved for a future memory book.");
       }} /> : null}
     </section>
   );
@@ -522,7 +522,7 @@ function PersonalPlacePanel({ poi, record, onClose, onSaved }: { poi: GoogleMapP
       });
       onSaved(response.record);
       setPhotos([]);
-      setMessage("Saved privately in your Explore record.");
+      setMessage("Saved privately in your journey record.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "This place record could not be saved.");
     } finally {
@@ -530,7 +530,7 @@ function PersonalPlacePanel({ poi, record, onClose, onSaved }: { poi: GoogleMapP
     }
   }
 
-  return <div className="border-t border-[#0d5962]/14 bg-[#f8fcfa] p-4 sm:p-5"><PanelHeader eyebrow={`${jejuCategoryLabels[poi.category]} · Private Explore record`} title={poi.placeName} onClose={onClose} /><p className="mt-2 text-sm leading-6 text-[#4c6769]">{poi.formattedAddress || "Google map place"}</p><div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]"><div><p className="text-sm font-semibold text-[#234e53]">Your rating</p><StarRating value={rating} onChange={setRating} /><label className="mt-3 block"><span className="sr-only">Personal note</span><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} placeholder="What would you like to remember about this place?" className="w-full border border-[#0d5962]/20 bg-white px-3 py-2 text-sm leading-6 text-[#073c44] outline-none focus:border-[#0d5962]" /></label><PhotoPicker files={photos} setFiles={setPhotos} />{record?.photos.length ? <div className="mt-3 flex flex-wrap gap-2">{record.photos.map((photo) => <img key={photo.id} src={photo.publicUrl} alt="Your Explore memory" className="h-14 w-14 object-cover" />)}</div> : null}</div><button type="button" onClick={save} disabled={saving} className="inline-flex min-h-11 h-fit items-center justify-center gap-2 bg-[#f0c56b] px-4 text-sm font-bold text-[#173b3f] transition hover:bg-[#e3b252] disabled:opacity-60"><Check aria-hidden className="h-4 w-4" />{saving ? "Saving…" : record ? "Update record" : "Save to Explore"}</button></div>{message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-[#315b5f]">{message}</p> : null}</div>;
+  return <div className="border-t border-[#0d5962]/14 bg-[#f8fcfa] p-4 sm:p-5"><PanelHeader eyebrow={`${jejuCategoryLabels[poi.category]} · Private journey record`} title={poi.placeName} onClose={onClose} /><p className="mt-2 text-sm leading-6 text-[#4c6769]">{poi.formattedAddress || "Google map place"}</p><div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]"><div><p className="text-sm font-semibold text-[#234e53]">Your rating</p><StarRating value={rating} onChange={setRating} /><label className="mt-3 block"><span className="sr-only">Personal note</span><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} placeholder="What would you like to remember about this place?" className="w-full border border-[#0d5962]/20 bg-white px-3 py-2 text-sm leading-6 text-[#073c44] outline-none focus:border-[#0d5962]" /></label><PhotoPicker files={photos} setFiles={setPhotos} />{record?.photos.length ? <div className="mt-3 flex flex-wrap gap-2">{record.photos.map((photo) => <img key={photo.id} src={photo.publicUrl} alt="Your journey memory" className="h-14 w-14 object-cover" />)}</div> : null}</div><button type="button" onClick={save} disabled={saving} className="inline-flex min-h-11 h-fit items-center justify-center gap-2 bg-[#f0c56b] px-4 text-sm font-bold text-[#173b3f] transition hover:bg-[#e3b252] disabled:opacity-60"><Check aria-hidden className="h-4 w-4" />{saving ? "Saving…" : record ? "Update record" : "Save to journey"}</button></div>{message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-[#315b5f]">{message}</p> : null}</div>;
 }
 
 function PanelHeader({ eyebrow, onClose, title }: { eyebrow: string; onClose: () => void; title: string }) {

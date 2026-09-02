@@ -332,20 +332,20 @@ export function EccMemberRegistrationManagementPanel() {
       {registrations.length > 0 ? (
         <div className="divide-y divide-ink/10">
           <div className="border-b border-ink/10 p-5 md:p-6">
-            <label className="relative block max-w-md">
+            <label className="flex max-w-md items-center gap-3 border border-ink/15 bg-white/55 px-4 text-ink transition focus-within:border-navy/45 focus-within:ring-2 focus-within:ring-navy/10">
               <span className="sr-only">
                 <I18nText en="Search member by name" ko="회원 이름 검색" />
               </span>
               <Search
                 aria-hidden
-                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45"
+                className="h-4 w-4 shrink-0 text-ink/45"
               />
               <input
-                type="search"
+                type="text"
                 value={memberQuery}
                 onChange={(event) => setMemberQuery(event.target.value)}
-                placeholder={language === "ko" ? "회원 이름 검색" : "Search member by name"}
-                className="form-field min-h-11 w-full pl-11"
+                placeholder={language === "ko" ? "이름 검색" : "Search member by name"}
+                className="min-h-11 w-full bg-transparent py-2 text-sm font-medium text-ink outline-none placeholder:text-ink/42"
               />
             </label>
           </div>

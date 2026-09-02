@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Compass } from "lucide-react";
+import { ArrowRight, BookOpen } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
@@ -47,12 +47,12 @@ const homeCards: HomeCard[] = [
   },
   {
     href: "/jeju",
-    title: { en: "Explore", ko: "탐험" },
+    title: { en: "My Journey", ko: "추억록" },
     description: {
-      en: "Explore Jeju with a live map and a personal guide from Woohyukmon.",
-      ko: "실시간 지도와 우혁몬으로 제주를 간결하게 탐험합니다."
+      en: "Record Jeju on a live map and continue your journey with Woohyukmon.",
+      ko: "실시간 지도에 제주 여정을 기록하고 우혁몬과 다음 여정을 이어갑니다."
     },
-    badge: { en: "Map", ko: "지도" },
+    badge: { en: "Journey", ko: "추억록" },
     accent: "jeju"
   }
 ];
@@ -86,7 +86,7 @@ function HomePortalCard({ card }: { card: HomeCard }) {
           </span>
         ) : card.accent === "jeju" ? (
           <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dcefe8] text-[#0d5962] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
-            <Compass aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
+            <BookOpen aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
           </span>
         ) : (
           <ClubMark

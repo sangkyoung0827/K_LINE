@@ -1,12 +1,12 @@
 "use client";
 
-import { Compass, MapPinned, UserRound } from "lucide-react";
+import { BookOpen, MapPinned, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 const routes = [
-  { href: "/jeju", icon: Compass, label: "Explore" },
+  { href: "/jeju", icon: BookOpen, label: "My Journey" },
   { href: "/jeju/profile", icon: UserRound, label: "Profile" }
 ];
 
@@ -28,7 +28,7 @@ export function JejuShell({ children, eyebrow, title, description, actions, show
             <div className="min-w-0">
               <p className="inline-flex items-center gap-2 text-xs font-bold uppercase text-[#0d5962]">
                 <MapPinned aria-hidden className="h-4 w-4" />
-                {eyebrow || "K_LINE / Explore"}
+                {eyebrow || "K_LINE / My Journey"}
               </p>
               <h1 className="mt-2 font-serif text-3xl font-semibold text-[#073c44] sm:text-4xl">{title}</h1>
               {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-[#234e53] sm:text-base">{description}</p> : null}
@@ -39,7 +39,7 @@ export function JejuShell({ children, eyebrow, title, description, actions, show
       </section>
 
       {showNavigation ? (
-        <nav aria-label="Explore" className="sticky top-[76px] z-30 border-b border-[#0d5962]/10 bg-[#f9fdfb]/95 backdrop-blur sm:top-[92px]">
+        <nav aria-label="My Journey" className="sticky top-[76px] z-30 border-b border-[#0d5962]/10 bg-[#f9fdfb]/95 backdrop-blur sm:top-[92px]">
           <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 py-2 sm:px-5 lg:px-8">
             {routes.map((route) => {
               const active = route.href === "/jeju" ? pathname === route.href : pathname.startsWith(route.href);
