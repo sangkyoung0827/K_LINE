@@ -70,6 +70,7 @@ type HanhwalApplication = ApplicationForm & {
 
 type ApplicationCounts = Record<ApplicationType, number>;
 type ActivityStatuses = Record<ApplicationType, boolean>;
+type ActivityPaymentRequirements = Record<ApplicationType, boolean>;
 
 type ApplicationsApiResponse = {
   counts?: Partial<ApplicationCounts>;
@@ -79,6 +80,7 @@ type ApplicationsApiResponse = {
 
 type ActivityStatusesApiResponse = {
   statuses?: Partial<ActivityStatuses>;
+  requiresPayment?: Partial<ActivityPaymentRequirements>;
   tableReady?: boolean;
   error?: string;
 };
@@ -665,6 +667,17 @@ function emptyActivityStatuses(): ActivityStatuses {
   };
 }
 
+function emptyActivityPaymentRequirements(): ActivityPaymentRequirements {
+  return {
+    gathering: true,
+    mt: true,
+    special: true,
+    opening: true,
+    farewell: true,
+    "english-class": true
+  };
+}
+
 function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): ApplicationCounts {
   const empty = emptyApplicationCounts();
 
@@ -691,6 +704,21 @@ function normalizeActivityStatuses(statuses?: Partial<ActivityStatuses>): Activi
   };
 }
 
+function normalizeActivityPaymentRequirements(
+  requirements?: Partial<ActivityPaymentRequirements>
+): ActivityPaymentRequirements {
+  const empty = emptyActivityPaymentRequirements();
+
+  return {
+    gathering: requirements?.gathering ?? empty.gathering,
+    mt: requirements?.mt ?? empty.mt,
+    special: requirements?.special ?? empty.special,
+    opening: requirements?.opening ?? empty.opening,
+    farewell: requirements?.farewell ?? empty.farewell,
+    "english-class": requirements?.["english-class"] ?? empty["english-class"]
+  };
+}
+
 export function HanhwalActivityPanel() {
   const { isAdmin, loading } = useHanhwalAccess();
   const { language: siteLanguage, setLanguage: setSiteLanguage } = useLanguage();
@@ -705,6 +733,8 @@ export function HanhwalActivityPanel() {
   const [activityStatuses, setActivityStatuses] = useState<ActivityStatuses>(
     emptyActivityStatuses
   );
+  const [activityPaymentRequirements, setActivityPaymentRequirements] =
+    useState<ActivityPaymentRequirements>(emptyActivityPaymentRequirements);
   const [activityStatusTableReady, setActivityStatusTableReady] = useState(true);
   const [activityStatusSaving, setActivityStatusSaving] = useState<ApplicationType | "">("");
   const [activityStatusMessage, setActivityStatusMessage] = useState("");
@@ -786,6 +816,9 @@ export function HanhwalActivityPanel() {
         setApplicationCounts(normalizeApplicationCounts(data.counts));
         setApplications(Array.isArray(data.applications) ? data.applications : []);
         setActivityStatuses(normalizeActivityStatuses(statusData.statuses));
+        setActivityPaymentRequirements(
+          normalizeActivityPaymentRequirements(statusData.requiresPayment)
+        );
         setActivityStatusTableReady(statusData.tableReady !== false);
         setApplicationError("");
       } catch (error) {
@@ -888,10 +921,53 @@ export function HanhwalActivityPanel() {
       }
 
       setActivityStatuses(normalizeActivityStatuses(data.statuses));
+      setActivityPaymentRequirements(
+        normalizeActivityPaymentRequirements(data.requiresPayment)
+      );
       setActivityStatusTableReady(data.tableReady !== false);
       if (isOpen) {
         setActiveApplicationType(type);
       }
+      setActivityStatusMessage(text.activityStatusSaved);
+    } catch (error) {
+      setApplicationError(
+        error instanceof Error ? error.message : text.activityStatusStorageError
+      );
+    } finally {
+      setActivityStatusSaving("");
+    }
+  };
+
+  const saveActivityPaymentRequirement = async (
+    type: ApplicationType,
+    requiresPayment: boolean
+  ) => {
+    setActivityStatusSaving(type);
+    setActivityStatusMessage("");
+    setApplicationError("");
+
+    try {
+      const response = await fetch("/api/hanhwal/activity-statuses", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          activity_id: type,
+          requires_payment: requiresPayment
+        })
+      });
+      const data = (await response.json()) as ActivityStatusesApiResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error || text.activityStatusStorageError);
+      }
+
+      setActivityStatuses(normalizeActivityStatuses(data.statuses));
+      setActivityPaymentRequirements(
+        normalizeActivityPaymentRequirements(data.requiresPayment)
+      );
+      setActivityStatusTableReady(data.tableReady !== false);
       setActivityStatusMessage(text.activityStatusSaved);
     } catch (error) {
       setApplicationError(
@@ -1228,6 +1304,7 @@ export function HanhwalActivityPanel() {
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {applicationTypes.map((item) => {
                 const isOpen = activityStatuses[item.type];
+                const requiresPayment = activityPaymentRequirements[item.type];
                 const saving = activityStatusSaving === item.type;
 
                 return (
@@ -1240,6 +1317,18 @@ export function HanhwalActivityPanel() {
                       <p className={`mt-1 text-sm font-semibold ${isOpen ? "text-pine" : "text-ink/48"}`}>
                         {isOpen ? text.applicationOpen : text.applicationClosed}
                       </p>
+                      <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-ink/62">
+                        <input
+                          type="checkbox"
+                          checked={requiresPayment}
+                          disabled={saving}
+                          onChange={(event) =>
+                            saveActivityPaymentRequirement(item.type, event.target.checked)
+                          }
+                          className="h-4 w-4 accent-navy"
+                        />
+                        {language === "ko" ? "활동비 납부 필요" : "Payment required"}
+                      </label>
                     </div>
                     <button
                       type="button"

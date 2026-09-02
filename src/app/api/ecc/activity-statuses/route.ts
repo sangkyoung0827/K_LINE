@@ -9,6 +9,10 @@ import {
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { getEccActivityStatuses, updateEccActivityStatuses } from "@/lib/eccActivityStatuses";
 import {
+  createActivityRecordsForClosedActivities,
+  markActivityApplicationsClosed
+} from "@/lib/userActivityRecords";
+import {
   cleanText,
   SupabaseConfigError,
   SupabaseRequestError
@@ -107,9 +111,13 @@ export async function PATCH(request: Request) {
       activityId?: unknown;
       is_open?: unknown;
       isOpen?: unknown;
+      requires_payment?: unknown;
+      requiresPayment?: unknown;
       statuses?: Partial<Record<EccActivityType, boolean>>;
+      paymentRequirements?: Partial<Record<EccActivityType, boolean>>;
     };
     const updates: Partial<Record<EccActivityType, boolean>> = {};
+    const paymentRequirements: Partial<Record<EccActivityType, boolean>> = {};
 
     if (body.statuses && typeof body.statuses === "object") {
       Object.entries(body.statuses).forEach(([key, value]) => {
@@ -121,6 +129,16 @@ export async function PATCH(request: Request) {
       });
     }
 
+    if (body.paymentRequirements && typeof body.paymentRequirements === "object") {
+      Object.entries(body.paymentRequirements).forEach(([key, value]) => {
+        const type = normalizeEccActivityType(key);
+
+        if (eccActivityTypeSet.has(type) && typeof value === "boolean") {
+          paymentRequirements[type] = value;
+        }
+      });
+    }
+
     const activityId = cleanText(body.activity_id ?? body.activityId);
     const directValue = body.is_open ?? body.isOpen;
 
@@ -128,7 +146,13 @@ export async function PATCH(request: Request) {
       updates[normalizeEccActivityType(activityId)] = directValue;
     }
 
-    if (Object.keys(updates).length === 0) {
+    const directPaymentValue = body.requires_payment ?? body.requiresPayment;
+
+    if (activityId && typeof directPaymentValue === "boolean") {
+      paymentRequirements[normalizeEccActivityType(activityId)] = directPaymentValue;
+    }
+
+    if (Object.keys(updates).length === 0 && Object.keys(paymentRequirements).length === 0) {
       return NextResponse.json(
         {
           error: "No valid ECC activity status update was provided.",
@@ -148,7 +172,20 @@ export async function PATCH(request: Request) {
       });
     }
 
-    return NextResponse.json(await updateEccActivityStatuses(updates, access.email));
+    const result = await updateEccActivityStatuses(updates, access.email, paymentRequirements);
+
+    if (result.closedActivities.length > 0) {
+      // This is a secondary Passport-data write. A failure must never undo a
+      // successful admin close action in the established ECC workflow.
+      try {
+        await markActivityApplicationsClosed("ecc", result.closedActivities);
+        await createActivityRecordsForClosedActivities("ecc", result.closedActivities);
+      } catch (error) {
+        console.error("ECC user activity close sync failed", error);
+      }
+    }
+
+    return NextResponse.json(result);
   } catch (error) {
     logStatusError(error);
 

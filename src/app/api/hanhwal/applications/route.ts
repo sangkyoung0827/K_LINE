@@ -99,6 +99,14 @@ function countApplications(rows: SupabaseApplicationRow[]) {
   return counts;
 }
 
+function isMissingActivityHistoryColumn(error: unknown) {
+  return (
+    error instanceof SupabaseRequestError &&
+    error.status === 400 &&
+    /column|schema cache|activity_instance_id|requires_payment|user_id/i.test(error.message)
+  );
+}
+
 async function listApplications() {
   return supabaseRequest<SupabaseApplicationRow[]>(
     `${tableName}?select=${selectedColumns}&order=created_at.desc`
@@ -228,10 +236,14 @@ export async function POST(request: Request) {
     }
 
     let statuses = defaultHanhwalActivityStatuses();
+    let activityInstanceId = "";
+    let requiresPayment = true;
 
     try {
       const statusResult = await getHanhwalActivityStatuses();
       statuses = statusResult.statuses;
+      activityInstanceId = statusResult.activityInstances[type];
+      requiresPayment = statusResult.requiresPayment[type];
     } catch (error) {
       if (!(error instanceof SupabaseRequestError && error.status === 404)) {
         throw error;
@@ -248,25 +260,54 @@ export async function POST(request: Request) {
       );
     }
 
-    await supabaseRequest<SupabaseApplicationRow[]>(
-      `${tableName}?select=${selectedColumns}`,
-      {
-        method: "POST",
-        headers: {
-          Prefer: "return=representation"
-        },
-        body: JSON.stringify({
-          activity_id: type,
-          activity_title: activityTitle,
-          name,
-          gender,
-          nationality,
-          preferred_food: preferredFood,
-          other_requests: otherRequests,
-          status: "pending"
-        })
+    const application = {
+      activity_id: type,
+      activity_title: activityTitle,
+      name,
+      gender,
+      nationality,
+      preferred_food: preferredFood,
+      other_requests: otherRequests,
+      status: "pending"
+    };
+    const trackedApplication = activityInstanceId
+      ? {
+          ...application,
+          activity_instance_id: activityInstanceId,
+          requires_payment: requiresPayment,
+          user_id: access.email
+        }
+      : application;
+
+    try {
+      await supabaseRequest<SupabaseApplicationRow[]>(
+        `${tableName}?select=${selectedColumns}`,
+        {
+          method: "POST",
+          headers: {
+            Prefer: "return=representation"
+          },
+          body: JSON.stringify(trackedApplication)
+        }
+      );
+    } catch (error) {
+      // The original Hanhwal application path remains available if the
+      // additive activity-history migration has not reached production yet.
+      if (!activityInstanceId || !isMissingActivityHistoryColumn(error)) {
+        throw error;
       }
-    );
+
+      await supabaseRequest<SupabaseApplicationRow[]>(
+        `${tableName}?select=${selectedColumns}`,
+        {
+          method: "POST",
+          headers: {
+            Prefer: "return=representation"
+          },
+          body: JSON.stringify(application)
+        }
+      );
+    }
 
     return NextResponse.json(await buildApplicationsResponse(access.isAdmin), {
       status: 201

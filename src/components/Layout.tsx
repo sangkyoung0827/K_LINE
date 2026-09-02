@@ -1,3 +1,4 @@
+import { ActivityRatingModal } from "@/components/ActivityRatingModal";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 
@@ -7,6 +8,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <Navbar />
       <main>{children}</main>
       <Footer />
+      <ActivityRatingModal />
     </>
   );
 }
