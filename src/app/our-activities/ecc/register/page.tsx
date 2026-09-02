@@ -23,10 +23,6 @@ export default async function EccMemberRegistrationPage() {
     redirect("/login?callbackUrl=/our-activities/ecc/register");
   }
 
-  if (access.isOfficialMember) {
-    redirect("/ecc-official");
-  }
-
   return (
     <section className="bg-paper py-14 md:py-20">
       <div className="mx-auto max-w-5xl px-5 md:px-8">

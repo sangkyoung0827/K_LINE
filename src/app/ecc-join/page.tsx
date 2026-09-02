@@ -18,10 +18,6 @@ export default async function EccJoinPage() {
     redirect("/login?callbackUrl=/ecc-join");
   }
 
-  if (access.isOfficialMember) {
-    redirect("/ecc-official");
-  }
-
   return (
     <section className="bg-paper py-8 md:py-16">
       <div className="mx-auto max-w-4xl px-4 md:px-8">
