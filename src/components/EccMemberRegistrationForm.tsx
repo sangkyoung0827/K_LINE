@@ -8,9 +8,15 @@ import {
   CheckCircle2,
   Edit3,
   Loader2,
+  Save,
   ShieldCheck
 } from "lucide-react";
+import {
+  defaultEccRegistrationContent,
+  type EccRegistrationContent
+} from "@/data/eccRegistrationContent";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
+import { useEccAccess } from "@/hooks/useEccAccess";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
 
@@ -39,6 +45,11 @@ type RegistrationResponse = {
   message?: string;
   registration?: EccMemberRegistration | null;
   teamChatUrl?: string;
+};
+
+type RegistrationContentResponse = {
+  content?: EccRegistrationContent;
+  error?: string;
 };
 
 type FormState = {
@@ -123,6 +134,7 @@ function statusDescription(registration: EccMemberRegistration, language: "en" |
 
 export function EccMemberRegistrationForm() {
   const { language } = useLanguage();
+  const access = useEccAccess();
   const pathname = usePathname();
   const loginHref = `/login?callbackUrl=${encodeURIComponent(pathname || "/ecc-join")}`;
   const [registration, setRegistration] = useState<EccMemberRegistration | null>(null);
@@ -134,6 +146,15 @@ export function EccMemberRegistrationForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loginRequired, setLoginRequired] = useState(false);
+  const [registrationContent, setRegistrationContent] = useState<EccRegistrationContent>(
+    defaultEccRegistrationContent
+  );
+  const [contentDraft, setContentDraft] = useState<EccRegistrationContent>(
+    defaultEccRegistrationContent
+  );
+  const [editingContent, setEditingContent] = useState(false);
+  const [savingContent, setSavingContent] = useState(false);
+  const [contentError, setContentError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -181,6 +202,23 @@ export function EccMemberRegistrationForm() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/ecc/registration-content")
+      .then(async (response) => ({ data: (await response.json()) as RegistrationContentResponse, response }))
+      .then(({ data, response }) => {
+        if (!active || !response.ok || !data.content) return;
+        setRegistrationContent(data.content);
+        setContentDraft(data.content);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const canEdit = useMemo(
     () => !registration || (!registration.officialMember && registration.status !== "approved"),
     [registration]
@@ -196,6 +234,47 @@ export function EccMemberRegistrationForm() {
       ...current,
       [field]: ""
     }));
+  };
+
+  const beginContentEditing = (startFresh = false) => {
+    if (!access.isAdmin) return;
+
+    setContentError("");
+    setContentDraft(
+      startFresh
+        ? { body: "", title: "", updatedAt: registrationContent.updatedAt }
+        : registrationContent
+    );
+    setEditingContent(true);
+  };
+
+  const saveContent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSavingContent(true);
+    setContentError("");
+
+    try {
+      const response = await fetch("/api/ecc/registration-content", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: contentDraft.body, title: contentDraft.title })
+      });
+      const data = (await response.json()) as RegistrationContentResponse;
+
+      if (!response.ok || !data.content) {
+        throw new Error(data.error || "ECC registration content could not be saved.");
+      }
+
+      setRegistrationContent(data.content);
+      setContentDraft(data.content);
+      setEditingContent(false);
+    } catch (saveError) {
+      setContentError(
+        saveError instanceof Error ? saveError.message : "ECC registration content could not be saved."
+      );
+    } finally {
+      setSavingContent(false);
+    }
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -261,34 +340,99 @@ export function EccMemberRegistrationForm() {
     <div className="grid gap-8">
       <section className="paper-panel p-5 md:p-8">
         <div className="grid gap-6">
-          <div>
-            <p className="text-sm font-semibold uppercase text-brass">Membership Fee</p>
-            <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
-              ECC New Member Registration
-            </h2>
-            <div className="mt-5 whitespace-pre-line text-sm leading-7 text-ink/72">{`👋 Welcome to ECC!
-
-ECC is the English Conversation Club at Jeonbuk National University.
-Please fill out this form after checking the membership fee information.
-
-Membership Fee:
-Amount: 15,000 KRW
-Bank Account: 3333-30-3496426 / ECC OFICIAL / 카카오뱅크 예금주 이상경
-
-Cash Payment:
-If you do not have a Korean bank account, you can pay in cash at the ECC office.
-Cash payment is available until September 4th (Fri), from 17:00 to 18:00.
-Location: ECC room, 2nd floor of 동아리 전용관.
-
-Notice:
-Please write your information correctly.
-ECC officers will check your form and payment.
-
-Instagram:
-@ecc_jbnu
-
-Thank you! 💚`}</div>
-          </div>
+          {!editingContent ? (
+            <div
+              role={access.isAdmin ? "button" : undefined}
+              tabIndex={access.isAdmin ? 0 : undefined}
+              onClick={() => beginContentEditing()}
+              onKeyDown={(event) => {
+                if (access.isAdmin && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault();
+                  beginContentEditing();
+                }
+              }}
+              className={access.isAdmin ? "cursor-text rounded-lg outline-none transition hover:bg-hanji/45 focus-visible:ring-2 focus-visible:ring-navy/35" : undefined}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <p className="text-sm font-semibold uppercase text-brass">Membership Fee</p>
+                {access.isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      beginContentEditing();
+                    }}
+                    className="inline-flex min-h-9 items-center gap-1.5 border border-navy/18 bg-white/65 px-3 text-xs font-semibold text-navy transition hover:border-brass hover:bg-brass/10"
+                  >
+                    <Edit3 aria-hidden className="h-3.5 w-3.5" />
+                    본문 편집
+                  </button>
+                ) : null}
+              </div>
+              <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
+                {registrationContent.title}
+              </h2>
+              <div className="mt-5 whitespace-pre-line text-sm leading-7 text-ink/72">
+                {registrationContent.body}
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={saveContent} className="grid gap-4 rounded-lg border border-brass/35 bg-hanji/35 p-4 md:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold uppercase text-brass">관리자 안내문 편집</p>
+                <button
+                  type="button"
+                  disabled={savingContent}
+                  onClick={() => beginContentEditing(true)}
+                  className="min-h-9 border border-navy/18 bg-white/65 px-3 text-xs font-semibold text-navy transition hover:border-brass hover:bg-brass/10 disabled:opacity-60"
+                >
+                  새로 작성
+                </button>
+              </div>
+              <label className="grid gap-2 text-sm font-semibold text-ink">
+                제목
+                <input
+                  required
+                  value={contentDraft.title}
+                  onChange={(event) => setContentDraft((current) => ({ ...current, title: event.target.value }))}
+                  className="form-field min-h-11 w-full"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-ink">
+                본문
+                <textarea
+                  required
+                  rows={18}
+                  value={contentDraft.body}
+                  onChange={(event) => setContentDraft((current) => ({ ...current, body: event.target.value }))}
+                  className="form-field min-h-80 w-full resize-y py-3"
+                />
+              </label>
+              {contentError ? <p role="alert" className="text-sm font-semibold text-red-700">{contentError}</p> : null}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={savingContent}
+                  className="inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-wait disabled:opacity-60"
+                >
+                  {savingContent ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Save aria-hidden className="h-4 w-4" />}
+                  변경내용 저장하기
+                </button>
+                <button
+                  type="button"
+                  disabled={savingContent}
+                  onClick={() => {
+                    setContentDraft(registrationContent);
+                    setContentError("");
+                    setEditingContent(false);
+                  }}
+                  className="min-h-11 border border-navy/18 bg-white/65 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10 disabled:opacity-60"
+                >
+                  취소
+                </button>
+              </div>
+            </form>
+          )}
           <div className="border border-pine/20 bg-pine/10 p-5">
             <div className="flex items-center gap-3">
               <ShieldCheck aria-hidden className="h-5 w-5 text-pine" />
