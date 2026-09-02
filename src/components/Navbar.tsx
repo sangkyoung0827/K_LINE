@@ -78,10 +78,6 @@ export function Navbar() {
             </div>
           </div>
 
-          <DesktopNavLink href="/contact" active={pathname.startsWith("/contact")}>
-            {language === "ko" ? "우혁몬" : "Woohyukmon"}
-          </DesktopNavLink>
-
           <DesktopNavLink href="/jeju" active={pathname.startsWith("/jeju")}>
             <span className="inline-flex items-center gap-1.5">
               <BookOpen aria-hidden className="h-3.5 w-3.5" />
@@ -144,9 +140,6 @@ export function Navbar() {
             </MobileMenuLink>
             <MobileMenuLink href="/our-activities/hanhwal" onClick={() => setOpen(false)}>
               <I18nNavText en="Hanhwal" ko="한활" language={language} />
-            </MobileMenuLink>
-            <MobileMenuLink href="/contact" onClick={() => setOpen(false)}>
-              <I18nNavText en="Woohyukmon" ko="우혁몬" language={language} />
             </MobileMenuLink>
             <MobileMenuLink href="/jeju" onClick={() => setOpen(false)}>
               <span className="inline-flex items-center gap-2"><BookOpen aria-hidden className="h-4 w-4" /><I18nNavText en="My Journey" ko="추억록" language={language} /></span>
