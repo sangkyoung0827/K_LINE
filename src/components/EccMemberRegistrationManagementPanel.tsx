@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Save, Trash2, UserCheck } from "lucide-react";
+import { CheckCircle2, Loader2, Save, Search, Trash2, UserCheck } from "lucide-react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
@@ -94,6 +94,7 @@ export function EccMemberRegistrationManagementPanel() {
   const [developerEmail, setDeveloperEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [memberQuery, setMemberQuery] = useState("");
 
   const applyRegistrations = (nextRegistrations: EccMemberRegistration[]) => {
     setRegistrations(nextRegistrations);
@@ -153,6 +154,21 @@ export function EccMemberRegistrationManagementPanel() {
     }),
     [registrations]
   );
+
+  const filteredRegistrations = useMemo(() => {
+    const query = memberQuery.trim().toLocaleLowerCase();
+
+    if (!query) {
+      return registrations;
+    }
+
+    return registrations.filter((registration) =>
+      [registration.fullName, registration.googleName, registration.kakaoDisplayName]
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(query)
+    );
+  }, [memberQuery, registrations]);
 
   const updateDraft = (id: string, value: Partial<DraftState[string]>) => {
     setDrafts((current) => {
@@ -315,7 +331,25 @@ export function EccMemberRegistrationManagementPanel() {
 
       {registrations.length > 0 ? (
         <div className="divide-y divide-ink/10">
-          {registrations.map((registration) => {
+          <div className="border-b border-ink/10 p-5 md:p-6">
+            <label className="relative block max-w-md">
+              <span className="sr-only">
+                <I18nText en="Search member by name" ko="회원 이름 검색" />
+              </span>
+              <Search
+                aria-hidden
+                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45"
+              />
+              <input
+                type="search"
+                value={memberQuery}
+                onChange={(event) => setMemberQuery(event.target.value)}
+                placeholder={language === "ko" ? "회원 이름 검색" : "Search member by name"}
+                className="form-field min-h-11 w-full pl-11"
+              />
+            </label>
+          </div>
+          {filteredRegistrations.map((registration) => {
             const draft = drafts[registration.id] ?? {
               adminNote: registration.adminNote,
               paymentConfirmed: registration.paymentConfirmed
@@ -437,6 +471,11 @@ export function EccMemberRegistrationManagementPanel() {
               </article>
             );
           })}
+          {filteredRegistrations.length === 0 ? (
+            <div className="p-8 text-sm leading-7 text-ink/62">
+              <I18nText en="No matching member was found." ko="검색한 이름과 일치하는 회원이 없습니다." />
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="p-8 text-sm leading-7 text-ink/62">
