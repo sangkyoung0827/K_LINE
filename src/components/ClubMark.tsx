@@ -6,8 +6,8 @@ export const clubMarks = {
     alt: "ECC club mark"
   },
   hanhwal: {
-    src: "/images/hanhwal-tiger-archer-logo.svg",
-    alt: "Hanhwal tiger archer logo"
+    src: "/images/hanhwal-bow-logo.svg",
+    alt: "Hanhwal traditional bow mark"
   }
 } satisfies Record<FreeBoardId, { src: string; alt: string }>;
 

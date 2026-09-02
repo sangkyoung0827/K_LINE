@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">Hanhwal traditional bow mark</title>
+  <desc id="desc">A clean Korean traditional bow with a taut bowstring and wrapped grip.</desc>
+  <circle cx="80" cy="80" r="80" fill="#1F2A44"/>
+  <circle cx="80" cy="80" r="64" fill="none" stroke="#F4EBDD" stroke-opacity=".22" stroke-width="2"/>
+  <path d="M111 25C78 45 64 65 64 80s14 35 47 55" fill="none" stroke="#D6A85A" stroke-width="9" stroke-linecap="round"/>
+  <path d="M111 25v110" fill="none" stroke="#F4EBDD" stroke-width="3" stroke-linecap="round"/>
+  <path d="M72 70v20" fill="none" stroke="#F4EBDD" stroke-width="12" stroke-linecap="round"/>
+  <path d="M72 70v20" fill="none" stroke="#6B8F71" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="111" cy="25" r="4" fill="#D6A85A"/>
+  <circle cx="111" cy="135" r="4" fill="#D6A85A"/>
+</svg>
