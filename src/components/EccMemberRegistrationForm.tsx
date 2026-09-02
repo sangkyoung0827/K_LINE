@@ -273,7 +273,7 @@ Please fill out this form after checking the membership fee information.
 
 Membership Fee:
 Amount: 15,000 KRW
-Bank Account: 3333-30-3496426 / ECC OFICIAL
+Bank Account: 3333-30-3496426 / ECC OFICIAL / 카카오뱅크 예금주 이상경
 
 Cash Payment:
 If you do not have a Korean bank account, you can pay in cash at the ECC office.
