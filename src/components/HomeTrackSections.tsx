@@ -36,12 +36,12 @@ const homeCards: HomeCard[] = [
   },
   {
     href: "/jeju",
-    title: { en: "My Journey", ko: "추억록" },
+    title: { en: "Memory Book", ko: "추억록" },
     description: {
-      en: "Record Jeju on a live map and continue your journey with Woohyukmon.",
-      ko: "실시간 지도에 제주 여정을 기록하고 우혁몬과 다음 여정을 이어갑니다."
+      en: "Make your own Korea Memory Book with places, ratings, photos, and your journey.",
+      ko: "대한민국 곳곳의 장소, 별점, 사진과 여행 기록으로 자신만의 한국 추억록을 만드세요."
     },
-    badge: { en: "Journey", ko: "추억록" },
+    badge: { en: "Memory Book", ko: "추억록" },
     accent: "jeju"
   }
 ];
