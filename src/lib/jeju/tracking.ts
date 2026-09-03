@@ -4,6 +4,13 @@ export const TRACK_POINT_MIN_DISTANCE_METERS = 35;
 export const TRACK_POINT_MIN_INTERVAL_MS = 60_000;
 export const TRACK_POINT_STATIONARY_INTERVAL_MS = 5 * 60_000;
 
+export const KOREA_LOCATION_BOUNDS = {
+  south: 32.8,
+  north: 38.8,
+  west: 124.3,
+  east: 132.2
+} as const;
+
 export type ExploreLocation = {
   latitude: number;
   longitude: number;
@@ -13,14 +20,17 @@ export type ExploreTrackSample = ExploreLocation & {
   recordedAt: string | number | Date;
 };
 
-export function isValidJejuLocation(location: ExploreLocation) {
+export function isValidKoreaLocation(location: ExploreLocation) {
   return Number.isFinite(location.latitude)
     && Number.isFinite(location.longitude)
-    && location.latitude >= 32.7
-    && location.latitude <= 34.1
-    && location.longitude >= 125.7
-    && location.longitude <= 127.5;
+    && location.latitude >= KOREA_LOCATION_BOUNDS.south
+    && location.latitude <= KOREA_LOCATION_BOUNDS.north
+    && location.longitude >= KOREA_LOCATION_BOUNDS.west
+    && location.longitude <= KOREA_LOCATION_BOUNDS.east;
 }
+
+// Kept as a compatibility alias so the existing exploration service can stay untouched.
+export const isValidJejuLocation = isValidKoreaLocation;
 
 export function roundExploreCoordinate(value: number) {
   return Math.round(value * 10_000) / 10_000;
