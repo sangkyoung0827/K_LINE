@@ -28,7 +28,7 @@ type GoogleMapPoi = {
   placeName: string;
 };
 
-const jejuCenter = { lat: 33.3792, lng: 126.5312 };
+const koreaCenter = { lat: 36.35, lng: 127.9 };
 const browserMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? "";
 let mapsScriptPromise: Promise<any> | null = null;
 
@@ -180,12 +180,12 @@ export function JejuExploreMap() {
         if (cancelled || !mapElementRef.current) return;
         mapsRef.current = maps;
         const map = new maps.Map(mapElementRef.current, {
-          center: jejuCenter,
+          center: koreaCenter,
           clickableIcons: true,
           fullscreenControl: true,
           mapTypeControl: false,
           streetViewControl: false,
-          zoom: 10
+          zoom: 7
         });
         map.addListener("click", (event: any) => {
           if (!event?.placeId || !maps.places?.PlacesService) {
@@ -365,7 +365,7 @@ export function JejuExploreMap() {
       });
       activeSessionRef.current = result.session.id;
       setLivePosition(position);
-      setMapMessage("Journey recording is on. K_LINE saves a reduced route only while this My Journey page is open.");
+      setMapMessage("Exploration recording is on. K_LINE saves a reduced route only while this Memory Book page is open.");
       await loadRecords();
       startWatch(result.session);
     } catch (error) {
@@ -387,7 +387,7 @@ export function JejuExploreMap() {
         method: "POST"
       });
       activeSessionRef.current = null;
-      setMapMessage("Journey recording is stopped. Your saved route remains private for a future memory book.");
+      setMapMessage("Exploration recording is stopped. Your saved route remains private for a future memory book.");
       await loadRecords();
     } catch (error) {
       setMapMessage(error instanceof Error ? error.message : "Exploration recording could not stop.");
@@ -400,8 +400,8 @@ export function JejuExploreMap() {
     <section className="overflow-hidden border border-[#0d5962]/14 bg-white/82">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#0d5962]/12 px-4 py-4 sm:px-5">
         <div className="min-w-0">
-          <p className="inline-flex items-center gap-2 text-sm font-bold text-[#073c44]"><MapPinned aria-hidden className="h-4 w-4 text-[#0d5962]" />Live Jeju map</p>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-[#4c6769]">Start a record only when you want to save this trip. It runs only in this page, stores a reduced private route, and can be stopped at any time.</p>
+          <p className="inline-flex items-center gap-2 text-sm font-bold text-[#073c44]"><MapPinned aria-hidden className="h-4 w-4 text-[#0d5962]" />Live Korea map</p>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-[#4c6769]">Start an exploration only when you want to save this trip. It runs only on this page, stores a reduced private route, and can be stopped at any time.</p>
         </div>
         <button
           type="button"
@@ -410,14 +410,14 @@ export function JejuExploreMap() {
           className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-2 px-4 text-xs font-bold transition disabled:cursor-wait disabled:opacity-60 ${activeSession ? "bg-[#173b3f] text-white hover:bg-[#0b2d31]" : "bg-[#0d5962] text-white hover:bg-[#073c44]"}`}
         >
           {activeSession ? <Square aria-hidden className="h-3.5 w-3.5 fill-current" /> : <Route aria-hidden className="h-4 w-4" />}
-          {trackingBusy ? "Updating…" : activeSession ? "Stop journey record" : "Start journey record"}
+          {trackingBusy ? "Updating…" : activeSession ? "Stop exploration" : "Start exploration"}
         </button>
       </div>
 
-      {browserMapsKey ? <div ref={mapElementRef} className="h-[min(62svh,38rem)] min-h-[22rem] w-full" aria-label="Interactive Google Map of Jeju Island" /> : <JejuGoogleMap />}
+      {browserMapsKey ? <div ref={mapElementRef} className="h-[min(62svh,38rem)] min-h-[22rem] w-full" aria-label="Interactive Google Map of South Korea" /> : <JejuGoogleMap />}
 
       <div className="border-t border-[#0d5962]/12 px-4 py-3 sm:px-5">
-        {browserMapsKey ? <p className="text-xs leading-5 text-[#4c6769]">Click a named Google map place to save your own rating and optional photos. Click a K_LINE marker to check in, then leave a verified review.</p> : <p className="text-xs leading-5 text-[#4c6769]">Interactive place recording will activate after the restricted Google Maps browser key is added. The live map remains available now.</p>}
+        {browserMapsKey ? <p className="text-xs leading-5 text-[#4c6769]">Click a named Google map place anywhere in South Korea to save your own rating and optional photos. Click a K_LINE marker to check in, then leave a verified review.</p> : <p className="text-xs leading-5 text-[#4c6769]">Interactive place recording will activate after the restricted Google Maps browser key is added. The nationwide live map remains available now.</p>}
         {mapMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-[#315b5f]">{mapMessage}</p> : null}
         {loadError ? <p role="alert" className="mt-2 text-xs leading-5 text-red-700">{loadError}</p> : null}
       </div>
