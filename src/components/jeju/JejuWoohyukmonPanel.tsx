@@ -73,8 +73,8 @@ export function JejuWoohyukmonPanel({ embedded = false }: { embedded?: boolean }
     setSending(true);
 
     try {
-      const response = await fetch("/api/gemini", {
-        body: JSON.stringify({ context: "jeju", currentLocation, history, message, modelVersion: "4" }),
+      const response = await fetch("/api/jeju/assistant", {
+        body: JSON.stringify({ currentLocation, history, message }),
         headers: { "Content-Type": "application/json" },
         method: "POST"
       });
