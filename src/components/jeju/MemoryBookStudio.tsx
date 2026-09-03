@@ -103,7 +103,7 @@ function requestCurrentPosition() {
     }
     navigator.geolocation.getCurrentPosition(
       (position) => resolve(positionFromGeolocation(position)),
-      () => reject(new Error("Location permission is required to start exploration.")),
+      () => reject(new Error("Location permission was not granted.")),
       { enableHighAccuracy: true, maximumAge: 15_000, timeout: 15_000 }
     );
   });
@@ -113,7 +113,12 @@ function parseStoredProfile(raw: string | null) {
   if (!raw) return null;
   try {
     const value = JSON.parse(raw) as Partial<MemoryProfile>;
-    return Object.fromEntries(Object.keys(emptyProfile).map((key) => [key, typeof value[key as keyof MemoryProfile] === "string" ? value[key as keyof MemoryProfile] : ""])) as MemoryProfile;
+    return Object.fromEntries(
+      Object.keys(emptyProfile).map((key) => [
+        key,
+        typeof value[key as keyof MemoryProfile] === "string" ? value[key as keyof MemoryProfile] : ""
+      ])
+    ) as MemoryProfile;
   } catch {
     return null;
   }
@@ -142,22 +147,8 @@ export function MemoryBookStudio() {
   const [recommendationBusy, setRecommendationBusy] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
 
-  const loadData = useCallback(async () => {
-    const [profileResult, placesResult, trackingResult, activitiesResult, overviewResult] = await Promise.all([
-      readJejuResponse<ProfileResponse>("/api/jeju/profile"),
-      readJejuResponse<PersonalPlacesResponse>("/api/jeju/personal-places"),
-      readJejuResponse<JejuExploreTracking>("/api/jeju/explore/track"),
-      fetch("/api/activity-history/records").then((response) => response.json() as Promise<ActivityRecordsResponse>),
-      readJejuResponse<OverviewResponse>("/api/jeju/overview")
-    ]);
-
+  const applyProfileResponse = useCallback((profileResult: ProfileResponse) => {
     setProfileResponse(profileResult);
-    setAvatar(overviewResult.user?.image ?? "");
-    setPersonalPlaces(placesResult.records ?? []);
-    setActivities(activitiesResult.records ?? []);
-    setTracking(trackingResult);
-    activeSessionRef.current = trackingResult.activeSession?.id ?? null;
-
     const storageKey = `kline-memory-book-profile:${profileResult.user.email}`;
     const stored = parseStoredProfile(window.localStorage.getItem(storageKey));
     const defaults: MemoryProfile = {
@@ -170,26 +161,13 @@ export function MemoryBookStudio() {
       interests: profileResult.profile?.preferredActivities.join(", ") || profileResult.profile?.preferredFoods.join(", ") || "",
       intro: ""
     };
-    setProfile(stored ? { ...defaults, ...stored } : defaults);
-
-    const startedKey = `kline-memory-book-started:${profileResult.user.email}`;
-    const explorationKey = `kline-exploration-enabled:${profileResult.user.email}`;
-    const started = window.localStorage.getItem(startedKey) === "1";
-    const explorationEnabled = window.localStorage.getItem(explorationKey) === "1";
-    setBookStarted(started);
-
-    if (explorationEnabled && trackingResult.activeSession) {
-      startWatch(trackingResult.activeSession.id);
-    }
+    setProfile((current) => {
+      const hasCurrentInput = Object.values(current).some((value) => value.trim().length > 0);
+      if (hasCurrentInput) return current;
+      return stored ? { ...defaults, ...stored } : defaults;
+    });
+    return profileResult;
   }, []);
-
-  useEffect(() => {
-    loadData().catch(() => setTrackingMessage(korean ? "개인 기록을 불러오지 못했습니다." : "Your private records could not load."));
-    return () => {
-      if (watchIdRef.current !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    };
-  }, [korean, loadData]);
 
   function startWatch(sessionId: string) {
     if (!navigator.geolocation) return;
@@ -209,16 +187,70 @@ export function MemoryBookStudio() {
           })
         }).catch(() => undefined);
       },
-      () => setTrackingMessage(korean ? "위치 기록이 잠시 멈췄습니다. 지도와 기존 기록은 계속 사용할 수 있습니다." : "Location updates paused. Your map and saved records still work."),
+      () => setTrackingMessage(
+        korean
+          ? "위치 기록이 잠시 멈췄습니다. 추억록과 기존 기록은 계속 사용할 수 있습니다."
+          : "Location updates paused. Your Memory Book and saved records still work."
+      ),
       { enableHighAccuracy: true, maximumAge: 15_000, timeout: 25_000 }
     );
   }
 
+  const loadData = useCallback(async () => {
+    const [profileResult, placesResult, trackingResult, activitiesResult, overviewResult] = await Promise.all([
+      readJejuResponse<ProfileResponse>("/api/jeju/profile"),
+      readJejuResponse<PersonalPlacesResponse>("/api/jeju/personal-places"),
+      readJejuResponse<JejuExploreTracking>("/api/jeju/explore/track"),
+      fetch("/api/activity-history/records").then((response) => response.json() as Promise<ActivityRecordsResponse>),
+      readJejuResponse<OverviewResponse>("/api/jeju/overview")
+    ]);
+
+    applyProfileResponse(profileResult);
+    setAvatar(overviewResult.user?.image ?? "");
+    setPersonalPlaces(placesResult.records ?? []);
+    setActivities(activitiesResult.records ?? []);
+    setTracking(trackingResult);
+    activeSessionRef.current = trackingResult.activeSession?.id ?? null;
+
+    const startedKey = `kline-memory-book-started:${profileResult.user.email}`;
+    const explorationKey = `kline-exploration-enabled:${profileResult.user.email}`;
+    const started = window.localStorage.getItem(startedKey) === "1";
+    const explorationEnabled = window.localStorage.getItem(explorationKey) === "1";
+    setBookStarted((current) => current || started);
+
+    if (explorationEnabled && trackingResult.activeSession) {
+      startWatch(trackingResult.activeSession.id);
+    }
+  }, [applyProfileResponse, korean]);
+
+  useEffect(() => {
+    loadData().catch(() => setTrackingMessage(korean ? "개인 기록을 불러오지 못했습니다." : "Your private records could not load."));
+    return () => {
+      if (watchIdRef.current !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    };
+  }, [korean, loadData]);
+
   async function beginExploration() {
-    if (!profileResponse || trackingBusy) return;
+    if (trackingBusy) return;
+
+    // Opening the Memory Book is the primary user action. It must never wait for
+    // geolocation, profile retrieval, or creation of a tracking session.
+    setBookStarted(true);
+    setConfirmOpen(false);
+    setPageIndex(0);
+    setBookOpen(true);
+    setTrackingMessage(
+      korean
+        ? "추억록 1페이지를 열었습니다. 위치 기록은 백그라운드에서 별도로 시작합니다."
+        : "Memory Book page 1 is open. Location recording will start separately in the background."
+    );
+
     setTrackingBusy(true);
-    setTrackingMessage(korean ? "위치 권한을 확인하고 탐험 기록을 시작합니다…" : "Checking location permission and starting your exploration…");
     try {
+      const profileResult = profileResponse ?? applyProfileResponse(await readJejuResponse<ProfileResponse>("/api/jeju/profile"));
+      window.localStorage.setItem(`kline-memory-book-started:${profileResult.user.email}`, "1");
+
       const position = await requestCurrentPosition();
       let session: JejuExploreSession | null = tracking?.activeSession ?? null;
 
@@ -237,23 +269,27 @@ export function MemoryBookStudio() {
 
       activeSessionRef.current = session.id;
       startWatch(session.id);
-      window.localStorage.setItem(`kline-memory-book-started:${profileResponse.user.email}`, "1");
-      window.localStorage.setItem(`kline-exploration-enabled:${profileResponse.user.email}`, "1");
-      setBookStarted(true);
-      setBookOpen(true);
-      setConfirmOpen(false);
-      setPageIndex(0);
-      setTrackingMessage(korean ? "탐험 기록이 시작되었습니다. 웹에서는 이 페이지가 열려 있는 동안 위치가 기록됩니다." : "Exploration started. On the web, location is recorded while this page remains open.");
+      window.localStorage.setItem(`kline-exploration-enabled:${profileResult.user.email}`, "1");
+      setTrackingMessage(
+        korean
+          ? "탐험 위치 기록도 시작되었습니다. 웹에서는 이 페이지가 열려 있는 동안 기록됩니다."
+          : "Exploration location recording also started. On the web, it records while this page remains open."
+      );
       await loadData();
     } catch (error) {
-      setTrackingMessage(error instanceof Error ? error.message : korean ? "탐험을 시작하지 못했습니다." : "Exploration could not start.");
+      setTrackingMessage(
+        korean
+          ? "추억록은 정상적으로 시작되었습니다. 위치 권한을 허용하지 않았거나 위치 기록을 시작하지 못했지만, 프로필 작성과 기존 장소·별점·사진·활동 기록은 그대로 사용할 수 있습니다."
+          : "Your Memory Book started normally. Location recording did not start or permission was not granted, but your profile and existing places, ratings, photos, and activity history still work."
+      );
+      console.warn("Memory Book location tracking did not start", error);
     } finally {
       setTrackingBusy(false);
     }
   }
 
   async function stopExploration() {
-    if (!profileResponse || trackingBusy) return;
+    if (trackingBusy) return;
     const sessionId = activeSessionRef.current;
     setTrackingBusy(true);
     if (watchIdRef.current !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current);
@@ -266,8 +302,8 @@ export function MemoryBookStudio() {
         });
       }
       activeSessionRef.current = null;
-      window.localStorage.setItem(`kline-exploration-enabled:${profileResponse.user.email}`, "0");
-      setTrackingMessage(korean ? "탐험을 종료했습니다. 지금까지의 장소·별점·사진·활동 기록은 그대로 보존됩니다." : "Exploration stopped. Your places, ratings, photos, and activity history remain saved.");
+      if (profileResponse) window.localStorage.setItem(`kline-exploration-enabled:${profileResponse.user.email}`, "0");
+      setTrackingMessage(korean ? "탐험을 종료했습니다. 지금까지의 기록은 그대로 보존됩니다." : "Exploration stopped. Everything recorded so far remains saved.");
       await loadData();
     } catch (error) {
       setTrackingMessage(error instanceof Error ? error.message : korean ? "탐험을 종료하지 못했습니다." : "Exploration could not stop.");
@@ -286,7 +322,11 @@ export function MemoryBookStudio() {
   }
 
   function saveProfile() {
-    if (!profileResponse) return;
+    if (!profileResponse) {
+      setProfileSaved(false);
+      setTrackingMessage(korean ? "계정 정보를 불러오는 중입니다. 잠시 후 다시 저장해주세요." : "Your account is still loading. Please save again in a moment.");
+      return;
+    }
     window.localStorage.setItem(`kline-memory-book-profile:${profileResponse.user.email}`, JSON.stringify(profile));
     setProfileSaved(true);
     window.setTimeout(() => setProfileSaved(false), 1800);
@@ -356,17 +396,15 @@ export function MemoryBookStudio() {
     setRecommendation("");
     try {
       const lastPoint = tracking?.points.at(-1);
-      const response = await fetch("/api/gemini", {
+      const response = await fetch("/api/jeju/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          context: "jeju",
           currentLocation: lastPoint ? { latitude: lastPoint.latitude, longitude: lastPoint.longitude } : null,
           history: [],
           message: korean
             ? "내가 저장한 방문 장소와 별점, 활동 기록, 이동 기록을 바탕으로 다음에 할 만한 한국 경험 3가지만 추천해줘. 높은 별점을 준 경험과 비슷한 것을 가장 우선하고, 아직 안 가본 가까운 장소와 내 관심사를 다음으로 고려해줘. ECC나 한활 활동 이력은 취향 참고용으로만 사용하고, 내가 요청하지 않는 한 해당 동아리 재참여를 추천하지 마. 각 추천은 이유를 한 문장으로 설명해줘."
-            : "Recommend exactly three next experiences in Korea from my saved places and ratings, activity history, and movement record. Prioritize experiences similar to things I rated highly, then nearby unvisited places and my interests. Use ECC or Hanhwal history only as a taste signal; do not recommend rejoining or future club participation unless I ask. Give one short reason for each recommendation.",
-          modelVersion: "4"
+            : "Recommend exactly three next experiences in Korea from my saved places and ratings, activity history, and movement record. Prioritize experiences similar to things I rated highly, then nearby unvisited places and my interests. Use ECC or Hanhwal history only as a taste signal; do not recommend rejoining or future club participation unless I ask. Give one short reason for each recommendation."
         })
       });
       if (!response.ok || !response.body) throw new Error("Recommendation could not load.");
@@ -446,7 +484,7 @@ export function MemoryBookStudio() {
                   </span>
                 </div>
                 <div className="absolute bottom-14 inset-x-10 text-center text-[11px] font-semibold tracking-[0.12em] text-white/62">
-                  {bookStarted ? (korean ? "CLICK TO CONTINUE" : "CLICK TO CONTINUE") : (korean ? "CLICK TO START" : "CLICK TO START")}
+                  {bookStarted ? "CLICK TO CONTINUE" : "CLICK TO START"}
                 </div>
               </div>
             </div>
@@ -467,18 +505,22 @@ export function MemoryBookStudio() {
             <button type="button" onClick={() => setConfirmOpen(false)} className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center text-[#698287] hover:bg-[#edf6f2]" aria-label="Close"><X className="h-5 w-5" /></button>
             <WoohyukmonGlassesIcon className="h-12 w-24" />
             <h3 className="mt-5 font-serif text-2xl font-semibold text-[#073c44]">{korean ? "한국 탐험을 시작하고 추억록 구성을 시작하시겠습니까?" : "Start exploring Korea and begin building your Memory Book?"}</h3>
-            <p className="mt-3 text-sm leading-6 text-[#4c6769]">{korean ? "예를 누르면 위치 권한을 요청하고 탐험 기록을 시작합니다. 기존 장소·사진·별점·활동 데이터는 이미 별도로 보존되고 있습니다." : "Choosing Yes requests location permission and starts an exploration record. Your existing places, photos, ratings, and activity data are already stored separately."}</p>
+            <p className="mt-3 text-sm leading-6 text-[#4c6769]">
+              {korean
+                ? "예를 누르면 즉시 추억록 1페이지 프로필이 열립니다. 위치 권한 확인과 탐험 기록 시작은 그 뒤에 별도로 진행되며, 위치 권한이 없어도 추억록은 사용할 수 있습니다."
+                : "Choosing Yes opens Memory Book page 1 immediately. Location permission and tracking start separately afterward, and the Memory Book still works without location permission."}
+            </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button type="button" onClick={() => setConfirmOpen(false)} className="min-h-11 border border-[#0d5962]/18 bg-white text-sm font-bold text-[#315b5f]">{korean ? "아니오" : "Not now"}</button>
-              <button type="button" onClick={() => void beginExploration()} disabled={trackingBusy} className="min-h-11 bg-[#0d5962] text-sm font-bold text-white disabled:opacity-50">{trackingBusy ? (korean ? "시작 중…" : "Starting…") : (korean ? "예" : "Yes")}</button>
+              <button type="button" onClick={() => void beginExploration()} className="min-h-11 bg-[#0d5962] text-sm font-bold text-white">{korean ? "예" : "Yes"}</button>
             </div>
           </section>
         </div>
       ) : null}
 
       {bookOpen ? (
-        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-[#071f2c]/55 p-3 backdrop-blur-md sm:p-6">
-          <section className="relative flex max-h-[92svh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.4rem] border border-[#d4c8aa] bg-[#f7f0df] shadow-[0_35px_110px_rgba(7,31,44,.45)]">
+        <div className="memory-book-overlay fixed inset-0 z-[95] flex items-center justify-center bg-[#071f2c]/55 p-3 backdrop-blur-md sm:p-6">
+          <section className="memory-book-open relative flex max-h-[92svh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.4rem] border border-[#d4c8aa] bg-[#f7f0df] shadow-[0_35px_110px_rgba(7,31,44,.45)]">
             <div className="flex items-center justify-between border-b border-[#cdbf9f]/70 bg-[#ede1c5] px-4 py-3 sm:px-6">
               <div className="flex items-center gap-3"><BookOpen className="h-5 w-5 text-[#0d5962]" /><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#c68b35]">K_LINE</p><p className="font-serif text-lg font-semibold text-[#073c44]">{korean ? "나의 한국 추억록" : "My Korea Memory Book"}</p></div></div>
               <button type="button" onClick={() => setBookOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/60 text-[#315b5f] hover:bg-white" aria-label="Close book"><X className="h-5 w-5" /></button>
@@ -500,7 +542,12 @@ export function MemoryBookStudio() {
               <button type="button" disabled={pageIndex >= totalBookPages - 1} onClick={() => setPageIndex((value) => Math.min(totalBookPages - 1, value + 1))} className="inline-flex min-h-10 items-center gap-2 px-3 text-sm font-bold text-[#0d5962] disabled:opacity-30">{korean ? "다음 장" : "Next"}<ChevronRight className="h-4 w-4" /></button>
             </div>
           </section>
-          <style>{`@keyframes memoryPageFlip{0%{opacity:.2;transform:perspective(1100px) rotateY(10deg) translateX(14px)}100%{opacity:1;transform:perspective(1100px) rotateY(0) translateX(0)}}.memory-page-flip{transform-origin:left center;animation:memoryPageFlip .38s ease-out}`}</style>
+          <style>{`
+            @keyframes memoryBookOpen { 0% { opacity: 0; transform: perspective(1200px) rotateY(-16deg) scale(.94); } 100% { opacity: 1; transform: perspective(1200px) rotateY(0) scale(1); } }
+            @keyframes memoryPageFlip { 0% { opacity:.2; transform:perspective(1100px) rotateY(12deg) translateX(18px); } 100% { opacity:1; transform:perspective(1100px) rotateY(0) translateX(0); } }
+            .memory-book-open { transform-origin:left center; animation:memoryBookOpen .46s cubic-bezier(.2,.75,.2,1); }
+            .memory-page-flip { transform-origin:left center; animation:memoryPageFlip .38s ease-out; }
+          `}</style>
         </div>
       ) : null}
     </section>
@@ -519,13 +566,61 @@ function ProfilePage({ avatar, korean, onChange, onSave, profile, saved }: { ava
     { key: "intro", labelKo: "한 줄 소개", labelEn: "One-line intro", placeholderKo: "나를 소개하는 한 문장", placeholderEn: "A short line about you" }
   ];
 
-  return <div className="mx-auto max-w-3xl"><div className="text-center"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">PAGE 01 · PROFILE</p>{avatar ? <img src={avatar} alt="Profile" className="mx-auto mt-5 h-24 w-24 rounded-full border-4 border-white object-cover shadow-lg" /> : <div className="mx-auto mt-5 grid h-24 w-24 place-items-center rounded-full border-4 border-white bg-[#dcefe8] text-3xl font-serif text-[#0d5962]">{profile.name.slice(0, 1) || "K"}</div>}<h3 className="mt-4 font-serif text-3xl font-semibold text-[#073c44]">{profile.name || (korean ? "나의 프로필" : "My profile")}</h3><p className="mt-2 text-sm text-[#698287]">{korean ? "자동으로 채워진 내용을 확인하고 틀린 부분은 바로 수정하세요." : "Check the auto-filled profile and correct anything that is wrong."}</p></div><div className="mt-7 grid gap-4 sm:grid-cols-2">{fields.map((field) => <label key={field.key} className={field.key === "purpose" || field.key === "intro" ? "sm:col-span-2" : ""}><span className="mb-1.5 block text-xs font-bold text-[#315b5f]">{korean ? field.labelKo : field.labelEn}</span><input value={profile[field.key]} onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...profile, [field.key]: event.target.value })} placeholder={korean ? field.placeholderKo : field.placeholderEn} className="min-h-11 w-full border-b border-[#b8aa89] bg-transparent px-1 text-sm text-[#073c44] outline-none focus:border-[#0d5962]" /></label>)}</div><button type="button" onClick={onSave} className="mx-auto mt-7 inline-flex min-h-11 items-center gap-2 bg-[#0d5962] px-5 text-sm font-bold text-white"><Save className="h-4 w-4" />{saved ? (korean ? "저장됨" : "Saved") : (korean ? "프로필 저장" : "Save profile")}</button></div>;
+  return (
+    <div className="mx-auto max-w-3xl">
+      <div className="text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">PAGE 01 · PROFILE</p>
+        {avatar ? (
+          <img src={avatar} alt="Profile" className="mx-auto mt-5 h-24 w-24 rounded-full border-4 border-white object-cover shadow-lg" />
+        ) : (
+          <div className="mx-auto mt-5 grid h-24 w-24 place-items-center rounded-full border-4 border-white bg-[#dcefe8] text-3xl font-serif text-[#0d5962]">{profile.name.slice(0, 1) || "K"}</div>
+        )}
+        <h3 className="mt-4 font-serif text-3xl font-semibold text-[#073c44]">{profile.name || (korean ? "나의 프로필" : "My profile")}</h3>
+        <p className="mt-2 text-sm text-[#698287]">{korean ? "자동으로 채워진 내용을 확인하고 틀린 부분은 바로 수정하세요." : "Check the auto-filled profile and correct anything that is wrong."}</p>
+      </div>
+      <div className="mt-7 grid gap-4 sm:grid-cols-2">
+        {fields.map((field) => (
+          <label key={field.key} className={field.key === "purpose" || field.key === "intro" ? "sm:col-span-2" : ""}>
+            <span className="mb-1.5 block text-xs font-bold text-[#315b5f]">{korean ? field.labelKo : field.labelEn}</span>
+            <input value={profile[field.key]} onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...profile, [field.key]: event.target.value })} placeholder={korean ? field.placeholderKo : field.placeholderEn} className="min-h-11 w-full border-b border-[#b8aa89] bg-transparent px-1 text-sm text-[#073c44] outline-none focus:border-[#0d5962]" />
+          </label>
+        ))}
+      </div>
+      <button type="button" onClick={onSave} className="mx-auto mt-7 inline-flex min-h-11 items-center gap-2 bg-[#0d5962] px-5 text-sm font-bold text-white"><Save className="h-4 w-4" />{saved ? (korean ? "저장됨" : "Saved") : (korean ? "프로필 저장" : "Save profile")}</button>
+    </div>
+  );
 }
 
 function TimelinePage({ korean, page }: { korean: boolean; page: MemoryPage }) {
-  return <div className="mx-auto max-w-3xl"><div className="text-center"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">KOREA JOURNEY</p><h3 className="mt-3 font-serif text-3xl font-semibold text-[#073c44]">{displayDate(page.date, korean)}</h3></div><div className="mt-8 grid gap-5">{page.entries.map((entry) => <article key={entry.id} className="border-b border-[#cdbf9f]/70 pb-5"><div className="flex items-start gap-4"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#e5efe9] text-[#0d5962]">{entry.kind === "place" ? <MapPin className="h-5 w-5" /> : entry.kind === "route" ? <Route className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}</span><div className="min-w-0 flex-1"><h4 className="font-serif text-xl font-semibold text-[#073c44]">{entry.title}</h4><p className="mt-1 text-xs leading-5 text-[#698287]">{entry.subtitle}</p>{entry.rating ? <div className="mt-2 flex gap-0.5" aria-label={`${entry.rating} out of 5 stars`}>{[1,2,3,4,5].map((star) => <Star key={star} className={`h-4 w-4 ${star <= entry.rating! ? "fill-[#d49b42] text-[#d49b42]" : "text-[#b9ae93]"}`} />)}</div> : null}</div></div>{entry.photos.length ? <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">{entry.photos.slice(0,5).map((photo) => <img key={photo} src={photo} alt="Memory" className="aspect-square w-full rounded-lg object-cover" />)}</div> : null}</article>)}</div></div>;
+  return (
+    <div className="mx-auto max-w-3xl">
+      <div className="text-center"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">KOREA JOURNEY</p><h3 className="mt-3 font-serif text-3xl font-semibold text-[#073c44]">{displayDate(page.date, korean)}</h3></div>
+      <div className="mt-8 grid gap-5">
+        {page.entries.map((entry) => (
+          <article key={entry.id} className="border-b border-[#cdbf9f]/70 pb-5">
+            <div className="flex items-start gap-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#e5efe9] text-[#0d5962]">{entry.kind === "place" ? <MapPin className="h-5 w-5" /> : entry.kind === "route" ? <Route className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}</span>
+              <div className="min-w-0 flex-1">
+                <h4 className="font-serif text-xl font-semibold text-[#073c44]">{entry.title}</h4>
+                <p className="mt-1 text-xs leading-5 text-[#698287]">{entry.subtitle}</p>
+                {entry.rating ? <div className="mt-2 flex gap-0.5" aria-label={`${entry.rating} out of 5 stars`}>{[1, 2, 3, 4, 5].map((star) => <Star key={star} className={`h-4 w-4 ${star <= entry.rating! ? "fill-[#d49b42] text-[#d49b42]" : "text-[#b9ae93]"}`} />)}</div> : null}
+              </div>
+            </div>
+            {entry.photos.length ? <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">{entry.photos.slice(0, 5).map((photo) => <img key={photo} src={photo} alt="Memory" className="aspect-square w-full rounded-lg object-cover" />)}</div> : null}
+          </article>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function RecommendationPage({ korean, loading, recommendation }: { korean: boolean; loading: boolean; recommendation: string }) {
-  return <div className="mx-auto flex min-h-[30rem] max-w-3xl flex-col items-center justify-center text-center"><WoohyukmonGlassesIcon className="h-20 w-36 drop-shadow-[0_12px_10px_rgba(7,31,44,.18)]" /><p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">WOOHYUKMON NEXT STEP</p><h3 className="mt-3 font-serif text-3xl font-semibold text-[#073c44]">{korean ? "다음에는 어디로 갈까요?" : "Where should you go next?"}</h3><p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-7 text-[#4c6769]">{loading ? (korean ? "우혁몬이 장소·별점·활동·이동 기록을 읽고 있습니다…" : "Woohyukmon is reading your places, ratings, activities, and movement…") : recommendation || (korean ? "기록이 조금 더 쌓이면 우혁몬이 다음 경험을 추천합니다." : "Once you have a little more history, Woohyukmon will recommend your next experience.")}</p></div>;
+  return (
+    <div className="mx-auto flex min-h-[30rem] max-w-3xl flex-col items-center justify-center text-center">
+      <WoohyukmonGlassesIcon className="h-20 w-36 drop-shadow-[0_12px_10px_rgba(7,31,44,.18)]" />
+      <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">WOOHYUKMON NEXT STEP</p>
+      <h3 className="mt-3 font-serif text-3xl font-semibold text-[#073c44]">{korean ? "다음에는 어디로 갈까요?" : "Where should you go next?"}</h3>
+      <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-7 text-[#4c6769]">{loading ? (korean ? "우혁몬이 장소·별점·활동·이동 기록을 읽고 있습니다…" : "Woohyukmon is reading your places, ratings, activities, and movement…") : recommendation || (korean ? "기록이 조금 더 쌓이면 우혁몬이 다음 경험을 추천합니다." : "Once you have a little more history, Woohyukmon will recommend your next experience.")}</p>
+    </div>
+  );
 }
