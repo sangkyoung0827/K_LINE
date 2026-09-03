@@ -3,20 +3,20 @@
 import { ExternalLink, LocateFixed, MapPinned } from "lucide-react";
 import { useState } from "react";
 
-const jejuMapQuery = "Jeju Island, South Korea";
+const koreaMapQuery = "South Korea";
 
-function buildGoogleMapsUrl(query: string, zoom = 10) {
+function buildGoogleMapsUrl(query: string, zoom = 7) {
   return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&output=embed`;
 }
 
 export function JejuGoogleMap() {
-  const [mapUrl, setMapUrl] = useState(() => buildGoogleMapsUrl(jejuMapQuery));
-  const [status, setStatus] = useState("Live Google Map of Jeju Island");
+  const [mapUrl, setMapUrl] = useState(() => buildGoogleMapsUrl(koreaMapQuery));
+  const [status, setStatus] = useState("Live Google Map of South Korea");
   const [locating, setLocating] = useState(false);
 
   function showCurrentLocation() {
     if (!navigator.geolocation) {
-      setStatus("This browser cannot share your location. You can still explore the live Jeju map.");
+      setStatus("This browser cannot share your location. You can still explore the live Korea map.");
       return;
     }
 
@@ -30,7 +30,7 @@ export function JejuGoogleMap() {
         setLocating(false);
       },
       () => {
-        setStatus("Location was not shared. The map remains centered on Jeju Island.");
+        setStatus("Location was not shared. The map remains centered on South Korea.");
         setLocating(false);
       },
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 }
@@ -60,7 +60,7 @@ export function JejuGoogleMap() {
 
       <iframe
         key={mapUrl}
-        title="Live Google Map of Jeju Island"
+        title="Live Google Map of South Korea"
         src={mapUrl}
         className="block h-[min(62svh,38rem)] min-h-[22rem] w-full border-0"
         loading="eager"
@@ -71,7 +71,7 @@ export function JejuGoogleMap() {
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
         <p className="text-xs leading-5 text-[#4c6769]">Map data is provided live by Google Maps. K_LINE never tracks your location in the background.</p>
         <a
-          href="https://www.google.com/maps/search/?api=1&query=Jeju%20Island%2C%20South%20Korea"
+          href="https://www.google.com/maps/search/?api=1&query=South%20Korea"
           target="_blank"
           rel="noreferrer"
           className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-[#0d5962] hover:text-[#073c44]"
