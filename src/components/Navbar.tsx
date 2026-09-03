@@ -81,7 +81,7 @@ export function Navbar() {
           <DesktopNavLink href="/jeju" active={pathname.startsWith("/jeju")}>
             <span className="inline-flex items-center gap-1.5">
               <BookOpen aria-hidden className="h-3.5 w-3.5" />
-              {language === "ko" ? "추억록" : "My Journey"}
+              {language === "ko" ? "추억록" : "Memory Book"}
             </span>
           </DesktopNavLink>
 
@@ -142,7 +142,7 @@ export function Navbar() {
               <I18nNavText en="Hanhwal" ko="한활" language={language} />
             </MobileMenuLink>
             <MobileMenuLink href="/jeju" onClick={() => setOpen(false)}>
-              <span className="inline-flex items-center gap-2"><BookOpen aria-hidden className="h-4 w-4" /><I18nNavText en="My Journey" ko="추억록" language={language} /></span>
+              <span className="inline-flex items-center gap-2"><BookOpen aria-hidden className="h-4 w-4" /><I18nNavText en="Memory Book" ko="추억록" language={language} /></span>
             </MobileMenuLink>
             {eccAccess.isLoggedIn && !eccAccess.isOfficialMember ? (
               <>
