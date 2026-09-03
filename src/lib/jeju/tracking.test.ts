@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   TRACK_POINT_MIN_INTERVAL_MS,
   TRACK_POINT_STATIONARY_INTERVAL_MS,
-  isValidJejuLocation,
+  isValidKoreaLocation,
   shouldPersistTrackPoint
 } from "@/lib/jeju/tracking";
 
@@ -42,7 +42,9 @@ test("Explore tracking keeps a stationary reference point after a longer interva
   );
 });
 
-test("Explore tracking accepts only Jeju coordinate bounds", () => {
-  assert.equal(isValidJejuLocation({ latitude: 33.4996, longitude: 126.5312 }), true);
-  assert.equal(isValidJejuLocation({ latitude: 37.5665, longitude: 126.978 }), false);
+test("Explore tracking accepts South Korea locations nationwide", () => {
+  assert.equal(isValidKoreaLocation({ latitude: 33.4996, longitude: 126.5312 }), true);
+  assert.equal(isValidKoreaLocation({ latitude: 37.5665, longitude: 126.978 }), true);
+  assert.equal(isValidKoreaLocation({ latitude: 35.1796, longitude: 129.0756 }), true);
+  assert.equal(isValidKoreaLocation({ latitude: 35.6762, longitude: 139.6503 }), false);
 });
