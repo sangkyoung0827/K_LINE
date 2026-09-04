@@ -156,18 +156,44 @@ export function EccMemberRegistrationManagementPanel() {
   );
 
   const filteredRegistrations = useMemo(() => {
-    const query = memberQuery.trim().toLocaleLowerCase();
+    const normalizedQuery = memberQuery
+      .normalize("NFKC")
+      .toLocaleLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
 
-    if (!query) {
+    if (!normalizedQuery) {
       return registrations;
     }
 
-    return registrations.filter((registration) =>
-      [registration.fullName, registration.googleName, registration.kakaoDisplayName]
+    const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+    const genderAliases: Record<string, string> = {
+      Male: "male man 남성 남자",
+      Female: "female woman 여성 여자",
+      Etc: "etc other 기타",
+      "Prefer not to say": "prefer not to say private 비공개 밝히고 싶지 않음"
+    };
+
+    return registrations.filter((registration) => {
+      const searchableText = [
+        registration.fullName,
+        registration.googleName,
+        registration.googleEmail,
+        registration.studentId,
+        registration.departmentOrMajor,
+        registration.nationality,
+        registration.gender,
+        genderAliases[registration.gender] ?? "",
+        registration.kakaoDisplayName,
+        registration.kakaoId
+      ]
         .join(" ")
+        .normalize("NFKC")
         .toLocaleLowerCase()
-        .includes(query)
-    );
+        .replace(/\s+/g, " ");
+
+      return queryTokens.every((token) => searchableText.includes(token));
+    });
   }, [memberQuery, registrations]);
 
   const updateDraft = (id: string, value: Partial<DraftState[string]>) => {
@@ -334,7 +360,7 @@ export function EccMemberRegistrationManagementPanel() {
           <div className="border-b border-ink/10 p-5 md:p-6">
             <label className="flex max-w-md items-center gap-3 border border-ink/15 bg-white/55 px-4 text-ink transition focus-within:border-navy/45 focus-within:ring-2 focus-within:ring-navy/10">
               <span className="sr-only">
-                <I18nText en="Search member by name" ko="회원 이름 검색" />
+                <I18nText en="Search by any registration information" ko="신청 정보 전체 검색" />
               </span>
               <Search
                 aria-hidden
@@ -344,7 +370,11 @@ export function EccMemberRegistrationManagementPanel() {
                 type="text"
                 value={memberQuery}
                 onChange={(event) => setMemberQuery(event.target.value)}
-                placeholder={language === "ko" ? "이름 검색" : "Search member by name"}
+                placeholder={
+                  language === "ko"
+                    ? "이름·학번·학과·국적·성별·카카오 정보 검색"
+                    : "Search name, ID, major, nationality, gender, Kakao..."
+                }
                 className="min-h-11 w-full bg-transparent py-2 text-sm font-medium text-ink outline-none placeholder:text-ink/42"
               />
             </label>
@@ -473,7 +503,7 @@ export function EccMemberRegistrationManagementPanel() {
           })}
           {filteredRegistrations.length === 0 ? (
             <div className="p-8 text-sm leading-7 text-ink/62">
-              <I18nText en="No matching member was found." ko="검색한 이름과 일치하는 회원이 없습니다." />
+              <I18nText en="No member matches the registration information you searched." ko="검색한 신청 정보와 일치하는 회원이 없습니다." />
             </div>
           ) : null}
         </div>
