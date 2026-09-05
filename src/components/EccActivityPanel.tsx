@@ -1035,6 +1035,122 @@ export function EccActivityPanel() {
     }
   };
 
+  const reloadActivityCatalog = async () => {
+    const [catalogResponse, statusesResponse] = await Promise.all([
+      fetch("/api/ecc/activity-catalog"),
+      fetch("/api/ecc/activity-statuses")
+    ]);
+    const catalogData = (await catalogResponse.json()) as ActivityCatalogApiResponse;
+    const statusData = (await statusesResponse.json()) as ActivityStatusesApiResponse;
+
+    if (!catalogResponse.ok) {
+      throw new Error(catalogData.error || text.activityStatusStorageError);
+    }
+
+    if (!statusesResponse.ok) {
+      throw new Error(statusData.error || text.activityStatusStorageError);
+    }
+
+    setActivityCatalog(
+      Array.isArray(catalogData.activities) && catalogData.activities.length
+        ? catalogData.activities
+        : defaultActivityCatalog
+    );
+    setActivityStatuses(normalizeActivityStatuses(statusData.statuses));
+    setActivityPaymentRequirements(
+      normalizeActivityPaymentRequirements(statusData.requiresPayment)
+    );
+  };
+
+  const createManagedActivity = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!activityDraft.titleKo.trim() && !activityDraft.titleEn.trim()) {
+      setActivityCatalogMessage(
+        language === "ko"
+          ? "활동 이름을 입력해 주세요."
+          : "Please enter an activity title."
+      );
+      return;
+    }
+
+    setActivityCatalogSaving(true);
+    setActivityCatalogMessage("");
+    setApplicationError("");
+
+    try {
+      const response = await fetch("/api/ecc/activity-catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(activityDraft)
+      });
+      const data = (await response.json()) as ActivityCatalogApiResponse;
+
+      if (!response.ok || !data.item) {
+        throw new Error(data.error || text.activityStatusStorageError);
+      }
+
+      setActivityDraft(emptyActivityDraft);
+      await reloadActivityCatalog();
+      setActiveApplicationType(data.item.id);
+      setActivityCatalogMessage(
+        language === "ko"
+          ? "새 활동을 추가했습니다. 신청을 열기 전까지 일반 사용자에게는 표시되지 않습니다."
+          : "Activity added. It stays hidden from general users until you open applications."
+      );
+    } catch (error) {
+      setApplicationError(
+        error instanceof Error ? error.message : text.activityStatusStorageError
+      );
+    } finally {
+      setActivityCatalogSaving(false);
+    }
+  };
+
+  const archiveManagedActivity = async (activityId: string) => {
+    const activity = applicationTypes.find((item) => item.type === activityId);
+    const title = activity?.labels[language].title || activityId;
+
+    if (
+      !window.confirm(
+        language === "ko"
+          ? `${title} 활동을 목록에서 삭제하시겠습니까? 기존 신청·별점·추억록 기록은 보존됩니다.`
+          : `Remove ${title} from the activity list? Existing applications, ratings, and Memory Book history will be preserved.`
+      )
+    ) {
+      return;
+    }
+
+    setActivityCatalogSaving(true);
+    setActivityCatalogMessage("");
+    setApplicationError("");
+
+    try {
+      const response = await fetch(
+        `/api/ecc/activity-catalog?id=${encodeURIComponent(activityId)}`,
+        { method: "DELETE" }
+      );
+      const data = (await response.json()) as ActivityCatalogApiResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error || text.activityStatusStorageError);
+      }
+
+      await reloadActivityCatalog();
+      setActivityCatalogMessage(
+        language === "ko"
+          ? "활동을 사용자 목록에서 제거했습니다. 과거 데이터는 그대로 보존됩니다."
+          : "Activity removed from the user list. Historical data remains preserved."
+      );
+    } catch (error) {
+      setApplicationError(
+        error instanceof Error ? error.message : text.activityStatusStorageError
+      );
+    } finally {
+      setActivityCatalogSaving(false);
+    }
+  };
+
   const submitApplication = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeApplicationIsOpen) {
@@ -1052,7 +1168,7 @@ export function EccActivityPanel() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          activity_id: activeApplicationType,
+          activity_id: activeApplication.type,
           activity_title: activeApplication.labels[language].title,
           name: applicationForm.name.trim(),
           gender: applicationForm.gender,
