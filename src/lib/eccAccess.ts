@@ -89,6 +89,33 @@ export function toEccAccess(email: string, role: EccRole, isLoggedIn = true): Ec
   };
 }
 
+function resolveEccRole(
+  adminAccess: Awaited<ReturnType<typeof getAdminAccess>>,
+  roleRow: EccRoleRow | null
+): EccRole {
+  if (adminAccess.isDeveloper) {
+    return "developer";
+  }
+
+  if (adminAccess.isSuperAdmin || roleRow?.super_admin_status === "approved") {
+    return "super_admin";
+  }
+
+  if (roleRow?.admin_status === "approved") {
+    return "admin";
+  }
+
+  if (
+    roleRow?.official_member_status === "approved" ||
+    roleRow?.is_official_member ||
+    roleRow?.payment_confirmed
+  ) {
+    return "official_member";
+  }
+
+  return "user";
+}
+
 export async function getEccRoleRow(email?: string | null) {
   const normalized = normalizeEmail(email);
 
@@ -125,31 +152,12 @@ export async function getEccAccessForEmail(email?: string | null): Promise<EccAc
     return emptyAccess("", false);
   }
 
-  const adminAccess = await getAdminAccess(normalized);
+  const [adminAccess, roleRow] = await Promise.all([
+    getAdminAccess(normalized),
+    getEccRoleRow(normalized)
+  ]);
 
-  if (adminAccess.isDeveloper) {
-    return toEccAccess(normalized, "developer");
-  }
-
-  const roleRow = await getEccRoleRow(normalized);
-
-  if (adminAccess.isSuperAdmin || roleRow?.super_admin_status === "approved") {
-    return toEccAccess(normalized, "super_admin");
-  }
-
-  if (roleRow?.admin_status === "approved") {
-    return toEccAccess(normalized, "admin");
-  }
-
-  if (
-    roleRow?.official_member_status === "approved" ||
-    roleRow?.is_official_member ||
-    roleRow?.payment_confirmed
-  ) {
-    return toEccAccess(normalized, "official_member");
-  }
-
-  return toEccAccess(normalized, "user");
+  return toEccAccess(normalized, resolveEccRole(adminAccess, roleRow));
 }
 
 export async function getCurrentEccAccess() {
@@ -163,19 +171,18 @@ export async function getCurrentEccAccess() {
   return getEccAccessForEmail(email);
 }
 
-export async function ensureEccRoleRow(input: {
-  avatarUrl?: string;
-  email: string;
-  name?: string;
-}) {
-  const email = normalizeEmail(input.email);
+async function writeEccRoleRow(
+  email: string,
+  body: Record<string, unknown>,
+  existing?: EccRoleRow | null
+) {
+  const normalized = normalizeEmail(email);
 
-  if (!email) {
-    return null;
+  if (!normalized) {
+    throw new Error("ECC role email is required.");
   }
 
   const now = new Date().toISOString();
-  const existing = await getEccRoleRow(email);
 
   if (existing) {
     const rows = await supabaseRequest<EccRoleRow[]>(
@@ -186,8 +193,7 @@ export async function ensureEccRoleRow(input: {
           Prefer: "return=representation"
         },
         body: JSON.stringify({
-          avatar_url: input.avatarUrl || existing.avatar_url || "",
-          name: input.name || existing.name || "",
+          ...body,
           updated_at: now
         })
       }
@@ -202,10 +208,9 @@ export async function ensureEccRoleRow(input: {
       Prefer: "return=representation"
     },
     body: JSON.stringify({
-      avatar_url: input.avatarUrl || "",
-      email,
-      name: input.name || "",
+      email: normalized,
       role: "user",
+      ...body,
       updated_at: now
     })
   });
@@ -213,28 +218,53 @@ export async function ensureEccRoleRow(input: {
   return rows[0] ?? null;
 }
 
-export async function patchEccRole(email: string, body: Record<string, unknown>) {
-  const existing = await ensureEccRoleRow({ email });
+export async function ensureEccRoleRow(input: {
+  avatarUrl?: string;
+  email: string;
+  name?: string;
+}) {
+  const email = normalizeEmail(input.email);
 
-  if (!existing) {
-    throw new Error("ECC role row could not be created.");
+  if (!email) {
+    return null;
   }
 
-  const rows = await supabaseRequest<EccRoleRow[]>(
-    `${eccRolesTable}?id=eq.${encodeURIComponent(existing.id)}&select=${eccRoleColumns}`,
-    {
-      method: "PATCH",
-      headers: {
-        Prefer: "return=representation"
-      },
-      body: JSON.stringify({
-        ...body,
-        updated_at: new Date().toISOString()
-      })
-    }
-  );
+  const existing = await getEccRoleRow(email);
 
-  return rows[0] ?? existing;
+  if (existing) {
+    const avatarUrl = input.avatarUrl || existing.avatar_url || "";
+    const name = input.name || existing.name || "";
+
+    if (avatarUrl === (existing.avatar_url || "") && name === (existing.name || "")) {
+      return existing;
+    }
+
+    return writeEccRoleRow(
+      email,
+      {
+        avatar_url: avatarUrl,
+        name
+      },
+      existing
+    );
+  }
+
+  return writeEccRoleRow(email, {
+    avatar_url: input.avatarUrl || "",
+    name: input.name || "",
+    role: "user"
+  });
+}
+
+export async function patchEccRole(email: string, body: Record<string, unknown>) {
+  const normalized = normalizeEmail(email);
+
+  if (!normalized) {
+    throw new Error("ECC role email is required.");
+  }
+
+  const existing = await getEccRoleRow(normalized);
+  return writeEccRoleRow(normalized, body, existing);
 }
 
 export async function approveEccOfficialMember(input: {
@@ -243,29 +273,37 @@ export async function approveEccOfficialMember(input: {
   email: string;
   name?: string;
 }) {
-  const now = new Date().toISOString();
-  const currentAccess = await getEccAccessForEmail(input.email);
+  const email = normalizeEmail(input.email);
+
+  if (!email) {
+    throw new Error("ECC role email is required.");
+  }
+
+  const [adminAccess, existing] = await Promise.all([
+    getAdminAccess(email),
+    getEccRoleRow(email)
+  ]);
+  const currentRole = resolveEccRole(adminAccess, existing);
   const nextRole =
-    currentAccess.role === "user" || currentAccess.role === "official_member"
+    currentRole === "user" || currentRole === "official_member"
       ? "official_member"
-      : currentAccess.role;
+      : currentRole;
+  const now = new Date().toISOString();
 
-  await ensureEccRoleRow({
-    avatarUrl: input.avatarUrl,
-    email: input.email,
-    name: input.name
-  });
-
-  return patchEccRole(input.email, {
-    avatar_url: input.avatarUrl || "",
-    is_official_member: true,
-    name: input.name || "",
-    official_member_status: "approved",
-    payment_confirmed: true,
-    payment_confirmed_at: now,
-    payment_confirmed_by: input.approvedBy,
-    role: nextRole
-  });
+  return writeEccRoleRow(
+    email,
+    {
+      avatar_url: input.avatarUrl || existing?.avatar_url || "",
+      is_official_member: true,
+      name: input.name || existing?.name || "",
+      official_member_status: "approved",
+      payment_confirmed: true,
+      payment_confirmed_at: now,
+      payment_confirmed_by: input.approvedBy,
+      role: nextRole
+    },
+    existing
+  );
 }
 
 export async function revokeEccOfficialMember(input: {
@@ -273,23 +311,41 @@ export async function revokeEccOfficialMember(input: {
   email: string;
   keepAdminRole?: boolean;
 }) {
-  const currentAccess = await getEccAccessForEmail(input.email);
+  const email = normalizeEmail(input.email);
+
+  if (!email) {
+    throw new Error("ECC role email is required.");
+  }
+
+  const [adminAccess, existing] = await Promise.all([
+    getAdminAccess(email),
+    getEccRoleRow(email)
+  ]);
+  const currentAccess = toEccAccess(email, resolveEccRole(adminAccess, existing));
 
   if (input.keepAdminRole || currentAccess.isAdmin) {
-    return patchEccRole(input.email, {
+    return writeEccRoleRow(
+      email,
+      {
+        is_official_member: false,
+        official_member_status: "rejected",
+        payment_confirmed: false,
+        payment_confirmed_by: input.revokedBy
+      },
+      existing
+    );
+  }
+
+  return writeEccRoleRow(
+    email,
+    {
+      admin_status: "none",
       is_official_member: false,
       official_member_status: "rejected",
       payment_confirmed: false,
-      payment_confirmed_by: input.revokedBy
-    });
-  }
-
-  return patchEccRole(input.email, {
-    admin_status: "none",
-    is_official_member: false,
-    official_member_status: "rejected",
-    payment_confirmed: false,
-    payment_confirmed_by: input.revokedBy,
-    role: "user"
-  });
+      payment_confirmed_by: input.revokedBy,
+      role: "user"
+    },
+    existing
+  );
 }
