@@ -719,13 +719,29 @@ function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): Applic
 }
 
 function normalizeActivityStatuses(statuses?: Partial<ActivityStatuses>): ActivityStatuses {
-  return { ...emptyActivityStatuses(), ...(statuses ?? {}) };
+  const normalized = emptyActivityStatuses();
+
+  Object.entries(statuses ?? {}).forEach(([key, value]) => {
+    if (typeof value === "boolean") {
+      normalized[key] = value;
+    }
+  });
+
+  return normalized;
 }
 
 function normalizeActivityPaymentRequirements(
   requirements?: Partial<ActivityPaymentRequirements>
 ): ActivityPaymentRequirements {
-  return { ...emptyActivityPaymentRequirements(), ...(requirements ?? {}) };
+  const normalized = emptyActivityPaymentRequirements();
+
+  Object.entries(requirements ?? {}).forEach(([key, value]) => {
+    if (typeof value === "boolean") {
+      normalized[key] = value;
+    }
+  });
+
+  return normalized;
 }
 
 export function EccActivityPanel() {
