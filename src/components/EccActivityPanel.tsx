@@ -900,15 +900,29 @@ export function EccActivityPanel() {
     }
   }, [isAdmin, publicOpenApplication]);
 
+  useEffect(() => {
+    if (
+      applicationTypes.length > 0 &&
+      !applicationTypes.some((item) => item.type === activeApplicationType)
+    ) {
+      setActiveApplicationType(applicationTypes[0].type);
+    }
+  }, [activeApplicationType, applicationTypes]);
+
   const selectedApplications = useMemo(
     () => applications.filter((application) => application.type === activeApplicationType),
     [activeApplicationType, applications]
   );
 
-  const activeApplication = applicationTypes.find(
-    (application) => application.type === activeApplicationType
-  )!;
-  const activeApplicationIsOpen = activityStatuses[activeApplicationType];
+  const activeApplication =
+    applicationTypes.find(
+      (application) => application.type === activeApplicationType
+    ) ??
+    applicationTypes[0] ??
+    defaultApplicationTypes[0];
+  const activeApplicationIsOpen = Boolean(
+    activityStatuses[activeApplication.type]
+  );
 
   const changeLanguage = (nextLanguage: Language) => {
     setSiteLanguage(nextLanguage);
