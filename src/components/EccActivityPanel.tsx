@@ -1411,7 +1411,7 @@ export function EccActivityPanel() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-semibold uppercase text-brass">
-                      {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
+                      {text.applicantCount}: {applicationsLoading ? "-" : (applicationCounts[item.type] ?? 0)}
                     </p>
                     <span
                       className={`inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-semibold uppercase ${
@@ -1474,6 +1474,75 @@ export function EccActivityPanel() {
                 {text.activityStatusStorageWarning}
               </p>
             ) : null}
+
+            <form
+              onSubmit={createManagedActivity}
+              className="mt-5 grid gap-3 border border-brass/25 bg-hanji/35 p-4 md:grid-cols-2"
+            >
+              <div className="md:col-span-2">
+                <p className="text-sm font-semibold text-ink">
+                  {language === "ko" ? "새 활동 등록" : "Add a new activity"}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-ink/54">
+                  {language === "ko"
+                    ? "새 활동은 먼저 닫힌 상태로 저장됩니다. 확인 후 아래에서 신청을 열어주세요."
+                    : "New activities start closed. Review them here, then open applications when ready."}
+                </p>
+              </div>
+              <input
+                value={activityDraft.titleKo}
+                onChange={(event) =>
+                  setActivityDraft((current) => ({ ...current, titleKo: event.target.value }))
+                }
+                placeholder="활동명 (한국어)"
+                className="form-field"
+              />
+              <input
+                value={activityDraft.titleEn}
+                onChange={(event) =>
+                  setActivityDraft((current) => ({ ...current, titleEn: event.target.value }))
+                }
+                placeholder="Activity title (English)"
+                className="form-field"
+              />
+              <input
+                value={activityDraft.descriptionKo}
+                onChange={(event) =>
+                  setActivityDraft((current) => ({
+                    ...current,
+                    descriptionKo: event.target.value
+                  }))
+                }
+                placeholder="짧은 설명 (한국어, 선택)"
+                className="form-field"
+              />
+              <input
+                value={activityDraft.descriptionEn}
+                onChange={(event) =>
+                  setActivityDraft((current) => ({
+                    ...current,
+                    descriptionEn: event.target.value
+                  }))
+                }
+                placeholder="Short description (English, optional)"
+                className="form-field"
+              />
+              <div className="flex flex-wrap items-center gap-3 md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={activityCatalogSaving}
+                  className="inline-flex min-h-10 items-center justify-center bg-ink px-4 text-sm font-semibold text-paper transition hover:bg-navy disabled:opacity-50"
+                >
+                  {language === "ko" ? "활동 추가" : "Add activity"}
+                </button>
+                {activityCatalogMessage ? (
+                  <p className="text-xs font-semibold leading-5 text-pine">
+                    {activityCatalogMessage}
+                  </p>
+                ) : null}
+              </div>
+            </form>
+
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {applicationTypes.map((item) => {
                 const isOpen = activityStatuses[item.type];
@@ -1483,18 +1552,20 @@ export function EccActivityPanel() {
                 return (
                   <div
                     key={item.type}
-                    className="flex items-center justify-between gap-3 border border-ink/10 bg-white/65 p-4"
+                    className="grid gap-3 border border-ink/10 bg-white/65 p-4 sm:grid-cols-[1fr_auto] sm:items-center"
                   >
-                    <div>
-                      <p className="font-semibold text-ink">{item.labels[language].title}</p>
+                    <div className="min-w-0">
+                      <p className="break-words font-semibold text-ink">
+                        {item.labels[language].title}
+                      </p>
                       <p className={`mt-1 text-sm font-semibold ${isOpen ? "text-pine" : "text-ink/48"}`}>
                         {isOpen ? text.applicationOpen : text.applicationClosed}
                       </p>
                       <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-ink/62">
                         <input
                           type="checkbox"
-                          checked={requiresPayment}
-                          disabled={saving}
+                          checked={Boolean(requiresPayment)}
+                          disabled={saving || activityCatalogSaving}
                           onChange={(event) =>
                             saveActivityPaymentRequirement(item.type, event.target.checked)
                           }
@@ -1503,23 +1574,34 @@ export function EccActivityPanel() {
                         {language === "ko" ? "활동비 납부 필요" : "Payment required"}
                       </label>
                     </div>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => saveActivityStatus(item.type, !isOpen)}
-                      className={`inline-flex min-h-10 items-center justify-center gap-2 px-4 text-sm font-semibold transition ${
-                        isOpen
-                          ? "border border-ink/15 bg-white text-ink hover:border-red-300 hover:text-red-700"
-                          : "bg-navy text-paper hover:bg-ink"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      {isOpen ? (
-                        <PowerOff aria-hidden className="h-4 w-4" />
-                      ) : (
-                        <Power aria-hidden className="h-4 w-4" />
-                      )}
-                      {isOpen ? text.closeApplications : text.openApplications}
-                    </button>
+                    <div className="grid gap-2">
+                      <button
+                        type="button"
+                        disabled={saving || activityCatalogSaving}
+                        onClick={() => saveActivityStatus(item.type, !isOpen)}
+                        className={`inline-flex min-h-10 items-center justify-center gap-2 px-4 text-sm font-semibold transition ${
+                          isOpen
+                            ? "border border-ink/15 bg-white text-ink hover:border-red-300 hover:text-red-700"
+                            : "bg-navy text-paper hover:bg-ink"
+                        } disabled:cursor-not-allowed disabled:opacity-60`}
+                      >
+                        {isOpen ? (
+                          <PowerOff aria-hidden className="h-4 w-4" />
+                        ) : (
+                          <Power aria-hidden className="h-4 w-4" />
+                        )}
+                        {isOpen ? text.closeApplications : text.openApplications}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving || activityCatalogSaving}
+                        onClick={() => void archiveManagedActivity(item.type)}
+                        className="inline-flex min-h-9 items-center justify-center gap-2 border border-red-900/15 bg-white px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                        {language === "ko" ? "활동 삭제" : "Remove"}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -1639,7 +1721,7 @@ export function EccActivityPanel() {
                 </p>
               </div>
               <span className="text-sm font-semibold text-ink/58">
-                {text.applicantCount}: {applicationCounts[activeApplicationType]}
+                {text.applicantCount}: {(applicationCounts[activeApplicationType] ?? 0)}
               </span>
             </div>
 
