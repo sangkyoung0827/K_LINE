@@ -8,9 +8,9 @@ import {
 } from "@/lib/eccMemberRegistrations";
 import {
   getCurrentEccAccess,
-  getEccAccessForEmail,
-  getEccOfficialTeamChatUrl
+  getEccAccessForEmail
 } from "@/lib/eccAccess";
+import { getEccOperationalSettings } from "@/lib/eccOperations";
 import { getSiteMemberByEmail, registerSiteMember } from "@/lib/siteAnalytics";
 import {
   SupabaseConfigError,
@@ -163,12 +163,14 @@ export async function POST(request: Request) {
       siteMemberId
     });
 
+    const operations = await getEccOperationalSettings();
+
     return NextResponse.json(
       {
         message:
           "Your ECC registration has been submitted. ECC officers will check your payment and approve your official membership soon.",
         registration,
-        teamChatUrl: getEccOfficialTeamChatUrl()
+        teamChatUrl: operations.officialTeamChatUrl
       },
       { status: existing ? 200 : 201 }
     );
