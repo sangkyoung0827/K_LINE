@@ -308,15 +308,34 @@ export async function updateEccActivityCatalogItem(
   if (index < 0) return null;
 
   const current = catalog[index];
+  const titleKo =
+    typeof input.titleKo === "string" ? input.titleKo : current.titleKo;
+  const titleEn =
+    typeof input.titleEn === "string" ? input.titleEn : current.titleEn;
+  const descriptionKo =
+    typeof input.descriptionKo === "string"
+      ? input.descriptionKo
+      : current.descriptionKo;
+  const descriptionEn =
+    typeof input.descriptionEn === "string"
+      ? input.descriptionEn
+      : current.descriptionEn;
+  const sortOrder =
+    typeof input.sortOrder === "number" || typeof input.sortOrder === "string"
+      ? Number(input.sortOrder)
+      : current.sortOrder;
+  const archived =
+    typeof input.archived === "boolean" ? input.archived : current.archived;
+
   const updated = cleanCatalogItem(
     {
       ...current,
-      titleKo: input.titleKo ?? current.titleKo,
-      titleEn: input.titleEn ?? current.titleEn,
-      descriptionKo: input.descriptionKo ?? current.descriptionKo,
-      descriptionEn: input.descriptionEn ?? current.descriptionEn,
-      sortOrder: input.sortOrder ?? current.sortOrder,
-      archived: input.archived ?? current.archived
+      titleKo,
+      titleEn,
+      descriptionKo,
+      descriptionEn,
+      sortOrder,
+      archived
     },
     current.sortOrder
   );
