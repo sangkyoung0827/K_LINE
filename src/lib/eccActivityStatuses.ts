@@ -1,12 +1,11 @@
 import "server-only";
 
 import {
-  defaultEccActivityStatuses,
-  eccActivityTypes,
-  normalizeEccActivityType,
-  type EccActivityStatuses,
+  eccActivityTypeSet,
+  normalizeEccActivityId,
   type EccActivityType
 } from "@/lib/eccActivities";
+import { getEccActivityCatalog } from "@/lib/eccOperations";
 import { supabaseRequest } from "@/lib/supabaseServer";
 
 type EccActivityStatusRow = {
@@ -21,20 +20,21 @@ type EccActivityStatusRow = {
 
 const tableName = "ecc_activity_statuses";
 const legacySelectedColumns = "activity_id,is_open,updated_at,updated_by";
-const selectedColumns = `${legacySelectedColumns},activity_instance_id,registration_closed_at,requires_payment`;
+const selectedColumns =
+  `${legacySelectedColumns},activity_instance_id,registration_closed_at,requires_payment`;
 
 export type EccActivityCloseEvent = {
-  activityId: EccActivityType;
+  activityId: string;
   activityInstanceId: string;
   registrationClosedAt: string;
 };
 
 async function listEccActivityStatusRows() {
   try {
-    return await supabaseRequest<EccActivityStatusRow[]>(`${tableName}?select=${selectedColumns}`);
+    return await supabaseRequest<EccActivityStatusRow[]>(
+      `${tableName}?select=${selectedColumns}`
+    );
   } catch (error) {
-    // Keep the existing open/close controls working until the additive history
-    // migration has been applied to the production database.
     if (error instanceof Error && "status" in error && error.status === 400) {
       return supabaseRequest<EccActivityStatusRow[]>(
         `${tableName}?select=${legacySelectedColumns}`
@@ -45,36 +45,42 @@ async function listEccActivityStatusRows() {
   }
 }
 
-export function mergeEccActivityStatuses(
-  rows: EccActivityStatusRow[] = []
-): EccActivityStatuses {
-  const statuses = defaultEccActivityStatuses();
-
-  rows.forEach((row) => {
-    const type = normalizeEccActivityType(row.activity_id);
-    statuses[type] = row.is_open !== false;
-  });
-
-  return statuses;
+function legacyDefaultOpen(activityId: string) {
+  return eccActivityTypeSet.has(activityId as EccActivityType);
 }
 
 export async function getEccActivityStatuses() {
-  const rows = await listEccActivityStatusRows();
-  const requiresPayment = Object.fromEntries(
-    eccActivityTypes.map((type) => [type, true])
-  ) as Record<EccActivityType, boolean>;
-  const activityInstances = Object.fromEntries(
-    eccActivityTypes.map((type) => [type, ""])
-  ) as Record<EccActivityType, string>;
+  const [rows, catalog] = await Promise.all([
+    listEccActivityStatusRows(),
+    getEccActivityCatalog({ includeArchived: true })
+  ]);
+
+  const activityIds = Array.from(
+    new Set([
+      ...catalog.map((item) => item.id),
+      ...rows.map((row) => normalizeEccActivityId(row.activity_id))
+    ])
+  );
+
+  const statuses: Record<string, boolean> = {};
+  const requiresPayment: Record<string, boolean> = {};
+  const activityInstances: Record<string, string> = {};
+
+  activityIds.forEach((activityId) => {
+    statuses[activityId] = legacyDefaultOpen(activityId);
+    requiresPayment[activityId] = true;
+    activityInstances[activityId] = "";
+  });
 
   rows.forEach((row) => {
-    const type = normalizeEccActivityType(row.activity_id);
-    requiresPayment[type] = row.requires_payment !== false;
-    activityInstances[type] = row.activity_instance_id ?? "";
+    const activityId = normalizeEccActivityId(row.activity_id);
+    statuses[activityId] = row.is_open !== false;
+    requiresPayment[activityId] = row.requires_payment !== false;
+    activityInstances[activityId] = row.activity_instance_id ?? "";
   });
 
   return {
-    statuses: mergeEccActivityStatuses(rows),
+    statuses,
     requiresPayment,
     activityInstances,
     tableReady: true
@@ -82,49 +88,56 @@ export async function getEccActivityStatuses() {
 }
 
 export async function updateEccActivityStatuses(
-  updates: Partial<Record<EccActivityType, boolean>>,
+  updates: Record<string, boolean>,
   updatedBy: string,
-  paymentRequirements: Partial<Record<EccActivityType, boolean>> = {}
+  paymentRequirements: Record<string, boolean> = {}
 ) {
   const currentRows = await listEccActivityStatusRows();
-  const currentByType = new Map(
-    currentRows.map((row) => [normalizeEccActivityType(row.activity_id), row])
+  const currentById = new Map(
+    currentRows.map((row) => [normalizeEccActivityId(row.activity_id), row])
   );
   const now = new Date().toISOString();
   const closedActivities: EccActivityCloseEvent[] = [];
-  const rows = eccActivityTypes
-    .filter(
-      (type) =>
-        typeof updates[type] === "boolean" || typeof paymentRequirements[type] === "boolean"
-    )
-    .map((type) => {
-      const current = currentByType.get(type);
-      const wasOpen = current?.is_open !== false;
-      const isOpen = updates[type] ?? wasOpen;
-      const activityInstanceId = current?.activity_instance_id || crypto.randomUUID();
+  const activityIds = Array.from(
+    new Set([
+      ...Object.keys(updates).map(normalizeEccActivityId),
+      ...Object.keys(paymentRequirements).map(normalizeEccActivityId)
+    ])
+  );
 
-      if (wasOpen && !isOpen && current?.activity_instance_id) {
-        closedActivities.push({
-          activityId: type,
-          activityInstanceId: current.activity_instance_id,
-          registrationClosedAt: now
-        });
-      }
+  const rows = activityIds.map((activityId) => {
+    const current = currentById.get(activityId);
+    const wasOpen = current ? current.is_open !== false : legacyDefaultOpen(activityId);
+    const isOpen = updates[activityId] ?? wasOpen;
+    const existingInstanceId = current?.activity_instance_id || "";
+    const activityInstanceId =
+      isOpen && !wasOpen
+        ? crypto.randomUUID()
+        : existingInstanceId || (isOpen ? crypto.randomUUID() : "");
 
-      return {
-        activity_id: type,
-        activity_instance_id: isOpen && !wasOpen ? crypto.randomUUID() : activityInstanceId,
-        is_open: isOpen,
-        registration_closed_at: isOpen
-          ? null
-          : wasOpen
-            ? now
-            : current?.registration_closed_at ?? null,
-        requires_payment: paymentRequirements[type] ?? current?.requires_payment ?? true,
-        updated_at: now,
-        updated_by: updatedBy
-      };
-    });
+    if (wasOpen && !isOpen && existingInstanceId) {
+      closedActivities.push({
+        activityId,
+        activityInstanceId: existingInstanceId,
+        registrationClosedAt: now
+      });
+    }
+
+    return {
+      activity_id: activityId,
+      activity_instance_id: activityInstanceId || null,
+      is_open: isOpen,
+      registration_closed_at: isOpen
+        ? null
+        : wasOpen
+          ? now
+          : current?.registration_closed_at ?? null,
+      requires_payment:
+        paymentRequirements[activityId] ?? current?.requires_payment ?? true,
+      updated_at: now,
+      updated_by: updatedBy
+    };
+  });
 
   if (rows.length > 0) {
     try {
