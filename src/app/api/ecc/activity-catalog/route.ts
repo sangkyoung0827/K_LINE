@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
+import { updateEccActivityStatuses } from "@/lib/eccActivityStatuses";
+import {
+  createActivityRecordsForClosedActivities,
+  markActivityApplicationsClosed
+} from "@/lib/userActivityRecords";
 import {
   archiveEccActivityCatalogItem,
   createEccActivityCatalogItem,
@@ -110,6 +115,23 @@ export async function DELETE(request: Request) {
 
     if (!id) {
       return NextResponse.json({ error: "Activity ID is required." }, { status: 400 });
+    }
+
+    const statusResult = await updateEccActivityStatuses(
+      { [id]: false },
+      access.email
+    );
+
+    if (statusResult.closedActivities.length > 0) {
+      try {
+        await markActivityApplicationsClosed("ecc", statusResult.closedActivities);
+        await createActivityRecordsForClosedActivities(
+          "ecc",
+          statusResult.closedActivities
+        );
+      } catch (error) {
+        console.error("ECC activity archive history sync failed", error);
+      }
     }
 
     const item = await archiveEccActivityCatalogItem(id, access.email);
