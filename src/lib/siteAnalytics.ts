@@ -111,6 +111,25 @@ const siteVisitorColumns =
   "id,created_at,updated_at,visitor_id,first_seen_at,last_seen_at,last_path,last_referrer,user_email,visit_count";
 const siteVisitColumns = "id,created_at,visitor_id,path,referrer,user_email,user_agent";
 
+async function getSiteMemberRowByEmail(email?: string | null) {
+  const normalized = normalizeEmail(email);
+
+  if (!normalized) {
+    return null;
+  }
+
+  const rows = await supabaseRequest<SiteMemberRow[]>(
+    `${siteMembersTable}?select=${siteMemberColumns}&email=eq.${encodeURIComponent(normalized)}&limit=1`
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function getSiteMemberByEmail(email?: string | null) {
+  const row = await getSiteMemberRowByEmail(email);
+  return row ? toSiteMember(row) : null;
+}
+
 export async function registerSiteMember(input: RegisterSiteMemberInput) {
   const email = normalizeEmail(input.email);
 
@@ -119,10 +138,7 @@ export async function registerSiteMember(input: RegisterSiteMemberInput) {
   }
 
   const now = new Date().toISOString();
-  const existingRows = await supabaseRequest<SiteMemberRow[]>(
-    `${siteMembersTable}?select=${siteMemberColumns}&email=eq.${encodeURIComponent(email)}&limit=1`
-  );
-  const existing = existingRows[0];
+  const existing = await getSiteMemberRowByEmail(email);
 
   if (existing) {
     const rows = await supabaseRequest<SiteMemberRow[]>(
