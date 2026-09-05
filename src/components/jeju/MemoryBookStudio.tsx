@@ -492,10 +492,17 @@ export function MemoryBookStudio() {
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_50%_40%,#ffffff_0%,#f4faf7_46%,#edf7f3_100%)]">
       <div className="relative grid min-h-[clamp(40rem,74vh,50rem)] place-items-center px-4 py-10 sm:px-8 md:py-14">
         <div className="relative [perspective:1500px]">
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={onBookClick}
-            className="group relative block w-[min(86vw,31rem)] text-left focus:outline-none sm:w-[min(72vw,34rem)]"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onBookClick();
+              }
+            }}
+            className="group relative block w-[min(86vw,31rem)] cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0d5962]/45 sm:w-[min(72vw,34rem)]"
             aria-label={korean ? "추억록 열기" : "Open memory book"}
           >
             <div className="relative aspect-[4/5] origin-left transition duration-500 [transform:rotateY(-8deg)_rotateX(2deg)] group-hover:[transform:rotateY(-3deg)_rotateX(1deg)_translateY(-7px)]">
@@ -554,7 +561,7 @@ export function MemoryBookStudio() {
                 </div>
               </div>
             </div>
-          </button>
+          </div>
         </div>
       </div>
 
