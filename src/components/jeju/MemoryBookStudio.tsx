@@ -385,9 +385,13 @@ export function MemoryBookStudio() {
       .map(([date, entries]) => ({ date, entries }));
   }, [activities, korean, personalPlaces, tracking?.points]);
 
-  const totalBookPages = 1 + memoryPages.length + 1;
-  const currentMemoryPage = pageIndex > 0 && pageIndex <= memoryPages.length ? memoryPages[pageIndex - 1] : null;
-  const recommendationPage = pageIndex === totalBookPages - 1;
+  const totalBookPages = 2 + memoryPages.length + 1;
+  const totalSpreads = Math.ceil(totalBookPages / 2);
+  const recommendationLeafIndex = totalBookPages - 1;
+  const recommendationSpreadIndex = Math.floor(recommendationLeafIndex / 2);
+  const recommendationPage = pageIndex === recommendationSpreadIndex;
+  const leftLeafIndex = pageIndex * 2;
+  const rightLeafIndex = leftLeafIndex + 1;
 
   const loadRecommendation = useCallback(async () => {
     if (recommendationLoadedRef.current || recommendationBusy || (!personalPlaces.length && !activities.length && !(tracking?.points.length))) return;
@@ -440,113 +444,273 @@ export function MemoryBookStudio() {
     if (bookOpen && recommendationPage) void loadRecommendation();
   }, [bookOpen, loadRecommendation, recommendationPage]);
 
-  return (
-    <section className="overflow-hidden border border-[#0d5962]/14 bg-[linear-gradient(135deg,#f9f5eb_0%,#edf7f3_52%,#f8fcfa_100%)] shadow-[0_24px_60px_rgba(13,89,98,0.08)]">
-      <div className="grid gap-7 px-5 py-7 md:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] md:px-8 md:py-9">
-        <div className="flex flex-col justify-center">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">K_LINE Memory Book</p>
-          <h2 className="mt-3 font-serif text-3xl font-semibold tracking-[-0.03em] text-[#073c44] sm:text-4xl">
-            {korean ? "한국에서의 시간을 한 권에 모으세요" : "Build your own Korea Memory Book"}
-          </h2>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-[#4c6769]">
-            {korean
-              ? "활동 기록, 지도 이동, 방문 장소, 별점과 직접 올린 사진은 추억록을 열지 않아도 사용자별로 계속 저장됩니다. 책은 그 기록을 읽어 실시간으로 페이지를 구성합니다."
-              : "Your activity history, map movement, saved places, ratings, and your own photos are stored separately even before you open the book. The book reads those records and builds itself as your journey grows."}
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold text-[#315b5f]">
-            <span className="rounded-full bg-white/75 px-3 py-2">{personalPlaces.length} {korean ? "장소" : "places"}</span>
-            <span className="rounded-full bg-white/75 px-3 py-2">{activities.length} {korean ? "활동" : "activities"}</span>
-            <span className="rounded-full bg-white/75 px-3 py-2">{tracking?.points.length ?? 0} {korean ? "이동 포인트" : "route points"}</span>
-          </div>
-          {trackingMessage ? <p className="mt-4 text-xs leading-5 text-[#315b5f]">{trackingMessage}</p> : null}
-          <p className="mt-3 text-[11px] leading-5 text-[#698287]">
-            {korean ? "현재 웹 버전은 이 페이지가 열려 있을 때 위치를 기록합니다. 완전한 백그라운드 기록은 향후 K_LINE 앱에서 연결합니다." : "The web version records location while this page is open. Full background recording will be connected in the future K_LINE app."}
-          </p>
-        </div>
+  function renderLeaf(leafIndex: number) {
+    if (leafIndex === 0) {
+      return (
+        <ProfilePage
+          profile={profile}
+          avatar={avatar}
+          korean={korean}
+          onChange={setProfile}
+          onSave={saveProfile}
+          saved={profileSaved}
+        />
+      );
+    }
 
-        <div className="grid place-items-center py-2 [perspective:1200px]">
-          <button type="button" onClick={onBookClick} className="group relative block w-[min(78vw,24rem)] text-left focus:outline-none" aria-label={korean ? "추억록 열기" : "Open memory book"}>
-            <div className="relative aspect-[4/5] origin-left transition duration-500 [transform:rotateY(-10deg)_rotateX(3deg)] group-hover:[transform:rotateY(-4deg)_rotateX(1deg)_translateY(-6px)]">
-              <div className="absolute inset-y-2 -right-3 w-5 rounded-r-lg bg-[repeating-linear-gradient(90deg,#f8f2df_0,#f8f2df_2px,#e6dcc3_2px,#e6dcc3_3px)] shadow-lg" />
-              <div className="absolute inset-0 overflow-hidden rounded-r-2xl border border-[#071f2c]/30 bg-[radial-gradient(circle_at_70%_20%,rgba(126,216,225,.24),transparent_35%),linear-gradient(145deg,#071f2c,#0d5962_62%,#123b4a)] shadow-[18px_24px_45px_rgba(7,31,44,.28)]">
-                <div className="absolute inset-y-0 left-0 w-7 bg-black/20 shadow-[inset_-5px_0_9px_rgba(255,255,255,.08)]" />
-                <div className="absolute left-10 right-7 top-9 border-t border-[#f0c56b]/55" />
-                <div className="absolute bottom-9 left-10 right-7 border-t border-[#f0c56b]/35" />
-                <div className="absolute inset-x-12 top-[20%] text-center text-[#f7e7b4]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.28em]">K_LINE</p>
-                  <p className="mt-3 font-serif text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">{korean ? "한국 추억록" : "Korea Memory Book"}</p>
-                  <p className="mt-2 text-xs text-white/60">Places · Activities · Memories</p>
+    if (leafIndex === 1) {
+      return (
+        <JourneyStartPage
+          korean={korean}
+          personalPlaces={personalPlaces}
+          activities={activities}
+          tracking={tracking}
+        />
+      );
+    }
+
+    const memoryIndex = leafIndex - 2;
+
+    if (memoryIndex >= 0 && memoryIndex < memoryPages.length) {
+      return <TimelinePage page={memoryPages[memoryIndex]} korean={korean} />;
+    }
+
+    if (leafIndex === recommendationLeafIndex) {
+      return (
+        <RecommendationPage
+          recommendation={recommendation}
+          loading={recommendationBusy}
+          korean={korean}
+        />
+      );
+    }
+
+    return <MemoryBlankPage korean={korean} />;
+  }
+
+  return (
+    <section className="relative overflow-hidden bg-[radial-gradient(circle_at_50%_40%,#ffffff_0%,#f4faf7_46%,#edf7f3_100%)]">
+      <div className="relative grid min-h-[clamp(40rem,74vh,50rem)] place-items-center px-4 py-10 sm:px-8 md:py-14">
+        <div className="relative [perspective:1500px]">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onBookClick}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onBookClick();
+              }
+            }}
+            className="group relative block w-[min(86vw,31rem)] cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0d5962]/45 sm:w-[min(72vw,34rem)]"
+            aria-label={korean ? "추억록 열기" : "Open memory book"}
+          >
+            <div className="relative aspect-[4/5] origin-left transition duration-500 [transform:rotateY(-8deg)_rotateX(2deg)] group-hover:[transform:rotateY(-3deg)_rotateX(1deg)_translateY(-7px)]">
+              <div className="absolute inset-y-2 -right-4 w-6 rounded-r-xl bg-[repeating-linear-gradient(90deg,#fbf5e4_0,#fbf5e4_2px,#e6dcc3_2px,#e6dcc3_3px)] shadow-xl" />
+              <div className="absolute inset-0 overflow-hidden rounded-r-[1.7rem] border border-[#071f2c]/30 bg-[radial-gradient(circle_at_72%_22%,rgba(126,216,225,.24),transparent_34%),linear-gradient(145deg,#071f2c,#0d5962_60%,#124451)] shadow-[24px_32px_65px_rgba(7,31,44,.28)]">
+                <div className="absolute inset-y-0 left-0 w-9 bg-black/20 shadow-[inset_-6px_0_12px_rgba(255,255,255,.08)]" />
+                <div className="absolute left-12 right-9 top-10 border-t border-[#f0c56b]/55" />
+                <div className="absolute bottom-10 left-12 right-9 border-t border-[#f0c56b]/35" />
+
+                <div className="absolute inset-x-14 top-[20%] text-center text-[#f7e7b4]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em]">K_LINE</p>
+                  <p className="mt-4 font-serif text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
+                    {korean ? "한국 추억록" : "Korea Memory Book"}
+                  </p>
+                  <p className="mt-3 text-xs text-white/62">Places · Activities · Memories</p>
                 </div>
-                <div className="absolute inset-x-0 top-[53%] flex justify-center">
+
+                <div className="absolute left-[20%] top-[53%] z-10 flex items-center">
                   <span className="relative flex h-24 w-40 items-center justify-center transition duration-300 group-hover:scale-105">
                     <span className="absolute inset-4 rounded-full bg-white/10 blur-xl" />
                     <WoohyukmonGlassesIcon className="relative h-20 w-36 drop-shadow-[0_14px_12px_rgba(0,0,0,.35)]" />
                   </span>
+                  <span className="memory-book-speech relative ml-[-0.8rem] max-w-[13rem] rounded-[1.4rem] bg-white px-4 py-3 text-xs font-bold leading-5 text-[#073c44] shadow-[0_12px_30px_rgba(7,31,44,.22)] sm:max-w-[15rem] sm:text-sm">
+                    {korean
+                      ? "여기를 눌러 한국생활 추억록 만들기를 시작하세요"
+                      : "Click here to start building your Korea Memory Book"}
+                  </span>
                 </div>
-                <div className="absolute bottom-14 inset-x-10 text-center text-[11px] font-semibold tracking-[0.12em] text-white/62">
+
+                {tracking?.activeSession ? (
+                  <div className="absolute inset-x-12 bottom-20 z-20 flex justify-center">
+                    <span
+                      onClick={(event) => event.stopPropagation()}
+                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-[#071f2c]/72 px-3 py-2 text-[11px] font-bold text-white/90 backdrop-blur"
+                    >
+                      <Route className="h-3.5 w-3.5" />
+                      {korean ? "탐험 기록 중" : "Exploration recording"}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void stopExploration();
+                        }}
+                        disabled={trackingBusy}
+                        className="ml-1 inline-flex items-center gap-1 rounded-full bg-white/12 px-2 py-1 hover:bg-white/20 disabled:opacity-50"
+                      >
+                        <Square className="h-3 w-3 fill-current" />
+                        {korean ? "종료" : "Stop"}
+                      </button>
+                    </span>
+                  </div>
+                ) : null}
+
+                <div className="absolute bottom-14 inset-x-10 text-center text-[11px] font-semibold tracking-[0.16em] text-white/58">
                   {bookStarted ? "CLICK TO CONTINUE" : "CLICK TO START"}
                 </div>
               </div>
             </div>
-          </button>
+          </div>
         </div>
       </div>
 
-      {tracking?.activeSession ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#0d5962]/12 bg-white/65 px-5 py-3 md:px-8">
-          <span className="inline-flex items-center gap-2 text-xs font-bold text-[#0d5962]"><Route className="h-4 w-4" />{korean ? "탐험 기록 중" : "Exploration recording"}</span>
-          <button type="button" onClick={() => void stopExploration()} disabled={trackingBusy} className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#0d5962]/20 bg-white px-3 text-xs font-bold text-[#073c44] hover:bg-[#edf6f2] disabled:opacity-50"><Square className="h-3.5 w-3.5 fill-current" />{korean ? "탐험 종료" : "Stop exploration"}</button>
-        </div>
-      ) : null}
-
       {confirmOpen ? (
         <div className="fixed inset-0 z-[90] grid place-items-center bg-[#071f2c]/45 p-4 backdrop-blur-sm">
-          <section role="dialog" aria-modal="true" className="relative w-full max-w-md border border-[#0d5962]/15 bg-[#fffdf8] p-6 shadow-[0_30px_90px_rgba(7,31,44,.32)] sm:p-8">
-            <button type="button" onClick={() => setConfirmOpen(false)} className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center text-[#698287] hover:bg-[#edf6f2]" aria-label="Close"><X className="h-5 w-5" /></button>
+          <section
+            role="dialog"
+            aria-modal="true"
+            className="relative w-full max-w-md border border-[#0d5962]/15 bg-[#fffdf8] p-6 shadow-[0_30px_90px_rgba(7,31,44,.32)] sm:p-8"
+          >
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(false)}
+              className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center text-[#698287] hover:bg-[#edf6f2]"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
             <WoohyukmonGlassesIcon className="h-12 w-24" />
-            <h3 className="mt-5 font-serif text-2xl font-semibold text-[#073c44]">{korean ? "한국 탐험을 시작하고 추억록 구성을 시작하시겠습니까?" : "Start exploring Korea and begin building your Memory Book?"}</h3>
+            <h3 className="mt-5 font-serif text-2xl font-semibold text-[#073c44]">
+              {korean
+                ? "한국 탐험을 시작하고 추억록 구성을 시작하시겠습니까?"
+                : "Start exploring Korea and begin building your Memory Book?"}
+            </h3>
             <p className="mt-3 text-sm leading-6 text-[#4c6769]">
               {korean
-                ? "예를 누르면 즉시 추억록 1페이지 프로필이 열립니다. 위치 권한 확인과 탐험 기록 시작은 그 뒤에 별도로 진행되며, 위치 권한이 없어도 추억록은 사용할 수 있습니다."
-                : "Choosing Yes opens Memory Book page 1 immediately. Location permission and tracking start separately afterward, and the Memory Book still works without location permission."}
+                ? "예를 누르면 즉시 추억록 첫 장이 열립니다. 위치 기록은 별도로 시작되며, 위치 권한이 없어도 추억록은 정상적으로 사용할 수 있습니다."
+                : "Choosing Yes opens the first spread immediately. Location tracking starts separately, and the Memory Book still works without location permission."}
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setConfirmOpen(false)} className="min-h-11 border border-[#0d5962]/18 bg-white text-sm font-bold text-[#315b5f]">{korean ? "아니오" : "Not now"}</button>
-              <button type="button" onClick={() => void beginExploration()} className="min-h-11 bg-[#0d5962] text-sm font-bold text-white">{korean ? "예" : "Yes"}</button>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                className="min-h-11 border border-[#0d5962]/18 bg-white text-sm font-bold text-[#315b5f]"
+              >
+                {korean ? "아니오" : "Not now"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void beginExploration()}
+                className="min-h-11 bg-[#0d5962] text-sm font-bold text-white"
+              >
+                {korean ? "예" : "Yes"}
+              </button>
             </div>
           </section>
         </div>
       ) : null}
 
       {bookOpen ? (
-        <div className="memory-book-overlay fixed inset-0 z-[95] flex items-center justify-center bg-[#071f2c]/55 p-3 backdrop-blur-md sm:p-6">
-          <section className="memory-book-open relative flex max-h-[92svh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.4rem] border border-[#d4c8aa] bg-[#f7f0df] shadow-[0_35px_110px_rgba(7,31,44,.45)]">
-            <div className="flex items-center justify-between border-b border-[#cdbf9f]/70 bg-[#ede1c5] px-4 py-3 sm:px-6">
-              <div className="flex items-center gap-3"><BookOpen className="h-5 w-5 text-[#0d5962]" /><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#c68b35]">K_LINE</p><p className="font-serif text-lg font-semibold text-[#073c44]">{korean ? "나의 한국 추억록" : "My Korea Memory Book"}</p></div></div>
-              <button type="button" onClick={() => setBookOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/60 text-[#315b5f] hover:bg-white" aria-label="Close book"><X className="h-5 w-5" /></button>
+        <div className="memory-book-overlay fixed inset-0 z-[95] flex items-center justify-center bg-[#071f2c]/58 p-2 backdrop-blur-md sm:p-4">
+          <section className="memory-book-open relative flex max-h-[96svh] w-full max-w-[82rem] flex-col">
+            <div className="mb-2 flex items-center justify-between px-1 text-white">
+              <div className="flex items-center gap-3">
+                <BookOpen className="h-5 w-5" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#f0c56b]">K_LINE</p>
+                  <p className="font-serif text-lg font-semibold">
+                    {korean ? "나의 한국 추억록" : "My Korea Memory Book"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBookOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/12 text-white hover:bg-white/20"
+                aria-label="Close book"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div key={pageIndex} className="memory-page-flip flex-1 overflow-y-auto bg-[linear-gradient(90deg,#fffaf0_0%,#fffdf7_48%,#efe5ce_50%,#fffdf7_52%,#fffaf0_100%)] p-5 sm:p-8 md:p-10">
-              {pageIndex === 0 ? (
-                <ProfilePage profile={profile} avatar={avatar} korean={korean} onChange={setProfile} onSave={saveProfile} saved={profileSaved} />
-              ) : currentMemoryPage ? (
-                <TimelinePage page={currentMemoryPage} korean={korean} />
-              ) : recommendationPage ? (
-                <RecommendationPage recommendation={recommendation} loading={recommendationBusy} korean={korean} />
-              ) : null}
+            <div className="overflow-auto rounded-[1.4rem]">
+              <div
+                key={pageIndex}
+                className="memory-page-flip relative mx-auto grid h-[min(78svh,47rem)] min-h-[40rem] min-w-[760px] w-full grid-cols-2 overflow-hidden border border-[#d4c8aa] bg-[#f7f0df] shadow-[0_35px_110px_rgba(7,31,44,.45)]"
+              >
+                <article className="relative min-w-0 overflow-y-auto bg-[linear-gradient(100deg,#fffaf0_0%,#fffdf7_88%,#f2e8d2_100%)]">
+                  <BookPageHeader pageNumber={leftLeafIndex + 1} />
+                  <div className="px-7 pb-8 pt-5 sm:px-9">
+                    {renderLeaf(leftLeafIndex)}
+                  </div>
+                </article>
+
+                <article className="relative min-w-0 overflow-y-auto bg-[linear-gradient(80deg,#f2e8d2_0%,#fffdf7_12%,#fffaf0_100%)]">
+                  <BookPageHeader pageNumber={rightLeafIndex + 1} />
+                  <div className="px-7 pb-8 pt-5 sm:px-9">
+                    {rightLeafIndex < totalBookPages ? renderLeaf(rightLeafIndex) : <MemoryBlankPage korean={korean} />}
+                  </div>
+                </article>
+
+                <div className="pointer-events-none absolute inset-y-0 left-1/2 z-20 w-px -translate-x-1/2 bg-[#cdbf9f]/55 shadow-[0_0_22px_10px_rgba(116,95,56,.14)]" />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#cdbf9f]/70 bg-[#ede1c5] px-4 py-3 sm:px-6">
-              <button type="button" disabled={pageIndex === 0} onClick={() => setPageIndex((value) => Math.max(0, value - 1))} className="inline-flex min-h-10 items-center gap-2 px-3 text-sm font-bold text-[#315b5f] disabled:opacity-30"><ChevronLeft className="h-4 w-4" />{korean ? "이전 장" : "Previous"}</button>
-              <span className="text-xs font-bold text-[#698287]">{pageIndex + 1} / {totalBookPages}</span>
-              <button type="button" disabled={pageIndex >= totalBookPages - 1} onClick={() => setPageIndex((value) => Math.min(totalBookPages - 1, value + 1))} className="inline-flex min-h-10 items-center gap-2 px-3 text-sm font-bold text-[#0d5962] disabled:opacity-30">{korean ? "다음 장" : "Next"}<ChevronRight className="h-4 w-4" /></button>
+            <div className="mt-2 flex items-center justify-between rounded-full bg-[#071f2c]/72 px-3 py-2 text-white backdrop-blur sm:px-5">
+              <button
+                type="button"
+                disabled={pageIndex === 0}
+                onClick={() => setPageIndex((value) => Math.max(0, value - 1))}
+                className="inline-flex min-h-9 items-center gap-2 px-2 text-sm font-bold disabled:opacity-30"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {korean ? "이전 장" : "Previous"}
+              </button>
+              <span className="text-xs font-bold text-white/72">
+                {pageIndex + 1} / {totalSpreads}
+              </span>
+              <button
+                type="button"
+                disabled={pageIndex >= totalSpreads - 1}
+                onClick={() => setPageIndex((value) => Math.min(totalSpreads - 1, value + 1))}
+                className="inline-flex min-h-9 items-center gap-2 px-2 text-sm font-bold disabled:opacity-30"
+              >
+                {korean ? "다음 장" : "Next"}
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
           </section>
+
           <style>{`
-            @keyframes memoryBookOpen { 0% { opacity: 0; transform: perspective(1200px) rotateY(-16deg) scale(.94); } 100% { opacity: 1; transform: perspective(1200px) rotateY(0) scale(1); } }
-            @keyframes memoryPageFlip { 0% { opacity:.2; transform:perspective(1100px) rotateY(12deg) translateX(18px); } 100% { opacity:1; transform:perspective(1100px) rotateY(0) translateX(0); } }
-            .memory-book-open { transform-origin:left center; animation:memoryBookOpen .46s cubic-bezier(.2,.75,.2,1); }
-            .memory-page-flip { transform-origin:left center; animation:memoryPageFlip .38s ease-out; }
+            @keyframes memoryBookOpen {
+              0% { opacity: 0; transform: perspective(1500px) rotateY(-14deg) scale(.94); }
+              100% { opacity: 1; transform: perspective(1500px) rotateY(0) scale(1); }
+            }
+            @keyframes memoryPageFlip {
+              0% { opacity: .3; transform: perspective(1500px) rotateY(9deg); }
+              100% { opacity: 1; transform: perspective(1500px) rotateY(0); }
+            }
+            .memory-book-open {
+              transform-origin: center center;
+              animation: memoryBookOpen .46s cubic-bezier(.2,.75,.2,1);
+            }
+            .memory-page-flip {
+              transform-origin: center center;
+              animation: memoryPageFlip .34s ease-out;
+            }
+            .memory-book-speech::before {
+              content: "";
+              position: absolute;
+              left: -12px;
+              top: 50%;
+              width: 24px;
+              height: 24px;
+              background: white;
+              transform: translateY(-50%) rotate(45deg);
+              border-radius: 4px;
+              z-index: -1;
+            }
           `}</style>
         </div>
       ) : null}
@@ -554,59 +718,312 @@ export function MemoryBookStudio() {
   );
 }
 
-function ProfilePage({ avatar, korean, onChange, onSave, profile, saved }: { avatar: string; korean: boolean; onChange: (profile: MemoryProfile) => void; onSave: () => void; profile: MemoryProfile; saved: boolean }) {
-  const fields: Array<{ key: keyof MemoryProfile; labelKo: string; labelEn: string; placeholderKo: string; placeholderEn: string }> = [
+function BookPageHeader({ pageNumber }: { pageNumber: number }) {
+  return (
+    <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#cdbf9f]/65 bg-[#fffaf0]/94 px-7 py-3 backdrop-blur sm:px-9">
+      <span className="text-[9px] font-bold uppercase tracking-[0.28em] text-[#a77a34]">KOREA MEMORY BOOK</span>
+      <span className="text-[10px] font-semibold tracking-[0.16em] text-[#9c8c6e]">
+        {String(pageNumber).padStart(2, "0")}
+      </span>
+    </div>
+  );
+}
+
+function ProfilePage({
+  avatar,
+  korean,
+  onChange,
+  onSave,
+  profile,
+  saved
+}: {
+  avatar: string;
+  korean: boolean;
+  onChange: (profile: MemoryProfile) => void;
+  onSave: () => void;
+  profile: MemoryProfile;
+  saved: boolean;
+}) {
+  const primaryFields: Array<{
+    key: keyof MemoryProfile;
+    labelKo: string;
+    labelEn: string;
+    placeholderKo: string;
+    placeholderEn: string;
+  }> = [
     { key: "name", labelKo: "이름", labelEn: "Name", placeholderKo: "이름", placeholderEn: "Your name" },
     { key: "nationality", labelKo: "국적", labelEn: "Nationality", placeholderKo: "예: Moldova", placeholderEn: "e.g. Moldova" },
     { key: "university", labelKo: "소속 대학", labelEn: "University", placeholderKo: "예: Jeonbuk National University", placeholderEn: "e.g. Jeonbuk National University" },
     { key: "major", labelKo: "전공", labelEn: "Major", placeholderKo: "전공", placeholderEn: "Your major" },
-    { key: "languages", labelKo: "언어", labelEn: "Languages", placeholderKo: "예: Korean, English", placeholderEn: "e.g. Korean, English" },
-    { key: "purpose", labelKo: "한국 방문·교환 목적", labelEn: "Why Korea?", placeholderKo: "한국에서 이루고 싶은 것", placeholderEn: "What brought you to Korea?" },
-    { key: "interests", labelKo: "관심사", labelEn: "Interests", placeholderKo: "문화, 음식, 여행 등", placeholderEn: "Culture, food, travel…" },
-    { key: "intro", labelKo: "한 줄 소개", labelEn: "One-line intro", placeholderKo: "나를 소개하는 한 문장", placeholderEn: "A short line about you" }
+    { key: "languages", labelKo: "언어", labelEn: "Languages", placeholderKo: "예: Korean, English", placeholderEn: "e.g. Korean, English" }
   ];
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">PAGE 01 · PROFILE</p>
-        {avatar ? (
-          <img src={avatar} alt="Profile" className="mx-auto mt-5 h-24 w-24 rounded-full border-4 border-white object-cover shadow-lg" />
-        ) : (
-          <div className="mx-auto mt-5 grid h-24 w-24 place-items-center rounded-full border-4 border-white bg-[#dcefe8] text-3xl font-serif text-[#0d5962]">{profile.name.slice(0, 1) || "K"}</div>
-        )}
-        <h3 className="mt-4 font-serif text-3xl font-semibold text-[#073c44]">{profile.name || (korean ? "나의 프로필" : "My profile")}</h3>
-        <p className="mt-2 text-sm text-[#698287]">{korean ? "자동으로 채워진 내용을 확인하고 틀린 부분은 바로 수정하세요." : "Check the auto-filled profile and correct anything that is wrong."}</p>
+    <div className="mx-auto w-full max-w-[31rem]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#c68b35]">
+            {korean ? "첫 페이지" : "FIRST PAGE"}
+          </p>
+          <h3 className="mt-2 font-serif text-3xl font-semibold tracking-[-0.03em] text-[#073c44]">
+            {korean ? "프로필 설정" : "Profile setup"}
+          </h3>
+          <p className="mt-2 max-w-sm text-xs leading-5 text-[#698287]">
+            {korean
+              ? "자동으로 채워진 내용을 확인하고 틀린 부분은 수정하세요."
+              : "Check the auto-filled profile and correct anything that is wrong."}
+          </p>
+        </div>
+        <WoohyukmonGlassesIcon className="h-12 w-20 shrink-0 opacity-80" />
       </div>
-      <div className="mt-7 grid gap-4 sm:grid-cols-2">
-        {fields.map((field) => (
-          <label key={field.key} className={field.key === "purpose" || field.key === "intro" ? "sm:col-span-2" : ""}>
-            <span className="mb-1.5 block text-xs font-bold text-[#315b5f]">{korean ? field.labelKo : field.labelEn}</span>
-            <input value={profile[field.key]} onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...profile, [field.key]: event.target.value })} placeholder={korean ? field.placeholderKo : field.placeholderEn} className="min-h-11 w-full border-b border-[#b8aa89] bg-transparent px-1 text-sm text-[#073c44] outline-none focus:border-[#0d5962]" />
+
+      <div className="mt-6 grid grid-cols-[7.5rem_minmax(0,1fr)] gap-5">
+        <div className="min-w-0">
+          <div className="aspect-[4/5] w-full overflow-hidden rounded-xl border border-[#cdbf9f]/75 bg-[#e5efe9] shadow-[0_10px_22px_rgba(7,31,44,.08)]">
+            {avatar ? (
+              <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              <div className="grid h-full w-full place-items-center font-serif text-4xl text-[#0d5962]">
+                {profile.name.slice(0, 1) || "K"}
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-center text-[10px] font-semibold text-[#8b806d]">
+            {korean ? "계정 프로필 사진" : "Account photo"}
+          </p>
+        </div>
+
+        <div className="grid min-w-0 content-start gap-3">
+          {primaryFields.map((field) => (
+            <label key={field.key} className="grid min-w-0 grid-cols-[4.6rem_minmax(0,1fr)] items-center gap-2">
+              <span className="text-[11px] font-bold text-[#49676a]">
+                {korean ? field.labelKo : field.labelEn}
+              </span>
+              <input
+                value={profile[field.key]}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ ...profile, [field.key]: event.target.value })
+                }
+                placeholder={korean ? field.placeholderKo : field.placeholderEn}
+                className="min-h-9 min-w-0 rounded-lg border border-[#d7cdb5] bg-white/55 px-3 text-xs text-[#073c44] outline-none focus:border-[#0d5962]"
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3">
+        {[
+          {
+            key: "purpose" as const,
+            labelKo: "한국 방문·교환 목적",
+            labelEn: "Why Korea?",
+            placeholderKo: "한국에서 이루고 싶은 것",
+            placeholderEn: "What brought you to Korea?"
+          },
+          {
+            key: "interests" as const,
+            labelKo: "관심사",
+            labelEn: "Interests",
+            placeholderKo: "문화, 음식, 여행 등",
+            placeholderEn: "Culture, food, travel…"
+          }
+        ].map((field) => (
+          <label key={field.key}>
+            <span className="mb-1 block text-[11px] font-bold text-[#49676a]">
+              {korean ? field.labelKo : field.labelEn}
+            </span>
+            <input
+              value={profile[field.key]}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                onChange({ ...profile, [field.key]: event.target.value })
+              }
+              placeholder={korean ? field.placeholderKo : field.placeholderEn}
+              className="min-h-9 w-full rounded-lg border border-[#d7cdb5] bg-white/55 px-3 text-xs text-[#073c44] outline-none focus:border-[#0d5962]"
+            />
           </label>
         ))}
+
+        <label>
+          <span className="mb-1 block text-[11px] font-bold text-[#49676a]">
+            {korean ? "한 줄 소개" : "One-line intro"}
+          </span>
+          <textarea
+            value={profile.intro}
+            onChange={(event) => onChange({ ...profile, intro: event.target.value })}
+            placeholder={korean ? "나를 소개하는 짧은 문장" : "A short line about you"}
+            rows={3}
+            className="w-full resize-none rounded-xl border border-[#d7cdb5] bg-white/55 px-3 py-2 text-xs leading-5 text-[#073c44] outline-none focus:border-[#0d5962]"
+          />
+        </label>
       </div>
-      <button type="button" onClick={onSave} className="mx-auto mt-7 inline-flex min-h-11 items-center gap-2 bg-[#0d5962] px-5 text-sm font-bold text-white"><Save className="h-4 w-4" />{saved ? (korean ? "저장됨" : "Saved") : (korean ? "프로필 저장" : "Save profile")}</button>
+
+      <div className="mt-5 flex justify-end">
+        <button
+          type="button"
+          onClick={onSave}
+          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#0d5962] px-4 text-xs font-bold text-white"
+        >
+          <Save className="h-4 w-4" />
+          {saved ? (korean ? "저장됨" : "Saved") : korean ? "프로필 저장" : "Save profile"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function JourneyStartPage({
+  activities,
+  korean,
+  personalPlaces,
+  tracking
+}: {
+  activities: ActivityRecord[];
+  korean: boolean;
+  personalPlaces: JejuPersonalPlaceRecord[];
+  tracking: JejuExploreTracking | null;
+}) {
+  const photos = personalPlaces.flatMap((place) => place.photos.map((photo) => photo.publicUrl));
+  const recentPlaces = personalPlaces.slice(0, 3);
+  const recentActivities = activities.slice(0, 2);
+
+  return (
+    <div className="mx-auto w-full max-w-[31rem]">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#c68b35]">
+        {korean ? "추억록 시작" : "START YOUR MEMORY BOOK"}
+      </p>
+      <h3 className="mt-2 font-serif text-3xl font-semibold tracking-[-0.03em] text-[#073c44]">
+        {korean ? "한국생활의 순간들을 모아보세요" : "Collect your moments in Korea"}
+      </h3>
+      <p className="mt-2 text-xs leading-5 text-[#698287]">
+        {korean
+          ? "지도에 저장한 장소, 활동기록, 별점과 직접 올린 사진이 자동으로 이 책의 다음 장을 채웁니다."
+          : "Saved places, activity history, ratings, and your own photos automatically fill the pages that follow."}
+      </p>
+
+      <div className="mt-6 grid gap-3">
+        <section className="rounded-xl border border-[#d7cdb5] bg-white/48 p-4">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-[#073c44]">
+              <MapPin className="h-4 w-4 text-[#0d5962]" />
+              {korean ? "방문한 장소" : "Visited places"}
+            </span>
+            <span className="text-[11px] font-bold text-[#a77a34]">{personalPlaces.length}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {recentPlaces.length ? (
+              recentPlaces.map((place) => (
+                <span key={place.id} className="max-w-full truncate rounded-full bg-[#edf5f0] px-3 py-1.5 text-[11px] font-semibold text-[#315b5f]">
+                  {place.placeName}
+                </span>
+              ))
+            ) : (
+              <span className="text-[11px] text-[#8d8779]">
+                {korean ? "지도에서 장소를 저장하면 여기에 나타납니다." : "Saved map places will appear here."}
+              </span>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-[#d7cdb5] bg-white/48 p-4">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-[#073c44]">
+              <Sparkles className="h-4 w-4 text-[#0d5962]" />
+              {korean ? "활동 기록" : "Activity history"}
+            </span>
+            <span className="text-[11px] font-bold text-[#a77a34]">{activities.length}</span>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {recentActivities.length ? (
+              recentActivities.map((activity) => (
+                <div key={activity.id} className="truncate text-[11px] font-semibold text-[#49676a]">
+                  · {activity.activityTitle}
+                </div>
+              ))
+            ) : (
+              <span className="text-[11px] text-[#8d8779]">
+                {korean ? "참여 활동 기록이 자동으로 쌓입니다." : "Your activity history will accumulate automatically."}
+              </span>
+            )}
+          </div>
+        </section>
+
+        <div className="grid grid-cols-2 gap-3">
+          <section className="rounded-xl border border-[#d7cdb5] bg-white/48 p-4">
+            <span className="text-xs font-bold text-[#073c44]">{korean ? "사진" : "Photos"}</span>
+            <p className="mt-1 text-2xl font-serif font-semibold text-[#0d5962]">{photos.length}</p>
+            <p className="mt-1 text-[10px] leading-4 text-[#8d8779]">
+              {korean ? "직접 업로드한 사진" : "Your uploaded photos"}
+            </p>
+          </section>
+          <section className="rounded-xl border border-[#d7cdb5] bg-white/48 p-4">
+            <span className="text-xs font-bold text-[#073c44]">{korean ? "이동 기록" : "Route points"}</span>
+            <p className="mt-1 text-2xl font-serif font-semibold text-[#0d5962]">{tracking?.points.length ?? 0}</p>
+            <p className="mt-1 text-[10px] leading-4 text-[#8d8779]">
+              {korean ? "탐험 중 기록된 포인트" : "Recorded exploration points"}
+            </p>
+          </section>
+        </div>
+
+        {photos.length ? (
+          <div className="grid grid-cols-3 gap-2">
+            {photos.slice(0, 3).map((photo) => (
+              <img key={photo} src={photo} alt="Memory" className="aspect-[4/3] w-full rounded-lg object-cover" />
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
 
 function TimelinePage({ korean, page }: { korean: boolean; page: MemoryPage }) {
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="text-center"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">KOREA JOURNEY</p><h3 className="mt-3 font-serif text-3xl font-semibold text-[#073c44]">{displayDate(page.date, korean)}</h3></div>
-      <div className="mt-8 grid gap-5">
+    <div className="mx-auto w-full max-w-[31rem]">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#c68b35]">KOREA JOURNEY</p>
+      <h3 className="mt-2 font-serif text-2xl font-semibold text-[#073c44]">
+        {displayDate(page.date, korean)}
+      </h3>
+
+      <div className="mt-5 grid gap-4">
         {page.entries.map((entry) => (
-          <article key={entry.id} className="border-b border-[#cdbf9f]/70 pb-5">
-            <div className="flex items-start gap-4">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#e5efe9] text-[#0d5962]">{entry.kind === "place" ? <MapPin className="h-5 w-5" /> : entry.kind === "route" ? <Route className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}</span>
+          <article key={entry.id} className="rounded-xl border border-[#d7cdb5] bg-white/42 p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#e5efe9] text-[#0d5962]">
+                {entry.kind === "place" ? (
+                  <MapPin className="h-4 w-4" />
+                ) : entry.kind === "route" ? (
+                  <Route className="h-4 w-4" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+              </span>
               <div className="min-w-0 flex-1">
-                <h4 className="font-serif text-xl font-semibold text-[#073c44]">{entry.title}</h4>
-                <p className="mt-1 text-xs leading-5 text-[#698287]">{entry.subtitle}</p>
-                {entry.rating ? <div className="mt-2 flex gap-0.5" aria-label={`${entry.rating} out of 5 stars`}>{[1, 2, 3, 4, 5].map((star) => <Star key={star} className={`h-4 w-4 ${star <= entry.rating! ? "fill-[#d49b42] text-[#d49b42]" : "text-[#b9ae93]"}`} />)}</div> : null}
+                <h4 className="break-words font-serif text-lg font-semibold text-[#073c44]">{entry.title}</h4>
+                <p className="mt-1 break-words text-[11px] leading-5 text-[#698287]">{entry.subtitle}</p>
+                {entry.rating ? (
+                  <div className="mt-2 flex gap-0.5" aria-label={`${entry.rating} out of 5 stars`}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`h-3.5 w-3.5 ${
+                          star <= entry.rating!
+                            ? "fill-[#d49b42] text-[#d49b42]"
+                            : "text-[#b9ae93]"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
-            {entry.photos.length ? <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">{entry.photos.slice(0, 5).map((photo) => <img key={photo} src={photo} alt="Memory" className="aspect-square w-full rounded-lg object-cover" />)}</div> : null}
+            {entry.photos.length ? (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {entry.photos.slice(0, 6).map((photo) => (
+                  <img key={photo} src={photo} alt="Memory" className="aspect-square w-full rounded-lg object-cover" />
+                ))}
+              </div>
+            ) : null}
           </article>
         ))}
       </div>
@@ -614,13 +1031,47 @@ function TimelinePage({ korean, page }: { korean: boolean; page: MemoryPage }) {
   );
 }
 
-function RecommendationPage({ korean, loading, recommendation }: { korean: boolean; loading: boolean; recommendation: string }) {
+function RecommendationPage({
+  korean,
+  loading,
+  recommendation
+}: {
+  korean: boolean;
+  loading: boolean;
+  recommendation: string;
+}) {
   return (
-    <div className="mx-auto flex min-h-[30rem] max-w-3xl flex-col items-center justify-center text-center">
-      <WoohyukmonGlassesIcon className="h-20 w-36 drop-shadow-[0_12px_10px_rgba(7,31,44,.18)]" />
-      <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-[#c68b35]">WOOHYUKMON NEXT STEP</p>
-      <h3 className="mt-3 font-serif text-3xl font-semibold text-[#073c44]">{korean ? "다음에는 어디로 갈까요?" : "Where should you go next?"}</h3>
-      <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-7 text-[#4c6769]">{loading ? (korean ? "우혁몬이 장소·별점·활동·이동 기록을 읽고 있습니다…" : "Woohyukmon is reading your places, ratings, activities, and movement…") : recommendation || (korean ? "기록이 조금 더 쌓이면 우혁몬이 다음 경험을 추천합니다." : "Once you have a little more history, Woohyukmon will recommend your next experience.")}</p>
+    <div className="mx-auto flex min-h-[31rem] w-full max-w-[31rem] flex-col items-center justify-center text-center">
+      <WoohyukmonGlassesIcon className="h-20 w-32 drop-shadow-[0_12px_10px_rgba(7,31,44,.18)]" />
+      <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#c68b35]">
+        WOOHYUKMON NEXT STEP
+      </p>
+      <h3 className="mt-3 font-serif text-2xl font-semibold text-[#073c44]">
+        {korean ? "다음에는 어디로 갈까요?" : "Where should you go next?"}
+      </h3>
+      <p className="mt-4 max-w-md whitespace-pre-wrap text-xs leading-6 text-[#4c6769]">
+        {loading
+          ? korean
+            ? "우혁몬이 장소·별점·활동·이동 기록을 읽고 있습니다…"
+            : "Woohyukmon is reading your places, ratings, activities, and movement…"
+          : recommendation ||
+            (korean
+              ? "기록이 조금 더 쌓이면 우혁몬이 다음 경험을 추천합니다."
+              : "Once you have a little more history, Woohyukmon will recommend your next experience.")}
+      </p>
+    </div>
+  );
+}
+
+function MemoryBlankPage({ korean }: { korean: boolean }) {
+  return (
+    <div className="flex min-h-[31rem] items-center justify-center text-center">
+      <div>
+        <p className="font-serif text-2xl font-semibold text-[#0d5962]/35">K_LINE</p>
+        <p className="mt-2 text-[11px] text-[#8d8779]">
+          {korean ? "다음 추억을 기다리는 페이지입니다." : "A page waiting for your next memory."}
+        </p>
+      </div>
     </div>
   );
 }
