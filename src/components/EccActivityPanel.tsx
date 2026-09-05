@@ -823,16 +823,21 @@ export function EccActivityPanel() {
       setApplicationsLoading(true);
 
       try {
-        const [applicationsResponse, statusesResponse] = await Promise.all([
-          fetch("/api/ecc/applications", {
-            signal: controller.signal
-          }),
-          fetch("/api/ecc/activity-statuses", {
-            signal: controller.signal
-          })
-        ]);
+        const [applicationsResponse, statusesResponse, catalogResponse] =
+          await Promise.all([
+            fetch("/api/ecc/applications", {
+              signal: controller.signal
+            }),
+            fetch("/api/ecc/activity-statuses", {
+              signal: controller.signal
+            }),
+            fetch("/api/ecc/activity-catalog", {
+              signal: controller.signal
+            })
+          ]);
         const data = (await applicationsResponse.json()) as ApplicationsApiResponse;
         const statusData = (await statusesResponse.json()) as ActivityStatusesApiResponse;
+        const catalogData = (await catalogResponse.json()) as ActivityCatalogApiResponse;
 
         if (!applicationsResponse.ok) {
           throw new Error(data.error || text.applicationStorageError);
@@ -842,11 +847,20 @@ export function EccActivityPanel() {
           throw new Error(statusData.error || text.activityStatusStorageError);
         }
 
+        if (!catalogResponse.ok) {
+          throw new Error(catalogData.error || text.activityStatusStorageError);
+        }
+
         setApplicationCounts(normalizeApplicationCounts(data.counts));
         setApplications(Array.isArray(data.applications) ? data.applications : []);
         setActivityStatuses(normalizeActivityStatuses(statusData.statuses));
         setActivityPaymentRequirements(
           normalizeActivityPaymentRequirements(statusData.requiresPayment)
+        );
+        setActivityCatalog(
+          Array.isArray(catalogData.activities) && catalogData.activities.length
+            ? catalogData.activities
+            : defaultActivityCatalog
         );
         setActivityStatusTableReady(statusData.tableReady !== false);
         setApplicationError("");
