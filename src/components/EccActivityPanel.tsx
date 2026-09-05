@@ -206,6 +206,25 @@ const defaultApplicationTypes: Array<{
   }
 ];
 
+const defaultActivityCatalog: ActivityCatalogItem[] = defaultApplicationTypes.map(
+  (item, index) => ({
+    id: item.type,
+    titleKo: item.labels.ko.title,
+    titleEn: item.labels.en.title,
+    descriptionKo: item.labels.ko.description,
+    descriptionEn: item.labels.en.description,
+    sortOrder: (index + 1) * 10,
+    archived: false
+  })
+);
+
+const emptyActivityDraft = {
+  titleKo: "",
+  titleEn: "",
+  descriptionKo: "",
+  descriptionEn: ""
+};
+
 const copy = {
   ko: {
     languageEyebrow: "Language",
@@ -740,6 +759,26 @@ export function EccActivityPanel() {
   const [copyMessage, setCopyMessage] = useState("");
   const [paymentDrafts, setPaymentDrafts] = useState<PaymentDrafts>({});
   const [paymentMessage, setPaymentMessage] = useState("");
+  const [activityCatalog, setActivityCatalog] =
+    useState<ActivityCatalogItem[]>(defaultActivityCatalog);
+  const [activityDraft, setActivityDraft] = useState(emptyActivityDraft);
+  const [activityCatalogSaving, setActivityCatalogSaving] = useState(false);
+  const [activityCatalogMessage, setActivityCatalogMessage] = useState("");
+
+  const applicationTypes = useMemo(
+    () =>
+      activityCatalog
+        .filter((item) => !item.archived)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((item) => ({
+          type: item.id,
+          labels: {
+            ko: { title: item.titleKo, description: item.descriptionKo },
+            en: { title: item.titleEn, description: item.descriptionEn }
+          }
+        })),
+    [activityCatalog]
+  );
 
   const text = copy[language];
 
