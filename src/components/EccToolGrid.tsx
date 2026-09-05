@@ -7,6 +7,7 @@ import {
   ClipboardList,
   MessageCircle,
   MessageSquareText,
+  Settings,
   ShieldCheck,
   UserCog
 } from "lucide-react";
@@ -68,6 +69,20 @@ const officialEccTools = [
     cta: "Open Management",
     ctaKo: "관리 열기",
     icon: UserCog,
+    minimumRole: "admin"
+  },
+  {
+    eyebrow: "Semester operations",
+    title: "Operations",
+    titleKo: "학기 운영 설정",
+    description:
+      "Replace semester chat links, QR destinations, and other handover settings without touching member data.",
+    descriptionKo:
+      "회원 데이터를 건드리지 않고 학기별 채팅방 링크·QR 목적지와 인수인계 운영 정보를 교체합니다.",
+    href: "/our-activities/ecc/operations",
+    cta: "Open Operations",
+    ctaKo: "운영 설정 열기",
+    icon: Settings,
     minimumRole: "admin"
   }
 ] as const;
