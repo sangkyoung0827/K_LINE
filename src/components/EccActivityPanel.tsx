@@ -44,13 +44,23 @@ type NoticeForm = {
   memo: string;
 };
 
-type ApplicationType =
-  | "gathering"
-  | "mt"
-  | "special"
-  | "opening"
-  | "farewell"
-  | "english-class";
+type ApplicationType = string;
+
+type ActivityCatalogItem = {
+  archived: boolean;
+  descriptionEn: string;
+  descriptionKo: string;
+  id: string;
+  sortOrder: number;
+  titleEn: string;
+  titleKo: string;
+};
+
+type ActivityCatalogApiResponse = {
+  activities?: ActivityCatalogItem[];
+  item?: ActivityCatalogItem;
+  error?: string;
+};
 
 type ApplicationForm = {
   name: string;
@@ -68,9 +78,9 @@ type EccApplication = ApplicationForm & {
   createdAt: string;
 };
 
-type ApplicationCounts = Record<ApplicationType, number>;
-type ActivityStatuses = Record<ApplicationType, boolean>;
-type ActivityPaymentRequirements = Record<ApplicationType, boolean>;
+type ApplicationCounts = Record<string, number>;
+type ActivityStatuses = Record<string, boolean>;
+type ActivityPaymentRequirements = Record<string, boolean>;
 
 type ApplicationsApiResponse = {
   counts?: Partial<ApplicationCounts>;
@@ -112,7 +122,7 @@ const initialApplicationForm: ApplicationForm = {
   otherRequests: ""
 };
 
-const applicationTypes: Array<{
+const defaultApplicationTypes: Array<{
   type: ApplicationType;
   labels: Record<Language, { title: string; description: string }>;
 }> = [
@@ -680,43 +690,23 @@ function emptyActivityPaymentRequirements(): ActivityPaymentRequirements {
 
 function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): ApplicationCounts {
   const empty = emptyApplicationCounts();
+  const normalized: ApplicationCounts = { ...empty };
 
-  return {
-    gathering: Number(counts?.gathering ?? empty.gathering),
-    mt: Number(counts?.mt ?? empty.mt),
-    special: Number(counts?.special ?? empty.special),
-    opening: Number(counts?.opening ?? empty.opening),
-    farewell: Number(counts?.farewell ?? empty.farewell),
-    "english-class": Number(counts?.["english-class"] ?? empty["english-class"])
-  };
+  Object.entries(counts ?? {}).forEach(([key, value]) => {
+    normalized[key] = Number(value ?? 0);
+  });
+
+  return normalized;
 }
 
 function normalizeActivityStatuses(statuses?: Partial<ActivityStatuses>): ActivityStatuses {
-  const empty = emptyActivityStatuses();
-
-  return {
-    gathering: statuses?.gathering ?? empty.gathering,
-    mt: statuses?.mt ?? empty.mt,
-    special: statuses?.special ?? empty.special,
-    opening: statuses?.opening ?? empty.opening,
-    farewell: statuses?.farewell ?? empty.farewell,
-    "english-class": statuses?.["english-class"] ?? empty["english-class"]
-  };
+  return { ...emptyActivityStatuses(), ...(statuses ?? {}) };
 }
 
 function normalizeActivityPaymentRequirements(
   requirements?: Partial<ActivityPaymentRequirements>
 ): ActivityPaymentRequirements {
-  const empty = emptyActivityPaymentRequirements();
-
-  return {
-    gathering: requirements?.gathering ?? empty.gathering,
-    mt: requirements?.mt ?? empty.mt,
-    special: requirements?.special ?? empty.special,
-    opening: requirements?.opening ?? empty.opening,
-    farewell: requirements?.farewell ?? empty.farewell,
-    "english-class": requirements?.["english-class"] ?? empty["english-class"]
-  };
+  return { ...emptyActivityPaymentRequirements(), ...(requirements ?? {}) };
 }
 
 export function EccActivityPanel() {
