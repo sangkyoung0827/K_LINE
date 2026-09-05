@@ -166,6 +166,7 @@ export async function listEccMemberRegistrations() {
 }
 
 export async function upsertEccMemberRegistration(input: {
+  existingRegistration?: EccMemberRegistration | null;
   form: ReturnType<typeof cleanEccMemberRegistrationFormInput>;
   googleAvatarUrl?: string | null;
   googleEmail: string;
@@ -173,7 +174,9 @@ export async function upsertEccMemberRegistration(input: {
   siteMemberId?: string | null;
 }) {
   const email = normalizeEmail(input.googleEmail);
-  const existing = await getEccMemberRegistrationByEmail(email);
+  const existing = Object.prototype.hasOwnProperty.call(input, "existingRegistration")
+    ? input.existingRegistration ?? null
+    : await getEccMemberRegistrationByEmail(email);
   const now = new Date().toISOString();
 
   const payload = {
@@ -228,14 +231,54 @@ export async function upsertEccMemberRegistration(input: {
   return rows[0] ? toEccMemberRegistration(rows[0]) : null;
 }
 
-export async function patchEccMemberRegistration(input: {
+export async function patchEccMemberRegistrationWithChangeInfo(input: {
   adminEmail: string;
   adminNote?: string;
   id: string;
   paymentConfirmed: boolean;
 }) {
-  const now = new Date().toISOString();
+  const existing = await getEccMemberRegistrationById(input.id);
+
+  if (!existing) {
+    return {
+      changed: false,
+      paymentConfirmedChanged: false,
+      registration: null as EccMemberRegistration | null
+    };
+  }
+
+  const adminNote = cleanText(input.adminNote, 1200);
   const paymentConfirmed = Boolean(input.paymentConfirmed);
+  const adminNoteChanged = existing.adminNote !== adminNote;
+  const paymentConfirmedChanged = existing.paymentConfirmed !== paymentConfirmed;
+
+  if (!adminNoteChanged && !paymentConfirmedChanged) {
+    return {
+      changed: false,
+      paymentConfirmedChanged: false,
+      registration: existing
+    };
+  }
+
+  const now = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    updated_at: now
+  };
+
+  if (adminNoteChanged) {
+    payload.admin_note = adminNote;
+  }
+
+  if (paymentConfirmedChanged) {
+    payload.official_member = paymentConfirmed;
+    payload.official_member_approved_at = paymentConfirmed ? now : null;
+    payload.official_member_approved_by = paymentConfirmed ? input.adminEmail : "";
+    payload.payment_confirmed = paymentConfirmed;
+    payload.payment_confirmed_at = paymentConfirmed ? now : null;
+    payload.payment_confirmed_by = paymentConfirmed ? input.adminEmail : "";
+    payload.status = paymentConfirmed ? "approved" : "payment_pending";
+  }
+
   const rows = await supabaseRequest<EccMemberRegistrationRow[]>(
     `${eccMemberRegistrationsTable}?id=eq.${encodeURIComponent(
       input.id
@@ -245,19 +288,22 @@ export async function patchEccMemberRegistration(input: {
       headers: {
         Prefer: "return=representation"
       },
-      body: JSON.stringify({
-        admin_note: cleanText(input.adminNote, 1200),
-        official_member: paymentConfirmed,
-        official_member_approved_at: paymentConfirmed ? now : null,
-        official_member_approved_by: paymentConfirmed ? input.adminEmail : "",
-        payment_confirmed: paymentConfirmed,
-        payment_confirmed_at: paymentConfirmed ? now : null,
-        payment_confirmed_by: paymentConfirmed ? input.adminEmail : "",
-        status: paymentConfirmed ? "approved" : "payment_pending",
-        updated_at: now
-      })
+      body: JSON.stringify(payload)
     }
   );
 
-  return rows[0] ? toEccMemberRegistration(rows[0]) : null;
+  return {
+    changed: true,
+    paymentConfirmedChanged,
+    registration: rows[0] ? toEccMemberRegistration(rows[0]) : existing
+  };
+}
+
+export async function patchEccMemberRegistration(input: {
+  adminEmail: string;
+  adminNote?: string;
+  id: string;
+  paymentConfirmed: boolean;
+}) {
+  return (await patchEccMemberRegistrationWithChangeInfo(input)).registration;
 }

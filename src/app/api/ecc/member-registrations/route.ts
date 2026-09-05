@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getEccMemberRegistrationById,
   listEccMemberRegistrations,
-  patchEccMemberRegistration
+  patchEccMemberRegistrationWithChangeInfo
 } from "@/lib/eccMemberRegistrations";
 import { resetEccMemberRegistrationData } from "@/lib/klineMemberDeletion";
 import {
@@ -121,7 +121,7 @@ export async function PATCH(request: Request) {
       }>;
     };
     const updates = Array.isArray(body.registrations) ? body.registrations : [];
-    const updated = [];
+    const updatedRegistrations = [];
 
     for (const update of updates) {
       const id = cleanText(update.id, 120);
@@ -130,39 +130,40 @@ export async function PATCH(request: Request) {
         continue;
       }
 
-      const registration = await patchEccMemberRegistration({
+      const result = await patchEccMemberRegistrationWithChangeInfo({
         adminEmail: access.email,
         adminNote: cleanText(update.adminNote, 1200),
         id,
         paymentConfirmed: Boolean(update.paymentConfirmed)
       });
+      const registration = result.registration;
 
-      if (!registration) {
+      if (!registration || !result.changed) {
         continue;
       }
 
-      if (registration.paymentConfirmed) {
-        await approveEccOfficialMember({
-          approvedBy: access.email,
-          avatarUrl: registration.googleAvatarUrl,
-          email: registration.googleEmail,
-          name: registration.googleName || registration.fullName
-        });
-      } else {
-        await revokeEccOfficialMember({
-          email: registration.googleEmail,
-          revokedBy: access.email
-        });
+      if (result.paymentConfirmedChanged) {
+        if (registration.paymentConfirmed) {
+          await approveEccOfficialMember({
+            approvedBy: access.email,
+            avatarUrl: registration.googleAvatarUrl,
+            email: registration.googleEmail,
+            name: registration.googleName || registration.fullName
+          });
+        } else {
+          await revokeEccOfficialMember({
+            email: registration.googleEmail,
+            revokedBy: access.email
+          });
+        }
       }
 
-      updated.push(registration);
+      updatedRegistrations.push(registration);
     }
 
-    const registrations = await listEccMemberRegistrations();
-
     return NextResponse.json({
-      registrations,
-      updatedCount: updated.length
+      updatedCount: updatedRegistrations.length,
+      updatedRegistrations
     });
   } catch (error) {
     return apiErrorResponse(error);
