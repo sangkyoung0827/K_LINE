@@ -57,3 +57,22 @@ export function defaultEccActivityStatuses(): EccActivityStatuses {
     "english-class": true
   };
 }
+
+
+export type EccActivityId = string;
+
+export function normalizeEccActivityId(value: string | null | undefined): EccActivityId {
+  const normalized = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return normalized || "gathering";
+}
+
+export function defaultEccActivityTitle(activityId: string) {
+  const legacy = activityId as EccActivityType;
+  return eccActivityTypeSet.has(legacy) ? eccActivityTitles[legacy] : activityId;
+}
