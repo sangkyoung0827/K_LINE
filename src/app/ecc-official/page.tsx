@@ -15,7 +15,8 @@ import { ClubMark } from "@/components/ClubMark";
 import { EccMemberRegistrationForm } from "@/components/EccMemberRegistrationForm";
 import { EccPermissionRequestCard } from "@/components/EccPermissionRequestCard";
 import { I18nText } from "@/components/LanguageProvider";
-import { getCurrentEccAccess, getEccOfficialTeamChatUrl } from "@/lib/eccAccess";
+import { getCurrentEccAccess } from "@/lib/eccAccess";
+import { getEccOperationalSettings } from "@/lib/eccOperations";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
@@ -68,7 +69,8 @@ export default async function EccOfficialPage() {
     );
   }
 
-  const teamChatUrl = getEccOfficialTeamChatUrl();
+  const operations = await getEccOperationalSettings();
+  const teamChatUrl = operations.officialTeamChatUrl;
 
   return (
     <OfficialShell>
@@ -138,6 +140,13 @@ export default async function EccOfficialPage() {
                 href="/our-activities/ecc/fund"
                 icon={Banknote}
                 title={<I18nText en="ECC Fund Management" ko="ECC 자금관리" />}
+              />
+            ) : null}
+            {access.isAdmin ? (
+              <OfficialRow
+                href="/our-activities/ecc/operations"
+                icon={Settings}
+                title={<I18nText en="Semester Operations" ko="학기 운영 설정" />}
               />
             ) : null}
             {access.isDeveloper ? (
