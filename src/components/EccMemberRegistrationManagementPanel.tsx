@@ -49,6 +49,7 @@ type RegistrationListResponse = {
   error?: string;
   registrations?: EccMemberRegistration[];
   updatedCount?: number;
+  updatedRegistrations?: EccMemberRegistration[];
 };
 
 function formatDate(value: string, language: "en" | "ko") {
@@ -99,6 +100,24 @@ export function EccMemberRegistrationManagementPanel() {
   const applyRegistrations = (nextRegistrations: EccMemberRegistration[]) => {
     setRegistrations(nextRegistrations);
     setDrafts(toDrafts(nextRegistrations));
+  };
+
+  const mergeUpdatedRegistrations = (updatedRegistrations: EccMemberRegistration[]) => {
+    if (updatedRegistrations.length === 0) {
+      return;
+    }
+
+    const updatedById = new Map(
+      updatedRegistrations.map((registration) => [registration.id, registration])
+    );
+
+    setRegistrations((current) =>
+      current.map((registration) => updatedById.get(registration.id) ?? registration)
+    );
+    setDrafts((current) => ({
+      ...current,
+      ...toDrafts(updatedRegistrations)
+    }));
   };
 
   useEffect(() => {
@@ -196,6 +215,23 @@ export function EccMemberRegistrationManagementPanel() {
     });
   }, [memberQuery, registrations]);
 
+  const changedRegistrations = useMemo(
+    () =>
+      registrations.filter((registration) => {
+        const draft = drafts[registration.id];
+
+        if (!draft) {
+          return false;
+        }
+
+        return (
+          draft.adminNote !== registration.adminNote ||
+          Boolean(draft.paymentConfirmed) !== registration.paymentConfirmed
+        );
+      }),
+    [drafts, registrations]
+  );
+
   const updateDraft = (id: string, value: Partial<DraftState[string]>) => {
     setDrafts((current) => {
       const existing = current[id] ?? {
@@ -214,6 +250,16 @@ export function EccMemberRegistrationManagementPanel() {
   };
 
   const save = async () => {
+    const updates = changedRegistrations.map((registration) => ({
+      adminNote: drafts[registration.id]?.adminNote ?? "",
+      id: registration.id,
+      paymentConfirmed: Boolean(drafts[registration.id]?.paymentConfirmed)
+    }));
+
+    if (updates.length === 0) {
+      return;
+    }
+
     setSaving(true);
     setMessage("");
     setError("");
@@ -225,11 +271,7 @@ export function EccMemberRegistrationManagementPanel() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          registrations: registrations.map((registration) => ({
-            adminNote: drafts[registration.id]?.adminNote ?? "",
-            id: registration.id,
-            paymentConfirmed: Boolean(drafts[registration.id]?.paymentConfirmed)
-          }))
+          registrations: updates
         })
       });
       const data = (await response.json()) as RegistrationListResponse;
@@ -238,14 +280,18 @@ export function EccMemberRegistrationManagementPanel() {
         throw new Error(data.error || "ECC member registrations could not be saved.");
       }
 
-      applyRegistrations(data.registrations ?? []);
+      mergeUpdatedRegistrations(data.updatedRegistrations ?? []);
       setMessage(
         language === "ko"
           ? `신규회원 등록 ${data.updatedCount ?? 0}건을 저장했습니다.`
           : `${data.updatedCount ?? 0} ECC member registration records saved.`
       );
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "ECC member registrations could not be saved.");
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "ECC member registrations could not be saved."
+      );
     } finally {
       setSaving(false);
     }
@@ -345,7 +391,12 @@ export function EccMemberRegistrationManagementPanel() {
             <button
               type="button"
               onClick={save}
-              disabled={saving || Boolean(deletingId) || registrations.length === 0}
+              disabled={
+                saving ||
+                Boolean(deletingId) ||
+                registrations.length === 0 ||
+                changedRegistrations.length === 0
+              }
               className="inline-flex min-h-12 items-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Save aria-hidden className="h-4 w-4" />}
