@@ -52,6 +52,13 @@ type RegistrationContentResponse = {
   error?: string;
 };
 
+type OperationsResponse = {
+  settings?: {
+    inquiryChatUrl?: string;
+    newMemberOpenChatUrl?: string;
+  };
+};
+
 type FormState = {
   departmentOrMajor: string;
   fullName: string;
@@ -155,6 +162,7 @@ export function EccMemberRegistrationForm() {
   const [editingContent, setEditingContent] = useState(false);
   const [savingContent, setSavingContent] = useState(false);
   const [contentError, setContentError] = useState("");
+  const [inquiryChatUrl, setInquiryChatUrl] = useState("{inquiryChatUrl}");
 
   useEffect(() => {
     let active = true;
@@ -211,6 +219,23 @@ export function EccMemberRegistrationForm() {
         if (!active || !response.ok || !data.content) return;
         setRegistrationContent(data.content);
         setContentDraft(data.content);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/ecc/operations")
+      .then((response) => response.json() as Promise<OperationsResponse>)
+      .then((data) => {
+        if (active && data.settings?.inquiryChatUrl) {
+          setInquiryChatUrl(data.settings.inquiryChatUrl);
+        }
       })
       .catch(() => undefined);
 
@@ -455,12 +480,12 @@ export function EccMemberRegistrationForm() {
         </p>
         <p className="mt-3 text-sm leading-7 text-ink/72">
           <a
-            href="https://open.kakao.com/o/saPt03Nh"
+            href={inquiryChatUrl}
             target="_blank"
             rel="noreferrer"
             className="font-semibold text-navy underline decoration-brass/70 underline-offset-4 transition hover:text-brass"
           >
-            https://open.kakao.com/o/saPt03Nh
+            {inquiryChatUrl}
           </a>{" "}
           또는 인스타그램{" "}
           <a

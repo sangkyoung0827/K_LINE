@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
-import {
-  defaultEccActivityStatuses,
-  eccActivityTitles,
-  emptyEccActivityCounts,
-  normalizeEccActivityType,
-  type EccActivityType
-} from "@/lib/eccActivities";
+import { normalizeEccActivityId } from "@/lib/eccActivities";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { getEccActivityStatuses } from "@/lib/eccActivityStatuses";
+import { getEccActivityCatalog } from "@/lib/eccOperations";
 import {
   cleanText,
   SupabaseConfigError,
@@ -32,7 +27,7 @@ type SupabaseApplicationRow = {
 
 type EccApplication = {
   id: string;
-  type: EccActivityType;
+  type: string;
   activityTitle: string;
   name: string;
   gender: string;
@@ -73,12 +68,12 @@ function parseSupabaseError(error: SupabaseRequestError) {
 }
 
 function toClientApplication(row: SupabaseApplicationRow): EccApplication {
-  const type = normalizeEccActivityType(row.activity_id);
+  const type = normalizeEccActivityId(row.activity_id);
 
   return {
     id: row.id,
     type,
-    activityTitle: row.activity_title ?? eccActivityTitles[type],
+    activityTitle: row.activity_title?.trim() || type,
     name: row.name,
     gender: row.gender,
     nationality: row.nationality,
@@ -90,10 +85,11 @@ function toClientApplication(row: SupabaseApplicationRow): EccApplication {
 }
 
 function countApplications(rows: SupabaseApplicationRow[]) {
-  const counts = emptyEccActivityCounts();
+  const counts: Record<string, number> = {};
 
   rows.forEach((row) => {
-    counts[normalizeEccActivityType(row.activity_id)] += 1;
+    const activityId = normalizeEccActivityId(row.activity_id);
+    counts[activityId] = (counts[activityId] ?? 0) + 1;
   });
 
   return counts;
@@ -124,19 +120,11 @@ async function buildApplicationsResponse(includeApplications: boolean) {
 
 async function getAdminEmail() {
   const access = await getCurrentEccAccess();
-
   return access.isAdmin ? access.email : "";
 }
 
 function apiErrorResponse(error: unknown) {
   if (error instanceof SupabaseConfigError) {
-    console.error("ECC applications Supabase config error", {
-      message: error.message,
-      code: "ECC_SUPABASE_CONFIG_MISSING",
-      details: undefined,
-      hint: undefined
-    });
-
     return NextResponse.json(
       {
         error:
@@ -149,19 +137,9 @@ function apiErrorResponse(error: unknown) {
 
   if (error instanceof SupabaseRequestError) {
     const supabaseError = parseSupabaseError(error);
-    console.error("ECC applications Supabase error", {
-      message: supabaseError.message,
-      code: supabaseError.code,
-      details: supabaseError.details,
-      hint: supabaseError.hint
-    });
+    console.error("ECC applications Supabase error", supabaseError);
   } else {
-    console.error("ECC applications API error", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      code: "ECC_APPLICATION_UNKNOWN_ERROR",
-      details: undefined,
-      hint: undefined
-    });
+    console.error("ECC applications API error", error);
   }
 
   if (error instanceof SupabaseRequestError && error.status === 404) {
@@ -189,7 +167,6 @@ function apiErrorResponse(error: unknown) {
 export async function GET() {
   try {
     const access = await getCurrentEccAccess();
-
     return NextResponse.json(await buildApplicationsResponse(access.isAdmin));
   } catch (error) {
     return apiErrorResponse(error);
@@ -211,11 +188,27 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as Record<string, unknown>;
-    const type = normalizeEccActivityType(
-      cleanText(body.activity_id ?? body.activityId ?? body.type)
+    const activityId = normalizeEccActivityId(
+      cleanText(body.activity_id ?? body.activityId ?? body.type, 80)
     );
+    const catalog = await getEccActivityCatalog();
+    const catalogItem = catalog.find((item) => item.id === activityId);
+
+    if (!catalogItem) {
+      return NextResponse.json(
+        {
+          error: "This ECC activity is no longer available.",
+          debugCode: "ECC_ACTIVITY_NOT_AVAILABLE"
+        },
+        { status: 400 }
+      );
+    }
+
+    const requestedTitle = cleanText(body.activity_title ?? body.activityTitle, 160);
     const activityTitle =
-      cleanText(body.activity_title ?? body.activityTitle) || eccActivityTitles[type];
+      requestedTitle === catalogItem.titleKo || requestedTitle === catalogItem.titleEn
+        ? requestedTitle
+        : catalogItem.titleEn;
     const name = cleanText(body.name ?? body.kakaoName);
     const gender = cleanText(body.gender);
     const nationality = cleanText(body.nationality);
@@ -235,33 +228,32 @@ export async function POST(request: Request) {
       );
     }
 
-    let statuses = defaultEccActivityStatuses();
     let activityInstanceId = "";
     let requiresPayment = true;
 
     try {
       const statusResult = await getEccActivityStatuses();
-      statuses = statusResult.statuses;
-      activityInstanceId = statusResult.activityInstances[type];
-      requiresPayment = statusResult.requiresPayment[type];
+
+      if (!statusResult.statuses[activityId]) {
+        return NextResponse.json(
+          {
+            error: "This ECC activity application is currently closed.",
+            debugCode: "ECC_ACTIVITY_APPLICATION_CLOSED"
+          },
+          { status: 403 }
+        );
+      }
+
+      activityInstanceId = statusResult.activityInstances[activityId] ?? "";
+      requiresPayment = statusResult.requiresPayment[activityId] !== false;
     } catch (error) {
       if (!(error instanceof SupabaseRequestError && error.status === 404)) {
         throw error;
       }
     }
 
-    if (!statuses[type]) {
-      return NextResponse.json(
-        {
-          error: "This ECC activity application is currently closed.",
-          debugCode: "ECC_ACTIVITY_APPLICATION_CLOSED"
-        },
-        { status: 403 }
-      );
-    }
-
     const application = {
-      activity_id: type,
+      activity_id: activityId,
       activity_title: activityTitle,
       name,
       gender,
@@ -284,15 +276,11 @@ export async function POST(request: Request) {
         `${tableName}?select=${selectedColumns}`,
         {
           method: "POST",
-          headers: {
-            Prefer: "return=representation"
-          },
+          headers: { Prefer: "return=representation" },
           body: JSON.stringify(trackedApplication)
         }
       );
     } catch (error) {
-      // Tracking fields are additive. Fall back to the established application
-      // insert while a production migration is waiting to be applied.
       if (!activityInstanceId || !isMissingActivityHistoryColumn(error)) {
         throw error;
       }
@@ -301,9 +289,7 @@ export async function POST(request: Request) {
         `${tableName}?select=${selectedColumns}`,
         {
           method: "POST",
-          headers: {
-            Prefer: "return=representation"
-          },
+          headers: { Prefer: "return=representation" },
           body: JSON.stringify(application)
         }
       );
@@ -343,12 +329,8 @@ export async function PATCH(request: Request) {
           `${tableName}?id=eq.${encodeURIComponent(id)}&select=${selectedColumns}`,
           {
             method: "PATCH",
-            headers: {
-              Prefer: "return=representation"
-            },
-            body: JSON.stringify({
-              status: paid ? "paid" : "pending"
-            })
+            headers: { Prefer: "return=representation" },
+            body: JSON.stringify({ status: paid ? "paid" : "pending" })
           }
         )
       )
@@ -374,16 +356,15 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const url = new URL(request.url);
-    const type = normalizeEccActivityType(url.searchParams.get("activity_id"));
+    const activityId = normalizeEccActivityId(
+      new URL(request.url).searchParams.get("activity_id")
+    );
 
     await supabaseRequest<null>(
-      `${tableName}?activity_id=eq.${encodeURIComponent(type)}`,
+      `${tableName}?activity_id=eq.${encodeURIComponent(activityId)}`,
       {
         method: "DELETE",
-        headers: {
-          Prefer: "return=minimal"
-        }
+        headers: { Prefer: "return=minimal" }
       }
     );
 

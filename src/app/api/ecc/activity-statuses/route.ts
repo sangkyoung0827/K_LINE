@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import {
-  defaultEccActivityStatuses,
-  eccActivityTypes,
-  eccActivityTypeSet,
-  normalizeEccActivityType,
-  type EccActivityType
-} from "@/lib/eccActivities";
+import { normalizeEccActivityId } from "@/lib/eccActivities";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
-import { getEccActivityStatuses, updateEccActivityStatuses } from "@/lib/eccActivityStatuses";
+import { getEccActivityCatalog } from "@/lib/eccOperations";
+import {
+  getEccActivityStatuses,
+  updateEccActivityStatuses
+} from "@/lib/eccActivityStatuses";
 import {
   createActivityRecordsForClosedActivities,
   markActivityApplicationsClosed
@@ -20,48 +18,13 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function parseSupabaseError(error: SupabaseRequestError) {
-  try {
-    const parsed = JSON.parse(error.message) as {
-      message?: string;
-      code?: string;
-      details?: string;
-      hint?: string;
-    };
-
-    return {
-      message: parsed.message ?? error.message,
-      code: parsed.code,
-      details: parsed.details,
-      hint: parsed.hint
-    };
-  } catch {
-    return {
-      message: error.message,
-      code: undefined,
-      details: undefined,
-      hint: undefined
-    };
-  }
-}
-
 function logStatusError(error: unknown) {
-  if (error instanceof SupabaseRequestError) {
-    const supabaseError = parseSupabaseError(error);
-    console.error("ECC activity status Supabase error", {
-      message: supabaseError.message,
-      code: supabaseError.code,
-      details: supabaseError.details,
-      hint: supabaseError.hint
-    });
-    return;
-  }
-
   console.error("ECC activity status API error", {
     message: error instanceof Error ? error.message : "Unknown error",
-    code: error instanceof SupabaseConfigError ? "ECC_SUPABASE_CONFIG_MISSING" : "ECC_ACTIVITY_STATUS_UNKNOWN",
-    details: undefined,
-    hint: undefined
+    code:
+      error instanceof SupabaseConfigError
+        ? "ECC_SUPABASE_CONFIG_MISSING"
+        : "ECC_ACTIVITY_STATUS_UNKNOWN"
   });
 }
 
@@ -70,14 +33,6 @@ export async function GET() {
     return NextResponse.json(await getEccActivityStatuses());
   } catch (error) {
     logStatusError(error);
-
-    if (error instanceof SupabaseRequestError && error.status === 404) {
-      return NextResponse.json({
-        statuses: defaultEccActivityStatuses(),
-        tableReady: false,
-        debugCode: "ECC_ACTIVITY_STATUS_TABLE_NOT_READY"
-      });
-    }
 
     return NextResponse.json(
       {
@@ -102,10 +57,14 @@ export async function PATCH(request: Request) {
           error: "Only ECC admins can open or close activity applications.",
           debugCode: "ECC_ACTIVITY_STATUS_FORBIDDEN"
         },
-        { status: 403 }
+        { status: access.isLoggedIn ? 403 : 401 }
       );
     }
 
+    const catalog = await getEccActivityCatalog({ includeArchived: true });
+    const activeIds = new Set(
+      catalog.filter((item) => !item.archived).map((item) => item.id)
+    );
     const body = (await request.json()) as {
       activity_id?: unknown;
       activityId?: unknown;
@@ -113,46 +72,54 @@ export async function PATCH(request: Request) {
       isOpen?: unknown;
       requires_payment?: unknown;
       requiresPayment?: unknown;
-      statuses?: Partial<Record<EccActivityType, boolean>>;
-      paymentRequirements?: Partial<Record<EccActivityType, boolean>>;
+      statuses?: Record<string, unknown>;
+      paymentRequirements?: Record<string, unknown>;
     };
-    const updates: Partial<Record<EccActivityType, boolean>> = {};
-    const paymentRequirements: Partial<Record<EccActivityType, boolean>> = {};
+    const updates: Record<string, boolean> = {};
+    const paymentRequirements: Record<string, boolean> = {};
 
     if (body.statuses && typeof body.statuses === "object") {
       Object.entries(body.statuses).forEach(([key, value]) => {
-        const type = normalizeEccActivityType(key);
+        const activityId = normalizeEccActivityId(key);
 
-        if (eccActivityTypeSet.has(type) && typeof value === "boolean") {
-          updates[type] = value;
+        if (activeIds.has(activityId) && typeof value === "boolean") {
+          updates[activityId] = value;
         }
       });
     }
 
     if (body.paymentRequirements && typeof body.paymentRequirements === "object") {
       Object.entries(body.paymentRequirements).forEach(([key, value]) => {
-        const type = normalizeEccActivityType(key);
+        const activityId = normalizeEccActivityId(key);
 
-        if (eccActivityTypeSet.has(type) && typeof value === "boolean") {
-          paymentRequirements[type] = value;
+        if (activeIds.has(activityId) && typeof value === "boolean") {
+          paymentRequirements[activityId] = value;
         }
       });
     }
 
-    const activityId = cleanText(body.activity_id ?? body.activityId);
+    const directIdRaw = cleanText(body.activity_id ?? body.activityId, 80);
+    const activityId = directIdRaw ? normalizeEccActivityId(directIdRaw) : "";
     const directValue = body.is_open ?? body.isOpen;
 
-    if (activityId && typeof directValue === "boolean") {
-      updates[normalizeEccActivityType(activityId)] = directValue;
+    if (activityId && activeIds.has(activityId) && typeof directValue === "boolean") {
+      updates[activityId] = directValue;
     }
 
     const directPaymentValue = body.requires_payment ?? body.requiresPayment;
 
-    if (activityId && typeof directPaymentValue === "boolean") {
-      paymentRequirements[normalizeEccActivityType(activityId)] = directPaymentValue;
+    if (
+      activityId &&
+      activeIds.has(activityId) &&
+      typeof directPaymentValue === "boolean"
+    ) {
+      paymentRequirements[activityId] = directPaymentValue;
     }
 
-    if (Object.keys(updates).length === 0 && Object.keys(paymentRequirements).length === 0) {
+    if (
+      Object.keys(updates).length === 0 &&
+      Object.keys(paymentRequirements).length === 0
+    ) {
       return NextResponse.json(
         {
           error: "No valid ECC activity status update was provided.",
@@ -162,24 +129,31 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Only one ECC activity can accept applications at a time. Opening a new
-    // activity therefore closes every other activity in the same update.
-    const openedActivity = eccActivityTypes.find((type) => updates[type] === true);
+    const openedActivity = Object.keys(updates).find(
+      (id) => updates[id] === true
+    );
 
     if (openedActivity) {
-      eccActivityTypes.forEach((type) => {
-        updates[type] = type === openedActivity;
-      });
+      catalog
+        .filter((item) => !item.archived)
+        .forEach((item) => {
+          updates[item.id] = item.id === openedActivity;
+        });
     }
 
-    const result = await updateEccActivityStatuses(updates, access.email, paymentRequirements);
+    const result = await updateEccActivityStatuses(
+      updates,
+      access.email,
+      paymentRequirements
+    );
 
     if (result.closedActivities.length > 0) {
-      // This is a secondary Passport-data write. A failure must never undo a
-      // successful admin close action in the established ECC workflow.
       try {
         await markActivityApplicationsClosed("ecc", result.closedActivities);
-        await createActivityRecordsForClosedActivities("ecc", result.closedActivities);
+        await createActivityRecordsForClosedActivities(
+          "ecc",
+          result.closedActivities
+        );
       } catch (error) {
         console.error("ECC user activity close sync failed", error);
       }
