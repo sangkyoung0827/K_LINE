@@ -6,8 +6,12 @@ import {
   upsertEccMemberRegistration,
   validateEccMemberRegistrationForm
 } from "@/lib/eccMemberRegistrations";
-import { getCurrentEccAccess, getEccOfficialTeamChatUrl } from "@/lib/eccAccess";
-import { registerSiteMember } from "@/lib/siteAnalytics";
+import {
+  getCurrentEccAccess,
+  getEccAccessForEmail,
+  getEccOfficialTeamChatUrl
+} from "@/lib/eccAccess";
+import { getSiteMemberByEmail, registerSiteMember } from "@/lib/siteAnalytics";
 import {
   SupabaseConfigError,
   SupabaseRequestError
@@ -93,13 +97,19 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    const access = await getCurrentEccAccess();
 
-    if (!session?.user || !access.isLoggedIn || !access.email) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Login is required." }, { status: 401 });
     }
 
-    const existing = await getEccMemberRegistrationByEmail(access.email);
+    const [access, existing] = await Promise.all([
+      getEccAccessForEmail(session.user.email),
+      getEccMemberRegistrationByEmail(session.user.email)
+    ]);
+
+    if (!access.isLoggedIn || !access.email) {
+      return NextResponse.json({ error: "Login is required." }, { status: 401 });
+    }
 
     if (existing?.officialMember || existing?.status === "approved") {
       return NextResponse.json(
@@ -126,19 +136,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const siteMember = await registerSiteMember({
-      email: session.user.email,
-      imageUrl: session.user.image,
-      name: session.user.name,
-      provider: "google"
-    });
+    let siteMemberId = existing?.siteMemberId ?? "";
+
+    if (!siteMemberId) {
+      const existingSiteMember = await getSiteMemberByEmail(access.email);
+
+      if (existingSiteMember) {
+        siteMemberId = existingSiteMember.id;
+      } else {
+        const siteMember = await registerSiteMember({
+          email: session.user.email,
+          imageUrl: session.user.image,
+          name: session.user.name,
+          provider: "google"
+        });
+        siteMemberId = siteMember?.id ?? "";
+      }
+    }
 
     const registration = await upsertEccMemberRegistration({
+      existingRegistration: existing,
       form,
       googleAvatarUrl: session.user.image,
       googleEmail: access.email,
       googleName: session.user.name,
-      siteMemberId: siteMember?.id
+      siteMemberId
     });
 
     return NextResponse.json(
