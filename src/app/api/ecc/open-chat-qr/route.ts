@@ -1,10 +1,11 @@
 import QRCode from "qrcode";
-import { eccRegistrationConfig } from "@/data/eccRegistration";
+import { getEccOperationalSettings } from "@/lib/eccOperations";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const qrBuffer = await QRCode.toBuffer(eccRegistrationConfig.openChatUrl, {
+  const settings = await getEccOperationalSettings();
+  const qrBuffer = await QRCode.toBuffer(settings.newMemberOpenChatUrl, {
     errorCorrectionLevel: "M",
     margin: 2,
     scale: 8,
@@ -13,7 +14,7 @@ export async function GET() {
 
   return new Response(new Uint8Array(qrBuffer), {
     headers: {
-      "Cache-Control": "public, max-age=300",
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=60",
       "Content-Disposition": 'inline; filename="ecc-open-chat-qr.png"',
       "Content-Type": "image/png"
     }
