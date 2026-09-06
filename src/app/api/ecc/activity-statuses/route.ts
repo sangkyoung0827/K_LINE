@@ -2,14 +2,8 @@ import { NextResponse } from "next/server";
 import { normalizeEccActivityId } from "@/lib/eccActivities";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { getEccActivityCatalog } from "@/lib/eccOperations";
-import {
-  getEccActivityStatuses,
-  updateEccActivityStatuses
-} from "@/lib/eccActivityStatuses";
-import {
-  createActivityRecordsForClosedActivities,
-  markActivityApplicationsClosed
-} from "@/lib/userActivityRecords";
+import { getEccActivityStatuses } from "@/lib/eccActivityStatuses";
+import { applyEccActivityStatusAdminUpdate } from "@/lib/eccActivityAdminActions";
 import {
   cleanText,
   SupabaseConfigError,
@@ -129,35 +123,11 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const openedActivity = Object.keys(updates).find(
-      (id) => updates[id] === true
-    );
-
-    if (openedActivity) {
-      catalog
-        .filter((item) => !item.archived)
-        .forEach((item) => {
-          updates[item.id] = item.id === openedActivity;
-        });
-    }
-
-    const result = await updateEccActivityStatuses(
+    const result = await applyEccActivityStatusAdminUpdate({
+      adminEmail: access.email,
       updates,
-      access.email,
       paymentRequirements
-    );
-
-    if (result.closedActivities.length > 0) {
-      try {
-        await markActivityApplicationsClosed("ecc", result.closedActivities);
-        await createActivityRecordsForClosedActivities(
-          "ecc",
-          result.closedActivities
-        );
-      } catch (error) {
-        console.error("ECC user activity close sync failed", error);
-      }
-    }
+    });
 
     return NextResponse.json(result);
   } catch (error) {
