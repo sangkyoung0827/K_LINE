@@ -183,13 +183,31 @@ export async function prepareMemberMutation(input: {
   targetIds: string[];
   note?: string;
 }) {
-  const targets = (
+  const resolvedTargets = (
     await Promise.all(input.targetIds.slice(0, 50).map((id) => getEccMemberRegistrationById(id)))
   ).filter((member): member is EccMemberRegistration => Boolean(member));
 
-  if (targets.length === 0) {
+  if (resolvedTargets.length === 0) {
     return null;
   }
+
+  const targets = resolvedTargets.filter((member) => {
+    if (
+      input.tool === "mark_payment_confirmed" ||
+      input.tool === "approve_official_member"
+    ) {
+      return !member.paymentConfirmed;
+    }
+
+    if (
+      input.tool === "mark_payment_unconfirmed" ||
+      input.tool === "revoke_official_member"
+    ) {
+      return member.paymentConfirmed;
+    }
+
+    return true;
+  });
 
   const expected: WoohyukmonConfirmationPayload["expected"] = targets.map((member) => ({
     id: member.id,
@@ -205,7 +223,8 @@ export async function prepareMemberMutation(input: {
     expected,
     args: { note: input.note?.trim().slice(0, 1000) || undefined },
     rows: targets.slice(0, 25).map(publicMemberRow),
-    targetCount: targets.length
+    targetCount: targets.length,
+    skippedCount: resolvedTargets.length - targets.length
   };
 }
 
