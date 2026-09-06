@@ -1,12 +1,9 @@
 import "server-only";
 
-import { getEccActivityStatuses, updateEccActivityStatuses } from "@/lib/eccActivityStatuses";
+import { getEccActivityStatuses } from "@/lib/eccActivityStatuses";
+import { applyEccActivityStatusAdminUpdate } from "@/lib/eccActivityAdminActions";
 import { getEccActivityCatalog } from "@/lib/eccOperations";
 import { supabaseRequest } from "@/lib/supabaseServer";
-import {
-  createActivityRecordsForClosedActivities,
-  markActivityApplicationsClosed
-} from "@/lib/userActivityRecords";
 import {
   finishWoohyukmonAudit,
   startWoohyukmonAudit
@@ -233,15 +230,10 @@ export async function executeActivityMutation(
       newValue: { isOpen: nextOpen }
     });
 
-    const result = await updateEccActivityStatuses(
-      { [activityId]: nextOpen },
-      payload.actorEmail
-    );
-
-    if (result.closedActivities.length > 0) {
-      await markActivityApplicationsClosed("ecc", result.closedActivities);
-      await createActivityRecordsForClosedActivities("ecc", result.closedActivities);
-    }
+    await applyEccActivityStatusAdminUpdate({
+      adminEmail: payload.actorEmail,
+      updates: { [activityId]: nextOpen }
+    });
 
     await finishWoohyukmonAudit(audit, { status: "success" });
 
