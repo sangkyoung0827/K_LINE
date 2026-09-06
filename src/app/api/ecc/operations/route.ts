@@ -60,7 +60,23 @@ export async function PATCH(request: Request) {
     }
 
     const body = (await request.json()) as Record<string, unknown>;
-    const settings = cleanEccOperationalSettings(body);
+    const current = await getEccOperationalSettings();
+    const settings = cleanEccOperationalSettings({
+      inquiryChatUrl:
+        typeof body.inquiryChatUrl === "string"
+          ? body.inquiryChatUrl
+          : current.inquiryChatUrl,
+      newMemberOpenChatUrl:
+        typeof body.newMemberOpenChatUrl === "string"
+          ? body.newMemberOpenChatUrl
+          : current.newMemberOpenChatUrl,
+      officialTeamChatUrl:
+        typeof body.officialTeamChatUrl === "string"
+          ? body.officialTeamChatUrl
+          : current.officialTeamChatUrl,
+      periodLabel:
+        typeof body.periodLabel === "string" ? body.periodLabel : current.periodLabel
+    });
     const saved = await saveEccOperationalSettings(settings, access.email);
 
     return NextResponse.json({ settings: saved });
