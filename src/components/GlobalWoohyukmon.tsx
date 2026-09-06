@@ -8,11 +8,19 @@ import type {
   WoohyukmonTableRow
 } from "@/lib/woohyukmon/operations/types";
 
+type GroundingSource = {
+  title: string;
+  url: string;
+};
+
 type UiMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   status?: string;
+  providers?: string[];
+  sourceCount?: number;
+  sources?: GroundingSource[];
   operation?: Exclude<WoohyukmonOperationResponse, { handled: false }>;
   request?: string;
 };
@@ -23,6 +31,9 @@ type GeminiEvent = {
   status?: string;
   text?: string;
   error?: string;
+  providers?: string[];
+  sourceCount?: number;
+  groundingChunks?: GroundingSource[];
 };
 
 function parseNdjsonLine(line: string): GeminiEvent | null {
@@ -234,8 +245,45 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
         if (event.type === "status") {
           updateAssistant(assistantId, (message) => ({
             ...message,
-            status: event.label || event.status || message.status
+            status: event.label || event.status || message.status,
+            providers: Array.from(
+              new Set([...(message.providers ?? []), ...(event.providers ?? [])])
+            ),
+            sourceCount:
+              typeof event.sourceCount === "number"
+                ? event.sourceCount
+                : message.sourceCount
           }));
+        }
+
+        if (
+          (event.type === "grounding" || event.type === "done") &&
+          event.groundingChunks
+        ) {
+          updateAssistant(assistantId, (message) => {
+            const sources = [...(message.sources ?? [])];
+
+            event.groundingChunks?.forEach((source) => {
+              if (
+                source?.url &&
+                !sources.some((existing) => existing.url === source.url)
+              ) {
+                sources.push(source);
+              }
+            });
+
+            return {
+              ...message,
+              sources,
+              providers: Array.from(
+                new Set([...(message.providers ?? []), ...(event.providers ?? [])])
+              ),
+              sourceCount:
+                typeof event.sourceCount === "number"
+                  ? event.sourceCount
+                  : sources.length
+            };
+          });
         }
 
         if (event.type === "text" && event.text) {
@@ -248,10 +296,22 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
         }
 
         if (event.type === "done") {
-          updateAssistant(assistantId, (message) => ({
-            ...message,
-            status: "답변 완료"
-          }));
+          updateAssistant(assistantId, (message) => {
+            const count = event.sourceCount ?? message.sourceCount ?? message.sources?.length ?? 0;
+            const providers = Array.from(
+              new Set([...(message.providers ?? []), ...(event.providers ?? [])])
+            );
+
+            return {
+              ...message,
+              providers,
+              sourceCount: count,
+              status:
+                count > 0
+                  ? `${providers.join(" · ") || "외부 검색"} 검색 완료 · ${count}개 자료 참고`
+                  : "답변 완료"
+            };
+          });
         }
       }
     }
@@ -514,6 +574,27 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
                         취소
                       </button>
                     </div>
+                  ) : null}
+
+                  {message.sources?.length ? (
+                    <details className="mt-2 text-[11px] text-ink/50">
+                      <summary className="cursor-pointer font-semibold">
+                        참고한 외부 자료 {message.sources.length}개
+                      </summary>
+                      <div className="mt-2 grid gap-1.5">
+                        {message.sources.slice(0, 6).map((source) => (
+                          <a
+                            key={source.url}
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="truncate underline underline-offset-2 hover:text-navy"
+                          >
+                            {source.title || source.url}
+                          </a>
+                        ))}
+                      </div>
+                    </details>
                   ) : null}
 
                   {message.status ? (
