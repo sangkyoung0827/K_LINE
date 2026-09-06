@@ -353,6 +353,20 @@ async function prepareWrite(
       });
     }
 
+    const currentOpen = prepared.expected[0]?.activityOpen;
+    const requestedOpen = tool === "open_activity_applications";
+
+    if (currentOpen === requestedOpen) {
+      return json({
+        handled: true,
+        kind: "answer",
+        title: "이미 요청한 상태입니다",
+        summary: requestedOpen
+          ? "해당 활동의 신청은 이미 열려 있습니다."
+          : "해당 활동의 신청은 이미 닫혀 있습니다."
+      });
+    }
+
     const payload: WoohyukmonConfirmationPayload = {
       version: 1,
       actorEmail,
