@@ -106,7 +106,7 @@ export function EccOfficialTeamChatCard({
               <I18nText en="Confirmed member" ko="정식회원 확인됨" />
             </div>
 
-            {periodLabel ? (
+            {isAdmin && periodLabel ? (
               <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-brass">
                 {periodLabel}
               </p>
