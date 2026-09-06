@@ -6,13 +6,13 @@ import {
   Banknote,
   ClipboardList,
   Lock,
-  MessageCircle,
   MessageSquareText,
   Settings,
   ShieldCheck
 } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { EccMemberRegistrationForm } from "@/components/EccMemberRegistrationForm";
+import { EccOfficialTeamChatCard } from "@/components/EccOfficialTeamChatCard";
 import { EccPermissionRequestCard } from "@/components/EccPermissionRequestCard";
 import { I18nText } from "@/components/LanguageProvider";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
@@ -75,39 +75,11 @@ export default async function EccOfficialPage() {
   return (
     <OfficialShell>
       <section className="grid gap-6">
-        <div className="paper-panel mx-auto grid w-full max-w-5xl justify-items-center p-4 text-center sm:p-6 md:p-10">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
-              <ShieldCheck aria-hidden className="h-4 w-4" />
-              <I18nText en="Confirmed member" ko="정식회원 확인됨" />
-            </div>
-            <h2 className="mt-4 font-serif text-2xl font-semibold text-ink sm:mt-5 sm:text-3xl md:text-4xl">
-              <I18nText en="Join the ECC team chat" ko="ECC 팀채팅에 입장하세요" />
-            </h2>
-            <p className="mt-4 text-sm leading-7 text-ink/66">
-              <I18nText
-                en="Please use your registered name or KakaoTalk display name when joining the official team chat."
-                ko="공식 팀채팅에 입장할 때는 등록한 이름 또는 카카오톡 표시 이름을 사용해 주세요."
-              />
-            </p>
-          </div>
-          <div className="mt-5 grid w-full max-w-52 gap-3 sm:mt-6 sm:max-w-60">
-            <img
-              src="/api/ecc/official-team-qr"
-              alt="ECC official team chat QR code"
-              className="aspect-square w-full border border-ink/10 bg-white object-contain p-3"
-            />
-            <a
-              href={teamChatUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
-            >
-              <MessageCircle aria-hidden className="h-4 w-4" />
-              <I18nText en="Join ECC Official Team Chat" ko="ECC 공식 팀채팅 입장" />
-            </a>
-          </div>
-        </div>
+        <EccOfficialTeamChatCard
+          initialPeriodLabel={operations.periodLabel}
+          initialTeamChatUrl={teamChatUrl}
+          isAdmin={access.isAdmin}
+        />
 
         <div className="mx-auto w-full max-w-5xl">
           <EccMemberRegistrationForm />

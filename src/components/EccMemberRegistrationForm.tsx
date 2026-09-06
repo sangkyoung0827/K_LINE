@@ -52,11 +52,17 @@ type RegistrationContentResponse = {
   error?: string;
 };
 
+type OperationsSettings = {
+  inquiryChatUrl: string;
+  newMemberOpenChatUrl: string;
+  officialTeamChatUrl: string;
+  periodLabel: string;
+  updatedAt: string;
+};
+
 type OperationsResponse = {
-  settings?: {
-    inquiryChatUrl?: string;
-    newMemberOpenChatUrl?: string;
-  };
+  error?: string;
+  settings?: Partial<OperationsSettings>;
 };
 
 type FormState = {
@@ -162,7 +168,16 @@ export function EccMemberRegistrationForm() {
   const [editingContent, setEditingContent] = useState(false);
   const [savingContent, setSavingContent] = useState(false);
   const [contentError, setContentError] = useState("");
-  const [inquiryChatUrl, setInquiryChatUrl] = useState("{inquiryChatUrl}");
+  const [inquiryChatUrl, setInquiryChatUrl] = useState("https://open.kakao.com/o/saPt03Nh");
+  const [newMemberOpenChatUrl, setNewMemberOpenChatUrl] = useState("");
+  const [editingOperations, setEditingOperations] = useState(false);
+  const [operationsDraft, setOperationsDraft] = useState({
+    inquiryChatUrl: "https://open.kakao.com/o/saPt03Nh",
+    newMemberOpenChatUrl: ""
+  });
+  const [savingOperations, setSavingOperations] = useState(false);
+  const [operationsError, setOperationsError] = useState("");
+  const [qrVersion, setQrVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -233,9 +248,18 @@ export function EccMemberRegistrationForm() {
     fetch("/api/ecc/operations")
       .then((response) => response.json() as Promise<OperationsResponse>)
       .then((data) => {
-        if (active && data.settings?.inquiryChatUrl) {
-          setInquiryChatUrl(data.settings.inquiryChatUrl);
-        }
+        if (!active || !data.settings) return;
+
+        const inquiry =
+          data.settings.inquiryChatUrl || "https://open.kakao.com/o/saPt03Nh";
+        const newMember = data.settings.newMemberOpenChatUrl || "";
+
+        setInquiryChatUrl(inquiry);
+        setNewMemberOpenChatUrl(newMember);
+        setOperationsDraft({
+          inquiryChatUrl: inquiry,
+          newMemberOpenChatUrl: newMember
+        });
       })
       .catch(() => undefined);
 
@@ -243,6 +267,57 @@ export function EccMemberRegistrationForm() {
       active = false;
     };
   }, []);
+
+  const beginOperationsEditing = () => {
+    if (!access.isAdmin) return;
+
+    setOperationsDraft({
+      inquiryChatUrl,
+      newMemberOpenChatUrl
+    });
+    setOperationsError("");
+    setEditingOperations(true);
+  };
+
+  const saveOperationsInline = async () => {
+    setSavingOperations(true);
+    setOperationsError("");
+
+    try {
+      const response = await fetch("/api/ecc/operations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(operationsDraft)
+      });
+      const data = (await response.json()) as OperationsResponse;
+
+      if (!response.ok || !data.settings) {
+        throw new Error(data.error || "ECC chat settings could not be saved.");
+      }
+
+      const inquiry =
+        data.settings.inquiryChatUrl || operationsDraft.inquiryChatUrl;
+      const newMember =
+        data.settings.newMemberOpenChatUrl || operationsDraft.newMemberOpenChatUrl;
+
+      setInquiryChatUrl(inquiry);
+      setNewMemberOpenChatUrl(newMember);
+      setOperationsDraft({
+        inquiryChatUrl: inquiry,
+        newMemberOpenChatUrl: newMember
+      });
+      setQrVersion((value) => value + 1);
+      setEditingOperations(false);
+    } catch (saveError) {
+      setOperationsError(
+        saveError instanceof Error
+          ? saveError.message
+          : "ECC chat settings could not be saved."
+      );
+    } finally {
+      setSavingOperations(false);
+    }
+  };
 
   const canEdit = useMemo(
     () => !registration || (!registration.officialMember && registration.status !== "approved"),
@@ -473,30 +548,165 @@ export function EccMemberRegistrationForm() {
         </div>
       </section>
 
-      <section className="paper-panel p-5 md:p-8">
-        <p className="text-sm font-semibold uppercase text-brass">📢 문의</p>
-        <p className="mt-3 text-sm leading-7 text-ink/72">
-          궁금한 점이 있다면 아래 오픈채팅으로 편하게 문의해주세요!
-        </p>
-        <p className="mt-3 text-sm leading-7 text-ink/72">
-          <a
-            href={inquiryChatUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-navy underline decoration-brass/70 underline-offset-4 transition hover:text-brass"
-          >
-            {inquiryChatUrl}
-          </a>{" "}
-          또는 인스타그램{" "}
-          <a
-            href="https://www.instagram.com/ecc_jbnu/#"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-navy underline decoration-brass/70 underline-offset-4 transition hover:text-brass"
-          >
-            ecc_jbnu
-          </a>
-        </p>
+      <section
+        role={access.isAdmin && !editingOperations ? "button" : undefined}
+        tabIndex={access.isAdmin && !editingOperations ? 0 : undefined}
+        onClick={access.isAdmin && !editingOperations ? beginOperationsEditing : undefined}
+        onKeyDown={(event) => {
+          if (
+            access.isAdmin &&
+            !editingOperations &&
+            (event.key === "Enter" || event.key === " ")
+          ) {
+            event.preventDefault();
+            beginOperationsEditing();
+          }
+        }}
+        className={`paper-panel p-5 md:p-8 ${
+          access.isAdmin && !editingOperations
+            ? "cursor-text outline-none transition hover:border-brass hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-navy/35"
+            : ""
+        }`}
+      >
+        {!editingOperations ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold uppercase text-brass">📢 문의</p>
+              {access.isAdmin ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy">
+                  <Edit3 aria-hidden className="h-3.5 w-3.5" />
+                  {language === "ko"
+                    ? "이 영역을 눌러 채팅 링크 편집"
+                    : "Click this area to edit chat links"}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-3 text-sm leading-7 text-ink/72">
+              궁금한 점이 있다면 아래 오픈채팅으로 편하게 문의해주세요!
+            </p>
+            <p className="mt-3 text-sm leading-7 text-ink/72">
+              <a
+                href={inquiryChatUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="font-semibold text-navy underline decoration-brass/70 underline-offset-4 transition hover:text-brass"
+              >
+                {inquiryChatUrl}
+              </a>{" "}
+              또는 인스타그램{" "}
+              <a
+                href="https://www.instagram.com/ecc_jbnu/#"
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="font-semibold text-navy underline decoration-brass/70 underline-offset-4 transition hover:text-brass"
+              >
+                ecc_jbnu
+              </a>
+            </p>
+          </>
+        ) : (
+          <div className="grid gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase text-brass">
+                {language === "ko" ? "관리자 현장 편집" : "Inline admin edit"}
+              </p>
+              <h3 className="mt-2 font-serif text-2xl font-semibold text-ink">
+                {language === "ko" ? "신규회원·문의 채팅 링크" : "New-member & inquiry chats"}
+              </h3>
+            </div>
+
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {language === "ko" ? "ECC 문의 오픈채팅" : "ECC inquiry chat"}
+              <input
+                type="url"
+                required
+                value={operationsDraft.inquiryChatUrl}
+                onChange={(event) =>
+                  setOperationsDraft((current) => ({
+                    ...current,
+                    inquiryChatUrl: event.target.value
+                  }))
+                }
+                className="form-field"
+              />
+            </label>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+              <label className="grid gap-2 text-sm font-semibold text-ink">
+                {language === "ko"
+                  ? "신규회원 오픈채팅"
+                  : "New-member open chat"}
+                <input
+                  type="url"
+                  required
+                  value={operationsDraft.newMemberOpenChatUrl}
+                  onChange={(event) =>
+                    setOperationsDraft((current) => ({
+                      ...current,
+                      newMemberOpenChatUrl: event.target.value
+                    }))
+                  }
+                  className="form-field"
+                />
+              </label>
+              {operationsDraft.newMemberOpenChatUrl ? (
+                <img
+                  key={qrVersion}
+                  src={`/api/ecc/open-chat-qr?v=${qrVersion}`}
+                  alt="ECC new-member open chat QR code"
+                  className="h-28 w-28 border border-ink/10 bg-white object-contain p-2"
+                />
+              ) : null}
+            </div>
+
+            <p className="text-xs leading-5 text-ink/55">
+              {language === "ko"
+                ? "신규회원 오픈채팅 링크를 저장하면 QR도 자동으로 새 링크로 갱신됩니다."
+                : "Saving the new-member link automatically regenerates its QR code."}
+            </p>
+
+            {operationsError ? (
+              <p className="text-sm font-semibold text-red-700">{operationsError}</p>
+            ) : null}
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={
+                  savingOperations ||
+                  !operationsDraft.inquiryChatUrl.trim() ||
+                  !operationsDraft.newMemberOpenChatUrl.trim()
+                }
+                onClick={() => void saveOperationsInline()}
+                className="inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy disabled:opacity-60"
+              >
+                {savingOperations ? (
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save aria-hidden className="h-4 w-4" />
+                )}
+                {language === "ko" ? "저장" : "Save"}
+              </button>
+              <button
+                type="button"
+                disabled={savingOperations}
+                onClick={() => {
+                  setOperationsDraft({
+                    inquiryChatUrl,
+                    newMemberOpenChatUrl
+                  });
+                  setOperationsError("");
+                  setEditingOperations(false);
+                }}
+                className="min-h-11 border border-navy/18 bg-white/65 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10 disabled:opacity-60"
+              >
+                {language === "ko" ? "취소" : "Cancel"}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {loading ? (
