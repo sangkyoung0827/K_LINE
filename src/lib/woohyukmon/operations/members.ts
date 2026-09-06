@@ -196,7 +196,6 @@ export async function prepareMemberMutation(input: {
     paymentConfirmed: member.paymentConfirmed,
     officialMember: member.officialMember,
     status: member.status,
-    adminNote: member.adminNote,
     updatedAt: member.updatedAt
   }));
 
@@ -227,7 +226,6 @@ function stateMatches(
     member.paymentConfirmed === expected.paymentConfirmed &&
     member.officialMember === expected.officialMember &&
     member.status === expected.status &&
-    member.adminNote === expected.adminNote &&
     member.updatedAt === expected.updatedAt
   );
 }
