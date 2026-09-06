@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clipboard,
   Copy,
+  Edit3,
   Megaphone,
   Power,
   PowerOff,
@@ -780,6 +781,9 @@ export function EccActivityPanel() {
   const [activityDraft, setActivityDraft] = useState(emptyActivityDraft);
   const [activityCatalogSaving, setActivityCatalogSaving] = useState(false);
   const [activityCatalogMessage, setActivityCatalogMessage] = useState("");
+  const [editingActivityId, setEditingActivityId] = useState("");
+  const [editingActivityDraft, setEditingActivityDraft] =
+    useState(emptyActivityDraft);
 
   const applicationTypes = useMemo(
     () =>
@@ -1113,6 +1117,62 @@ export function EccActivityPanel() {
         language === "ko"
           ? "새 활동을 추가했습니다. 신청을 열기 전까지 일반 사용자에게는 표시되지 않습니다."
           : "Activity added. It stays hidden from general users until you open applications."
+      );
+    } catch (error) {
+      setApplicationError(
+        error instanceof Error ? error.message : text.activityStatusStorageError
+      );
+    } finally {
+      setActivityCatalogSaving(false);
+    }
+  };
+
+  const beginManagedActivityEditing = (activityId: string) => {
+    const item = activityCatalog.find((activity) => activity.id === activityId);
+
+    if (!item) return;
+
+    setEditingActivityId(activityId);
+    setEditingActivityDraft({
+      titleKo: item.titleKo,
+      titleEn: item.titleEn,
+      descriptionKo: item.descriptionKo,
+      descriptionEn: item.descriptionEn
+    });
+    setActivityCatalogMessage("");
+    setApplicationError("");
+  };
+
+  const saveManagedActivityEdit = async () => {
+    if (!editingActivityId) return;
+
+    setActivityCatalogSaving(true);
+    setActivityCatalogMessage("");
+    setApplicationError("");
+
+    try {
+      const response = await fetch("/api/ecc/activity-catalog", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingActivityId,
+          ...editingActivityDraft
+        })
+      });
+      const data = (await response.json()) as ActivityCatalogApiResponse;
+
+      if (!response.ok || !data.item) {
+        throw new Error(data.error || text.activityStatusStorageError);
+      }
+
+      setActivityCatalog((current) =>
+        current.map((item) => (item.id === data.item!.id ? data.item! : item))
+      );
+      setEditingActivityId("");
+      setActivityCatalogMessage(
+        language === "ko"
+          ? "활동 정보를 수정했습니다."
+          : "Activity details updated."
       );
     } catch (error) {
       setApplicationError(
@@ -1565,32 +1625,132 @@ export function EccActivityPanel() {
                 const requiresPayment = activityPaymentRequirements[item.type];
                 const saving = activityStatusSaving === item.type;
 
+                const editing = editingActivityId === item.type;
+
                 return (
                   <div
                     key={item.type}
-                    className="grid gap-3 border border-ink/10 bg-white/65 p-4 sm:grid-cols-[1fr_auto] sm:items-center"
+                    className={`grid gap-3 border bg-white/65 p-4 transition ${
+                      editing ? "border-brass/50" : "border-ink/10 hover:border-brass/40"
+                    }`}
                   >
-                    <div className="min-w-0">
-                      <p className="break-words font-semibold text-ink">
-                        {item.labels[language].title}
-                      </p>
-                      <p className={`mt-1 text-sm font-semibold ${isOpen ? "text-pine" : "text-ink/48"}`}>
-                        {isOpen ? text.applicationOpen : text.applicationClosed}
-                      </p>
-                      <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-ink/62">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(requiresPayment)}
-                          disabled={saving || activityCatalogSaving}
-                          onChange={(event) =>
-                            saveActivityPaymentRequirement(item.type, event.target.checked)
-                          }
-                          className="h-4 w-4 accent-navy"
-                        />
-                        {language === "ko" ? "활동비 납부 필요" : "Payment required"}
-                      </label>
-                    </div>
-                    <div className="grid gap-2">
+                    {editing ? (
+                      <div className="grid gap-3">
+                        <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy">
+                          <Edit3 className="h-3.5 w-3.5" />
+                          {language === "ko"
+                            ? "관리자 현장 편집"
+                            : "Inline admin edit"}
+                        </p>
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <input
+                            value={editingActivityDraft.titleKo}
+                            onChange={(event) =>
+                              setEditingActivityDraft((current) => ({
+                                ...current,
+                                titleKo: event.target.value
+                              }))
+                            }
+                            placeholder="활동명 (한국어)"
+                            className="form-field"
+                          />
+                          <input
+                            value={editingActivityDraft.titleEn}
+                            onChange={(event) =>
+                              setEditingActivityDraft((current) => ({
+                                ...current,
+                                titleEn: event.target.value
+                              }))
+                            }
+                            placeholder="Activity title (English)"
+                            className="form-field"
+                          />
+                          <input
+                            value={editingActivityDraft.descriptionKo}
+                            onChange={(event) =>
+                              setEditingActivityDraft((current) => ({
+                                ...current,
+                                descriptionKo: event.target.value
+                              }))
+                            }
+                            placeholder="짧은 설명 (한국어)"
+                            className="form-field"
+                          />
+                          <input
+                            value={editingActivityDraft.descriptionEn}
+                            onChange={(event) =>
+                              setEditingActivityDraft((current) => ({
+                                ...current,
+                                descriptionEn: event.target.value
+                              }))
+                            }
+                            placeholder="Short description (English)"
+                            className="form-field"
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={activityCatalogSaving}
+                            onClick={() => void saveManagedActivityEdit()}
+                            className="inline-flex min-h-9 items-center gap-2 bg-ink px-4 text-xs font-semibold text-paper disabled:opacity-50"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            {language === "ko" ? "수정 저장" : "Save edit"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={activityCatalogSaving}
+                            onClick={() => setEditingActivityId("")}
+                            className="min-h-9 border border-ink/15 bg-white px-4 text-xs font-semibold text-ink"
+                          >
+                            {language === "ko" ? "취소" : "Cancel"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => beginManagedActivityEditing(item.type)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              beginManagedActivityEditing(item.type);
+                            }
+                          }}
+                          className="min-w-0 cursor-text rounded-md outline-none hover:bg-hanji/35 focus-visible:ring-2 focus-visible:ring-navy/30"
+                        >
+                          <div className="flex items-center gap-2">
+                            <p className="break-words font-semibold text-ink">
+                              {item.labels[language].title}
+                            </p>
+                            <Edit3 className="h-3.5 w-3.5 shrink-0 text-navy/55" />
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-ink/55">
+                            {item.labels[language].description}
+                          </p>
+                          <p className={`mt-2 text-sm font-semibold ${isOpen ? "text-pine" : "text-ink/48"}`}>
+                            {isOpen ? text.applicationOpen : text.applicationClosed}
+                          </p>
+                          <label
+                            className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-ink/62"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(requiresPayment)}
+                              disabled={saving || activityCatalogSaving}
+                              onChange={(event) =>
+                                saveActivityPaymentRequirement(item.type, event.target.checked)
+                              }
+                              className="h-4 w-4 accent-navy"
+                            />
+                            {language === "ko" ? "활동비 납부 필요" : "Payment required"}
+                          </label>
+                        </div>
+                        <div className="grid gap-2">
                       <button
                         type="button"
                         disabled={saving || activityCatalogSaving}
@@ -1617,7 +1777,9 @@ export function EccActivityPanel() {
                         <Trash2 aria-hidden className="h-3.5 w-3.5" />
                         {language === "ko" ? "활동 삭제" : "Remove"}
                       </button>
-                    </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
