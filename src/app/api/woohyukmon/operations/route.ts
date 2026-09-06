@@ -636,7 +636,7 @@ async function resolveReadActivity(
 
   const data = await findActivityFromText(message);
 
-  if (/현재.*(?:모집|신청).*(?:중|열)|모집\s*중인s*(?:행사|활동)|open.*activities/i.test(message)) {
+  if (/현재.*(?:모집|신청).*(?:중|열)|모집\s*중인\s*(?:행사|활동)|open.*activities/i.test(message)) {
     return {
       handled: true,
       kind: "answer",
