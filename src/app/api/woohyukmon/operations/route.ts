@@ -153,7 +153,7 @@ function detectWriteTool(message: string): WoohyukmonOperationTool | null {
   }
 
   if (
-    /회비\s*(?:납부\s*)?(?:처리|확인).*?(?:해|줘|부탁)|납부.*(?:처리|확인).*?(?:해|줘)|mark.*paid|confirm.*payment/i.test(
+    /회비\s*(?:납부\s*)?(?:처리|확인)(?:\s*(?:해|해줘|해주세요|줘|부탁))?|납부.*(?:처리|확인)(?:\s*(?:해|해줘|해주세요|줘))?|mark.*paid|confirm.*payment/i.test(
       message
     )
   ) {
@@ -248,7 +248,7 @@ async function resolveMemberTargets(
 
   if (
     contextTargetIds.length > 0 &&
-    /이\s*(?:사람|회원|명).*전부|이\s*목록|전부\s*(?:처리|승인)|these\s+members/i.test(
+    /이\s*(?:(?:\d+\s*)?명|사람|회원).*전부|이\s*목록|전부\s*(?:처리|승인)|these\s+members/i.test(
       message
     )
   ) {
@@ -260,7 +260,19 @@ async function resolveMemberTargets(
     /미납자.*전부|모든\s*미납|all.*unpaid/i.test(message)
   ) {
     const unpaid = await listMembers({ paid: false }, 50);
-    return { targetIds: unpaid.members.slice(0, 50).map((member) => member.id) };
+
+    if (unpaid.total > 50) {
+      return {
+        response: {
+          handled: true,
+          kind: "answer",
+          title: "일괄 처리 범위가 너무 큽니다",
+          summary: `현재 미납자는 ${unpaid.total}명입니다. 안전을 위해 한 번에 최대 50명까지 처리할 수 있으므로 대상을 더 좁혀 주세요.`
+        }
+      };
+    }
+
+    return { targetIds: unpaid.members.map((member) => member.id) };
   }
 
   const name = extractMemberName(message);
@@ -535,6 +547,25 @@ async function resolveReadMember(
       ],
       contextTargetId: member.id,
       contextTargetIds: [member.id]
+    };
+  }
+
+  if (
+    /한국인.*외국인|외국인.*한국인|korean.*foreign|foreign.*korean/i.test(message) &&
+    /몇\s*명|몇명|각각|비교|현황|count|how many/i.test(message)
+  ) {
+    const stats = await getMemberStatistics();
+    return {
+      handled: true,
+      kind: "answer",
+      title: "ECC 한국인·외국인 현황",
+      rows: [
+        {
+          한국인: stats.korean,
+          외국인: stats.foreign,
+          전체: stats.total
+        }
+      ]
     };
   }
 
