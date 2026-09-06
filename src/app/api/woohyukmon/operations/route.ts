@@ -434,6 +434,30 @@ async function resolveReadMember(
   message: string,
   body: RequestBody
 ): Promise<WoohyukmonOperationResponse | null> {
+  const selectedTargetId = cleanText(body.selectedTargetId, 120);
+  if (selectedTargetId) {
+    const member = await getMemberDetails(selectedTargetId);
+
+    if (member) {
+      return {
+        handled: true,
+        kind: "answer",
+        title: member.fullName,
+        rows: [
+          {
+            이름: member.fullName,
+            국적: normalizeNationality(member.nationality),
+            학과: member.departmentOrMajor,
+            회비: member.paymentConfirmed ? "납부" : "미납",
+            정회원: member.officialMember ? "승인" : "미승인"
+          }
+        ],
+        contextTargetId: member.id,
+        contextTargetIds: [member.id]
+      };
+    }
+  }
+
   const contextTargetId = cleanText(body.contextTargetId, 120);
   const name = extractMemberName(message);
 
