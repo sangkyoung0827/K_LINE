@@ -71,7 +71,6 @@ export type WoohyukmonConfirmationPayload = {
     paymentConfirmed?: boolean;
     officialMember?: boolean;
     status?: string;
-    adminNote?: string;
     updatedAt?: string;
     activityOpen?: boolean;
   }>;
