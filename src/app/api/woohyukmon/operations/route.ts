@@ -418,6 +418,18 @@ async function prepareWrite(
     });
   }
 
+  if (prepared.targetCount === 0) {
+    return json({
+      handled: true,
+      kind: "answer",
+      title: "이미 요청한 상태입니다",
+      summary:
+        tool === "mark_payment_confirmed" || tool === "approve_official_member"
+          ? "선택한 회원은 이미 회비 납부 확인 상태입니다."
+          : "선택한 회원은 이미 미납 상태입니다."
+    });
+  }
+
   const payload: WoohyukmonConfirmationPayload = {
     version: 1,
     actorEmail,
@@ -429,12 +441,18 @@ async function prepareWrite(
     expiresAt: Date.now() + 10 * 60 * 1000
   };
   const copy = confirmationCopy(tool, prepared.targetCount);
+  const summary =
+    tool === "append_member_admin_note" && note
+      ? `${copy.summary}\n\n추가할 메모: “${note}”`
+      : prepared.skippedCount > 0
+        ? `${copy.summary}\n이미 같은 상태인 ${prepared.skippedCount}명은 제외했습니다.`
+        : copy.summary;
 
   return json({
     handled: true,
     kind: "confirmation",
     title: copy.title,
-    summary: copy.summary,
+    summary,
     token: createWoohyukmonConfirmationToken(payload),
     tool,
     targetCount: prepared.targetCount,
