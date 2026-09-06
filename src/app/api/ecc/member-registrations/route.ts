@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   getEccMemberRegistrationById,
-  listEccMemberRegistrations,
-  patchEccMemberRegistrationWithChangeInfo
+  listEccMemberRegistrations
 } from "@/lib/eccMemberRegistrations";
+import { applyEccMemberAdminUpdate } from "@/lib/eccMemberAdminActions";
 import { resetEccMemberRegistrationData } from "@/lib/klineMemberDeletion";
-import {
-  approveEccOfficialMember,
-  getCurrentEccAccess,
-  revokeEccOfficialMember
-} from "@/lib/eccAccess";
+import { getCurrentEccAccess } from "@/lib/eccAccess";
 import {
   cleanText,
   SupabaseConfigError,
@@ -130,7 +126,7 @@ export async function PATCH(request: Request) {
         continue;
       }
 
-      const result = await patchEccMemberRegistrationWithChangeInfo({
+      const result = await applyEccMemberAdminUpdate({
         adminEmail: access.email,
         adminNote: cleanText(update.adminNote, 1200),
         id,
@@ -140,22 +136,6 @@ export async function PATCH(request: Request) {
 
       if (!registration || !result.changed) {
         continue;
-      }
-
-      if (result.paymentConfirmedChanged) {
-        if (registration.paymentConfirmed) {
-          await approveEccOfficialMember({
-            approvedBy: access.email,
-            avatarUrl: registration.googleAvatarUrl,
-            email: registration.googleEmail,
-            name: registration.googleName || registration.fullName
-          });
-        } else {
-          await revokeEccOfficialMember({
-            email: registration.googleEmail,
-            revokedBy: access.email
-          });
-        }
       }
 
       updatedRegistrations.push(registration);
