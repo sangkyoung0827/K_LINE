@@ -540,7 +540,7 @@ async function resolveReadMember(
 
   const nationality = detectNationality(message);
   const foreignOnly = isForeignRequest(message);
-  const gender = isFemaleRequest(message)
+  const gender: "Male" | "Female" | undefined = isFemaleRequest(message)
     ? "Female"
     : isMaleRequest(message)
       ? "Male"
