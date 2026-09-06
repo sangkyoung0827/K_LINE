@@ -12,7 +12,22 @@ export function normalizeNationality(raw: string) {
     [/^(vietnam|vietnamese|베트남)$/i, "Vietnam"],
     [/^(mongolia|mongolian|몽골)$/i, "Mongolia"],
     [/^(uzbekistan|uzbek|uzbekistani)$/i, "Uzbekistan"],
-    [/^(kyrgyzstan|kyrgyz|kyrgyzstani)$/i, "Kyrgyzstan"]
+    [/^(kyrgyzstan|kyrgyz|kyrgyzstani|kyrgyztan|키르기스스탄)$/i, "Kyrgyzstan"],
+    [/^(france|french)$/i, "France"],
+    [/^(india|indian)$/i, "India"],
+    [/^(indonesia|indonesian)$/i, "Indonesia"],
+    [/^(brazil|brasil|brazilian)$/i, "Brazil"],
+    [/^(philippines|philippine|filipino|filipina)$/i, "Philippines"],
+    [/^(cambodia|cambodian)$/i, "Cambodia"],
+    [/^(algeria|algerian)$/i, "Algeria"],
+    [/^(azerbaijan|azerbaijani)$/i, "Azerbaijan"],
+    [/^(mexico|mexican|멕시코인)$/i, "Mexico"],
+    [/^(ukraine|ukrainian|україна|우크라이나)$/i, "Ukraine"],
+    [/^(morocco|moroccan)$/i, "Morocco"],
+    [/^(pakistan|pakistani)$/i, "Pakistan"],
+    [/^(peru|peruvian)$/i, "Peru"],
+    [/^(spain|spanish)$/i, "Spain"],
+    [/^(venezuela|venezuelan)$/i, "Venezuela"]
   ];
 
   for (const [pattern, canonical] of aliases) {
