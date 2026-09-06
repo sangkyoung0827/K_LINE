@@ -648,6 +648,44 @@ async function resolveReadMember(
     };
   }
 
+  if (
+    /회비.*(?:현황|통계)|(?:payment|fee).*(?:summary|statistics|status)/i.test(message) &&
+    !/처리|확인.*(?:해|줘)|mark|confirm/i.test(message)
+  ) {
+    const stats = await getMemberStatistics();
+    return {
+      handled: true,
+      kind: "answer",
+      title: "ECC 회비 현황",
+      rows: [
+        {
+          전체: stats.total,
+          납부: stats.paid,
+          미납: stats.unpaid
+        }
+      ]
+    };
+  }
+
+  if (
+    /(?:전체|전부|모든).*회원.*(?:보여|목록|명단)|회원.*(?:전체|전부|모든).*(?:보여|목록|명단)|all.*members/i.test(
+      message
+    )
+  ) {
+    const result = await listMembers({}, 50);
+    return {
+      handled: true,
+      kind: "answer",
+      title: "ECC 회원 목록",
+      summary:
+        result.total > 50
+          ? `전체 ${result.total}명 중 화면에는 최대 50명까지 표시합니다.`
+          : `총 ${result.total}명입니다.`,
+      rows: result.rows,
+      contextTargetIds: result.members.slice(0, 50).map((member) => member.id)
+    };
+  }
+
   const asksUnpaid = /미납|unpaid/i.test(message);
   const asksPaid = !asksUnpaid && /납부자|회비.*납부|paid members?|payment.*confirmed/i.test(message);
   const asksPending = /승인\s*대기|미승인|pending.*(?:member|approval)/i.test(message);
