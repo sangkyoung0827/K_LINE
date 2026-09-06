@@ -77,7 +77,7 @@ function isListRequest(message: string) {
 }
 
 function isCountRequest(message: string) {
-  return /몇s*명|몇명|count|how many|현황|통계/i.test(message);
+  return /몇\s*명|몇명|count|how many|현황|통계/i.test(message);
 }
 
 function isForeignRequest(message: string) {
@@ -95,19 +95,19 @@ function isMaleRequest(message: string) {
 function extractMemberName(message: string) {
   const normalized = message
     .replace(/[?!.。！？]/g, " ")
-    .replace(/s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 
   const patterns = [
-    /^(.+?)s*(?:회원(?:의|은|이|을|를)?s*)?(?:회비|정회원|관리자s*메모|메모|찾아|검색|상태)/i,
-    /^(?:회원s*)?(.+?)s*(?:찾아|검색)/i
+    /^(.+?)\s*(?:회원(?:의|은|이|을|를)?\s*)?(?:회비|정회원|관리자\s*메모|메모|찾아|검색|상태)/i,
+    /^(?:회원\s*)?(.+?)\s*(?:찾아|검색)/i
   ];
 
   for (const pattern of patterns) {
     const match = normalized.match(pattern);
     const candidate = match?.[1]
-      ?.replace(/^(?:현재|혹시)s+/i, "")
-      .replace(/s*(?:님|회원)$/i, "")
+      ?.replace(/^(?:현재|혹시)\s+/i, "")
+      .replace(/\s*(?:님|회원)$/i, "")
       .trim();
 
     if (
@@ -123,16 +123,16 @@ function extractMemberName(message: string) {
 
 function extractAdminNote(message: string) {
   const korean = message.match(
-    /(?:관리자s*)?메모(?:에|로)?s*["“']?(.+?)["”']?s*(?:라고s*)?(?:적어|써|추가|저장)/i
+    /(?:관리자\s*)?메모(?:에|로)?\s*["“']?(.+?)["”']?\s*(?:라고\s*)?(?:적어|써|추가|저장)/i
   );
   if (korean?.[1]) return korean[1].trim().slice(0, 1000);
 
-  const english = message.match(/(?:add|write)s+(.+?)s+(?:to|in)s+(?:thes+)?admins+note/i);
+  const english = message.match(/(?:add|write)\s+(.+?)\s+(?:to|in)\s+(?:the\s+)?admin\s+note/i);
   return english?.[1]?.trim().slice(0, 1000) || "";
 }
 
 function detectWriteTool(message: string): WoohyukmonOperationTool | null {
-  if (/(?:관리자s*)?메모(?:에|로)?.*(?:적어|써|추가|저장)|admins+note/i.test(message)) {
+  if (/(?:관리자\s*)?메모(?:에|로)?.*(?:적어|써|추가|저장)|admin\s+note/i.test(message)) {
     return "append_member_admin_note";
   }
 
@@ -145,7 +145,7 @@ function detectWriteTool(message: string): WoohyukmonOperationTool | null {
   }
 
   if (
-    /(?:미납으로|미납s*처리|납부s*(?:취소|해제)|회비.*(?:미납|취소).*처리)|mark.*unpaid|unconfirm.*payment/i.test(
+    /(?:미납으로|미납\s*처리|납부\s*(?:취소|해제)|회비.*(?:미납|취소).*처리)|mark.*unpaid|unconfirm.*payment/i.test(
       message
     )
   ) {
@@ -153,7 +153,7 @@ function detectWriteTool(message: string): WoohyukmonOperationTool | null {
   }
 
   if (
-    /회비s*(?:납부s*)?(?:처리|확인).*?(?:해|줘|부탁)|납부.*(?:처리|확인).*?(?:해|줘)|mark.*paid|confirm.*payment/i.test(
+    /회비\s*(?:납부\s*)?(?:처리|확인).*?(?:해|줘|부탁)|납부.*(?:처리|확인).*?(?:해|줘)|mark.*paid|confirm.*payment/i.test(
       message
     )
   ) {
@@ -236,7 +236,7 @@ async function resolveMemberTargets(
   const contextTargetId = cleanText(body.contextTargetId, 120);
   if (
     contextTargetId &&
-    /이s*회원|이분|그s*회원|thiss+member/i.test(message)
+    /이\s*회원|이분|그\s*회원|this\s+member/i.test(message)
   ) {
     const selected = await getMemberDetails(contextTargetId);
     if (selected) return { targetIds: [selected.id] };
@@ -248,7 +248,7 @@ async function resolveMemberTargets(
 
   if (
     contextTargetIds.length > 0 &&
-    /이s*(?:사람|회원|명).*전부|이s*목록|전부s*(?:처리|승인)|theses+members/i.test(
+    /이\s*(?:사람|회원|명).*전부|이\s*목록|전부\s*(?:처리|승인)|these\s+members/i.test(
       message
     )
   ) {
@@ -257,7 +257,7 @@ async function resolveMemberTargets(
 
   if (
     tool === "mark_payment_confirmed" &&
-    /미납자.*전부|모든s*미납|all.*unpaid/i.test(message)
+    /미납자.*전부|모든\s*미납|all.*unpaid/i.test(message)
   ) {
     const unpaid = await listMembers({ paid: false }, 50);
     return { targetIds: unpaid.members.slice(0, 50).map((member) => member.id) };
@@ -439,7 +439,7 @@ async function resolveReadMember(
 
   if (
     contextTargetId &&
-    /이s*회원|이분|그s*회원|thiss+member/i.test(message) &&
+    /이\s*회원|이분|그\s*회원|this\s+member/i.test(message) &&
     /회비|정회원|상태|paid|official|status/i.test(message)
   ) {
     const member = await getMemberDetails(contextTargetId);
@@ -548,7 +548,7 @@ async function resolveReadMember(
   if (
     foreignOnly &&
     gender &&
-    /몇s*명|몇명|count|how many/i.test(message)
+    /몇\s*명|몇명|count|how many/i.test(message)
   ) {
     const result = await listMembers({ foreignOnly: true, gender }, 50);
     return {
@@ -563,8 +563,8 @@ async function resolveReadMember(
 
   const asksUnpaid = /미납|unpaid/i.test(message);
   const asksPaid = !asksUnpaid && /납부자|회비.*납부|paid members?|payment.*confirmed/i.test(message);
-  const asksPending = /승인s*대기|미승인|pending.*(?:member|approval)/i.test(message);
-  const asksOfficial = /정회원.*(?:명단|목록|몇s*명|몇명)|official members?/i.test(message);
+  const asksPending = /승인\s*대기|미승인|pending.*(?:member|approval)/i.test(message);
+  const asksOfficial = /정회원.*(?:명단|목록|몇\s*명|몇명)|official members?/i.test(message);
 
   if (asksUnpaid || asksPaid || asksPending || asksOfficial || nationality) {
     const filter = {
@@ -597,7 +597,7 @@ async function resolveReadMember(
   }
 
   if (
-    /(?:eccs*)?(?:총s*)?회원.*(?:몇s*명|몇명|현황|통계|수)|현재.*ecc.*회원|member.*(?:count|summary|statistics)/i.test(
+    /(?:ecc\s*)?(?:총\s*)?회원.*(?:몇\s*명|몇명|현황|통계|수)|현재.*ecc.*회원|member.*(?:count|summary|statistics)/i.test(
       message
     )
   ) {
@@ -627,7 +627,7 @@ async function resolveReadActivity(
   message: string
 ): Promise<WoohyukmonOperationResponse | null> {
   if (
-    !/gathering|게더링|mt|엠티|개강총회|종강총회|special|특별s*이벤트|englishs*class|영어s*수업|신청자|모집s*중|열려s*있는s*활동|행사/i.test(
+    !/gathering|게더링|\bmt\b|엠티|개강총회|종강총회|special|특별\s*이벤트|english\s*class|영어\s*수업|신청자|모집\s*중|열려\s*있는\s*활동|행사/i.test(
       message
     )
   ) {
@@ -636,7 +636,7 @@ async function resolveReadActivity(
 
   const data = await findActivityFromText(message);
 
-  if (/현재.*(?:모집|신청).*(?:중|열)|모집s*중인s*(?:행사|활동)|open.*activities/i.test(message)) {
+  if (/현재.*(?:모집|신청).*(?:중|열)|모집\s*중인s*(?:행사|활동)|open.*activities/i.test(message)) {
     return {
       handled: true,
       kind: "answer",
@@ -701,7 +701,7 @@ async function resolveReadActivity(
     };
   }
 
-  if (/신청자|신청s*현황|몇s*명|몇명|applicant/i.test(message)) {
+  if (/신청자|신청\s*현황|몇\s*명|몇명|applicant/i.test(message)) {
     return {
       handled: true,
       kind: "answer",
@@ -798,7 +798,7 @@ export async function POST(request: Request) {
   }
 
   if (
-    /(?:raws*)?sql|service.?role|환경s*변수|environments*variable|apis*key|secret|github|vercel|shell|터미널|임의s*코드|arbitrarys*code/i.test(
+    /(?:raw\s*)?sql|service.?role|환경\s*변수|environment\s*variable|api\s*key|secret|github|vercel|shell|터미널|임의\s*코드|arbitrary\s*code/i.test(
       message
     )
   ) {
