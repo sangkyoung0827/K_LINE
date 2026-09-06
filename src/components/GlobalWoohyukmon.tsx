@@ -641,17 +641,19 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
         </aside>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="fixed bottom-5 right-4 z-[81] flex h-14 w-16 items-center justify-center rounded-full border border-ink/10 bg-white/95 shadow-xl transition hover:-translate-y-0.5 hover:border-brass md:bottom-5 md:right-5"
-        aria-label="Open Global Woohyukmon"
-        title="K_LINE Operations"
-      >
-        <span className={busy ? "animate-spin" : ""}>
-          <WoohyukmonGlassesIcon className="h-8 w-12" />
-        </span>
-      </button>
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="fixed bottom-5 right-4 z-[81] flex h-14 w-16 items-center justify-center rounded-full border border-ink/10 bg-white/95 shadow-xl transition hover:-translate-y-0.5 hover:border-brass md:right-5"
+          aria-label="Open Global Woohyukmon"
+          title="K_LINE Operations"
+        >
+          <span className={busy ? "animate-spin" : ""}>
+            <WoohyukmonGlassesIcon className="h-8 w-12" />
+          </span>
+        </button>
+      ) : null}
     </>
   );
 }
