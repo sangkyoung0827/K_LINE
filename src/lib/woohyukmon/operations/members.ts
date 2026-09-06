@@ -121,7 +121,7 @@ export async function getGenderStatistics(filter: MemberListFilter = {}) {
   });
 
   return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1].localeCompare?.(b[0]) || 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([gender, count]) => ({ gender, count }));
 }
 
