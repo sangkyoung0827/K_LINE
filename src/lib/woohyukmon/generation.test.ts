@@ -40,6 +40,24 @@ test("upstream network failure advances without repeated retries", async () => {
   assert.equal(count, 2);
 });
 
+test("DeepSeek uses NVIDIA's thinking option while Nemotron keeps enable_thinking", async () => {
+  for (const [model, expected] of [
+    ["deepseek-ai/deepseek-v4-pro-0813", { thinking: false }],
+    ["nvidia/nemotron-3.5-lightning-30b-a3b", { enable_thinking: false }]
+  ] as const) {
+    const generate = createAnswerGenerator({
+      env: { NVIDIA_API_KEY: "test-nvidia", WOOHYUKMON_NVIDIA_MODEL: model },
+      fetch: async (_, init) => {
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.model, model);
+        assert.deepEqual(body.chat_template_kwargs, expected);
+        return openaiAnswer();
+      }
+    });
+    assert.equal((await generate(input)).provider, "nvidia");
+  }
+});
+
 test("provider deadline aborts stalled request and moves to the next provider", async () => {
   // Keep the event loop alive while AbortSignal.timeout uses an unref'd timer.
   const keepAlive = setInterval(() => {}, 100);
