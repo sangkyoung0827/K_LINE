@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "pretest": "npm run test:woohyukmon",
+    "test:woohyukmon": "tsx --test src/lib/woohyukmon/generation.test.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

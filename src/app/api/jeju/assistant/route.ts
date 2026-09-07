@@ -1,32 +1,15 @@
-import { GoogleGenAI } from "@google/genai";
+import { generateAnswer, hasGenerationProvider } from "@/lib/woohyukmon/generation";
+import { conversationHistory } from "@/lib/woohyukmon/conversation";
 import { auth } from "@/auth";
 import { buildJejuWoohyukmonContext } from "@/lib/jeju/ai-context";
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 export const dynamic = "force-dynamic";
 
 const encoder = new TextEncoder();
 
-type ClientMessage = { role: "user" | "assistant"; content: string };
-type GeminiChunkLike = { text?: unknown };
-
 function ndjson(payload: unknown) {
   return encoder.encode(`${JSON.stringify(payload)}\n`);
-}
-
-function cleanMessages(value: unknown): ClientMessage[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const candidate = item as Partial<ClientMessage>;
-    if ((candidate.role !== "user" && candidate.role !== "assistant") || typeof candidate.content !== "string") return [];
-    const content = candidate.content.trim().slice(0, 1400);
-    return content ? [{ role: candidate.role, content }] : [];
-  }).slice(-8);
-}
-
-function modelName() {
-  return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 }
 
 const systemInstruction = `You are Woohyukmon, K_LINE's personal Korea journey guide and Memory Book assistant.
@@ -51,8 +34,7 @@ Important constraints:
 - Treat the service as South Korea-wide even if legacy internal names mention Jeju.`;
 
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) return Response.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
+  if (!hasGenerationProvider()) return Response.json({ error: "AI providers are not configured." }, { status: 503 });
 
   const session = await auth();
   const email = session?.user?.email?.trim().toLowerCase();
@@ -67,41 +49,45 @@ export async function POST(request: Request) {
 
   const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
   if (!message) return Response.json({ error: "Message is required." }, { status: 400 });
-  const history = cleanMessages(body.history);
+  const history = conversationHistory(body.history);
   const context = await buildJejuWoohyukmonContext({ email, currentLocation: body.currentLocation });
-  const ai = new GoogleGenAI({ apiKey });
+  const cancellation = new AbortController();
+  const signal = AbortSignal.any([request.signal, cancellation.signal, AbortSignal.timeout(150_000)]);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const heartbeat = setInterval(() => {
+        if (!signal.aborted) {
+          try { controller.enqueue(ndjson({ type: "heartbeat" })); }
+          catch { cancellation.abort(); }
+        }
+      }, 10_000);
       try {
         controller.enqueue(ndjson({ type: "status", label: "K_LINE journey records loaded" }));
-        const contents = [
-          ...history.map((item) => ({ role: item.role === "assistant" ? "model" : "user", parts: [{ text: item.content }] })),
-          { role: "user", parts: [{ text: `${context.text}\n\nUSER REQUEST\n${message}` }] }
-        ];
-
-        const responseStream = await ai.models.generateContentStream({
-          model: modelName(),
-          contents,
-          config: {
-            systemInstruction,
-            temperature: 0.25,
-            maxOutputTokens: 1300
+        const result = await generateAnswer({
+          system: systemInstruction,
+          history,
+          message,
+          context: context.text,
+          signal,
+          temperature: 0.25,
+          onProvider(provider, fallback) {
+            controller.enqueue(ndjson({ type: "status", label: fallback ? "Reconnecting / 연결 전환 중" : "Preparing answer / 답변 준비 중", providers: [provider] }));
           }
         });
-
-        for await (const rawChunk of responseStream) {
-          const chunk = rawChunk as GeminiChunkLike;
-          const text = typeof chunk.text === "string" ? chunk.text.replace(/\*\*/g, "") : "";
-          if (text) controller.enqueue(ndjson({ type: "text", text }));
-        }
+        controller.enqueue(ndjson({ type: "text", text: result.answer.replace(/\*\*/g, "") }));
         controller.enqueue(ndjson({ type: "done" }));
       } catch (error) {
+        if (signal.aborted) return;
         console.error("Woohyukmon journey assistant failed", error);
         controller.enqueue(ndjson({ type: "error", error: "Woohyukmon could not build a journey recommendation right now." }));
       } finally {
-        controller.close();
+        clearInterval(heartbeat);
+        try { controller.close(); } catch { /* Reader disconnected. */ }
       }
+    },
+    cancel() {
+      cancellation.abort();
     }
   });
 

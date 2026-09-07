@@ -1,4 +1,5 @@
 "use client";
+import { conversationHistory } from "@/lib/woohyukmon/conversation";
 
 import {
   BarChart3,
@@ -140,7 +141,7 @@ function readLocalBoardPostsForAssistant(): LocalBoardPostForAssistant[] {
           {
             author: typeof candidate.author === "string" ? candidate.author.slice(0, 120) : "",
             boardId,
-            content: candidate.content.slice(0, 900),
+            content: candidate.content.slice(0, 12000),
             createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt.slice(0, 80) : "",
             id: candidate.id.slice(0, 120),
             title: candidate.title.slice(0, 180)
@@ -865,7 +866,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
         body: JSON.stringify({
           attachmentNames: attachmentsForPost.map((attachment) => attachment.name),
           message: trimmed,
-          history: apiHistory.slice(-8),
+          history: conversationHistory(apiHistory),
           mode: postIntent ? "post_draft" : "chat",
           localBoardPosts: readLocalBoardPostsForAssistant(),
           modelVersion

@@ -1,4 +1,5 @@
 "use client";
+import { conversationHistory } from "@/lib/woohyukmon/conversation";
 
 import { Check, Loader2, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -197,13 +198,7 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
       }
     ]);
 
-    const history = messages
-      .filter((message) => message.content.trim())
-      .slice(-8)
-      .map((message) => ({
-        role: message.role,
-        content: message.content.slice(0, 1400)
-      }));
+    const history = conversationHistory(messages);
 
     const response = await fetch("/api/gemini", {
       method: "POST",
