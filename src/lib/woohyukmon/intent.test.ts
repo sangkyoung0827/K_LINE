@@ -1,9 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isConversationAdvice, isMemberSummaryRequest, retrievalQuery, shouldSearchExternal } from "./intent";
+import { adviceSystemInstruction, isConversationAdvice, isMemberSummaryRequest, retrievalQuery, shouldRetrieveKnowledge, shouldSearchExternal } from "./intent";
 
 const firstMessage = "우혁몬, 어떤 회원이 나에게 자신이 게이인데, ECC에서 남자를 만날 수 있냐고 물어봤어.";
 const followUp = "뭐라고 답변하면 좋을지 알려줘. 회원 데이터를 주는게 아니라.";
+
+test("advice has a focused language and privacy contract rather than a club introduction", () => {
+  const system = adviceSystemInstruction(firstMessage);
+  assert.match(system, /한국어로만/);
+  assert.match(system, /답장 예시 한 문단을 먼저/);
+  assert.match(system, /비공개 정보는 공개하거나 추측하지/);
+  assert.match(system, /실제 데이터를 수정하거나 승인했다고 말하지/);
+  assert.doesNotMatch(adviceSystemInstruction("How should I reply?"), /한국어로만/);
+});
+
+test("interpersonal advice skips unrelated training while membership and notice guidance retains it", () => {
+  assert.equal(shouldRetrieveKnowledge(firstMessage), false);
+  assert.equal(shouldRetrieveKnowledge(retrievalQuery(followUp, [{ role: "user", content: firstMessage }])), false);
+  assert.equal(shouldRetrieveKnowledge("회비 납부 방법에 대한 답변 작성해줘"), true);
+  assert.equal(shouldRetrieveKnowledge("ECC 재등록 공지문 만들어줘"), true);
+  assert.equal(shouldRetrieveKnowledge("업로드한 교육 자료를 참고해서 답변 만들어줘"), true);
+});
 
 test("reported member conversations and requests for wording are not member statistics", () => {
   for (const message of [firstMessage, followUp, "회원이 친구를 만날 수 있나요?", "현재 ECC 회원이 고민을 물어왔어", "A member asked me if he could meet a boyfriend in ECC. What should I say?"]) {
