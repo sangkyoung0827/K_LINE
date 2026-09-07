@@ -87,7 +87,11 @@ export function createAnswerGenerator(options: { env?: Env; fetch?: typeof fetch
           generationConfig: { temperature: input.temperature ?? 0.35, maxOutputTokens: maxTokens }
         } : {
           model: config.model, messages, temperature: input.temperature ?? 0.35, max_tokens: maxTokens,
-          ...(config.provider === "nvidia" ? { chat_template_kwargs: { enable_thinking: false } } : {})
+          ...(config.provider === "nvidia" ? {
+            chat_template_kwargs: config.model.startsWith("deepseek-ai/")
+              ? { thinking: false }
+              : { enable_thinking: false }
+          } : {})
         };
         const response = await request(url, {
           method: "POST", signal,
