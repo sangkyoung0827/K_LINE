@@ -1,4 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { generateAnswer, hasGenerationProvider } from "@/lib/woohyukmon/generation";
+import { conversationHistory } from "@/lib/woohyukmon/conversation";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
 import {
@@ -11,7 +12,7 @@ import { buildJejuWoohyukmonContext } from "@/lib/jeju/ai-context";
 import { supabaseRequest } from "@/lib/supabaseServer";
 import { buildTraditionalLiquorAssistantContext, isTraditionalLiquorQuestion } from "@/lib/traditional-liquor/assistant-context";
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 type ClientMessage = {
   role: "user" | "assistant";
@@ -26,10 +27,6 @@ type GroundingSource = {
 type ExternalSearchResult = GroundingSource & {
   provider: string;
   snippet: string;
-};
-
-type GeminiChunkLike = {
-  text?: unknown;
 };
 
 type DuckDuckGoTopic = {
@@ -230,32 +227,7 @@ async function buildPublicV4OperationalContext(message: string) {
 }
 
 function cleanMessages(history: unknown): ClientMessage[] {
-  if (!Array.isArray(history)) {
-    return [];
-  }
-
-  return history
-    .filter((message): message is ClientMessage => {
-      if (!message || typeof message !== "object") {
-        return false;
-      }
-
-      const candidate = message as Partial<ClientMessage>;
-      return (
-        (candidate.role === "user" || candidate.role === "assistant") &&
-        typeof candidate.content === "string" &&
-        candidate.content.trim().length > 0
-      );
-    })
-    .slice(-8)
-    .map((message) => ({
-      role: message.role,
-      content: message.content.slice(0, 1400)
-    }));
-}
-
-function getGeminiModel() {
-  return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  return conversationHistory(history);
 }
 
 function getMaxOutputTokens() {
@@ -265,7 +237,7 @@ function getMaxOutputTokens() {
     return parsed;
   }
 
-  return 2600;
+  return 6000;
 }
 
 function ndjson(payload: unknown) {
@@ -324,23 +296,6 @@ function buildExternalSearchContext(results: ExternalSearchResult[]) {
   });
 
   return `External search results are available below. Use them only as supporting evidence. Do not show source numbers, URLs, or a source list in the answer unless the user explicitly asks for links. Do not claim more than these sources support.\n\n${lines.join("\n\n")}`;
-}
-
-function buildContents(message: string, history: ClientMessage[], externalSearchContext = "") {
-  const userText = externalSearchContext
-    ? `${externalSearchContext}\n\nUser question:\n${message.slice(0, 2400)}`
-    : message.slice(0, 2400);
-
-  return [
-    ...history.map((entry) => ({
-      role: entry.role === "assistant" ? "model" : "user",
-      parts: [{ text: entry.content }]
-    })),
-    {
-      role: "user",
-      parts: [{ text: userText }]
-    }
-  ];
 }
 
 function getErrorDetail(error: unknown) {
@@ -573,7 +528,7 @@ async function searchExternalSources(query: string) {
 }
 
 async function streamGeminiAnswer({
-  ai,
+  signal,
   businessReport = false,
   controller,
   externalSearchContext = "",
@@ -584,7 +539,7 @@ async function streamGeminiAnswer({
   modelVersion,
   experienceContext
 }: {
-  ai: GoogleGenAI;
+  signal: AbortSignal;
   businessReport?: boolean;
   controller: ReadableStreamDefaultController<Uint8Array>;
   externalSearchContext?: string;
@@ -595,36 +550,26 @@ async function streamGeminiAnswer({
   modelVersion?: string;
   experienceContext?: string;
 }) {
-  const responseStream = await ai.models.generateContentStream({
-    model: getGeminiModel(),
-    contents: buildContents(message, history, externalSearchContext),
-    config: {
-      systemInstruction: buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion, experienceContext),
-      temperature: externalSearchContext ? 0.12 : 0.35,
-      maxOutputTokens: businessReport ? 2_200 : getMaxOutputTokens()
+  const result = await generateAnswer({
+    system: buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion, experienceContext),
+    history,
+    message,
+    context: externalSearchContext,
+    signal,
+    temperature: externalSearchContext ? 0.12 : 0.35,
+    maxTokens: businessReport ? 8000 : getMaxOutputTokens(),
+    onProvider(provider, fallback) {
+      controller.enqueue(ndjson({ type: "status", status: "answer_stream_started", label: fallback ? "연결을 전환해 답변을 준비하고 있습니다 / Reconnecting" : "답변을 준비하고 있습니다 / Preparing answer", providers: [provider] }));
     }
   });
-
-  let emittedText = "";
-
-  for await (const rawChunk of responseStream) {
-    const chunk = rawChunk as GeminiChunkLike;
-    const text = sanitizeModelText(asText(chunk.text));
-
-    if (text) {
-      emittedText += text;
-      controller.enqueue(ndjson({ type: "text", text }));
-    }
-  }
-
-  return emittedText;
+  const text = sanitizeModelText(result.answer);
+  controller.enqueue(ndjson({ type: "text", text }));
+  return text;
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-
-  if (!apiKey) {
-    return Response.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
+  if (!hasGenerationProvider()) {
+    return Response.json({ error: "AI providers are not configured." }, { status: 503 });
   }
 
   let body: {
@@ -656,6 +601,9 @@ export async function POST(request: Request) {
   if (!message) {
     return Response.json({ error: "Message is required." }, { status: 400 });
   }
+  if (message.length > 12_000) {
+    return Response.json({ error: "Please keep each message within 12,000 characters." }, { status: 400 });
+  }
 
   const history = cleanMessages(body.history);
   const mode = body.mode === "post_draft" ? "post_draft" : "chat";
@@ -669,7 +617,8 @@ export async function POST(request: Request) {
         .filter(Boolean)
         .slice(0, 12)
     : [];
-  const ai = new GoogleGenAI({ apiKey });
+  const cancellation = new AbortController();
+  const signal = AbortSignal.any([request.signal, cancellation.signal, AbortSignal.timeout(160_000)]);
   const session = await auth();
   const developerAccess = await getAdminAccess(session?.user?.email ?? "");
 
@@ -679,6 +628,12 @@ export async function POST(request: Request) {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const heartbeat = setInterval(() => {
+        if (!signal.aborted) {
+          try { controller.enqueue(ndjson({ type: "heartbeat" })); }
+          catch { cancellation.abort(); }
+        }
+      }, 10_000);
       try {
         const configuredProviders = getConfiguredSearchProviders();
         const jejuGuide = experienceContext === "jeju"
@@ -853,7 +808,7 @@ export async function POST(request: Request) {
 
         try {
           await streamGeminiAnswer({
-            ai,
+            signal,
             businessReport: Boolean(businessCollectionContext),
             controller,
             externalSearchContext: [
@@ -897,23 +852,28 @@ export async function POST(request: Request) {
           })
         );
       } catch (error) {
+        if (signal.aborted) return;
         console.error("External search Gemini stream failed", getErrorDetail(error));
         controller.enqueue(
           ndjson({
             type: "error",
             error:
-              "External search response failed. Check GEMINI_API_KEY, GEMINI_MODEL, BRAVE_SEARCH_API_KEY, or TAVILY_API_KEY."
+              "현재 연결 가능한 AI의 응답이 지연되고 있습니다. 대화는 유지됩니다. 잠시 후 다시 보내주세요. / AI providers are temporarily unavailable. Your conversation is retained; please try again."
           })
         );
       } finally {
-        controller.close();
+        clearInterval(heartbeat);
+        try { controller.close(); } catch { /* The reader may already have disconnected. */ }
       }
+    },
+    cancel() {
+      cancellation.abort();
     }
   });
 
   return new Response(stream, {
     headers: {
-      "Cache-Control": "no-cache, no-transform",
+      "Cache-Control": "private, no-store, no-transform",
       "Content-Type": "application/x-ndjson; charset=utf-8",
       "X-Accel-Buffering": "no"
     }

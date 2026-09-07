@@ -164,24 +164,25 @@ export async function analyzeKnowledgeSource(input: {
   return { analysis: normalizeAnalysis(parseJsonObject(raw), input.text || input.name), provider };
 }
 
-async function embedWithOpenAI(texts: string[]): Promise<EmbeddingBatch> {
+async function embedWithOpenAI(texts: string[], signal?: AbortSignal): Promise<EmbeddingBatch> {
   const model = process.env.WOOHYUKMON_EMBEDDING_MODEL?.trim() || "text-embedding-3-small";
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, ...(signal ? { maxRetries: 0 } : {}) });
   const response = await client.embeddings.create({
     dimensions: 1536,
     input: texts,
     model
-  });
+  }, { signal });
   return { model, provider: "openai", vectors: response.data.map((item) => item.embedding) };
 }
 
-async function embedWithGemini(texts: string[]): Promise<EmbeddingBatch> {
+async function embedWithGemini(texts: string[], signal?: AbortSignal): Promise<EmbeddingBatch> {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) throw new Error("GEMINI_API_KEY is missing.");
   const model = process.env.WOOHYUKMON_EMBEDDING_MODEL?.trim() || "gemini-embedding-001";
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:batchEmbedContents?key=${encodeURIComponent(key)}`,
     {
+      signal,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -203,19 +204,19 @@ async function embedWithGemini(texts: string[]): Promise<EmbeddingBatch> {
   return { model, provider: "gemini", vectors };
 }
 
-export async function embedKnowledgeTexts(texts: string[]) {
+export async function embedKnowledgeTexts(texts: string[], signal?: AbortSignal) {
   if (texts.length === 0) return { model: "", provider: configuredProvider(), vectors: [] } as EmbeddingBatch;
-  if (configuredProvider() === "gemini") return embedWithGemini(texts);
+  if (configuredProvider() === "gemini") return embedWithGemini(texts, signal);
   try {
-    return await embedWithOpenAI(texts);
+    return await embedWithOpenAI(texts, signal);
   } catch (error) {
     if (!process.env.GEMINI_API_KEY?.trim()) throw error;
     console.warn("OpenAI knowledge embedding failed; retrying with Gemini.");
-    return embedWithGemini(texts);
+    return embedWithGemini(texts, signal);
   }
 }
 
 export async function embedKnowledgeQuery(text: string) {
-  const result = await embedKnowledgeTexts([text.slice(0, 8000)]);
+  const result = await embedKnowledgeTexts([text.slice(0, 8000)], AbortSignal.timeout(8_000));
   return { model: result.model, provider: result.provider, vector: result.vectors[0] };
 }
