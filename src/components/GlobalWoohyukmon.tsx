@@ -574,7 +574,7 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
                   {message.sources?.length ? (
                     <details className="mt-2 text-[11px] text-ink/50">
                       <summary className="cursor-pointer font-semibold">
-                        참고한 외부 자료 {message.sources.length}개
+                        조회한 참고 자료 {message.sources.length}개
                       </summary>
                       <div className="mt-2 grid gap-1.5">
                         {message.sources.slice(0, 6).map((source) => (

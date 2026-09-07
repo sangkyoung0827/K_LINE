@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "pretest": "npm run test:woohyukmon",
-    "test:woohyukmon": "tsx --test src/lib/woohyukmon/generation.test.ts",
+    "test:woohyukmon": "tsx --test src/lib/woohyukmon/*.test.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
