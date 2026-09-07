@@ -2,7 +2,7 @@ import { generateAnswer, hasGenerationProvider } from "@/lib/woohyukmon/generati
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
 import { loadPersonalMemory } from "@/lib/woohyukmon/personal-memory";
 import { matchesExpectedOwner, personalStyleInstruction } from "@/lib/woohyukmon/memory";
-import { adviceSystemInstruction, conversationAnswerRules, isConversationAdvice, isMemberSummaryRequest, retrievalQuery, shouldRetrieveKnowledge, shouldSearchExternal } from "@/lib/woohyukmon/intent";
+import { adviceSystemInstruction, conversationAnswerRules, isConversationAdvice, isMemberSummaryRequest, isPersonalRecallRequest, personalRecallInstruction, retrievalQuery, shouldRetrieveKnowledge, shouldSearchExternal } from "@/lib/woohyukmon/intent";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
 import {
@@ -554,7 +554,9 @@ async function streamGeminiAnswer({
   personalGuidance?: string;
 }) {
   const result = await generateAnswer({
-    system: (isConversationAdvice(message) && mode !== "post_draft"
+    system: (isPersonalRecallRequest(message) && mode !== "post_draft"
+      ? personalRecallInstruction
+      : isConversationAdvice(message) && mode !== "post_draft"
       ? adviceSystemInstruction(message)
       : buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion, experienceContext)) + `\n\n${personalGuidance}`,
     history,

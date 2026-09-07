@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isConversationAdvice, isMemberSummaryRequest } from "@/lib/woohyukmon/intent";
+import { isActivityReadRequest, isConversationAdvice, isMemberSummaryRequest } from "@/lib/woohyukmon/intent";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { cleanText } from "@/lib/supabaseServer";
 import {
@@ -748,13 +748,7 @@ async function resolveReadMember(
 async function resolveReadActivity(
   message: string
 ): Promise<WoohyukmonOperationResponse | null> {
-  if (
-    !/gathering|게더링|\bmt\b|엠티|개강총회|종강총회|special|특별\s*이벤트|english\s*class|영어\s*수업|신청자|모집\s*중|열려\s*있는\s*활동|행사/i.test(
-      message
-    )
-  ) {
-    return null;
-  }
+  if (!isActivityReadRequest(message)) return null;
 
   const data = await findActivityFromText(message);
 
