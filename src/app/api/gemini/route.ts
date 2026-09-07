@@ -1,5 +1,7 @@
 import { generateAnswer, hasGenerationProvider } from "@/lib/woohyukmon/generation";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
+import { loadPersonalMemory } from "@/lib/woohyukmon/personal-memory";
+import { matchesExpectedOwner, personalStyleInstruction } from "@/lib/woohyukmon/memory";
 import { adviceSystemInstruction, conversationAnswerRules, isConversationAdvice, isMemberSummaryRequest, retrievalQuery, shouldRetrieveKnowledge, shouldSearchExternal } from "@/lib/woohyukmon/intent";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
@@ -536,7 +538,8 @@ async function streamGeminiAnswer({
   mode,
   attachmentNames,
   modelVersion,
-  experienceContext
+  experienceContext,
+  personalGuidance = ""
 }: {
   signal: AbortSignal;
   businessReport?: boolean;
@@ -548,11 +551,12 @@ async function streamGeminiAnswer({
   attachmentNames?: string[];
   modelVersion?: string;
   experienceContext?: string;
+  personalGuidance?: string;
 }) {
   const result = await generateAnswer({
-    system: isConversationAdvice(message) && mode !== "post_draft"
+    system: (isConversationAdvice(message) && mode !== "post_draft"
       ? adviceSystemInstruction(message)
-      : buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion, experienceContext),
+      : buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion, experienceContext)) + `\n\n${personalGuidance}`,
     history,
     message,
     context: externalSearchContext,
@@ -581,6 +585,8 @@ export async function POST(request: Request) {
     history?: unknown;
     mode?: unknown;
     modelVersion?: unknown;
+    memoryEnabled?: unknown;
+    expectedUserId?: unknown;
   };
 
   try {
@@ -592,6 +598,8 @@ export async function POST(request: Request) {
       history?: unknown;
       mode?: unknown;
       modelVersion?: unknown;
+      memoryEnabled?: unknown;
+      expectedUserId?: unknown;
     };
   } catch {
     return Response.json({ error: "Invalid JSON request body." }, { status: 400 });
@@ -622,6 +630,9 @@ export async function POST(request: Request) {
   const cancellation = new AbortController();
   const signal = AbortSignal.any([request.signal, cancellation.signal, AbortSignal.timeout(160_000)]);
   const session = await auth();
+  if (!matchesExpectedOwner(body.expectedUserId, session?.user?.email ?? "")) {
+    return Response.json({ error: "Your signed-in account changed. Reload the chat before sending." }, { status: 409 });
+  }
   const developerAccess = await getAdminAccess(session?.user?.email ?? "");
 
   if (experienceContext === "jeju" && !session?.user?.email) {
@@ -638,6 +649,10 @@ export async function POST(request: Request) {
       }, 10_000);
       try {
         const configuredProviders = getConfiguredSearchProviders();
+        const personalMemory = await loadPersonalMemory(session?.user?.email, message, body.memoryEnabled !== false);
+        if (personalMemory.count || Object.keys(personalMemory.preferences).length) {
+          controller.enqueue(ndjson({ type: "status", status: "personal_memory_ready", label: "내 이전 대화와 답변 선호 참고 / Using your conversation preferences" }));
+        }
         const jejuGuide = experienceContext === "jeju"
           ? await buildJejuWoohyukmonContext({
               email: session?.user?.email ?? "",
@@ -814,6 +829,7 @@ export async function POST(request: Request) {
             businessReport: Boolean(businessCollectionContext),
             controller,
             externalSearchContext: [
+              personalMemory.context,
               jejuContext,
               knowledgeResults.length > 0 ? formatKnowledgeContext(knowledgeResults) : "",
               eccAnnouncementContext,
@@ -827,7 +843,8 @@ export async function POST(request: Request) {
             mode,
             attachmentNames,
             modelVersion,
-            experienceContext
+            experienceContext,
+            personalGuidance: personalStyleInstruction(message, personalMemory.preferences)
           });
         } catch (error) {
           if (!eccAnnouncementRequest) throw error;

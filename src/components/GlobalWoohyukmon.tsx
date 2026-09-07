@@ -1,5 +1,7 @@
 "use client";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
+import { useConversationMemory } from "@/hooks/useConversationMemory";
+import { useSavedConversation } from "@/hooks/useSavedConversation";
 
 import { Check, Loader2, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -111,7 +113,10 @@ function CompactTable({ rows }: { rows: WoohyukmonTableRow[] }) {
   );
 }
 
-export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
+export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string; actorEmail: string }) {
+  const memory = useConversationMemory(actorEmail);
+  const savedConversation = useSavedConversation(actorEmail);
+  const saveLog = savedConversation.save;
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -208,6 +213,8 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
         history,
         mode: "chat",
         modelVersion: "4",
+        memoryEnabled: memory.enabled,
+        expectedUserId: actorEmail,
         localBoardPosts: [],
         attachmentNames: []
       })
@@ -323,6 +330,7 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
       content: snapshot.trim() || "답변을 생성하지 못했습니다. 다시 질문해 주세요.",
       status: "답변 완료"
     }));
+    return snapshot.trim();
   };
 
   const handleOperationResponse = (
@@ -364,6 +372,8 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
     setBusy(true);
 
     try {
+      savedConversation.clearWarning();
+      await saveLog(trimmed, "user");
       const operationResponse = await callOperations(
         trimmed,
         options?.selectedTargetId || ""
@@ -371,8 +381,10 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
 
       if (operationResponse.handled) {
         handleOperationResponse(operationResponse, trimmed);
+        await saveLog(operationText(operationResponse), "assistant");
       } else {
-        await runGeminiFallback(trimmed);
+        const answer = await runGeminiFallback(trimmed);
+        await saveLog(answer, "assistant");
       }
     } catch (error) {
       setMessages((current) => [
@@ -423,6 +435,7 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
 
       if ("handled" in data && data.handled) {
         handleOperationResponse(data, "");
+        await saveLog(operationText(data), "assistant");
       }
     } catch (error) {
       setMessages((current) => [
@@ -610,6 +623,11 @@ export function GlobalWoohyukmon({ actorRole }: { actorRole: string }) {
             </div>
           </div>
 
+          {savedConversation.warning ? <p role="status" className="px-3 py-1 text-xs text-red-700">{savedConversation.warning}</p> : null}
+          <label className="flex items-center gap-2 border-t border-ink/10 bg-white/85 px-3 py-2 text-xs text-ink/70" title="내 계정의 저장된 대화만 참고합니다. 끄더라도 기록 저장은 계속됩니다.">
+            <input type="checkbox" checked={memory.enabled} onChange={(event) => memory.setEnabled(event.target.checked)} />
+            이전 대화 참고
+          </label>
           <form
             onSubmit={(event) => {
               event.preventDefault();

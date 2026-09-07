@@ -5,6 +5,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { JejuShell } from "@/components/jeju/JejuShell";
 import { useLanguage } from "@/components/LanguageProvider";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { useConversationMemory } from "@/hooks/useConversationMemory";
+import { useSavedConversation } from "@/hooks/useSavedConversation";
 
 type ChatMessage = { id: string; role: "assistant" | "user"; text: string };
 type Position = { latitude: number; longitude: number };
@@ -26,6 +29,9 @@ const promptsEn = [
 
 export function JejuWoohyukmonPanel({ embedded = false }: { embedded?: boolean }) {
   const { language } = useLanguage();
+  const access = useSuperAdmin();
+  const memory = useConversationMemory(access.email);
+  const savedConversation = useSavedConversation(access.email);
   const korean = language === "ko";
   const prompts = korean ? promptsKo : promptsEn;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -59,7 +65,7 @@ export function JejuWoohyukmonPanel({ embedded = false }: { embedded?: boolean }
   async function ask(event?: FormEvent<HTMLFormElement>, preset?: string) {
     event?.preventDefault();
     const message = (preset ?? input).trim();
-    if (!message || sending) return;
+    if (!message || sending || access.loading) return;
 
     const history = messages.map((item) => ({ content: item.text, role: item.role }));
     const currentLocation = location;
@@ -73,8 +79,10 @@ export function JejuWoohyukmonPanel({ embedded = false }: { embedded?: boolean }
     setSending(true);
 
     try {
+      savedConversation.clearWarning();
+      await savedConversation.save(message, "user");
       const response = await fetch("/api/jeju/assistant", {
-        body: JSON.stringify({ currentLocation, history, message }),
+        body: JSON.stringify({ currentLocation, history, message, memoryEnabled: memory.enabled, expectedUserId: access.email }),
         headers: { "Content-Type": "application/json" },
         method: "POST"
       });
@@ -113,6 +121,7 @@ export function JejuWoohyukmonPanel({ embedded = false }: { embedded?: boolean }
           text: korean ? "아직 추천을 만들기 위한 기록이 충분하지 않습니다. 장소를 저장하거나 활동 별점을 남겨보세요." : "There is not enough saved history yet. Save a place or rate an activity first."
         } : item));
       }
+      if (answer) await savedConversation.save(answer, "assistant");
     } catch (error) {
       setMessages((current) => current.map((item) => item.id === assistantId ? {
         ...item,
@@ -159,6 +168,11 @@ export function JejuWoohyukmonPanel({ embedded = false }: { embedded?: boolean }
       </div>
 
       <div className="border-t border-[#0d5962]/12 p-3 sm:p-4">
+        {savedConversation.warning ? <p role="status" className="mb-2 text-xs text-red-700">{savedConversation.warning}</p> : null}
+        {access.isLoggedIn ? <label className="mb-2 flex items-center gap-2 text-xs text-[#4c6769]" title={korean ? "내 계정의 저장된 대화만 참고합니다. 끄더라도 기록 저장은 계속됩니다." : "Uses only your saved conversations. History is still saved when this is off."}>
+          <input type="checkbox" checked={memory.enabled} onChange={(event) => memory.setEnabled(event.target.checked)} />
+          {korean ? "이전 대화 참고" : "Use my saved conversations"}
+        </label> : null}
         {locationMessage ? <p className="mb-2 text-xs leading-5 text-[#4c6769]">{locationMessage}</p> : null}
         <form onSubmit={(event) => ask(event)} className="flex gap-2">
           <input value={input} onChange={(event) => setInput(event.target.value)} placeholder={korean ? "우혁몬에게 다음 경험을 물어보세요" : "Ask Woohyukmon what to do next"} className="min-h-12 min-w-0 flex-1 rounded-xl border border-[#0d5962]/25 bg-white px-3 text-sm text-[#073c44] outline-none focus:border-[#0d5962]" />
