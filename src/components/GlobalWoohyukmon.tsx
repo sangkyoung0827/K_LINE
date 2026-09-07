@@ -1,4 +1,5 @@
 "use client";
+import { WoohyukmonPromptInput } from "@/components/WoohyukmonPromptInput";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
 import { useConversationMemory } from "@/hooks/useConversationMemory";
 import { useSavedConversation } from "@/hooks/useSavedConversation";
@@ -633,14 +634,15 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
               event.preventDefault();
               void send(input);
             }}
-            className="flex gap-2 border-t border-ink/10 bg-white/85 p-3"
+            className="flex shrink-0 items-start gap-2 border-t border-ink/10 bg-white/85 p-3"
           >
-            <input
+            <WoohyukmonPromptInput
               value={input}
               onChange={(event) => setInput(event.target.value)}
               disabled={busy}
               placeholder="자연어로 업무를 입력하세요"
-              className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/12 bg-white px-3 text-sm text-ink outline-none focus:border-brass"
+              aria-label="우혁몬에게 보낼 업무 메시지"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/12 bg-white px-3 py-2 text-sm leading-6 text-ink outline-none focus:border-brass"
             />
             <button
               type="submit"
