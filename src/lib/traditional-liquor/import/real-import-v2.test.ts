@@ -252,6 +252,10 @@ test("TEST 22: production database screen does not expose the fixture collector"
 test("TEST 23: WooHyukmon uses Traditional Liquor DB before optional external search", async () => {
   const route = await readFile(join(process.cwd(), "src/app/api/gemini/route.ts"), "utf8");
   assert.match(route, /traditionalLiquor\?\.hasRecords/);
-  assert.match(route, /explicitlyRequestsExternalResearch/);
+  assert.match(route, /shouldSearchExternal\(message/);
+  const { shouldSearchExternal } = await import("../../woohyukmon/intent");
+  assert.equal(shouldSearchExternal("막걸리 가격 분석", { hasInternalAnswer: true }), false);
+  assert.equal(shouldSearchExternal("막걸리 가격 웹 검색", { hasInternalAnswer: true }), true);
+  assert.equal(shouldSearchExternal("막걸리 가격 분석", { traditionalLiquorNeedsResearch: true }), true);
   assert.match(route, /needsExternalSearch\s*\?\s*await searchExternalSources/);
 });

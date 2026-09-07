@@ -1,5 +1,6 @@
 import { generateAnswer, hasGenerationProvider } from "@/lib/woohyukmon/generation";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
+import { conversationAnswerRules, isConversationAdvice, isMemberSummaryRequest, retrievalQuery, shouldSearchExternal } from "@/lib/woohyukmon/intent";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
 import {
@@ -137,7 +138,7 @@ Answer style:
 - Never write standalone separator lines such as ---.
 - Never abbreviate with "중략", "...", "[...]", or a similar omission marker.
 - Never stop in the middle of a sentence. If the answer would become long, make it shorter and finish with a complete final sentence.
-- If external search sources are not available or do not support the answer, say that web search did not return enough reliable information and continue only with general guidance.
+- Only if web research was needed and attempted but returned no supporting sources, explain that limitation. Ordinary conversation does not require web sources.
 
 Important behavior:
 - For ECC joining questions, guide the user to the ECC new member registration page.
@@ -178,14 +179,16 @@ Conversation continuity:
 - Do not repeatedly introduce yourself or repeat K_LINE, ECC, Han-hwal, membership, or site navigation unless the user asks about that subject.
 - Focus on the user's exact request. If the subject changes, follow the new subject without redirecting it back to club information.
 - WooHyukmon 4.0 can read server-supplied Knowledge DB, Traditional Liquor DB, and non-identifying K_LINE operational summaries for every user. This is read-only access and never grants admin actions.
-- Never claim that you can view, edit, upload, publish, approve, or change live K_LINE data unless the server explicitly provides that authorized live action or data.${postDraftRule}${jejuGuideRule}`;
+- Never claim that you can view, edit, upload, publish, approve, or change live K_LINE data unless the server explicitly provides that authorized live action or data.${postDraftRule}${jejuGuideRule}
+${conversationAnswerRules}`;
 }
 
 async function buildPublicV4OperationalContext(message: string) {
+  if (isConversationAdvice(message)) return "";
   const normalized = message.toLowerCase();
   const wantsFund = /자금|잔액|후원금|fund|balance|donation/.test(normalized);
   const wantsApplications = /신청.*(?:현황|수|명단)|application.*(?:count|status)|신청자/.test(normalized);
-  const wantsMembers = /회원.*(?:현황|수|명단)|member.*(?:count|status|summary)|가입자/.test(normalized);
+  const wantsMembers = isMemberSummaryRequest(message);
   if (!wantsFund && !wantsApplications && !wantsMembers) return "";
 
   const lines = [
@@ -279,10 +282,6 @@ function getConfiguredSearchProviders() {
     "DuckDuckGo",
     "Wikipedia"
   ];
-}
-
-function explicitlyRequestsExternalResearch(message: string) {
-  return /(?:외부|인터넷|웹|구글|네이버)\s*(?:검색|조사)|추가\s*(?:검색|조사)|search\s+(?:the\s+)?web|external\s+(?:search|research)|latest\s+(?:news|web)/i.test(message);
 }
 
 function buildExternalSearchContext(results: ExternalSearchResult[]) {
@@ -606,6 +605,7 @@ export async function POST(request: Request) {
   }
 
   const history = cleanMessages(body.history);
+  const query = retrievalQuery(message, history);
   const mode = body.mode === "post_draft" ? "post_draft" : "chat";
   const modelVersion = body.modelVersion === "2" || body.modelVersion === "3" ? body.modelVersion : "4";
   const isPublicV4 = modelVersion === "4";
@@ -670,13 +670,12 @@ export async function POST(request: Request) {
           ...(traditionalLiquor?.hasRecords ? ["Traditional Liquor DB"] : []),
           ...(operationalContext ? ["K_LINE Operational DB"] : [])
         ];
-        const needsExternalSearch = Boolean(businessCollectionRequest)
-          || explicitlyRequestsExternalResearch(message)
-          || (experienceContext === "jeju" && !jejuGuide?.hasPlaces)
-          || (experienceContext !== "jeju"
-            && !eccAnnouncementRequest
-            && databaseProviders.length === 0
-            && (!traditionalLiquorQuestion || !traditionalLiquor?.hasRecords));
+        const needsExternalSearch = shouldSearchExternal(message, {
+          businessCollection: Boolean(businessCollectionRequest),
+          journeyNeedsPlaces: experienceContext === "jeju" && !jejuGuide?.hasPlaces,
+          traditionalLiquorNeedsResearch: traditionalLiquorQuestion && !traditionalLiquor?.hasRecords,
+          hasInternalAnswer: databaseProviders.length > 0
+        });
 
         controller.enqueue(
           ndjson({
@@ -690,7 +689,7 @@ export async function POST(request: Request) {
               ? `비즈니스 데이터 수집 시작 · ${configuredProviders.join(" · ")}`
               : needsExternalSearch
                 ? `${configuredProviders.join(" · ")} 검색 중`
-                : `${databaseProviders.join(" · ")} 조회 완료`,
+                : databaseProviders.length ? `${databaseProviders.join(" · ")} 조회 완료` : "대화 맥락 확인 중",
             providers: needsExternalSearch ? configuredProviders : databaseProviders,
             sourceCount: (jejuGuide ? 1 : 0)
               + (eccAnnouncementRequest ? 1 : 0)
@@ -700,7 +699,7 @@ export async function POST(request: Request) {
         );
 
         const { results: externalResults, usedProviders } = needsExternalSearch
-          ? await searchExternalSources(businessCollectionRequest?.query ?? message)
+          ? await searchExternalSources(businessCollectionRequest?.query ?? query)
           : { results: [], usedProviders: [] };
         const businessCollection = businessCollectionRequest
           ? runEphemeralBusinessDataPipeline(businessCollectionRequest, externalResults)
@@ -726,7 +725,7 @@ export async function POST(request: Request) {
           && !businessCollectionRequest
           && !eccAnnouncementRequest
           && (developerAccess.isDeveloper || isPublicV4)
-          ? await searchKnowledge({ limit: 8, query: message }).catch((error) => {
+          ? await searchKnowledge({ limit: 8, query }).catch((error) => {
               console.error("WooHyukmon private knowledge retrieval failed", error);
               return [];
             })
@@ -772,7 +771,7 @@ export async function POST(request: Request) {
               groundingChunks: allSources,
               providers: allProviders,
               sourceCount: groundedContextCount,
-              webSearchQueries: needsExternalSearch ? [message] : []
+              webSearchQueries: needsExternalSearch ? [businessCollectionRequest?.query ?? query] : []
             })
           );
           controller.enqueue(
@@ -788,9 +787,9 @@ export async function POST(request: Request) {
           controller.enqueue(
             ndjson({
               type: "status",
-              status: "external_search_no_results",
-              label: "외부 검색 결과 부족 · 일반 답변 준비 중",
-              providers: configuredProviders,
+              status: needsExternalSearch ? "external_search_no_results" : "conversation_ready",
+              label: needsExternalSearch ? "외부 검색 결과 부족 · 일반 답변 준비 중" : "대화 맥락에 맞춰 답변 준비 중",
+              providers: needsExternalSearch ? configuredProviders : [],
               sourceCount: 0
             })
           );
@@ -848,7 +847,7 @@ export async function POST(request: Request) {
             groundingChunks: allSources,
             providers: allProviders,
             sourceCount: groundedContextCount,
-            webSearchQueries: needsExternalSearch ? [message] : []
+            webSearchQueries: needsExternalSearch ? [businessCollectionRequest?.query ?? query] : []
           })
         );
       } catch (error) {

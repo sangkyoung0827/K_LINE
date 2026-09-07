@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isConversationAdvice, isMemberSummaryRequest } from "@/lib/woohyukmon/intent";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { cleanText } from "@/lib/supabaseServer";
 import {
@@ -721,11 +722,7 @@ async function resolveReadMember(
     };
   }
 
-  if (
-    /(?:ecc\s*)?(?:총\s*)?회원.*(?:몇\s*명|몇명|현황|통계|수)|현재.*ecc.*회원|member.*(?:count|summary|statistics)/i.test(
-      message
-    )
-  ) {
+  if (isMemberSummaryRequest(message)) {
     const stats = await getMemberStatistics();
     return {
       handled: true,
@@ -921,6 +918,9 @@ export async function POST(request: Request) {
   if (!message) {
     return NextResponse.json({ error: "Message is required." }, { status: 400 });
   }
+
+  // Quoted member conversations belong to the assistant, not the admin tools.
+  if (isConversationAdvice(message)) return json({ handled: false });
 
   if (
     /(?:raw\s*)?sql|service.?role|환경\s*변수|environment\s*variable|api\s*key|secret|github|vercel|shell|터미널|임의\s*코드|arbitrary\s*code/i.test(
