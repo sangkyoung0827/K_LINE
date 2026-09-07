@@ -1,4 +1,5 @@
 "use client";
+import { WoohyukmonPromptInput } from "@/components/WoohyukmonPromptInput";
 
 import { LocateFixed, Send } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -174,8 +175,8 @@ export function JejuWoohyukmonPanel({ embedded = false }: { embedded?: boolean }
           {korean ? "이전 대화 참고" : "Use my saved conversations"}
         </label> : null}
         {locationMessage ? <p className="mb-2 text-xs leading-5 text-[#4c6769]">{locationMessage}</p> : null}
-        <form onSubmit={(event) => ask(event)} className="flex gap-2">
-          <input value={input} onChange={(event) => setInput(event.target.value)} placeholder={korean ? "우혁몬에게 다음 경험을 물어보세요" : "Ask Woohyukmon what to do next"} className="min-h-12 min-w-0 flex-1 rounded-xl border border-[#0d5962]/25 bg-white px-3 text-sm text-[#073c44] outline-none focus:border-[#0d5962]" />
+        <form onSubmit={(event) => ask(event)} className="flex items-start gap-2">
+          <WoohyukmonPromptInput value={input} onChange={(event) => setInput(event.target.value)} aria-label={korean ? "우혁몬에게 보낼 여행 메시지" : "Journey message to Woohyukmon"} placeholder={korean ? "우혁몬에게 다음 경험을 물어보세요" : "Ask Woohyukmon what to do next"} className="min-h-12 min-w-0 flex-1 rounded-xl border border-[#0d5962]/25 bg-white px-3 py-2.5 text-sm leading-6 text-[#073c44] outline-none focus:border-[#0d5962]" />
           <button disabled={sending} type="submit" className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#0d5962] text-white transition hover:bg-[#073c44] disabled:opacity-60" aria-label="Send question"><Send aria-hidden className="h-5 w-5" /></button>
         </form>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">

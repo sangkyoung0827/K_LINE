@@ -1,4 +1,5 @@
 "use client";
+import { WoohyukmonPromptInput } from "@/components/WoohyukmonPromptInput";
 import { useConversationMemory } from "@/hooks/useConversationMemory";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
 
@@ -393,7 +394,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
   const [error, setError] = useState("");
   const [activeAssistantId, setActiveAssistantId] = useState("");
   const [activeAnalyticsState, setActiveAnalyticsState] = useState<TraditionalLiquorAnalyticsResponse | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastSentAtRef = useRef(0);
@@ -1057,7 +1058,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
         event.preventDefault();
         addAttachments(event.dataTransfer.files);
       }}
-      className={`relative flex w-full gap-2 ${
+      className={`relative flex w-full items-start gap-2 ${
         mode === "center"
           ? "rounded-[1.1rem] border border-navy/14 bg-white p-2 shadow-[0_14px_34px_rgba(31,42,68,0.10)]"
           : "border-t border-navy/10 bg-white/82 p-3 md:p-4"
@@ -1086,12 +1087,13 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
           </button>
         </>
       ) : null}
-      <input
+      <WoohyukmonPromptInput
         ref={inputRef}
         value={input}
         onChange={(event) => setInput(event.target.value)}
         placeholder={language === "ko" ? "우혁몬에게 무엇이든 물어보세요" : "Ask Woohyukmon anything"}
-        className={`min-h-12 min-w-0 flex-1 bg-paper px-3 text-sm text-ink outline-none transition focus:ring-2 focus:ring-brass/20 sm:px-4 ${
+        aria-label={language === "ko" ? "우혁몬에게 보낼 메시지" : "Message to Woohyukmon"}
+        className={`min-h-12 min-w-0 flex-1 bg-paper px-3 py-2.5 text-sm leading-6 text-ink outline-none transition focus:ring-2 focus:ring-brass/20 sm:px-4 ${
           mode === "center"
             ? "rounded-xl border border-transparent focus:border-brass"
             : "rounded-xl border border-navy/14 focus:border-brass"
