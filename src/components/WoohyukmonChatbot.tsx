@@ -1,4 +1,5 @@
 "use client";
+import { useConversationMemory } from "@/hooks/useConversationMemory";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
 
 import {
@@ -374,6 +375,7 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
 export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
   const { language } = useLanguage();
   const access = useSuperAdmin();
+  const memory = useConversationMemory(access.email);
   const router = useRouter();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -613,7 +615,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
     const data = await fetchJson<{ chat: SavedChat }>("/api/woohyukmon/chats", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ firstMessage, projectId })
+      body: JSON.stringify({ firstMessage, projectId, expectedUserId: access.email })
     });
 
     setSelectedChatId(data.chat.id);
@@ -630,6 +632,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chatId,
+          expectedUserId: access.email,
           content: message.analytics ? serializeTraditionalLiquorAnalytics(message.analytics) : message.content,
           model: "gemini",
           providers: message.providers,
@@ -869,7 +872,9 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
           history: conversationHistory(apiHistory),
           mode: postIntent ? "post_draft" : "chat",
           localBoardPosts: readLocalBoardPostsForAssistant(),
-          modelVersion
+          modelVersion,
+          memoryEnabled: memory.enabled,
+          expectedUserId: access.email
         })
       });
 
@@ -1335,6 +1340,12 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
           </button>
         </div>
 
+        {access.isLoggedIn ? (
+          <label className="flex items-center gap-2 border-b border-navy/10 px-4 py-2 text-xs text-muted" title={language === "ko" ? "내 계정의 저장된 대화만 참고합니다. 끄면 현재 대화만 사용합니다. 기록 저장은 계속됩니다." : "Uses only your saved conversations. Turning this off keeps the current conversation only; history is still saved."}>
+            <input type="checkbox" checked={memory.enabled} onChange={(event) => memory.setEnabled(event.target.checked)} />
+            {language === "ko" ? "이전 대화 참고" : "Use my saved conversations"}
+          </label>
+        ) : null}
         <div className="min-h-[400px] flex-1 overflow-y-auto p-4 sm:min-h-[440px] sm:p-5 md:p-7 lg:p-8">
           {isEmptyConversation ? (
             <div className="mx-auto flex min-h-[430px] w-full max-w-3xl flex-col items-center justify-center pb-5 sm:min-h-[520px] sm:pb-8">

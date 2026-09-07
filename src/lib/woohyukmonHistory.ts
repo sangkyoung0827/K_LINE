@@ -231,11 +231,12 @@ export async function listWoohyukmonMessages(chatId: string, userId: string) {
     return null;
   }
 
-  return supabaseRequest<WoohyukmonMessageRow[]>(
+  const rows = await supabaseRequest<WoohyukmonMessageRow[]>(
     `woohyukmon_messages?select=${messageColumns}&chat_id=eq.${encodeURIComponent(
       chatId
-    )}&user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc&limit=200`
+    )}&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=200`
   );
+  return rows.reverse();
 }
 
 export async function createWoohyukmonMessage(input: {

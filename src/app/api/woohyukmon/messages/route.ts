@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { matchesExpectedOwner } from "@/lib/woohyukmon/memory";
 import {
   createWoohyukmonMessage,
   getWoohyukmonChatForUser,
@@ -56,7 +57,11 @@ export async function POST(request: Request) {
       role?: unknown;
       sources?: unknown;
       status?: unknown;
+      expectedUserId?: unknown;
     };
+    if (!matchesExpectedOwner(body.expectedUserId, userId)) {
+      return NextResponse.json({ error: "Your signed-in account changed. Reload the chat." }, { status: 409 });
+    }
     const chatId = typeof body.chatId === "string" ? body.chatId : "";
 
     if (!chatId) {

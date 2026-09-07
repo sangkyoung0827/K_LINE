@@ -3,17 +3,20 @@
 import { useEffect, useState, type ComponentType } from "react";
 
 type AccessResponse = {
+  email?: string;
   isAdmin?: boolean;
   role?: string;
 };
 
 type AgentProps = {
   actorRole: string;
+  actorEmail: string;
 };
 
 export function GlobalWoohyukmonGate() {
   const [Agent, setAgent] = useState<ComponentType<AgentProps> | null>(null);
   const [actorRole, setActorRole] = useState("");
+  const [actorEmail, setActorEmail] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -34,6 +37,7 @@ export function GlobalWoohyukmonGate() {
         if (controller.signal.aborted) return;
 
         setActorRole(access.role || "admin");
+        setActorEmail(access.email || "");
         setAgent(() => module.GlobalWoohyukmon);
       })
       .catch(() => undefined);
@@ -47,5 +51,5 @@ export function GlobalWoohyukmonGate() {
     return null;
   }
 
-  return <Agent actorRole={actorRole} />;
+  return <Agent key={actorEmail} actorRole={actorRole} actorEmail={actorEmail} />;
 }

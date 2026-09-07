@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { matchesExpectedOwner } from "@/lib/woohyukmon/memory";
 import {
   createWoohyukmonChat,
   ensureDefaultWoohyukmonProject,
@@ -54,7 +55,11 @@ export async function POST(request: Request) {
       firstMessage?: unknown;
       projectId?: unknown;
       title?: unknown;
+      expectedUserId?: unknown;
     };
+    if (!matchesExpectedOwner(body.expectedUserId, userId)) {
+      return NextResponse.json({ error: "Your signed-in account changed. Reload the chat." }, { status: 409 });
+    }
     const fallbackProjects = await ensureDefaultWoohyukmonProject(userId);
     const requestedProjectId = typeof body.projectId === "string" ? body.projectId : "";
     const project =

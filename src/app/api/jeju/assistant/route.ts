@@ -1,5 +1,7 @@
 import { generateAnswer, hasGenerationProvider } from "@/lib/woohyukmon/generation";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
+import { loadPersonalMemory } from "@/lib/woohyukmon/personal-memory";
+import { matchesExpectedOwner, personalStyleInstruction } from "@/lib/woohyukmon/memory";
 import { auth } from "@/auth";
 import { buildJejuWoohyukmonContext } from "@/lib/jeju/ai-context";
 
@@ -40,14 +42,15 @@ export async function POST(request: Request) {
   const email = session?.user?.email?.trim().toLowerCase();
   if (!email) return Response.json({ error: "Google login is required." }, { status: 401 });
 
-  let body: { message?: unknown; history?: unknown; currentLocation?: unknown };
+  let body: { message?: unknown; history?: unknown; currentLocation?: unknown; memoryEnabled?: unknown; expectedUserId?: unknown };
   try {
-    body = (await request.json()) as { message?: unknown; history?: unknown; currentLocation?: unknown };
+    body = (await request.json()) as typeof body;
   } catch {
     return Response.json({ error: "Invalid JSON request body." }, { status: 400 });
   }
 
   const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
+  if (!matchesExpectedOwner(body.expectedUserId, email)) return Response.json({ error: "Your signed-in account changed. Reload the chat." }, { status: 409 });
   if (!message) return Response.json({ error: "Message is required." }, { status: 400 });
   const history = conversationHistory(body.history);
   const context = await buildJejuWoohyukmonContext({ email, currentLocation: body.currentLocation });
@@ -63,12 +66,13 @@ export async function POST(request: Request) {
         }
       }, 10_000);
       try {
+        const memory = await loadPersonalMemory(email, message, body.memoryEnabled === true);
         controller.enqueue(ndjson({ type: "status", label: "K_LINE journey records loaded" }));
         const result = await generateAnswer({
-          system: systemInstruction,
+          system: `${systemInstruction}\n\n${personalStyleInstruction(message, memory.preferences)}`,
           history,
           message,
-          context: context.text,
+          context: [context.text, memory.context].filter(Boolean).join("\n\n"),
           signal,
           temperature: 0.25,
           onProvider(provider, fallback) {
