@@ -1,6 +1,6 @@
 import { generateAnswer, hasGenerationProvider } from "@/lib/woohyukmon/generation";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
-import { conversationAnswerRules, isConversationAdvice, isMemberSummaryRequest, retrievalQuery, shouldSearchExternal } from "@/lib/woohyukmon/intent";
+import { adviceSystemInstruction, conversationAnswerRules, isConversationAdvice, isMemberSummaryRequest, retrievalQuery, shouldRetrieveKnowledge, shouldSearchExternal } from "@/lib/woohyukmon/intent";
 import { auth } from "@/auth";
 import { getAdminAccess } from "@/lib/admin";
 import {
@@ -550,7 +550,9 @@ async function streamGeminiAnswer({
   experienceContext?: string;
 }) {
   const result = await generateAnswer({
-    system: buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion, experienceContext),
+    system: isConversationAdvice(message) && mode !== "post_draft"
+      ? adviceSystemInstruction(message)
+      : buildWoohyukmonSystemInstruction(history, mode, attachmentNames, modelVersion, experienceContext),
     history,
     message,
     context: externalSearchContext,
@@ -722,6 +724,7 @@ export async function POST(request: Request) {
           }
         }
         const knowledgeResults = experienceContext !== "jeju"
+          && shouldRetrieveKnowledge(query)
           && !businessCollectionRequest
           && !eccAnnouncementRequest
           && (developerAccess.isDeveloper || isPublicV4)
