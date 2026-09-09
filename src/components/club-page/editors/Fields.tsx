@@ -1,8 +1,13 @@
 "use client";
-import { useRef, useState } from "react";
+import { createContext, useContext, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 import type { ClubKey } from "@/types/club-page";
 import styles from "../club-page.module.css";
+
+export const UploadContext = createContext({
+  count: 0,
+  changeCount: (_delta: number) => {},
+});
 
 export function Field({
   label,
@@ -47,6 +52,7 @@ export function ImageField({
   onChange: (value: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const uploads = useContext(UploadContext);
   const [error, setError] = useState("");
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -60,6 +66,7 @@ export function ImageField({
       return;
     }
     setBusy(true);
+    uploads.changeCount(1);
     setError("");
     try {
       const form = new FormData();
@@ -79,6 +86,7 @@ export function ImageField({
       );
     } finally {
       setBusy(false);
+      uploads.changeCount(-1);
     }
   }
   return (
@@ -90,6 +98,7 @@ export function ImageField({
             type="button"
             aria-label="이미지 제거"
             title="이미지 제거"
+            disabled={busy}
             onClick={() => onChange("")}
           >
             <X size={16} />

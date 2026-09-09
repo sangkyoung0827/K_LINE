@@ -60,6 +60,8 @@ function payload limit), JPEG/PNG/WebP only, extension and signature validation,
 decode, re-encode and metadata removal using sharp. Limit 24 million input pixels, resize within
 2400x2400. Unique server-generated paths `ecc/<uuid>.<ext>` or `hanhwal/<uuid>.<ext>`.
 Only controlled bucket URLs are stored in JSON. No base64, SVG, external image URLs, GIF, arbitrary filenames.
+While uploads are pending, save/publish/reload and destructive item removal are paused to prevent
+late upload callbacks attaching media to a different row. Ordinary text editing remains available.
 The public bucket is for intentional public website images, not private club documents.
 Unused uploads are retained to avoid deleting photos still referenced by published content.
 Future orphan-media cleanup must examine both draft and published snapshots before removal.

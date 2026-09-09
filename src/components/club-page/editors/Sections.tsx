@@ -1,8 +1,8 @@
 "use client";
 import { Plus, Trash2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import type { ClubKey, SectionDataMap, SectionType } from "@/types/club-page";
-import { Field, ImageField } from "./Fields";
+import { Field, ImageField, UploadContext } from "./Fields";
 import styles from "../club-page.module.css";
 export type EditorProps<K extends SectionType> = {
   clubKey: ClubKey;
@@ -23,6 +23,7 @@ function Items<T>({
   onChange: (items: T[]) => void;
   children: (item: T, set: (next: T) => void, index: number) => ReactNode;
 }) {
+  const uploads = useContext(UploadContext);
   return (
     <div>
       {items.map((item, index) => (
@@ -33,6 +34,7 @@ function Items<T>({
               type="button"
               aria-label={`${index + 1}번 항목 삭제`}
               title="항목 삭제"
+              disabled={uploads.count > 0}
               onClick={() => onChange(items.filter((_, i) => i !== index))}
             >
               <Trash2 size={16} />

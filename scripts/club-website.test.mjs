@@ -391,7 +391,12 @@ test("reject cross-origin writes, invalid club and excessive bodies before mutat
   const api = apiHarness("developer");
   assert.equal((await api.request("draft", "unknown")).status, 404);
   assert.equal(
-    (await api.request("publish", "ecc", "POST", { document: empty(), revision: 0 })).status,
+    (
+      await api.request("publish", "ecc", "POST", {
+        document: empty(),
+        revision: 0,
+      })
+    ).status,
     400,
   );
   assert.equal(
