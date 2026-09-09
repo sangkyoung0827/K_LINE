@@ -1,6 +1,15 @@
 "use client";
 
-import { CheckCircle2, RefreshCcw, Search, ShieldCheck, ShieldPlus, UserCheck, UserMinus } from "lucide-react";
+import {
+  CheckCircle2,
+  RefreshCcw,
+  Search,
+  ShieldCheck,
+  ShieldPlus,
+  Trash2,
+  UserCheck,
+  UserMinus
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import type { HanhwalAccess, HanhwalRole } from "@/lib/hanhwalAccess";
@@ -61,12 +70,12 @@ export function HanhwalPermissionManagementPanel() {
       const nextData = (await response.json()) as RolesResponse;
 
       if (!response.ok) {
-        throw new Error(nextData.error || "Hanhwal role data could not be loaded.");
+        throw new Error(nextData.error || "HANHWAL role data could not be loaded.");
       }
 
       setData(nextData);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Hanhwal role data could not be loaded.");
+      setError(loadError instanceof Error ? loadError.message : "HANHWAL role data could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -92,13 +101,57 @@ export function HanhwalPermissionManagementPanel() {
       const nextData = (await response.json()) as RolesResponse;
 
       if (!response.ok) {
-        throw new Error(nextData.error || "Hanhwal role change could not be saved.");
+        throw new Error(nextData.error || "HANHWAL role change could not be saved.");
       }
 
       setData(nextData);
       setMessage(language === "ko" ? "권한 변경이 저장되었습니다." : "Permission change saved.");
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Hanhwal role change could not be saved.");
+      setError(updateError instanceof Error ? updateError.message : "HANHWAL role change could not be saved.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteMemberData = async (member: ManagedMember) => {
+    const confirmed = window.confirm(
+      language === "ko"
+        ? `${member.name || member.email}님의 한활 가입 정보와 한활 자체 권한을 초기화하시겠습니까? 사이트 계정과 다른 K_LINE 데이터는 유지됩니다.`
+        : `Reset ${member.name || member.email}'s HANHWAL registration and HANHWAL-specific permissions? Their site account and other K_LINE data will remain.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/hanhwal/roles", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ action: "reset_hanhwal_member_data", email: member.email })
+      });
+      const nextData = (await response.json()) as RolesResponse;
+
+      if (!response.ok) {
+        throw new Error(nextData.error || "HANHWAL member data could not be reset.");
+      }
+
+      setData(nextData);
+      setMessage(
+        language === "ko"
+          ? "한활 가입 정보와 한활 자체 권한을 초기화했습니다."
+          : "The HANHWAL registration and HANHWAL-specific permission data were reset."
+      );
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error ? deleteError.message : "HANHWAL member data could not be reset."
+      );
     } finally {
       setLoading(false);
     }
@@ -122,7 +175,7 @@ export function HanhwalPermissionManagementPanel() {
   if (loading && !data) {
     return (
       <section className="paper-panel p-6 text-sm font-semibold text-ink/62">
-        <I18nText en="Loading Hanhwal permission system..." ko="한활 권한 정보를 불러오는 중..." />
+        <I18nText en="Loading HANHWAL permission system..." ko="한활 권한 정보를 불러오는 중..." />
       </section>
     );
   }
@@ -137,12 +190,12 @@ export function HanhwalPermissionManagementPanel() {
             <I18nText en="Permission control" ko="권한 관리" />
           </p>
           <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
-            <I18nText en="Hanhwal Permission System" ko="한활 권한 시스템" />
+            <I18nText en="HANHWAL Permission System" ko="한활 권한 시스템" />
           </h2>
           <p className="mt-3 text-sm leading-7 text-ink/64">
             <I18nText
-              en="Confirm official membership, approve admin requests, and manage Hanhwal role hierarchy."
-              ko="정식회원 승인, 관리자 요청 승인, Hanhwal 권한 계층을 관리합니다."
+              en="Confirm official membership, approve admin requests, and manage HANHWAL role hierarchy."
+              ko="정식회원 승인, 관리자 요청 승인, 한활 권한 계층을 관리합니다."
             />
           </p>
         </div>
@@ -316,6 +369,19 @@ export function HanhwalPermissionManagementPanel() {
                         className="inline-flex min-h-9 items-center gap-2 border border-red-900/20 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         <I18nText en="Revoke super" ko="슈퍼관리자 해제" />
+                      </button>
+                    ) : null}
+                    {me?.isDeveloper &&
+                    !member.access.isDeveloper &&
+                    member.email !== me.email ? (
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => void deleteMemberData(member)}
+                        className="inline-flex min-h-9 items-center gap-2 border border-red-900/25 px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                        <I18nText en="Delete" ko="삭제" />
                       </button>
                     ) : null}
                   </div>

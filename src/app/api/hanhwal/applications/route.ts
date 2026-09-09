@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
-import {
-  defaultHanhwalActivityStatuses,
-  hanhwalActivityTitles,
-  emptyHanhwalActivityCounts,
-  normalizeHanhwalActivityType,
-  type HanhwalActivityType
-} from "@/lib/hanhwalActivities";
+import { normalizeHanhwalActivityId } from "@/lib/hanhwalActivities";
 import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import { getHanhwalActivityStatuses } from "@/lib/hanhwalActivityStatuses";
+import { getHanhwalActivityCatalog } from "@/lib/hanhwalOperations";
 import {
   cleanText,
   SupabaseConfigError,
@@ -32,7 +27,7 @@ type SupabaseApplicationRow = {
 
 type HanhwalApplication = {
   id: string;
-  type: HanhwalActivityType;
+  type: string;
   activityTitle: string;
   name: string;
   gender: string;
@@ -73,12 +68,12 @@ function parseSupabaseError(error: SupabaseRequestError) {
 }
 
 function toClientApplication(row: SupabaseApplicationRow): HanhwalApplication {
-  const type = normalizeHanhwalActivityType(row.activity_id);
+  const type = normalizeHanhwalActivityId(row.activity_id);
 
   return {
     id: row.id,
     type,
-    activityTitle: row.activity_title ?? hanhwalActivityTitles[type],
+    activityTitle: row.activity_title?.trim() || type,
     name: row.name,
     gender: row.gender,
     nationality: row.nationality,
@@ -90,10 +85,11 @@ function toClientApplication(row: SupabaseApplicationRow): HanhwalApplication {
 }
 
 function countApplications(rows: SupabaseApplicationRow[]) {
-  const counts = emptyHanhwalActivityCounts();
+  const counts: Record<string, number> = {};
 
   rows.forEach((row) => {
-    counts[normalizeHanhwalActivityType(row.activity_id)] += 1;
+    const activityId = normalizeHanhwalActivityId(row.activity_id);
+    counts[activityId] = (counts[activityId] ?? 0) + 1;
   });
 
   return counts;
@@ -124,19 +120,11 @@ async function buildApplicationsResponse(includeApplications: boolean) {
 
 async function getAdminEmail() {
   const access = await getCurrentHanhwalAccess();
-
   return access.isAdmin ? access.email : "";
 }
 
 function apiErrorResponse(error: unknown) {
   if (error instanceof SupabaseConfigError) {
-    console.error("HANHWAL applications Supabase config error", {
-      message: error.message,
-      code: "HANHWAL_SUPABASE_CONFIG_MISSING",
-      details: undefined,
-      hint: undefined
-    });
-
     return NextResponse.json(
       {
         error:
@@ -149,19 +137,9 @@ function apiErrorResponse(error: unknown) {
 
   if (error instanceof SupabaseRequestError) {
     const supabaseError = parseSupabaseError(error);
-    console.error("HANHWAL applications Supabase error", {
-      message: supabaseError.message,
-      code: supabaseError.code,
-      details: supabaseError.details,
-      hint: supabaseError.hint
-    });
+    console.error("HANHWAL applications Supabase error", supabaseError);
   } else {
-    console.error("HANHWAL applications API error", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      code: "HANHWAL_APPLICATION_UNKNOWN_ERROR",
-      details: undefined,
-      hint: undefined
-    });
+    console.error("HANHWAL applications API error", error);
   }
 
   if (error instanceof SupabaseRequestError && error.status === 404) {
@@ -189,7 +167,6 @@ function apiErrorResponse(error: unknown) {
 export async function GET() {
   try {
     const access = await getCurrentHanhwalAccess();
-
     return NextResponse.json(await buildApplicationsResponse(access.isAdmin));
   } catch (error) {
     return apiErrorResponse(error);
@@ -211,11 +188,27 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as Record<string, unknown>;
-    const type = normalizeHanhwalActivityType(
-      cleanText(body.activity_id ?? body.activityId ?? body.type)
+    const activityId = normalizeHanhwalActivityId(
+      cleanText(body.activity_id ?? body.activityId ?? body.type, 80)
     );
+    const catalog = await getHanhwalActivityCatalog();
+    const catalogItem = catalog.find((item) => item.id === activityId);
+
+    if (!catalogItem) {
+      return NextResponse.json(
+        {
+          error: "This HANHWAL activity is no longer available.",
+          debugCode: "HANHWAL_ACTIVITY_NOT_AVAILABLE"
+        },
+        { status: 400 }
+      );
+    }
+
+    const requestedTitle = cleanText(body.activity_title ?? body.activityTitle, 160);
     const activityTitle =
-      cleanText(body.activity_title ?? body.activityTitle) || hanhwalActivityTitles[type];
+      requestedTitle === catalogItem.titleKo || requestedTitle === catalogItem.titleEn
+        ? requestedTitle
+        : catalogItem.titleEn;
     const name = cleanText(body.name ?? body.kakaoName);
     const gender = cleanText(body.gender);
     const nationality = cleanText(body.nationality);
@@ -235,33 +228,32 @@ export async function POST(request: Request) {
       );
     }
 
-    let statuses = defaultHanhwalActivityStatuses();
     let activityInstanceId = "";
     let requiresPayment = true;
 
     try {
       const statusResult = await getHanhwalActivityStatuses();
-      statuses = statusResult.statuses;
-      activityInstanceId = statusResult.activityInstances[type];
-      requiresPayment = statusResult.requiresPayment[type];
+
+      if (!statusResult.statuses[activityId]) {
+        return NextResponse.json(
+          {
+            error: "This HANHWAL activity application is currently closed.",
+            debugCode: "HANHWAL_ACTIVITY_APPLICATION_CLOSED"
+          },
+          { status: 403 }
+        );
+      }
+
+      activityInstanceId = statusResult.activityInstances[activityId] ?? "";
+      requiresPayment = statusResult.requiresPayment[activityId] !== false;
     } catch (error) {
       if (!(error instanceof SupabaseRequestError && error.status === 404)) {
         throw error;
       }
     }
 
-    if (!statuses[type]) {
-      return NextResponse.json(
-        {
-          error: "This HANHWAL activity application is currently closed.",
-          debugCode: "HANHWAL_ACTIVITY_APPLICATION_CLOSED"
-        },
-        { status: 403 }
-      );
-    }
-
     const application = {
-      activity_id: type,
+      activity_id: activityId,
       activity_title: activityTitle,
       name,
       gender,
@@ -284,15 +276,11 @@ export async function POST(request: Request) {
         `${tableName}?select=${selectedColumns}`,
         {
           method: "POST",
-          headers: {
-            Prefer: "return=representation"
-          },
+          headers: { Prefer: "return=representation" },
           body: JSON.stringify(trackedApplication)
         }
       );
     } catch (error) {
-      // The original Hanhwal application path remains available if the
-      // additive activity-history migration has not reached production yet.
       if (!activityInstanceId || !isMissingActivityHistoryColumn(error)) {
         throw error;
       }
@@ -301,9 +289,7 @@ export async function POST(request: Request) {
         `${tableName}?select=${selectedColumns}`,
         {
           method: "POST",
-          headers: {
-            Prefer: "return=representation"
-          },
+          headers: { Prefer: "return=representation" },
           body: JSON.stringify(application)
         }
       );
@@ -343,12 +329,8 @@ export async function PATCH(request: Request) {
           `${tableName}?id=eq.${encodeURIComponent(id)}&select=${selectedColumns}`,
           {
             method: "PATCH",
-            headers: {
-              Prefer: "return=representation"
-            },
-            body: JSON.stringify({
-              status: paid ? "paid" : "pending"
-            })
+            headers: { Prefer: "return=representation" },
+            body: JSON.stringify({ status: paid ? "paid" : "pending" })
           }
         )
       )
@@ -374,16 +356,15 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const url = new URL(request.url);
-    const type = normalizeHanhwalActivityType(url.searchParams.get("activity_id"));
+    const activityId = normalizeHanhwalActivityId(
+      new URL(request.url).searchParams.get("activity_id")
+    );
 
     await supabaseRequest<null>(
-      `${tableName}?activity_id=eq.${encodeURIComponent(type)}`,
+      `${tableName}?activity_id=eq.${encodeURIComponent(activityId)}`,
       {
         method: "DELETE",
-        headers: {
-          Prefer: "return=minimal"
-        }
+        headers: { Prefer: "return=minimal" }
       }
     );
 

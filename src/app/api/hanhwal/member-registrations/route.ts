@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import {
-  listHanhwalMemberRegistrations,
-  patchHanhwalMemberRegistration
+  getHanhwalMemberRegistrationById,
+  listHanhwalMemberRegistrations
 } from "@/lib/hanhwalMemberRegistrations";
-import {
-  approveHanhwalOfficialMember,
-  getCurrentHanhwalAccess,
-  revokeHanhwalOfficialMember
-} from "@/lib/hanhwalAccess";
+import { applyHanhwalMemberAdminUpdate } from "@/lib/hanhwalMemberAdminActions";
+import { resetHanhwalMemberRegistrationData } from "@/lib/hanhwalMemberDeletion";
+import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import {
   cleanText,
   SupabaseConfigError,
@@ -119,7 +117,7 @@ export async function PATCH(request: Request) {
       }>;
     };
     const updates = Array.isArray(body.registrations) ? body.registrations : [];
-    const updated = [];
+    const updatedRegistrations = [];
 
     for (const update of updates) {
       const id = cleanText(update.id, 120);
@@ -128,39 +126,62 @@ export async function PATCH(request: Request) {
         continue;
       }
 
-      const registration = await patchHanhwalMemberRegistration({
+      const result = await applyHanhwalMemberAdminUpdate({
         adminEmail: access.email,
         adminNote: cleanText(update.adminNote, 1200),
         id,
         paymentConfirmed: Boolean(update.paymentConfirmed)
       });
+      const registration = result.registration;
 
-      if (!registration) {
+      if (!registration || !result.changed) {
         continue;
       }
 
-      if (registration.paymentConfirmed) {
-        await approveHanhwalOfficialMember({
-          approvedBy: access.email,
-          avatarUrl: registration.googleAvatarUrl,
-          email: registration.googleEmail,
-          name: registration.googleName || registration.fullName
-        });
-      } else {
-        await revokeHanhwalOfficialMember({
-          email: registration.googleEmail,
-          revokedBy: access.email
-        });
-      }
-
-      updated.push(registration);
+      updatedRegistrations.push(registration);
     }
 
-    const registrations = await listHanhwalMemberRegistrations();
+    return NextResponse.json({
+      updatedCount: updatedRegistrations.length,
+      updatedRegistrations
+    });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const access = await getCurrentHanhwalAccess();
+
+    if (!access.isDeveloper) {
+      return NextResponse.json(
+        {
+          error: "Developer access is required to reset HANHWAL member registration data.",
+          debugCode: "HANHWAL_MEMBER_REGISTRATIONS_DELETE_FORBIDDEN"
+        },
+        { status: access.isLoggedIn ? 403 : 401 }
+      );
+    }
+
+    const body = (await request.json()) as { id?: unknown };
+    const registration = await getHanhwalMemberRegistrationById(cleanText(body.id, 120));
+
+    if (!registration) {
+      return NextResponse.json(
+        {
+          error: "HANHWAL member registration was not found.",
+          debugCode: "HANHWAL_MEMBER_REGISTRATION_NOT_FOUND"
+        },
+        { status: 404 }
+      );
+    }
+
+    const reset = await resetHanhwalMemberRegistrationData(registration.googleEmail);
 
     return NextResponse.json({
-      registrations,
-      updatedCount: updated.length
+      reset,
+      registrations: await listHanhwalMemberRegistrations()
     });
   } catch (error) {
     return apiErrorResponse(error);

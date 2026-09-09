@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const root = process.cwd();
@@ -22,7 +23,14 @@ const isolatedFiles = [
   "src/app/api/hanhwal/roles/route.ts"
 ];
 
-for (const file of isolatedFiles) {
+function sourceFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const file = `${directory}/${entry.name}`;
+    return entry.isDirectory() ? sourceFiles(file) : /\.(ts|tsx)$/.test(file) ? [file] : [];
+  });
+}
+
+for (const file of new Set([...isolatedFiles, ...sourceFiles("src").filter((file) => /hanhwal/i.test(file))])) {
   const source = read(file);
 
   if (/ecc_|\/api\/ecc|@\/lib\/ecc|useEccAccess|\/api\/club-board-posts|club_board_posts|freeBoardStorage/.test(source)) {
@@ -31,6 +39,9 @@ for (const file of isolatedFiles) {
 
   if (/SUPABASE_SERVICE_ROLE_KEY/.test(source) && source.includes('"use client"')) {
     throw new Error(`${file} exposes a server-only Supabase credential name in client code.`);
+  }
+  if (/saPt03Nh|gTRnoKzi|RQerLbSgvH|3333-30-3496426|ecc_jbnu/.test(source)) {
+    throw new Error(`${file} contains another organization's payment/chat details.`);
   }
 }
 
@@ -79,3 +90,4 @@ if (!hanhwalPosts.includes('const tableName = "hanhwal_board_posts"')) {
 }
 
 console.log("Hanhwal club isolation and permission checks passed.");
+execFileSync(process.execPath, ["--test", "scripts/hanhwal-parity.test.mjs"], { stdio: "inherit" });
