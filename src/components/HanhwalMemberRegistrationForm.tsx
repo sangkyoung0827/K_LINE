@@ -666,11 +666,7 @@ export function HanhwalMemberRegistrationForm() {
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                disabled={
-                  savingOperations ||
-                  !operationsDraft.inquiryChatUrl.trim() ||
-                  !operationsDraft.newMemberOpenChatUrl.trim()
-                }
+                disabled={savingOperations}
                 onClick={() => void saveOperationsInline()}
                 className="inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy disabled:opacity-60"
               >

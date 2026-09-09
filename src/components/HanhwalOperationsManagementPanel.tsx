@@ -252,7 +252,6 @@ function ChatSetting({
         </div>
         <p className="mt-2 text-xs leading-5 text-ink/54">{description}</p>
         <input
-          required
           type="url"
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -272,7 +271,7 @@ function ChatSetting({
         ) : null}
       </div>
 
-      {qrSrc ? (
+      {qrSrc && value ? (
         <div className="grid justify-items-center gap-2">
           <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.16em] text-ink/48">
             <QrCode className="h-3.5 w-3.5" />
