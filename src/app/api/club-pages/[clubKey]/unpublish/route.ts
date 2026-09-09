@@ -4,4 +4,3 @@ export const runtime = "nodejs";
 export function POST(request: Request, context: ClubRouteContext) {
   return handleClubRequest(request, context, "unpublish");
 }
-

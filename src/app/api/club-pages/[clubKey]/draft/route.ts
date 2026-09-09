@@ -7,4 +7,3 @@ export function GET(request: Request, context: ClubRouteContext) {
 export function PUT(request: Request, context: ClubRouteContext) {
   return handleClubRequest(request, context, "draft");
 }
-

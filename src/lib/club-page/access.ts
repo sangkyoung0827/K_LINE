@@ -10,6 +10,7 @@ export function getClubWebsiteAccess(club: ClubKey) {
 export async function requireClubEditor(club: ClubKey) {
   const access = await getClubWebsiteAccess(club);
   if (!access.isLoggedIn) throw new ClubPageError("로그인이 필요합니다.", 401);
-  if (!access.isAdmin) throw new ClubPageError("해당 동아리 관리자 권한이 필요합니다.", 403);
+  if (!access.isAdmin)
+    throw new ClubPageError("해당 동아리 관리자 권한이 필요합니다.", 403);
   return access;
 }

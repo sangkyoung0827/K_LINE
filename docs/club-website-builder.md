@@ -4,6 +4,8 @@
 
 - Base: `ce5f875422708ab76a736b5a0d2516707a248bdc` (latest `origin/main` fetched 2026-09-10 KST).
 - Independent branch: `feat/club-website-builder`. Does not include the pending Hanhwal parity PR.
+- Draft PR: https://github.com/sangkyoung0827/K_LINE/pull/22
+- Preview: https://kline-git-feat-club-website-builder-studymap4yous-projects.vercel.app
 - Migration prepared but **not applied to Production**. User confirmed it has not been executed.
 - Storage bucket prepared in SQL; its existence in Production has **not been verified**.
 - Do not merge/deploy before `supabase/club_pages.sql` is executed and verified, and Browser Safety CI passes.
@@ -105,6 +107,14 @@ No font-picker dependency. No metadata/favicon/manifest changes.
   Desktop 1280x900, mobile 390x844, tablet 768x1024 inspected. Added all seven blocks, edited text,
   changed theme, saved, reordered with keyboard, published with confirmation, switched mobile tabs,
   rejected an invalid link without losing input. Public snapshot stayed unchanged after later draft save.
+- Hanhwal fixture starts with its own empty draft and `/hanhwal-join` recruit link. Simulated failed save
+  retained typed content; retry and local block removal worked.
+- Real Next.js local HTTP smoke: both club home routes/public website routes return 200; both join/official
+  and editor routes redirect logged-out requests to login; both draft APIs return 401; font returns 200.
+  Development watcher initially hit the machine's open-file limit; local polling resolved it without
+  changing repository configuration. No production credentials were used for these HTTP checks.
+- Initial PR commit passed full GitHub Browser Safety and Vercel preview build. Require the final PR
+  head checks to remain green before merge; production is still intentionally unchanged.
 - Production-authenticated upload/save/publish and actual Supabase storage are pending migration and release.
 
 ## Preservation / Rollback
