@@ -4,6 +4,8 @@ const publicFilePattern =
   /\.(?:avif|gif|html|ico|jpeg|jpg|json|png|svg|txt|webmanifest|webp|xml)$/i;
 
 const publicSeoPages = new Set([
+  "/clubs/ecc",
+  "/clubs/hanhwal",
   "/",
   "/archery-class",
   "/contact",
@@ -17,6 +19,8 @@ const publicSeoPages = new Set([
 ]);
 
 const protectedPagePrefixes = [
+  "/our-activities/ecc/website/edit",
+  "/our-activities/hanhwal/website/edit",
   "/admin",
   "/cart",
   "/checkout",
@@ -42,6 +46,7 @@ const protectedPagePrefixes = [
 function isPublicPath(pathname: string) {
   return (
     pathname === "/login" ||
+    pathname === "/club-pretendard.woff2" ||
     pathname.startsWith("/ecc-alumni") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/api/") ||

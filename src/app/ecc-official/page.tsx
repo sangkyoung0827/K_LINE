@@ -6,7 +6,7 @@ import {
   Banknote,
   ClipboardList,
   Lock,
-  MessageSquareText,
+  Globe2,
   Settings,
   ShieldCheck
 } from "lucide-react";
@@ -18,6 +18,8 @@ import { I18nText } from "@/components/LanguageProvider";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { getEccOperationalSettings } from "@/lib/eccOperations";
 import { createNoIndexMetadata } from "@/lib/seo";
+import { isClubWebsitePublished } from "@/lib/club-page/server";
+import { CLUB_PAGE_CONFIG } from "@/lib/club-page/config";
 
 export const metadata: Metadata = createNoIndexMetadata({
   title: "ECC OFFICIAL",
@@ -71,6 +73,8 @@ export default async function EccOfficialPage() {
 
   const operations = await getEccOperationalSettings();
   const teamChatUrl = operations.officialTeamChatUrl;
+  const website = CLUB_PAGE_CONFIG.ecc;
+  const showWebsite = access.isAdmin || await isClubWebsitePublished("ecc");
 
   return (
     <OfficialShell>
@@ -90,11 +94,13 @@ export default async function EccOfficialPage() {
             <I18nText en="Next" ko="다음 할 일" />
           </p>
           <div className="overflow-hidden border border-ink/10 bg-white/50">
-            <OfficialRow
-              href="/our-activities/ecc/free-board"
-              icon={MessageSquareText}
-              title={<I18nText en="Board" ko="ECC 게시판" />}
-            />
+            {showWebsite ? <OfficialRow
+              href={access.isAdmin ? website.editPath : website.publicPath}
+              icon={Globe2}
+              title={access.isAdmin
+                ? <I18nText en="Build ECC Website" ko="ECC 웹사이트 만들기" />
+                : <I18nText en="View ECC Website" ko="ECC 웹사이트 보기" />}
+            /> : null}
             <OfficialRow
               href="/our-activities/ecc/activity"
               icon={ClipboardList}

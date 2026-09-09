@@ -7,7 +7,7 @@ import {
   ClipboardList,
   Lock,
   MessageCircle,
-  MessageSquareText,
+  Globe2,
   Settings,
   ShieldCheck
 } from "lucide-react";
@@ -16,6 +16,8 @@ import { HanhwalPermissionRequestCard } from "@/components/HanhwalPermissionRequ
 import { I18nText } from "@/components/LanguageProvider";
 import { getCurrentHanhwalAccess, getHanhwalOfficialTeamChatUrl } from "@/lib/hanhwalAccess";
 import { createNoIndexMetadata } from "@/lib/seo";
+import { isClubWebsitePublished } from "@/lib/club-page/server";
+import { CLUB_PAGE_CONFIG } from "@/lib/club-page/config";
 
 export const metadata: Metadata = createNoIndexMetadata({
   title: "Hanhwal OFFICIAL",
@@ -68,6 +70,8 @@ export default async function HanhwalOfficialPage() {
   }
 
   const teamChatUrl = getHanhwalOfficialTeamChatUrl();
+  const website = CLUB_PAGE_CONFIG.hanhwal;
+  const showWebsite = access.isAdmin || await isClubWebsitePublished("hanhwal");
 
   return (
     <OfficialShell>
@@ -111,11 +115,13 @@ export default async function HanhwalOfficialPage() {
             <I18nText en="Next" ko="다음 할 일" />
           </p>
           <div className="overflow-hidden border border-ink/10 bg-white/50">
-            <OfficialRow
-              href="/our-activities/hanhwal/free-board"
-              icon={MessageSquareText}
-              title={<I18nText en="Board" ko="한활 게시판" />}
-            />
+            {showWebsite ? <OfficialRow
+              href={access.isAdmin ? website.editPath : website.publicPath}
+              icon={Globe2}
+              title={access.isAdmin
+                ? <I18nText en="Build Hanhwal Website" ko="한활 웹사이트 만들기" />
+                : <I18nText en="View Hanhwal Website" ko="한활 웹사이트 보기" />}
+            /> : null}
             <OfficialRow
               href="/our-activities/hanhwal/activity"
               icon={ClipboardList}
