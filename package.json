@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "pretest": "npm run test:woohyukmon",
+    "pretest": "npm run test:club-website && npm run test:woohyukmon",
+    "test:club-website": "node --test scripts/club-website.test.mjs",
     "test:woohyukmon": "tsx --test src/lib/woohyukmon/*.test.ts",
     "dev": "next dev",
     "build": "next build",
@@ -30,6 +31,9 @@
     "check": "npm run test && npm run build && npm run check:v4-isolation"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@google/genai": "^2.13.0",
     "@napi-rs/canvas": "^1.0.5",
     "csv-parse": "^7.0.2",
@@ -45,6 +49,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "read-excel-file": "^9.3.10",
+    "sharp": "^0.35.4",
     "tus-js-client": "^4.3.1"
   },
   "devDependencies": {
