@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clipboard,
   Copy,
+  Edit3,
   Megaphone,
   Power,
   PowerOff,
@@ -44,13 +45,23 @@ type NoticeForm = {
   memo: string;
 };
 
-type ApplicationType =
-  | "gathering"
-  | "mt"
-  | "special"
-  | "opening"
-  | "farewell"
-  | "english-class";
+type ApplicationType = string;
+
+type ActivityCatalogItem = {
+  archived: boolean;
+  descriptionEn: string;
+  descriptionKo: string;
+  id: string;
+  sortOrder: number;
+  titleEn: string;
+  titleKo: string;
+};
+
+type ActivityCatalogApiResponse = {
+  activities?: ActivityCatalogItem[];
+  item?: ActivityCatalogItem;
+  error?: string;
+};
 
 type ApplicationForm = {
   name: string;
@@ -68,9 +79,9 @@ type HanhwalApplication = ApplicationForm & {
   createdAt: string;
 };
 
-type ApplicationCounts = Record<ApplicationType, number>;
-type ActivityStatuses = Record<ApplicationType, boolean>;
-type ActivityPaymentRequirements = Record<ApplicationType, boolean>;
+type ApplicationCounts = Record<string, number>;
+type ActivityStatuses = Record<string, boolean>;
+type ActivityPaymentRequirements = Record<string, boolean>;
 
 type ApplicationsApiResponse = {
   counts?: Partial<ApplicationCounts>;
@@ -89,14 +100,14 @@ type PaymentDrafts = Record<string, boolean>;
 
 const initialNoticeForms: Record<Language, NoticeForm> = {
   ko: {
-    title: "한활 정기 연습",
+    title: "한활 정기 모임",
     dateTime: "",
     location: "",
     preparation: "편한 복장, 개인 음료",
     memo: "늦거나 불참하는 경우 조장에게 미리 알려주세요."
   },
   en: {
-    title: "Hanhwal Regular Practice",
+    title: "HANHWAL Regular Gathering",
     dateTime: "",
     location: "",
     preparation: "Comfortable clothes, personal drink",
@@ -112,7 +123,7 @@ const initialApplicationForm: ApplicationForm = {
   otherRequests: ""
 };
 
-const applicationTypes: Array<{
+const defaultApplicationTypes: Array<{
   type: ApplicationType;
   labels: Record<Language, { title: string; description: string }>;
 }> = [
@@ -196,6 +207,26 @@ const applicationTypes: Array<{
   }
 ];
 
+
+const defaultActivityCatalog: ActivityCatalogItem[] = defaultApplicationTypes.map(
+  (item, index) => ({
+    id: item.type,
+    titleKo: item.labels.ko.title,
+    titleEn: item.labels.en.title,
+    descriptionKo: item.labels.ko.description,
+    descriptionEn: item.labels.en.description,
+    sortOrder: (index + 1) * 10,
+    archived: false
+  })
+);
+
+const emptyActivityDraft = {
+  titleKo: "",
+  titleEn: "",
+  descriptionKo: "",
+  descriptionEn: ""
+};
+
 const copy = {
   ko: {
     languageEyebrow: "Language",
@@ -266,7 +297,7 @@ const copy = {
     readOnly: "Read-only view",
     readOnlyTitle: "회원 현황 입력은 관리자 전용입니다",
     readOnlyDescription:
-      "일반 회원은 공개된 Hanhwal 회원 현황과 활동 내용을 확인할 수 있습니다. 붙여넣기, 조 편성, 공지문 생성은 관리자 이상으로 로그인한 경우에만 표시됩니다.",
+      "일반 회원은 공개된 한활 회원 현황과 활동 내용을 확인할 수 있습니다. 붙여넣기, 조 편성, 공지문 생성은 관리자 이상으로 로그인한 경우에만 표시됩니다.",
     checkingRole: "권한을 확인하는 중입니다.",
     memberStatus: "Member status",
     memberStatusTitle: "회원 현황",
@@ -374,7 +405,7 @@ const copy = {
     noApplicants: "No applicants yet.",
     submittedAt: "Submitted at",
     members: "Members",
-    registeredMembers: "Registered Hanhwal members",
+    registeredMembers: "Registered HANHWAL members",
     totalGathering: "Total gathering attendance",
     totalMt: "Total MT attendance",
     specialEventsTotal: "Special event records",
@@ -388,7 +419,7 @@ const copy = {
     readOnly: "Read-only view",
     readOnlyTitle: "Member status editing is for admins",
     readOnlyDescription:
-      "General members can view the public Hanhwal member status and activity records. Pasting data, making teams, and generating notices appear only for admins and higher roles.",
+      "General members can view the public HANHWAL member status and activity records. Pasting data, making teams, and generating notices appear only for admins and higher roles.",
     checkingRole: "Checking your role.",
     memberStatus: "Member status",
     memberStatusTitle: "Member Status",
@@ -399,7 +430,7 @@ const copy = {
     participation: "time(s)",
     notJoined: "Not joined",
     emptyMembersTitle: "No member status yet",
-    emptyMembersDescription: "Log in as an admin and paste the Hanhwal member list.",
+    emptyMembersDescription: "Log in as an admin and paste the HANHWAL member list.",
     teamMaker: "Team maker",
     teamMakerTitle: "Automatic Team Grouping",
     teamMakerDescription:
@@ -428,8 +459,8 @@ const copy = {
     copied: "Notice copied to clipboard.",
     copyFailed: "Copy was blocked. Please select and copy the notice manually.",
     noTeamsForNotice: "No teams have been generated yet.",
-    noticePrefix: "[Hanhwal Notice]",
-    defaultNoticeTitle: "Hanhwal Activity",
+    noticePrefix: "[HANHWAL Notice]",
+    defaultNoticeTitle: "HANHWAL Activity",
     dateLabel: "Date/Time",
     locationLabel: "Location",
     preparationLabel: "Preparation",
@@ -680,43 +711,39 @@ function emptyActivityPaymentRequirements(): ActivityPaymentRequirements {
 
 function normalizeApplicationCounts(counts?: Partial<ApplicationCounts>): ApplicationCounts {
   const empty = emptyApplicationCounts();
+  const normalized: ApplicationCounts = { ...empty };
 
-  return {
-    gathering: Number(counts?.gathering ?? empty.gathering),
-    mt: Number(counts?.mt ?? empty.mt),
-    special: Number(counts?.special ?? empty.special),
-    opening: Number(counts?.opening ?? empty.opening),
-    farewell: Number(counts?.farewell ?? empty.farewell),
-    "english-class": Number(counts?.["english-class"] ?? empty["english-class"])
-  };
+  Object.entries(counts ?? {}).forEach(([key, value]) => {
+    normalized[key] = Number(value ?? 0);
+  });
+
+  return normalized;
 }
 
 function normalizeActivityStatuses(statuses?: Partial<ActivityStatuses>): ActivityStatuses {
-  const empty = emptyActivityStatuses();
+  const normalized = emptyActivityStatuses();
 
-  return {
-    gathering: statuses?.gathering ?? empty.gathering,
-    mt: statuses?.mt ?? empty.mt,
-    special: statuses?.special ?? empty.special,
-    opening: statuses?.opening ?? empty.opening,
-    farewell: statuses?.farewell ?? empty.farewell,
-    "english-class": statuses?.["english-class"] ?? empty["english-class"]
-  };
+  Object.entries(statuses ?? {}).forEach(([key, value]) => {
+    if (typeof value === "boolean") {
+      normalized[key] = value;
+    }
+  });
+
+  return normalized;
 }
 
 function normalizeActivityPaymentRequirements(
   requirements?: Partial<ActivityPaymentRequirements>
 ): ActivityPaymentRequirements {
-  const empty = emptyActivityPaymentRequirements();
+  const normalized = emptyActivityPaymentRequirements();
 
-  return {
-    gathering: requirements?.gathering ?? empty.gathering,
-    mt: requirements?.mt ?? empty.mt,
-    special: requirements?.special ?? empty.special,
-    opening: requirements?.opening ?? empty.opening,
-    farewell: requirements?.farewell ?? empty.farewell,
-    "english-class": requirements?.["english-class"] ?? empty["english-class"]
-  };
+  Object.entries(requirements ?? {}).forEach(([key, value]) => {
+    if (typeof value === "boolean") {
+      normalized[key] = value;
+    }
+  });
+
+  return normalized;
 }
 
 export function HanhwalActivityPanel() {
@@ -750,6 +777,29 @@ export function HanhwalActivityPanel() {
   const [copyMessage, setCopyMessage] = useState("");
   const [paymentDrafts, setPaymentDrafts] = useState<PaymentDrafts>({});
   const [paymentMessage, setPaymentMessage] = useState("");
+  const [activityCatalog, setActivityCatalog] =
+    useState<ActivityCatalogItem[]>(defaultActivityCatalog);
+  const [activityDraft, setActivityDraft] = useState(emptyActivityDraft);
+  const [activityCatalogSaving, setActivityCatalogSaving] = useState(false);
+  const [activityCatalogMessage, setActivityCatalogMessage] = useState("");
+  const [editingActivityId, setEditingActivityId] = useState("");
+  const [editingActivityDraft, setEditingActivityDraft] =
+    useState(emptyActivityDraft);
+
+  const applicationTypes = useMemo(
+    () =>
+      activityCatalog
+        .filter((item) => !item.archived)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((item) => ({
+          type: item.id,
+          labels: {
+            ko: { title: item.titleKo, description: item.descriptionKo },
+            en: { title: item.titleEn, description: item.descriptionEn }
+          }
+        })),
+    [activityCatalog]
+  );
 
   const text = copy[language];
 
@@ -794,16 +844,21 @@ export function HanhwalActivityPanel() {
       setApplicationsLoading(true);
 
       try {
-        const [applicationsResponse, statusesResponse] = await Promise.all([
-          fetch("/api/hanhwal/applications", {
-            signal: controller.signal
-          }),
-          fetch("/api/hanhwal/activity-statuses", {
-            signal: controller.signal
-          })
-        ]);
+        const [applicationsResponse, statusesResponse, catalogResponse] =
+          await Promise.all([
+            fetch("/api/hanhwal/applications", {
+              signal: controller.signal
+            }),
+            fetch("/api/hanhwal/activity-statuses", {
+              signal: controller.signal
+            }),
+            fetch("/api/hanhwal/activity-catalog", {
+              signal: controller.signal
+            })
+          ]);
         const data = (await applicationsResponse.json()) as ApplicationsApiResponse;
         const statusData = (await statusesResponse.json()) as ActivityStatusesApiResponse;
+        const catalogData = (await catalogResponse.json()) as ActivityCatalogApiResponse;
 
         if (!applicationsResponse.ok) {
           throw new Error(data.error || text.applicationStorageError);
@@ -813,11 +868,20 @@ export function HanhwalActivityPanel() {
           throw new Error(statusData.error || text.activityStatusStorageError);
         }
 
+        if (!catalogResponse.ok) {
+          throw new Error(catalogData.error || text.activityStatusStorageError);
+        }
+
         setApplicationCounts(normalizeApplicationCounts(data.counts));
         setApplications(Array.isArray(data.applications) ? data.applications : []);
         setActivityStatuses(normalizeActivityStatuses(statusData.statuses));
         setActivityPaymentRequirements(
           normalizeActivityPaymentRequirements(statusData.requiresPayment)
+        );
+        setActivityCatalog(
+          Array.isArray(catalogData.activities) && catalogData.activities.length
+            ? catalogData.activities
+            : defaultActivityCatalog
         );
         setActivityStatusTableReady(statusData.tableReady !== false);
         setApplicationError("");
@@ -857,15 +921,29 @@ export function HanhwalActivityPanel() {
     }
   }, [isAdmin, publicOpenApplication]);
 
+  useEffect(() => {
+    if (
+      applicationTypes.length > 0 &&
+      !applicationTypes.some((item) => item.type === activeApplicationType)
+    ) {
+      setActiveApplicationType(applicationTypes[0].type);
+    }
+  }, [activeApplicationType, applicationTypes]);
+
   const selectedApplications = useMemo(
     () => applications.filter((application) => application.type === activeApplicationType),
     [activeApplicationType, applications]
   );
 
-  const activeApplication = applicationTypes.find(
-    (application) => application.type === activeApplicationType
-  )!;
-  const activeApplicationIsOpen = activityStatuses[activeApplicationType];
+  const activeApplication =
+    applicationTypes.find(
+      (application) => application.type === activeApplicationType
+    ) ??
+    applicationTypes[0] ??
+    defaultApplicationTypes[0];
+  const activeApplicationIsOpen = Boolean(
+    activityStatuses[activeApplication.type]
+  );
 
   const changeLanguage = (nextLanguage: Language) => {
     setSiteLanguage(nextLanguage);
@@ -978,6 +1056,178 @@ export function HanhwalActivityPanel() {
     }
   };
 
+  const reloadActivityCatalog = async () => {
+    const [catalogResponse, statusesResponse] = await Promise.all([
+      fetch("/api/hanhwal/activity-catalog"),
+      fetch("/api/hanhwal/activity-statuses")
+    ]);
+    const catalogData = (await catalogResponse.json()) as ActivityCatalogApiResponse;
+    const statusData = (await statusesResponse.json()) as ActivityStatusesApiResponse;
+
+    if (!catalogResponse.ok) {
+      throw new Error(catalogData.error || text.activityStatusStorageError);
+    }
+
+    if (!statusesResponse.ok) {
+      throw new Error(statusData.error || text.activityStatusStorageError);
+    }
+
+    setActivityCatalog(
+      Array.isArray(catalogData.activities) && catalogData.activities.length
+        ? catalogData.activities
+        : defaultActivityCatalog
+    );
+    setActivityStatuses(normalizeActivityStatuses(statusData.statuses));
+    setActivityPaymentRequirements(
+      normalizeActivityPaymentRequirements(statusData.requiresPayment)
+    );
+  };
+
+  const createManagedActivity = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!activityDraft.titleKo.trim() && !activityDraft.titleEn.trim()) {
+      setActivityCatalogMessage(
+        language === "ko"
+          ? "활동 이름을 입력해 주세요."
+          : "Please enter an activity title."
+      );
+      return;
+    }
+
+    setActivityCatalogSaving(true);
+    setActivityCatalogMessage("");
+    setApplicationError("");
+
+    try {
+      const response = await fetch("/api/hanhwal/activity-catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(activityDraft)
+      });
+      const data = (await response.json()) as ActivityCatalogApiResponse;
+
+      if (!response.ok || !data.item) {
+        throw new Error(data.error || text.activityStatusStorageError);
+      }
+
+      setActivityDraft(emptyActivityDraft);
+      await reloadActivityCatalog();
+      setActiveApplicationType(data.item.id);
+      setActivityCatalogMessage(
+        language === "ko"
+          ? "새 활동을 추가했습니다. 신청을 열기 전까지 일반 사용자에게는 표시되지 않습니다."
+          : "Activity added. It stays hidden from general users until you open applications."
+      );
+    } catch (error) {
+      setApplicationError(
+        error instanceof Error ? error.message : text.activityStatusStorageError
+      );
+    } finally {
+      setActivityCatalogSaving(false);
+    }
+  };
+
+  const beginManagedActivityEditing = (activityId: string) => {
+    const item = activityCatalog.find((activity) => activity.id === activityId);
+
+    if (!item) return;
+
+    setEditingActivityId(activityId);
+    setEditingActivityDraft({
+      titleKo: item.titleKo,
+      titleEn: item.titleEn,
+      descriptionKo: item.descriptionKo,
+      descriptionEn: item.descriptionEn
+    });
+    setActivityCatalogMessage("");
+    setApplicationError("");
+  };
+
+  const saveManagedActivityEdit = async () => {
+    if (!editingActivityId) return;
+
+    setActivityCatalogSaving(true);
+    setActivityCatalogMessage("");
+    setApplicationError("");
+
+    try {
+      const response = await fetch("/api/hanhwal/activity-catalog", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingActivityId,
+          ...editingActivityDraft
+        })
+      });
+      const data = (await response.json()) as ActivityCatalogApiResponse;
+
+      if (!response.ok || !data.item) {
+        throw new Error(data.error || text.activityStatusStorageError);
+      }
+
+      setActivityCatalog((current) =>
+        current.map((item) => (item.id === data.item!.id ? data.item! : item))
+      );
+      setEditingActivityId("");
+      setActivityCatalogMessage(
+        language === "ko"
+          ? "활동 정보를 수정했습니다."
+          : "Activity details updated."
+      );
+    } catch (error) {
+      setApplicationError(
+        error instanceof Error ? error.message : text.activityStatusStorageError
+      );
+    } finally {
+      setActivityCatalogSaving(false);
+    }
+  };
+
+  const archiveManagedActivity = async (activityId: string) => {
+    const activity = applicationTypes.find((item) => item.type === activityId);
+    const title = activity?.labels[language].title || activityId;
+
+    if (
+      !window.confirm(
+        language === "ko"
+          ? `${title} 활동을 목록에서 삭제하시겠습니까? 기존 신청·별점·추억록 기록은 보존됩니다.`
+          : `Remove ${title} from the activity list? Existing applications, ratings, and Memory Book history will be preserved.`
+      )
+    ) {
+      return;
+    }
+
+    setActivityCatalogSaving(true);
+    setActivityCatalogMessage("");
+    setApplicationError("");
+
+    try {
+      const response = await fetch(
+        `/api/hanhwal/activity-catalog?id=${encodeURIComponent(activityId)}`,
+        { method: "DELETE" }
+      );
+      const data = (await response.json()) as ActivityCatalogApiResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error || text.activityStatusStorageError);
+      }
+
+      await reloadActivityCatalog();
+      setActivityCatalogMessage(
+        language === "ko"
+          ? "활동을 사용자 목록에서 제거했습니다. 과거 데이터는 그대로 보존됩니다."
+          : "Activity removed from the user list. Historical data remains preserved."
+      );
+    } catch (error) {
+      setApplicationError(
+        error instanceof Error ? error.message : text.activityStatusStorageError
+      );
+    } finally {
+      setActivityCatalogSaving(false);
+    }
+  };
+
   const submitApplication = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeApplicationIsOpen) {
@@ -995,7 +1245,7 @@ export function HanhwalActivityPanel() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          activity_id: activeApplicationType,
+          activity_id: activeApplication.type,
           activity_title: activeApplication.labels[language].title,
           name: applicationForm.name.trim(),
           gender: applicationForm.gender,
@@ -1238,7 +1488,7 @@ export function HanhwalActivityPanel() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-semibold uppercase text-brass">
-                      {text.applicantCount}: {applicationsLoading ? "-" : applicationCounts[item.type]}
+                      {text.applicantCount}: {applicationsLoading ? "-" : (applicationCounts[item.type] ?? 0)}
                     </p>
                     <span
                       className={`inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-semibold uppercase ${
@@ -1301,52 +1551,236 @@ export function HanhwalActivityPanel() {
                 {text.activityStatusStorageWarning}
               </p>
             ) : null}
+
+            <form
+              onSubmit={createManagedActivity}
+              className="mt-5 grid gap-3 border border-brass/25 bg-hanji/35 p-4 md:grid-cols-2"
+            >
+              <div className="md:col-span-2">
+                <p className="text-sm font-semibold text-ink">
+                  {language === "ko" ? "새 활동 등록" : "Add a new activity"}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-ink/54">
+                  {language === "ko"
+                    ? "새 활동은 먼저 닫힌 상태로 저장됩니다. 확인 후 아래에서 신청을 열어주세요."
+                    : "New activities start closed. Review them here, then open applications when ready."}
+                </p>
+              </div>
+              <input
+                value={activityDraft.titleKo}
+                onChange={(event) =>
+                  setActivityDraft((current) => ({ ...current, titleKo: event.target.value }))
+                }
+                placeholder="활동명 (한국어)"
+                className="form-field"
+              />
+              <input
+                value={activityDraft.titleEn}
+                onChange={(event) =>
+                  setActivityDraft((current) => ({ ...current, titleEn: event.target.value }))
+                }
+                placeholder="Activity title (English)"
+                className="form-field"
+              />
+              <input
+                value={activityDraft.descriptionKo}
+                onChange={(event) =>
+                  setActivityDraft((current) => ({
+                    ...current,
+                    descriptionKo: event.target.value
+                  }))
+                }
+                placeholder="짧은 설명 (한국어, 선택)"
+                className="form-field"
+              />
+              <input
+                value={activityDraft.descriptionEn}
+                onChange={(event) =>
+                  setActivityDraft((current) => ({
+                    ...current,
+                    descriptionEn: event.target.value
+                  }))
+                }
+                placeholder="Short description (English, optional)"
+                className="form-field"
+              />
+              <div className="flex flex-wrap items-center gap-3 md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={activityCatalogSaving}
+                  className="inline-flex min-h-10 items-center justify-center bg-ink px-4 text-sm font-semibold text-paper transition hover:bg-navy disabled:opacity-50"
+                >
+                  {language === "ko" ? "활동 추가" : "Add activity"}
+                </button>
+                {activityCatalogMessage ? (
+                  <p className="text-xs font-semibold leading-5 text-pine">
+                    {activityCatalogMessage}
+                  </p>
+                ) : null}
+              </div>
+            </form>
+
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {applicationTypes.map((item) => {
                 const isOpen = activityStatuses[item.type];
                 const requiresPayment = activityPaymentRequirements[item.type];
                 const saving = activityStatusSaving === item.type;
 
+                const editing = editingActivityId === item.type;
+
                 return (
                   <div
                     key={item.type}
-                    className="flex items-center justify-between gap-3 border border-ink/10 bg-white/65 p-4"
+                    className={`grid gap-3 border bg-white/65 p-4 transition ${
+                      editing ? "border-brass/50" : "border-ink/10 hover:border-brass/40"
+                    }`}
                   >
-                    <div>
-                      <p className="font-semibold text-ink">{item.labels[language].title}</p>
-                      <p className={`mt-1 text-sm font-semibold ${isOpen ? "text-pine" : "text-ink/48"}`}>
-                        {isOpen ? text.applicationOpen : text.applicationClosed}
-                      </p>
-                      <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-ink/62">
-                        <input
-                          type="checkbox"
-                          checked={requiresPayment}
-                          disabled={saving}
-                          onChange={(event) =>
-                            saveActivityPaymentRequirement(item.type, event.target.checked)
-                          }
-                          className="h-4 w-4 accent-navy"
-                        />
-                        {language === "ko" ? "활동비 납부 필요" : "Payment required"}
-                      </label>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => saveActivityStatus(item.type, !isOpen)}
-                      className={`inline-flex min-h-10 items-center justify-center gap-2 px-4 text-sm font-semibold transition ${
-                        isOpen
-                          ? "border border-ink/15 bg-white text-ink hover:border-red-300 hover:text-red-700"
-                          : "bg-navy text-paper hover:bg-ink"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      {isOpen ? (
-                        <PowerOff aria-hidden className="h-4 w-4" />
-                      ) : (
-                        <Power aria-hidden className="h-4 w-4" />
-                      )}
-                      {isOpen ? text.closeApplications : text.openApplications}
-                    </button>
+                    {editing ? (
+                      <div className="grid gap-3">
+                        <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy">
+                          <Edit3 className="h-3.5 w-3.5" />
+                          {language === "ko"
+                            ? "관리자 현장 편집"
+                            : "Inline admin edit"}
+                        </p>
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <input
+                            value={editingActivityDraft.titleKo}
+                            onChange={(event) =>
+                              setEditingActivityDraft((current) => ({
+                                ...current,
+                                titleKo: event.target.value
+                              }))
+                            }
+                            placeholder="활동명 (한국어)"
+                            className="form-field"
+                          />
+                          <input
+                            value={editingActivityDraft.titleEn}
+                            onChange={(event) =>
+                              setEditingActivityDraft((current) => ({
+                                ...current,
+                                titleEn: event.target.value
+                              }))
+                            }
+                            placeholder="Activity title (English)"
+                            className="form-field"
+                          />
+                          <input
+                            value={editingActivityDraft.descriptionKo}
+                            onChange={(event) =>
+                              setEditingActivityDraft((current) => ({
+                                ...current,
+                                descriptionKo: event.target.value
+                              }))
+                            }
+                            placeholder="짧은 설명 (한국어)"
+                            className="form-field"
+                          />
+                          <input
+                            value={editingActivityDraft.descriptionEn}
+                            onChange={(event) =>
+                              setEditingActivityDraft((current) => ({
+                                ...current,
+                                descriptionEn: event.target.value
+                              }))
+                            }
+                            placeholder="Short description (English)"
+                            className="form-field"
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={activityCatalogSaving}
+                            onClick={() => void saveManagedActivityEdit()}
+                            className="inline-flex min-h-9 items-center gap-2 bg-ink px-4 text-xs font-semibold text-paper disabled:opacity-50"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            {language === "ko" ? "수정 저장" : "Save edit"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={activityCatalogSaving}
+                            onClick={() => setEditingActivityId("")}
+                            className="min-h-9 border border-ink/15 bg-white px-4 text-xs font-semibold text-ink"
+                          >
+                            {language === "ko" ? "취소" : "Cancel"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => beginManagedActivityEditing(item.type)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              beginManagedActivityEditing(item.type);
+                            }
+                          }}
+                          className="min-w-0 cursor-text rounded-md outline-none hover:bg-hanji/35 focus-visible:ring-2 focus-visible:ring-navy/30"
+                        >
+                          <div className="flex items-center gap-2">
+                            <p className="break-words font-semibold text-ink">
+                              {item.labels[language].title}
+                            </p>
+                            <Edit3 className="h-3.5 w-3.5 shrink-0 text-navy/55" />
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-ink/55">
+                            {item.labels[language].description}
+                          </p>
+                          <p className={`mt-2 text-sm font-semibold ${isOpen ? "text-pine" : "text-ink/48"}`}>
+                            {isOpen ? text.applicationOpen : text.applicationClosed}
+                          </p>
+                          <label
+                            className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-ink/62"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(requiresPayment)}
+                              disabled={saving || activityCatalogSaving}
+                              onChange={(event) =>
+                                saveActivityPaymentRequirement(item.type, event.target.checked)
+                              }
+                              className="h-4 w-4 accent-navy"
+                            />
+                            {language === "ko" ? "활동비 납부 필요" : "Payment required"}
+                          </label>
+                        </div>
+                        <div className="grid gap-2">
+                      <button
+                        type="button"
+                        disabled={saving || activityCatalogSaving}
+                        onClick={() => saveActivityStatus(item.type, !isOpen)}
+                        className={`inline-flex min-h-10 items-center justify-center gap-2 px-4 text-sm font-semibold transition ${
+                          isOpen
+                            ? "border border-ink/15 bg-white text-ink hover:border-red-300 hover:text-red-700"
+                            : "bg-navy text-paper hover:bg-ink"
+                        } disabled:cursor-not-allowed disabled:opacity-60`}
+                      >
+                        {isOpen ? (
+                          <PowerOff aria-hidden className="h-4 w-4" />
+                        ) : (
+                          <Power aria-hidden className="h-4 w-4" />
+                        )}
+                        {isOpen ? text.closeApplications : text.openApplications}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving || activityCatalogSaving}
+                        onClick={() => void archiveManagedActivity(item.type)}
+                        className="inline-flex min-h-9 items-center justify-center gap-2 border border-red-900/15 bg-white px-3 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                        {language === "ko" ? "활동 삭제" : "Remove"}
+                      </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1466,7 +1900,7 @@ export function HanhwalActivityPanel() {
                 </p>
               </div>
               <span className="text-sm font-semibold text-ink/58">
-                {text.applicantCount}: {applicationCounts[activeApplicationType]}
+                {text.applicantCount}: {(applicationCounts[activeApplicationType] ?? 0)}
               </span>
             </div>
 

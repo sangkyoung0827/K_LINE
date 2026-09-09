@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
-import {
-  defaultHanhwalActivityStatuses,
-  hanhwalActivityTypes,
-  hanhwalActivityTypeSet,
-  normalizeHanhwalActivityType,
-  type HanhwalActivityType
-} from "@/lib/hanhwalActivities";
+import { normalizeHanhwalActivityId } from "@/lib/hanhwalActivities";
 import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
-import { getHanhwalActivityStatuses, updateHanhwalActivityStatuses } from "@/lib/hanhwalActivityStatuses";
-import {
-  createActivityRecordsForClosedActivities,
-  markActivityApplicationsClosed
-} from "@/lib/userActivityRecords";
+import { getHanhwalActivityCatalog } from "@/lib/hanhwalOperations";
+import { getHanhwalActivityStatuses } from "@/lib/hanhwalActivityStatuses";
+import { applyHanhwalActivityStatusAdminUpdate } from "@/lib/hanhwalActivityAdminActions";
 import {
   cleanText,
   SupabaseConfigError,
@@ -20,48 +12,13 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function parseSupabaseError(error: SupabaseRequestError) {
-  try {
-    const parsed = JSON.parse(error.message) as {
-      message?: string;
-      code?: string;
-      details?: string;
-      hint?: string;
-    };
-
-    return {
-      message: parsed.message ?? error.message,
-      code: parsed.code,
-      details: parsed.details,
-      hint: parsed.hint
-    };
-  } catch {
-    return {
-      message: error.message,
-      code: undefined,
-      details: undefined,
-      hint: undefined
-    };
-  }
-}
-
 function logStatusError(error: unknown) {
-  if (error instanceof SupabaseRequestError) {
-    const supabaseError = parseSupabaseError(error);
-    console.error("HANHWAL activity status Supabase error", {
-      message: supabaseError.message,
-      code: supabaseError.code,
-      details: supabaseError.details,
-      hint: supabaseError.hint
-    });
-    return;
-  }
-
   console.error("HANHWAL activity status API error", {
     message: error instanceof Error ? error.message : "Unknown error",
-    code: error instanceof SupabaseConfigError ? "HANHWAL_SUPABASE_CONFIG_MISSING" : "HANHWAL_ACTIVITY_STATUS_UNKNOWN",
-    details: undefined,
-    hint: undefined
+    code:
+      error instanceof SupabaseConfigError
+        ? "HANHWAL_SUPABASE_CONFIG_MISSING"
+        : "HANHWAL_ACTIVITY_STATUS_UNKNOWN"
   });
 }
 
@@ -70,14 +27,6 @@ export async function GET() {
     return NextResponse.json(await getHanhwalActivityStatuses());
   } catch (error) {
     logStatusError(error);
-
-    if (error instanceof SupabaseRequestError && error.status === 404) {
-      return NextResponse.json({
-        statuses: defaultHanhwalActivityStatuses(),
-        tableReady: false,
-        debugCode: "HANHWAL_ACTIVITY_STATUS_TABLE_NOT_READY"
-      });
-    }
 
     return NextResponse.json(
       {
@@ -102,10 +51,14 @@ export async function PATCH(request: Request) {
           error: "Only HANHWAL admins can open or close activity applications.",
           debugCode: "HANHWAL_ACTIVITY_STATUS_FORBIDDEN"
         },
-        { status: 403 }
+        { status: access.isLoggedIn ? 403 : 401 }
       );
     }
 
+    const catalog = await getHanhwalActivityCatalog({ includeArchived: true });
+    const activeIds = new Set(
+      catalog.filter((item) => !item.archived).map((item) => item.id)
+    );
     const body = (await request.json()) as {
       activity_id?: unknown;
       activityId?: unknown;
@@ -113,46 +66,54 @@ export async function PATCH(request: Request) {
       isOpen?: unknown;
       requires_payment?: unknown;
       requiresPayment?: unknown;
-      statuses?: Partial<Record<HanhwalActivityType, boolean>>;
-      paymentRequirements?: Partial<Record<HanhwalActivityType, boolean>>;
+      statuses?: Record<string, unknown>;
+      paymentRequirements?: Record<string, unknown>;
     };
-    const updates: Partial<Record<HanhwalActivityType, boolean>> = {};
-    const paymentRequirements: Partial<Record<HanhwalActivityType, boolean>> = {};
+    const updates: Record<string, boolean> = {};
+    const paymentRequirements: Record<string, boolean> = {};
 
     if (body.statuses && typeof body.statuses === "object") {
       Object.entries(body.statuses).forEach(([key, value]) => {
-        const type = normalizeHanhwalActivityType(key);
+        const activityId = normalizeHanhwalActivityId(key);
 
-        if (hanhwalActivityTypeSet.has(type) && typeof value === "boolean") {
-          updates[type] = value;
+        if (activeIds.has(activityId) && typeof value === "boolean") {
+          updates[activityId] = value;
         }
       });
     }
 
     if (body.paymentRequirements && typeof body.paymentRequirements === "object") {
       Object.entries(body.paymentRequirements).forEach(([key, value]) => {
-        const type = normalizeHanhwalActivityType(key);
+        const activityId = normalizeHanhwalActivityId(key);
 
-        if (hanhwalActivityTypeSet.has(type) && typeof value === "boolean") {
-          paymentRequirements[type] = value;
+        if (activeIds.has(activityId) && typeof value === "boolean") {
+          paymentRequirements[activityId] = value;
         }
       });
     }
 
-    const activityId = cleanText(body.activity_id ?? body.activityId);
+    const directIdRaw = cleanText(body.activity_id ?? body.activityId, 80);
+    const activityId = directIdRaw ? normalizeHanhwalActivityId(directIdRaw) : "";
     const directValue = body.is_open ?? body.isOpen;
 
-    if (activityId && typeof directValue === "boolean") {
-      updates[normalizeHanhwalActivityType(activityId)] = directValue;
+    if (activityId && activeIds.has(activityId) && typeof directValue === "boolean") {
+      updates[activityId] = directValue;
     }
 
     const directPaymentValue = body.requires_payment ?? body.requiresPayment;
 
-    if (activityId && typeof directPaymentValue === "boolean") {
-      paymentRequirements[normalizeHanhwalActivityType(activityId)] = directPaymentValue;
+    if (
+      activityId &&
+      activeIds.has(activityId) &&
+      typeof directPaymentValue === "boolean"
+    ) {
+      paymentRequirements[activityId] = directPaymentValue;
     }
 
-    if (Object.keys(updates).length === 0 && Object.keys(paymentRequirements).length === 0) {
+    if (
+      Object.keys(updates).length === 0 &&
+      Object.keys(paymentRequirements).length === 0
+    ) {
       return NextResponse.json(
         {
           error: "No valid HANHWAL activity status update was provided.",
@@ -162,32 +123,11 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Only one HANHWAL activity can accept applications at a time. Opening a new
-    // activity therefore closes every other activity in the same update.
-    const openedActivity = hanhwalActivityTypes.find((type) => updates[type] === true);
-
-    if (openedActivity) {
-      hanhwalActivityTypes.forEach((type) => {
-        updates[type] = type === openedActivity;
-      });
-    }
-
-    const result = await updateHanhwalActivityStatuses(
+    const result = await applyHanhwalActivityStatusAdminUpdate({
+      adminEmail: access.email,
       updates,
-      access.email,
       paymentRequirements
-    );
-
-    if (result.closedActivities.length > 0) {
-      // History writes are best effort so the established Hanhwal close action
-      // stays reliable even if its new Passport-data layer is unavailable.
-      try {
-        await markActivityApplicationsClosed("hanhwal", result.closedActivities);
-        await createActivityRecordsForClosedActivities("hanhwal", result.closedActivities);
-      } catch (error) {
-        console.error("HANHWAL user activity close sync failed", error);
-      }
-    }
+    });
 
     return NextResponse.json(result);
   } catch (error) {

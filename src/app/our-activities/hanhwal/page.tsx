@@ -51,6 +51,9 @@ export default async function HanhwalHubPage() {
             <I18nText en="Register" ko="등록하기" />
           </Link>
         </div>
+        <Link href="/hanhwal-alumni" className="mt-5 inline-flex text-sm font-semibold text-ink underline">
+          <I18nText en="Alumni and Returning Members" ko="동문·재등록" />
+        </Link>
       </div>
     </section>
   );

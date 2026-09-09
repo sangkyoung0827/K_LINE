@@ -9,9 +9,9 @@ import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Hanhwal Activity",
+  title: "HANHWAL Activity",
   description:
-    "Korean and English Hanhwal activity application page with admin-only applicant, team, and notice management tools.",
+    "Korean and English HANHWAL activity application page with admin-only applicant, team, and notice management tools.",
   path: "/our-activities/hanhwal/activity"
 });
 
@@ -26,16 +26,16 @@ export default async function HanhwalActivityPage() {
           className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4 sm:mb-8"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" />
-          <I18nText en="Back to Hanhwal Menu" ko="한활 메뉴로 돌아가기" />
+          <I18nText en="Back to HANHWAL Menu" ko="한활 메뉴로 돌아가기" />
         </Link>
         <ClubMark id="hanhwal" size="lg" className="mb-4 !h-16 !w-16 border-ink/10 sm:mb-6 sm:!h-24 sm:!w-24" />
         <SectionHeader
-          eyebrow={<I18nText en="Hanhwal activity" ko="한활 활동" />}
-          title={<I18nText en="Hanhwal Activity" ko="한활 활동" />}
+          eyebrow={<I18nText en="HANHWAL activity" ko="한활 활동" />}
+          title={<I18nText en="HANHWAL Activity" ko="한활 활동" />}
           description={
             <I18nText
-              en="Choose a language and submit Hanhwal activity applications. Admin controls appear only for admins and higher roles."
-              ko="언어를 선택하고 Hanhwal 활동을 신청할 수 있습니다. 관리자 기능은 관리자 이상에게만 표시됩니다."
+              en="Choose a language and submit HANHWAL activity applications. Admin controls appear only for admins and higher roles."
+              ko="언어를 선택하고 한활 활동을 신청할 수 있습니다. 관리자 기능은 관리자 이상에게만 표시됩니다."
             />
           }
         />
@@ -49,11 +49,11 @@ export default async function HanhwalActivityPage() {
               </div>
               <div>
                 <h2 className="font-serif text-2xl font-semibold text-ink sm:text-3xl">
-                  <I18nText en="Hanhwal official membership required" ko="한활 정식회원 권한이 필요합니다" />
+                  <I18nText en="HANHWAL official membership required" ko="한활 정식회원 권한이 필요합니다" />
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink/68">
                   <I18nText
-                    en="Activity applications are available only after official Hanhwal membership is confirmed."
+                    en="Activity applications are available only after official HANHWAL membership is confirmed."
                     ko="한활 활동 신청은 정식회원 승인 후 이용할 수 있습니다."
                   />
                 </p>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { resetHanhwalMemberRegistrationData } from "@/lib/hanhwalMemberDeletion";
 import {
   getDeveloperEmails,
   isDeveloperEmail,
@@ -309,6 +310,14 @@ export async function PATCH(request: Request) {
       );
     }
 
+    if (action === "reset_hanhwal_member_data") {
+      if (!access.isDeveloper) {
+        return NextResponse.json({ error: "Developer access is required." }, { status: 403 });
+      }
+      const reset = await resetHanhwalMemberRegistrationData(targetEmail);
+      return NextResponse.json({ ...(await buildResponse()), reset });
+    }
+
     if (action === "approve_official_member") {
       await patchRole(targetEmail, {
         is_official_member: true,
@@ -322,6 +331,10 @@ export async function PATCH(request: Request) {
     }
 
     if (action === "revoke_official_member") {
+      const target = await getHanhwalAccessForEmail(targetEmail);
+      if (!access.isDeveloper && (target.isSuperAdmin || (target.isAdmin && !access.isSuperAdmin))) {
+        return NextResponse.json({ error: "Higher permission is required to change this member's access." }, { status: 403 });
+      }
       await patchRole(targetEmail, {
         admin_status: "none",
         is_official_member: false,
@@ -360,6 +373,11 @@ export async function PATCH(request: Request) {
           { error: "Super-admin access is required to revoke admin access." },
           { status: 403 }
         );
+      }
+
+      const target = await getHanhwalAccessForEmail(targetEmail);
+      if (target.isSuperAdmin && !access.isDeveloper) {
+        return NextResponse.json({ error: "Only a developer can revoke super-admin access." }, { status: 403 });
       }
 
       await patchRole(targetEmail, {

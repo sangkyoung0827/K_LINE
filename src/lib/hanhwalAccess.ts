@@ -47,8 +47,7 @@ export const hanhwalRolesTable = "hanhwal_roles";
 export const hanhwalRoleColumns =
   "id,created_at,updated_at,email,name,avatar_url,role,is_official_member,payment_confirmed,payment_confirmed_by,payment_confirmed_at,official_member_status,admin_status,admin_requested_at,admin_approved_by,admin_approved_at,super_admin_status,super_admin_requested_at,super_admin_approved_by,super_admin_approved_at";
 
-export const defaultHanhwalOfficialTeamChatUrl =
-  "https://kline-nine-wheat.vercel.app/our-activities/hanhwal";
+export const defaultHanhwalOfficialTeamChatUrl = "";
 
 const roleRank: Record<HanhwalRole, number> = {
   user: 1,
@@ -90,6 +89,33 @@ export function toHanhwalAccess(email: string, role: HanhwalRole, isLoggedIn = t
   };
 }
 
+function resolveHanhwalRole(
+  adminAccess: Awaited<ReturnType<typeof getAdminAccess>>,
+  roleRow: HanhwalRoleRow | null
+): HanhwalRole {
+  if (adminAccess.isDeveloper) {
+    return "developer";
+  }
+
+  if (roleRow?.super_admin_status === "approved") {
+    return "super_admin";
+  }
+
+  if (roleRow?.admin_status === "approved") {
+    return "admin";
+  }
+
+  if (
+    roleRow?.official_member_status === "approved" ||
+    roleRow?.is_official_member ||
+    roleRow?.payment_confirmed
+  ) {
+    return "official_member";
+  }
+
+  return "user";
+}
+
 export async function getHanhwalRoleRow(email?: string | null) {
   const normalized = normalizeEmail(email);
 
@@ -126,31 +152,12 @@ export async function getHanhwalAccessForEmail(email?: string | null): Promise<H
     return emptyAccess("", false);
   }
 
-  const adminAccess = await getAdminAccess(normalized);
+  const [adminAccess, roleRow] = await Promise.all([
+    getAdminAccess(normalized),
+    getHanhwalRoleRow(normalized)
+  ]);
 
-  if (adminAccess.isDeveloper) {
-    return toHanhwalAccess(normalized, "developer");
-  }
-
-  const roleRow = await getHanhwalRoleRow(normalized);
-
-  if (roleRow?.super_admin_status === "approved") {
-    return toHanhwalAccess(normalized, "super_admin");
-  }
-
-  if (roleRow?.admin_status === "approved") {
-    return toHanhwalAccess(normalized, "admin");
-  }
-
-  if (
-    roleRow?.official_member_status === "approved" ||
-    roleRow?.is_official_member ||
-    roleRow?.payment_confirmed
-  ) {
-    return toHanhwalAccess(normalized, "official_member");
-  }
-
-  return toHanhwalAccess(normalized, "user");
+  return toHanhwalAccess(normalized, resolveHanhwalRole(adminAccess, roleRow));
 }
 
 export async function getCurrentHanhwalAccess() {
@@ -164,19 +171,18 @@ export async function getCurrentHanhwalAccess() {
   return getHanhwalAccessForEmail(email);
 }
 
-export async function ensureHanhwalRoleRow(input: {
-  avatarUrl?: string;
-  email: string;
-  name?: string;
-}) {
-  const email = normalizeEmail(input.email);
+async function writeHanhwalRoleRow(
+  email: string,
+  body: Record<string, unknown>,
+  existing?: HanhwalRoleRow | null
+) {
+  const normalized = normalizeEmail(email);
 
-  if (!email) {
-    return null;
+  if (!normalized) {
+    throw new Error("HANHWAL role email is required.");
   }
 
   const now = new Date().toISOString();
-  const existing = await getHanhwalRoleRow(email);
 
   if (existing) {
     const rows = await supabaseRequest<HanhwalRoleRow[]>(
@@ -187,8 +193,7 @@ export async function ensureHanhwalRoleRow(input: {
           Prefer: "return=representation"
         },
         body: JSON.stringify({
-          avatar_url: input.avatarUrl || existing.avatar_url || "",
-          name: input.name || existing.name || "",
+          ...body,
           updated_at: now
         })
       }
@@ -203,10 +208,9 @@ export async function ensureHanhwalRoleRow(input: {
       Prefer: "return=representation"
     },
     body: JSON.stringify({
-      avatar_url: input.avatarUrl || "",
-      email,
-      name: input.name || "",
+      email: normalized,
       role: "user",
+      ...body,
       updated_at: now
     })
   });
@@ -214,28 +218,53 @@ export async function ensureHanhwalRoleRow(input: {
   return rows[0] ?? null;
 }
 
-export async function patchHanhwalRole(email: string, body: Record<string, unknown>) {
-  const existing = await ensureHanhwalRoleRow({ email });
+export async function ensureHanhwalRoleRow(input: {
+  avatarUrl?: string;
+  email: string;
+  name?: string;
+}) {
+  const email = normalizeEmail(input.email);
 
-  if (!existing) {
-    throw new Error("HANHWAL role row could not be created.");
+  if (!email) {
+    return null;
   }
 
-  const rows = await supabaseRequest<HanhwalRoleRow[]>(
-    `${hanhwalRolesTable}?id=eq.${encodeURIComponent(existing.id)}&select=${hanhwalRoleColumns}`,
-    {
-      method: "PATCH",
-      headers: {
-        Prefer: "return=representation"
-      },
-      body: JSON.stringify({
-        ...body,
-        updated_at: new Date().toISOString()
-      })
-    }
-  );
+  const existing = await getHanhwalRoleRow(email);
 
-  return rows[0] ?? existing;
+  if (existing) {
+    const avatarUrl = input.avatarUrl || existing.avatar_url || "";
+    const name = input.name || existing.name || "";
+
+    if (avatarUrl === (existing.avatar_url || "") && name === (existing.name || "")) {
+      return existing;
+    }
+
+    return writeHanhwalRoleRow(
+      email,
+      {
+        avatar_url: avatarUrl,
+        name
+      },
+      existing
+    );
+  }
+
+  return writeHanhwalRoleRow(email, {
+    avatar_url: input.avatarUrl || "",
+    name: input.name || "",
+    role: "user"
+  });
+}
+
+export async function patchHanhwalRole(email: string, body: Record<string, unknown>) {
+  const normalized = normalizeEmail(email);
+
+  if (!normalized) {
+    throw new Error("HANHWAL role email is required.");
+  }
+
+  const existing = await getHanhwalRoleRow(normalized);
+  return writeHanhwalRoleRow(normalized, body, existing);
 }
 
 export async function approveHanhwalOfficialMember(input: {
@@ -244,29 +273,37 @@ export async function approveHanhwalOfficialMember(input: {
   email: string;
   name?: string;
 }) {
-  const now = new Date().toISOString();
-  const currentAccess = await getHanhwalAccessForEmail(input.email);
+  const email = normalizeEmail(input.email);
+
+  if (!email) {
+    throw new Error("HANHWAL role email is required.");
+  }
+
+  const [adminAccess, existing] = await Promise.all([
+    getAdminAccess(email),
+    getHanhwalRoleRow(email)
+  ]);
+  const currentRole = resolveHanhwalRole(adminAccess, existing);
   const nextRole =
-    currentAccess.role === "user" || currentAccess.role === "official_member"
+    currentRole === "user" || currentRole === "official_member"
       ? "official_member"
-      : currentAccess.role;
+      : currentRole;
+  const now = new Date().toISOString();
 
-  await ensureHanhwalRoleRow({
-    avatarUrl: input.avatarUrl,
-    email: input.email,
-    name: input.name
-  });
-
-  return patchHanhwalRole(input.email, {
-    avatar_url: input.avatarUrl || "",
-    is_official_member: true,
-    name: input.name || "",
-    official_member_status: "approved",
-    payment_confirmed: true,
-    payment_confirmed_at: now,
-    payment_confirmed_by: input.approvedBy,
-    role: nextRole
-  });
+  return writeHanhwalRoleRow(
+    email,
+    {
+      avatar_url: input.avatarUrl || existing?.avatar_url || "",
+      is_official_member: true,
+      name: input.name || existing?.name || "",
+      official_member_status: "approved",
+      payment_confirmed: true,
+      payment_confirmed_at: now,
+      payment_confirmed_by: input.approvedBy,
+      role: nextRole
+    },
+    existing
+  );
 }
 
 export async function revokeHanhwalOfficialMember(input: {
@@ -274,23 +311,41 @@ export async function revokeHanhwalOfficialMember(input: {
   email: string;
   keepAdminRole?: boolean;
 }) {
-  const currentAccess = await getHanhwalAccessForEmail(input.email);
+  const email = normalizeEmail(input.email);
+
+  if (!email) {
+    throw new Error("HANHWAL role email is required.");
+  }
+
+  const [adminAccess, existing] = await Promise.all([
+    getAdminAccess(email),
+    getHanhwalRoleRow(email)
+  ]);
+  const currentAccess = toHanhwalAccess(email, resolveHanhwalRole(adminAccess, existing));
 
   if (input.keepAdminRole || currentAccess.isAdmin) {
-    return patchHanhwalRole(input.email, {
+    return writeHanhwalRoleRow(
+      email,
+      {
+        is_official_member: false,
+        official_member_status: "rejected",
+        payment_confirmed: false,
+        payment_confirmed_by: input.revokedBy
+      },
+      existing
+    );
+  }
+
+  return writeHanhwalRoleRow(
+    email,
+    {
+      admin_status: "none",
       is_official_member: false,
       official_member_status: "rejected",
       payment_confirmed: false,
-      payment_confirmed_by: input.revokedBy
-    });
-  }
-
-  return patchHanhwalRole(input.email, {
-    admin_status: "none",
-    is_official_member: false,
-    official_member_status: "rejected",
-    payment_confirmed: false,
-    payment_confirmed_by: input.revokedBy,
-    role: "user"
-  });
+      payment_confirmed_by: input.revokedBy,
+      role: "user"
+    },
+    existing
+  );
 }

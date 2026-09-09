@@ -10,8 +10,8 @@ import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Hanhwal Member Management",
-  description: "Admin-only Hanhwal member registration approval and permission control page.",
+  title: "HANHWAL Member Management",
+  description: "Admin-only HANHWAL member registration approval and permission control page.",
   path: "/our-activities/hanhwal/members"
 });
 
@@ -26,16 +26,16 @@ export default async function HanhwalMemberManagementPage() {
           className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-ink underline underline-offset-4"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" />
-          <I18nText en="Back to Hanhwal Menu" ko="한활 메뉴로 돌아가기" />
+          <I18nText en="Back to HANHWAL Menu" ko="한활 메뉴로 돌아가기" />
         </Link>
         <ClubMark id="hanhwal" size="lg" className="mb-6 border-ink/10" />
         <SectionHeader
-          eyebrow={<I18nText en="Hanhwal member management" ko="한활 회원 관리" />}
+          eyebrow={<I18nText en="HANHWAL member management" ko="한활 회원 관리" />}
           title={<I18nText en="Member Management" ko="회원 관리" />}
           description={
             <I18nText
-              en="Confirm K_LINE new member registrations and process Hanhwal permission requests."
-              ko="K_LINE 신규회원 등록을 확인하고 Hanhwal 권한 요청을 처리합니다."
+              en="Confirm K_LINE new member registrations and process HANHWAL permission requests."
+              ko="K_LINE 신규회원 등록을 확인하고 한활 권한 요청을 처리합니다."
             />
           }
         />
@@ -44,6 +44,11 @@ export default async function HanhwalMemberManagementPage() {
             <div className="grid gap-8">
               <HanhwalMemberRegistrationManagementPanel />
               <HanhwalPermissionManagementPanel />
+              <nav className="flex flex-wrap gap-4 text-sm font-semibold text-ink">
+                <Link className="underline" href="/admin/hanhwal-alumni/notices"><I18nText en="Alumni Notices" ko="동문 공지 관리" /></Link>
+                <Link className="underline" href="/admin/hanhwal-alumni/inquiries"><I18nText en="Alumni Inquiries" ko="동문 문의 관리" /></Link>
+                <Link className="underline" href="/admin/hanhwal-alumni/rejoin-requests"><I18nText en="Rejoin Requests" ko="재등록 관리" /></Link>
+              </nav>
             </div>
           ) : (
             <div className="paper-panel flex items-start gap-4 p-6 md:p-8">

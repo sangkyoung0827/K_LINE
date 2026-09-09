@@ -8,9 +8,15 @@ import {
   CheckCircle2,
   Edit3,
   Loader2,
+  Save,
   ShieldCheck
 } from "lucide-react";
+import {
+  defaultHanhwalRegistrationContent,
+  type HanhwalRegistrationContent
+} from "@/data/hanhwalRegistrationContent";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
+import { useHanhwalAccess } from "@/hooks/useHanhwalAccess";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
 
@@ -38,6 +44,25 @@ type RegistrationResponse = {
   error?: string;
   message?: string;
   registration?: HanhwalMemberRegistration | null;
+  teamChatUrl?: string;
+};
+
+type RegistrationContentResponse = {
+  content?: HanhwalRegistrationContent;
+  error?: string;
+};
+
+type OperationsSettings = {
+  inquiryChatUrl: string;
+  newMemberOpenChatUrl: string;
+  officialTeamChatUrl: string;
+  periodLabel: string;
+  updatedAt: string;
+};
+
+type OperationsResponse = {
+  error?: string;
+  settings?: Partial<OperationsSettings>;
 };
 
 type FormState = {
@@ -105,8 +130,8 @@ function statusText(registration: HanhwalMemberRegistration, language: "en" | "k
 function statusDescription(registration: HanhwalMemberRegistration, language: "en" | "ko") {
   if (registration.officialMember || registration.status === "approved") {
     return language === "ko"
-      ? "이 Google 계정은 Hanhwal 정식회원으로 승인되었습니다. Hanhwal OFFICIAL에서 팀채팅 링크와 QR을 확인할 수 있습니다."
-      : "This Google account is approved as an Hanhwal official member. You can open the protected team chat link and QR in Hanhwal OFFICIAL.";
+      ? "이 Google 계정은 한활 정식회원으로 승인되었습니다. 한활 OFFICIAL에서 팀채팅 링크와 QR을 확인할 수 있습니다."
+      : "This Google account is approved as an HANHWAL official member. You can open the protected team chat link and QR in HANHWAL OFFICIAL.";
   }
 
   if (registration.status === "rejected") {
@@ -117,11 +142,12 @@ function statusDescription(registration: HanhwalMemberRegistration, language: "e
 
   return language === "ko"
     ? "등록은 완료되었습니다. 운영진이 회비 납부를 확인하면 정식회원 권한이 열립니다."
-    : "Your registration is submitted. Hanhwal officers will approve official membership after confirming payment.";
+    : "Your registration is submitted. HANHWAL officers will approve official membership after confirming payment.";
 }
 
 export function HanhwalMemberRegistrationForm() {
   const { language } = useLanguage();
+  const access = useHanhwalAccess();
   const pathname = usePathname();
   const loginHref = `/login?callbackUrl=${encodeURIComponent(pathname || "/hanhwal-join")}`;
   const [registration, setRegistration] = useState<HanhwalMemberRegistration | null>(null);
@@ -133,6 +159,25 @@ export function HanhwalMemberRegistrationForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loginRequired, setLoginRequired] = useState(false);
+  const [registrationContent, setRegistrationContent] = useState<HanhwalRegistrationContent>(
+    defaultHanhwalRegistrationContent
+  );
+  const [contentDraft, setContentDraft] = useState<HanhwalRegistrationContent>(
+    defaultHanhwalRegistrationContent
+  );
+  const [editingContent, setEditingContent] = useState(false);
+  const [savingContent, setSavingContent] = useState(false);
+  const [contentError, setContentError] = useState("");
+  const [inquiryChatUrl, setInquiryChatUrl] = useState("");
+  const [newMemberOpenChatUrl, setNewMemberOpenChatUrl] = useState("");
+  const [editingOperations, setEditingOperations] = useState(false);
+  const [operationsDraft, setOperationsDraft] = useState({
+    inquiryChatUrl: "",
+    newMemberOpenChatUrl: ""
+  });
+  const [savingOperations, setSavingOperations] = useState(false);
+  const [operationsError, setOperationsError] = useState("");
+  const [qrVersion, setQrVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -155,7 +200,7 @@ export function HanhwalMemberRegistrationForm() {
         }
 
         if (!response.ok) {
-          throw new Error(data.error || "Hanhwal registration could not be loaded.");
+          throw new Error(data.error || "HANHWAL registration could not be loaded.");
         }
 
         const loadedRegistration = data.registration ?? null;
@@ -167,7 +212,7 @@ export function HanhwalMemberRegistrationForm() {
           return;
         }
 
-        setError(loadError instanceof Error ? loadError.message : "Hanhwal registration could not be loaded.");
+        setError(loadError instanceof Error ? loadError.message : "HANHWAL registration could not be loaded.");
       })
       .finally(() => {
         if (active) {
@@ -179,6 +224,100 @@ export function HanhwalMemberRegistrationForm() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/hanhwal/registration-content")
+      .then(async (response) => ({ data: (await response.json()) as RegistrationContentResponse, response }))
+      .then(({ data, response }) => {
+        if (!active || !response.ok || !data.content) return;
+        setRegistrationContent(data.content);
+        setContentDraft(data.content);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/hanhwal/operations")
+      .then((response) => response.json() as Promise<OperationsResponse>)
+      .then((data) => {
+        if (!active || !data.settings) return;
+
+        const inquiry =
+          data.settings.inquiryChatUrl || "";
+        const newMember = data.settings.newMemberOpenChatUrl || "";
+
+        setInquiryChatUrl(inquiry);
+        setNewMemberOpenChatUrl(newMember);
+        setOperationsDraft({
+          inquiryChatUrl: inquiry,
+          newMemberOpenChatUrl: newMember
+        });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const beginOperationsEditing = () => {
+    if (!access.isAdmin) return;
+
+    setOperationsDraft({
+      inquiryChatUrl,
+      newMemberOpenChatUrl
+    });
+    setOperationsError("");
+    setEditingOperations(true);
+  };
+
+  const saveOperationsInline = async () => {
+    setSavingOperations(true);
+    setOperationsError("");
+
+    try {
+      const response = await fetch("/api/hanhwal/operations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(operationsDraft)
+      });
+      const data = (await response.json()) as OperationsResponse;
+
+      if (!response.ok || !data.settings) {
+        throw new Error(data.error || "HANHWAL chat settings could not be saved.");
+      }
+
+      const inquiry =
+        data.settings.inquiryChatUrl || operationsDraft.inquiryChatUrl;
+      const newMember =
+        data.settings.newMemberOpenChatUrl || operationsDraft.newMemberOpenChatUrl;
+
+      setInquiryChatUrl(inquiry);
+      setNewMemberOpenChatUrl(newMember);
+      setOperationsDraft({
+        inquiryChatUrl: inquiry,
+        newMemberOpenChatUrl: newMember
+      });
+      setQrVersion((value) => value + 1);
+      setEditingOperations(false);
+    } catch (saveError) {
+      setOperationsError(
+        saveError instanceof Error
+          ? saveError.message
+          : "HANHWAL chat settings could not be saved."
+      );
+    } finally {
+      setSavingOperations(false);
+    }
+  };
 
   const canEdit = useMemo(
     () => !registration || (!registration.officialMember && registration.status !== "approved"),
@@ -195,6 +334,47 @@ export function HanhwalMemberRegistrationForm() {
       ...current,
       [field]: ""
     }));
+  };
+
+  const beginContentEditing = (startFresh = false) => {
+    if (!access.isAdmin) return;
+
+    setContentError("");
+    setContentDraft(
+      startFresh
+        ? { body: "", title: "", updatedAt: registrationContent.updatedAt }
+        : registrationContent
+    );
+    setEditingContent(true);
+  };
+
+  const saveContent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSavingContent(true);
+    setContentError("");
+
+    try {
+      const response = await fetch("/api/hanhwal/registration-content", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: contentDraft.body, title: contentDraft.title })
+      });
+      const data = (await response.json()) as RegistrationContentResponse;
+
+      if (!response.ok || !data.content) {
+        throw new Error(data.error || "HANHWAL registration content could not be saved.");
+      }
+
+      setRegistrationContent(data.content);
+      setContentDraft(data.content);
+      setEditingContent(false);
+    } catch (saveError) {
+      setContentError(
+        saveError instanceof Error ? saveError.message : "HANHWAL registration content could not be saved."
+      );
+    } finally {
+      setSavingContent(false);
+    }
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -230,21 +410,27 @@ export function HanhwalMemberRegistrationForm() {
       const data = (await response.json()) as RegistrationResponse;
 
       if (!response.ok) {
-        throw new Error(data.error || "Hanhwal registration could not be submitted.");
+        throw new Error(data.error || "HANHWAL registration could not be submitted.");
       }
 
       setRegistration(data.registration ?? null);
       setForm(registrationToForm(data.registration ?? null));
       setFieldErrors({});
       setEditing(false);
+
+      if (data.teamChatUrl) {
+        window.location.assign(data.teamChatUrl);
+        return;
+      }
+
       setMessage(
         language === "ko"
-          ? "Hanhwal 신규회원 등록이 제출되었습니다. 운영진이 회비 납부를 확인하면 정식회원 권한이 열립니다."
+          ? "한활 신규회원 등록이 제출되었습니다. 운영진이 회비 납부를 확인하면 정식회원 권한이 열립니다."
           : data.message ||
-              "Your Hanhwal registration has been submitted. Hanhwal officers will check your payment and approve your official membership soon."
+              "Your HANHWAL registration has been submitted. HANHWAL officers will check your payment and approve your official membership soon."
       );
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Hanhwal registration could not be submitted.");
+      setError(submitError instanceof Error ? submitError.message : "HANHWAL registration could not be submitted.");
     } finally {
       setSaving(false);
     }
@@ -254,22 +440,99 @@ export function HanhwalMemberRegistrationForm() {
     <div className="grid gap-8">
       <section className="paper-panel p-5 md:p-8">
         <div className="grid gap-6">
-          <div>
-            <p className="text-sm font-semibold uppercase text-brass">Membership Fee</p>
-            <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
-              Hanhwal New Member Registration
-            </h2>
-            <div className="mt-5 whitespace-pre-line text-sm leading-7 text-ink/72">{`Welcome to Hanhwal.
-
-Hanhwal is K_LINE's Korean traditional archery club community.
-Please submit this form after reviewing the current membership fee and payment instructions shared by the club officers.
-
-Membership confirmation:
-Club officers will compare this form with the payment record and approve the connected Google account as an official Hanhwal member.
-
-Notice:
-Please enter the same name that you use in KakaoTalk so the officers can identify your application.`}</div>
-          </div>
+          {!editingContent ? (
+            <div
+              role={access.isAdmin ? "button" : undefined}
+              tabIndex={access.isAdmin ? 0 : undefined}
+              onClick={() => beginContentEditing()}
+              onKeyDown={(event) => {
+                if (access.isAdmin && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault();
+                  beginContentEditing();
+                }
+              }}
+              className={access.isAdmin ? "cursor-text rounded-lg outline-none transition hover:bg-hanji/45 focus-visible:ring-2 focus-visible:ring-navy/35" : undefined}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <p className="text-sm font-semibold uppercase text-brass">Membership Fee</p>
+                {access.isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      beginContentEditing();
+                    }}
+                    className="inline-flex min-h-9 items-center gap-1.5 border border-navy/18 bg-white/65 px-3 text-xs font-semibold text-navy transition hover:border-brass hover:bg-brass/10"
+                  >
+                    <Edit3 aria-hidden className="h-3.5 w-3.5" />
+                    본문 편집
+                  </button>
+                ) : null}
+              </div>
+              <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
+                {registrationContent.title}
+              </h2>
+              <div className="mt-5 whitespace-pre-line text-sm leading-7 text-ink/72">
+                {registrationContent.body}
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={saveContent} className="grid gap-4 rounded-lg border border-brass/35 bg-hanji/35 p-4 md:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold uppercase text-brass">관리자 안내문 편집</p>
+                <button
+                  type="button"
+                  disabled={savingContent}
+                  onClick={() => beginContentEditing(true)}
+                  className="min-h-9 border border-navy/18 bg-white/65 px-3 text-xs font-semibold text-navy transition hover:border-brass hover:bg-brass/10 disabled:opacity-60"
+                >
+                  새로 작성
+                </button>
+              </div>
+              <label className="grid gap-2 text-sm font-semibold text-ink">
+                제목
+                <input
+                  required
+                  value={contentDraft.title}
+                  onChange={(event) => setContentDraft((current) => ({ ...current, title: event.target.value }))}
+                  className="form-field min-h-11 w-full"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-ink">
+                본문
+                <textarea
+                  required
+                  rows={18}
+                  value={contentDraft.body}
+                  onChange={(event) => setContentDraft((current) => ({ ...current, body: event.target.value }))}
+                  className="form-field min-h-80 w-full resize-y py-3"
+                />
+              </label>
+              {contentError ? <p role="alert" className="text-sm font-semibold text-red-700">{contentError}</p> : null}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={savingContent}
+                  className="inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-wait disabled:opacity-60"
+                >
+                  {savingContent ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Save aria-hidden className="h-4 w-4" />}
+                  변경내용 저장하기
+                </button>
+                <button
+                  type="button"
+                  disabled={savingContent}
+                  onClick={() => {
+                    setContentDraft(registrationContent);
+                    setContentError("");
+                    setEditingContent(false);
+                  }}
+                  className="min-h-11 border border-navy/18 bg-white/65 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10 disabled:opacity-60"
+                >
+                  취소
+                </button>
+              </div>
+            </form>
+          )}
           <div className="border border-pine/20 bg-pine/10 p-5">
             <div className="flex items-center gap-3">
               <ShieldCheck aria-hidden className="h-5 w-5 text-pine" />
@@ -279,10 +542,159 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             </div>
             <p className="mt-4 text-sm leading-7 text-ink/68">
               This K_LINE form is connected to the Google account you use to log in. Officers
-              can verify your payment and approve the same account as an official Hanhwal member.
+              can verify your payment and approve the same account as an official HANHWAL member.
             </p>
           </div>
         </div>
+      </section>
+
+      <section
+        role={access.isAdmin && !editingOperations ? "button" : undefined}
+        tabIndex={access.isAdmin && !editingOperations ? 0 : undefined}
+        onClick={access.isAdmin && !editingOperations ? beginOperationsEditing : undefined}
+        onKeyDown={(event) => {
+          if (
+            access.isAdmin &&
+            !editingOperations &&
+            (event.key === "Enter" || event.key === " ")
+          ) {
+            event.preventDefault();
+            beginOperationsEditing();
+          }
+        }}
+        className={`paper-panel p-5 md:p-8 ${
+          access.isAdmin && !editingOperations
+            ? "cursor-text outline-none transition hover:border-brass hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-navy/35"
+            : ""
+        }`}
+      >
+        {!editingOperations ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold uppercase text-brass">📢 문의</p>
+              {access.isAdmin ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy">
+                  <Edit3 aria-hidden className="h-3.5 w-3.5" />
+                  {language === "ko"
+                    ? "이 영역을 눌러 채팅 링크 편집"
+                    : "Click this area to edit chat links"}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-3 text-sm leading-7 text-ink/72">
+              {inquiryChatUrl
+                ? <I18nText en="Questions? Contact the club through the chat below." ko="궁금한 점이 있다면 아래 오픈채팅으로 편하게 문의해주세요!" />
+                : <I18nText en="The club's contact link has not been configured yet." ko="한활 문의 링크가 아직 등록되지 않았습니다." />}
+            </p>
+            <p className="mt-3 text-sm leading-7 text-ink/72">
+              <a
+                href={inquiryChatUrl || undefined}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="font-semibold text-navy underline decoration-brass/70 underline-offset-4 transition hover:text-brass"
+              >
+                {inquiryChatUrl}
+              </a>
+            </p>
+          </>
+        ) : (
+          <div className="grid gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase text-brass">
+                {language === "ko" ? "관리자 현장 편집" : "Inline admin edit"}
+              </p>
+              <h3 className="mt-2 font-serif text-2xl font-semibold text-ink">
+                {language === "ko" ? "신규회원·문의 채팅 링크" : "New-member & inquiry chats"}
+              </h3>
+            </div>
+
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {language === "ko" ? "한활 문의 오픈채팅" : "HANHWAL inquiry chat"}
+              <input
+                type="url"
+                required
+                value={operationsDraft.inquiryChatUrl}
+                onChange={(event) =>
+                  setOperationsDraft((current) => ({
+                    ...current,
+                    inquiryChatUrl: event.target.value
+                  }))
+                }
+                className="form-field"
+              />
+            </label>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+              <label className="grid gap-2 text-sm font-semibold text-ink">
+                {language === "ko"
+                  ? "신규회원 오픈채팅"
+                  : "New-member open chat"}
+                <input
+                  type="url"
+                  required
+                  value={operationsDraft.newMemberOpenChatUrl}
+                  onChange={(event) =>
+                    setOperationsDraft((current) => ({
+                      ...current,
+                      newMemberOpenChatUrl: event.target.value
+                    }))
+                  }
+                  className="form-field"
+                />
+              </label>
+              {operationsDraft.newMemberOpenChatUrl ? (
+                <img
+                  key={qrVersion}
+                  src={`/api/hanhwal/open-chat-qr?v=${qrVersion}`}
+                  alt="HANHWAL new-member open chat QR code"
+                  className="h-28 w-28 border border-ink/10 bg-white object-contain p-2"
+                />
+              ) : null}
+            </div>
+
+            <p className="text-xs leading-5 text-ink/55">
+              {language === "ko"
+                ? "신규회원 오픈채팅 링크를 저장하면 QR도 자동으로 새 링크로 갱신됩니다."
+                : "Saving the new-member link automatically regenerates its QR code."}
+            </p>
+
+            {operationsError ? (
+              <p className="text-sm font-semibold text-red-700">{operationsError}</p>
+            ) : null}
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={savingOperations}
+                onClick={() => void saveOperationsInline()}
+                className="inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy disabled:opacity-60"
+              >
+                {savingOperations ? (
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save aria-hidden className="h-4 w-4" />
+                )}
+                {language === "ko" ? "저장" : "Save"}
+              </button>
+              <button
+                type="button"
+                disabled={savingOperations}
+                onClick={() => {
+                  setOperationsDraft({
+                    inquiryChatUrl,
+                    newMemberOpenChatUrl
+                  });
+                  setOperationsError("");
+                  setEditingOperations(false);
+                }}
+                className="min-h-11 border border-navy/18 bg-white/65 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/10 disabled:opacity-60"
+              >
+                {language === "ko" ? "취소" : "Cancel"}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {loading ? (
@@ -299,7 +711,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
           </h2>
           <p className="mt-3 text-sm leading-7 text-ink/68">
             <I18nText
-              en="Please log in with Google before submitting the Hanhwal new member registration form."
+              en="Please log in with Google before submitting the HANHWAL new member registration form."
               ko="한활 신규회원 등록폼을 제출하려면 먼저 Google 계정으로 로그인해 주세요."
             />
           </p>
@@ -389,7 +801,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
                 href="/hanhwal-official"
                 className="inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
               >
-                <I18nText en="Open Hanhwal OFFICIAL" ko="한활 OFFICIAL 열기" />
+                <I18nText en="Open HANHWAL OFFICIAL" ko="한활 OFFICIAL 열기" />
               </Link>
             )}
             {registration.adminNote ? (
@@ -406,7 +818,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
               <I18nText en="K_LINE registration form" ko="K_LINE 신규회원 등록폼" />
             </p>
             <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
-              <I18nText en="Official Hanhwal member request" ko="한활 정식회원 신청" />
+              <I18nText en="Official HANHWAL member request" ko="한활 정식회원 신청" />
             </h2>
           </div>
 

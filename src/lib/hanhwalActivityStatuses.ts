@@ -1,12 +1,11 @@
 import "server-only";
 
 import {
-  defaultHanhwalActivityStatuses,
-  hanhwalActivityTypes,
-  normalizeHanhwalActivityType,
-  type HanhwalActivityStatuses,
+  hanhwalActivityTypeSet,
+  normalizeHanhwalActivityId,
   type HanhwalActivityType
 } from "@/lib/hanhwalActivities";
+import { getHanhwalActivityCatalog } from "@/lib/hanhwalOperations";
 import { supabaseRequest } from "@/lib/supabaseServer";
 
 type HanhwalActivityStatusRow = {
@@ -21,20 +20,21 @@ type HanhwalActivityStatusRow = {
 
 const tableName = "hanhwal_activity_statuses";
 const legacySelectedColumns = "activity_id,is_open,updated_at,updated_by";
-const selectedColumns = `${legacySelectedColumns},activity_instance_id,registration_closed_at,requires_payment`;
+const selectedColumns =
+  `${legacySelectedColumns},activity_instance_id,registration_closed_at,requires_payment`;
 
 export type HanhwalActivityCloseEvent = {
-  activityId: HanhwalActivityType;
+  activityId: string;
   activityInstanceId: string;
   registrationClosedAt: string;
 };
 
 async function listHanhwalActivityStatusRows() {
   try {
-    return await supabaseRequest<HanhwalActivityStatusRow[]>(`${tableName}?select=${selectedColumns}`);
+    return await supabaseRequest<HanhwalActivityStatusRow[]>(
+      `${tableName}?select=${selectedColumns}`
+    );
   } catch (error) {
-    // History fields are additive. The established application controls must
-    // keep working while a production database is waiting for its migration.
     if (error instanceof Error && "status" in error && error.status === 400) {
       return supabaseRequest<HanhwalActivityStatusRow[]>(
         `${tableName}?select=${legacySelectedColumns}`
@@ -45,36 +45,42 @@ async function listHanhwalActivityStatusRows() {
   }
 }
 
-export function mergeHanhwalActivityStatuses(
-  rows: HanhwalActivityStatusRow[] = []
-): HanhwalActivityStatuses {
-  const statuses = defaultHanhwalActivityStatuses();
-
-  rows.forEach((row) => {
-    const type = normalizeHanhwalActivityType(row.activity_id);
-    statuses[type] = row.is_open !== false;
-  });
-
-  return statuses;
+function legacyDefaultOpen(activityId: string) {
+  return hanhwalActivityTypeSet.has(activityId as HanhwalActivityType);
 }
 
 export async function getHanhwalActivityStatuses() {
-  const rows = await listHanhwalActivityStatusRows();
-  const requiresPayment = Object.fromEntries(
-    hanhwalActivityTypes.map((type) => [type, true])
-  ) as Record<HanhwalActivityType, boolean>;
-  const activityInstances = Object.fromEntries(
-    hanhwalActivityTypes.map((type) => [type, ""])
-  ) as Record<HanhwalActivityType, string>;
+  const [rows, catalog] = await Promise.all([
+    listHanhwalActivityStatusRows(),
+    getHanhwalActivityCatalog({ includeArchived: true })
+  ]);
+
+  const activityIds = Array.from(
+    new Set([
+      ...catalog.map((item) => item.id),
+      ...rows.map((row) => normalizeHanhwalActivityId(row.activity_id))
+    ])
+  );
+
+  const statuses: Record<string, boolean> = {};
+  const requiresPayment: Record<string, boolean> = {};
+  const activityInstances: Record<string, string> = {};
+
+  activityIds.forEach((activityId) => {
+    statuses[activityId] = legacyDefaultOpen(activityId);
+    requiresPayment[activityId] = true;
+    activityInstances[activityId] = "";
+  });
 
   rows.forEach((row) => {
-    const type = normalizeHanhwalActivityType(row.activity_id);
-    requiresPayment[type] = row.requires_payment !== false;
-    activityInstances[type] = row.activity_instance_id ?? "";
+    const activityId = normalizeHanhwalActivityId(row.activity_id);
+    statuses[activityId] = row.is_open !== false;
+    requiresPayment[activityId] = row.requires_payment !== false;
+    activityInstances[activityId] = row.activity_instance_id ?? "";
   });
 
   return {
-    statuses: mergeHanhwalActivityStatuses(rows),
+    statuses,
     requiresPayment,
     activityInstances,
     tableReady: true
@@ -82,49 +88,56 @@ export async function getHanhwalActivityStatuses() {
 }
 
 export async function updateHanhwalActivityStatuses(
-  updates: Partial<Record<HanhwalActivityType, boolean>>,
+  updates: Record<string, boolean>,
   updatedBy: string,
-  paymentRequirements: Partial<Record<HanhwalActivityType, boolean>> = {}
+  paymentRequirements: Record<string, boolean> = {}
 ) {
   const currentRows = await listHanhwalActivityStatusRows();
-  const currentByType = new Map(
-    currentRows.map((row) => [normalizeHanhwalActivityType(row.activity_id), row])
+  const currentById = new Map(
+    currentRows.map((row) => [normalizeHanhwalActivityId(row.activity_id), row])
   );
   const now = new Date().toISOString();
   const closedActivities: HanhwalActivityCloseEvent[] = [];
-  const rows = hanhwalActivityTypes
-    .filter(
-      (type) =>
-        typeof updates[type] === "boolean" || typeof paymentRequirements[type] === "boolean"
-    )
-    .map((type) => {
-      const current = currentByType.get(type);
-      const wasOpen = current?.is_open !== false;
-      const isOpen = updates[type] ?? wasOpen;
-      const activityInstanceId = current?.activity_instance_id || crypto.randomUUID();
+  const activityIds = Array.from(
+    new Set([
+      ...Object.keys(updates).map(normalizeHanhwalActivityId),
+      ...Object.keys(paymentRequirements).map(normalizeHanhwalActivityId)
+    ])
+  );
 
-      if (wasOpen && !isOpen && current?.activity_instance_id) {
-        closedActivities.push({
-          activityId: type,
-          activityInstanceId: current.activity_instance_id,
-          registrationClosedAt: now
-        });
-      }
+  const rows = activityIds.map((activityId) => {
+    const current = currentById.get(activityId);
+    const wasOpen = current ? current.is_open !== false : legacyDefaultOpen(activityId);
+    const isOpen = updates[activityId] ?? wasOpen;
+    const existingInstanceId = current?.activity_instance_id || "";
+    const activityInstanceId =
+      isOpen && !wasOpen
+        ? crypto.randomUUID()
+        : existingInstanceId || (isOpen ? crypto.randomUUID() : "");
 
-      return {
-        activity_id: type,
-        activity_instance_id: isOpen && !wasOpen ? crypto.randomUUID() : activityInstanceId,
-        is_open: isOpen,
-        registration_closed_at: isOpen
-          ? null
-          : wasOpen
-            ? now
-            : current?.registration_closed_at ?? null,
-        requires_payment: paymentRequirements[type] ?? current?.requires_payment ?? true,
-        updated_at: now,
-        updated_by: updatedBy
-      };
-    });
+    if (wasOpen && !isOpen && existingInstanceId) {
+      closedActivities.push({
+        activityId,
+        activityInstanceId: existingInstanceId,
+        registrationClosedAt: now
+      });
+    }
+
+    return {
+      activity_id: activityId,
+      activity_instance_id: activityInstanceId || null,
+      is_open: isOpen,
+      registration_closed_at: isOpen
+        ? null
+        : wasOpen
+          ? now
+          : current?.registration_closed_at ?? null,
+      requires_payment:
+        paymentRequirements[activityId] ?? current?.requires_payment ?? true,
+      updated_at: now,
+      updated_by: updatedBy
+    };
+  });
 
   if (rows.length > 0) {
     try {

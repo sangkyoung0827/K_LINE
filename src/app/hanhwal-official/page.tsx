@@ -6,20 +6,22 @@ import {
   Banknote,
   ClipboardList,
   Lock,
-  MessageCircle,
   MessageSquareText,
   Settings,
   ShieldCheck
 } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
+import { HanhwalMemberRegistrationForm } from "@/components/HanhwalMemberRegistrationForm";
+import { HanhwalOfficialTeamChatCard } from "@/components/HanhwalOfficialTeamChatCard";
 import { HanhwalPermissionRequestCard } from "@/components/HanhwalPermissionRequestCard";
 import { I18nText } from "@/components/LanguageProvider";
-import { getCurrentHanhwalAccess, getHanhwalOfficialTeamChatUrl } from "@/lib/hanhwalAccess";
+import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
+import { getHanhwalOperationalSettings } from "@/lib/hanhwalOperations";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
-  title: "Hanhwal OFFICIAL",
-  description: "Official Hanhwal member lounge for confirmed K_LINE Hanhwal members.",
+  title: "HANHWAL OFFICIAL",
+  description: "Official HANHWAL member lounge for confirmed K_LINE HANHWAL members.",
   path: "/hanhwal-official"
 });
 
@@ -33,11 +35,11 @@ export default async function HanhwalOfficialPage() {
           title={<I18nText en="Login required" ko="로그인이 필요합니다" />}
           description={
             <I18nText
-              en="Please log in with Google to check your Hanhwal official membership status."
+              en="Please log in with Google to check your HANHWAL official membership status."
               ko="한활 정식회원 상태를 확인하려면 Google 계정으로 로그인해 주세요."
             />
           }
-          href="/login"
+          href="/login?callbackUrl=/hanhwal-official"
           cta={<I18nText en="Go to Login" ko="로그인하러 가기" />}
         />
       </OfficialShell>
@@ -50,14 +52,14 @@ export default async function HanhwalOfficialPage() {
         <AccessMessage
           title={
             <I18nText
-              en="Your Hanhwal official membership has not been confirmed yet."
-              ko="아직 Hanhwal 정식회원으로 확인되지 않았습니다."
+              en="Your HANHWAL official membership has not been confirmed yet."
+              ko="아직 한활 정식회원으로 확인되지 않았습니다."
             />
           }
           description={
             <I18nText
-              en="Please submit the K_LINE new member registration form and complete the membership fee payment. After an officer confirms payment, Hanhwal OFFICIAL will open for this account."
-              ko="K_LINE 신규회원 등록폼 제출과 회비 납부를 완료해 주세요. 운영진이 납부를 확인하면 이 계정에서 Hanhwal OFFICIAL이 열립니다."
+              en="Please submit the K_LINE new member registration form and complete the membership fee payment. After an officer confirms payment, HANHWAL OFFICIAL will open for this account."
+              ko="K_LINE 신규회원 등록폼 제출과 회비 납부를 완료해 주세요. 운영진이 납부를 확인하면 이 계정에서 한활 OFFICIAL이 열립니다."
             />
           }
           href="/hanhwal-join"
@@ -67,43 +69,20 @@ export default async function HanhwalOfficialPage() {
     );
   }
 
-  const teamChatUrl = getHanhwalOfficialTeamChatUrl();
+  const operations = await getHanhwalOperationalSettings();
+  const teamChatUrl = operations.officialTeamChatUrl;
 
   return (
     <OfficialShell>
       <section className="grid gap-6">
-        <div className="paper-panel mx-auto grid w-full max-w-5xl justify-items-center p-4 text-center sm:p-6 md:p-10">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
-              <ShieldCheck aria-hidden className="h-4 w-4" />
-              <I18nText en="Confirmed member" ko="정식회원 확인됨" />
-            </div>
-            <h2 className="mt-4 font-serif text-2xl font-semibold text-ink sm:mt-5 sm:text-3xl md:text-4xl">
-              <I18nText en="Join the Hanhwal team chat" ko="한활 팀채팅에 입장하세요" />
-            </h2>
-            <p className="mt-4 text-sm leading-7 text-ink/66">
-              <I18nText
-                en="Please use your registered name or KakaoTalk display name when joining the official team chat."
-                ko="공식 팀채팅에 입장할 때는 등록한 이름 또는 카카오톡 표시 이름을 사용해 주세요."
-              />
-            </p>
-          </div>
-          <div className="mt-5 grid w-full max-w-52 gap-3 sm:mt-6 sm:max-w-60">
-            <img
-              src="/api/hanhwal/official-team-qr"
-              alt="Hanhwal official team chat QR code"
-              className="aspect-square w-full border border-ink/10 bg-white object-contain p-3"
-            />
-            <a
-              href={teamChatUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
-            >
-              <MessageCircle aria-hidden className="h-4 w-4" />
-              <I18nText en="Join Hanhwal Official Team Chat" ko="한활 공식 팀채팅 입장" />
-            </a>
-          </div>
+        <HanhwalOfficialTeamChatCard
+          initialPeriodLabel={operations.periodLabel}
+          initialTeamChatUrl={teamChatUrl}
+          isAdmin={access.isAdmin}
+        />
+
+        <div className="mx-auto w-full max-w-5xl">
+          <HanhwalMemberRegistrationForm />
         </div>
 
         <div className="mx-auto w-full max-w-5xl">
@@ -121,6 +100,11 @@ export default async function HanhwalOfficialPage() {
               icon={ClipboardList}
               title={<I18nText en="Activity Application" ko="활동 신청" />}
             />
+            <OfficialRow
+              href="/hanhwal-alumni"
+              icon={MessageSquareText}
+              title={<I18nText en="Alumni and Returning Members" ko="동문·재등록" />}
+            />
             {access.isAdmin ? (
               <OfficialRow
                 href="/our-activities/hanhwal/members"
@@ -128,11 +112,18 @@ export default async function HanhwalOfficialPage() {
                 title={<I18nText en="Member Management" ko="회원 관리" />}
               />
             ) : null}
-            {access.isSuperAdmin ? (
+            {access.isAdmin ? (
               <OfficialRow
                 href="/our-activities/hanhwal/fund"
                 icon={Banknote}
-                title={<I18nText en="Hanhwal Fund Management" ko="한활 자금관리" />}
+                title={<I18nText en="HANHWAL Fund Management" ko="한활 자금관리" />}
+              />
+            ) : null}
+            {access.isAdmin ? (
+              <OfficialRow
+                href="/our-activities/hanhwal/operations"
+                icon={Settings}
+                title={<I18nText en="Semester Operations" ko="학기 운영 설정" />}
               />
             ) : null}
             {access.isDeveloper ? (
@@ -160,12 +151,12 @@ function OfficialShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-[1fr_auto] md:items-end md:px-8">
           <div>
             <p className="text-sm font-semibold uppercase text-brass">
-              <I18nText en="Hanhwal official" ko="한활 공식" />
+              <I18nText en="HANHWAL official" ko="한활 공식" />
             </p>
-            <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">Hanhwal OFFICIAL</h1>
+            <h1 className="mt-4 font-serif text-5xl font-semibold md:text-7xl">HANHWAL OFFICIAL</h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-paper/74">
               <I18nText
-                en="Official member lounge for Hanhwal members."
+                en="Official member lounge for HANHWAL members."
                 ko="한활 정식회원을 위한 공식 멤버 라운지입니다."
               />
             </p>

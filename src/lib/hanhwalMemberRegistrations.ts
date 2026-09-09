@@ -141,6 +141,22 @@ export async function getHanhwalMemberRegistrationByEmail(email?: string | null)
   return rows[0] ? toHanhwalMemberRegistration(rows[0]) : null;
 }
 
+export async function getHanhwalMemberRegistrationById(id?: string | null) {
+  const registrationId = cleanText(id, 120);
+
+  if (!registrationId) {
+    return null;
+  }
+
+  const rows = await supabaseRequest<HanhwalMemberRegistrationRow[]>(
+    `${hanhwalMemberRegistrationsTable}?select=${hanhwalMemberRegistrationColumns}&id=eq.${encodeURIComponent(
+      registrationId
+    )}&limit=1`
+  );
+
+  return rows[0] ? toHanhwalMemberRegistration(rows[0]) : null;
+}
+
 export async function listHanhwalMemberRegistrations() {
   const rows = await supabaseRequest<HanhwalMemberRegistrationRow[]>(
     `${hanhwalMemberRegistrationsTable}?select=${hanhwalMemberRegistrationColumns}&order=created_at.desc&limit=1000`
@@ -150,6 +166,7 @@ export async function listHanhwalMemberRegistrations() {
 }
 
 export async function upsertHanhwalMemberRegistration(input: {
+  existingRegistration?: HanhwalMemberRegistration | null;
   form: ReturnType<typeof cleanHanhwalMemberRegistrationFormInput>;
   googleAvatarUrl?: string | null;
   googleEmail: string;
@@ -157,7 +174,9 @@ export async function upsertHanhwalMemberRegistration(input: {
   siteMemberId?: string | null;
 }) {
   const email = normalizeEmail(input.googleEmail);
-  const existing = await getHanhwalMemberRegistrationByEmail(email);
+  const existing = Object.prototype.hasOwnProperty.call(input, "existingRegistration")
+    ? input.existingRegistration ?? null
+    : await getHanhwalMemberRegistrationByEmail(email);
   const now = new Date().toISOString();
 
   const payload = {
@@ -212,14 +231,54 @@ export async function upsertHanhwalMemberRegistration(input: {
   return rows[0] ? toHanhwalMemberRegistration(rows[0]) : null;
 }
 
-export async function patchHanhwalMemberRegistration(input: {
+export async function patchHanhwalMemberRegistrationWithChangeInfo(input: {
   adminEmail: string;
   adminNote?: string;
   id: string;
   paymentConfirmed: boolean;
 }) {
-  const now = new Date().toISOString();
+  const existing = await getHanhwalMemberRegistrationById(input.id);
+
+  if (!existing) {
+    return {
+      changed: false,
+      paymentConfirmedChanged: false,
+      registration: null as HanhwalMemberRegistration | null
+    };
+  }
+
+  const adminNote = cleanText(input.adminNote, 1200);
   const paymentConfirmed = Boolean(input.paymentConfirmed);
+  const adminNoteChanged = existing.adminNote !== adminNote;
+  const paymentConfirmedChanged = existing.paymentConfirmed !== paymentConfirmed;
+
+  if (!adminNoteChanged && !paymentConfirmedChanged) {
+    return {
+      changed: false,
+      paymentConfirmedChanged: false,
+      registration: existing
+    };
+  }
+
+  const now = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    updated_at: now
+  };
+
+  if (adminNoteChanged) {
+    payload.admin_note = adminNote;
+  }
+
+  if (paymentConfirmedChanged) {
+    payload.official_member = paymentConfirmed;
+    payload.official_member_approved_at = paymentConfirmed ? now : null;
+    payload.official_member_approved_by = paymentConfirmed ? input.adminEmail : "";
+    payload.payment_confirmed = paymentConfirmed;
+    payload.payment_confirmed_at = paymentConfirmed ? now : null;
+    payload.payment_confirmed_by = paymentConfirmed ? input.adminEmail : "";
+    payload.status = paymentConfirmed ? "approved" : "payment_pending";
+  }
+
   const rows = await supabaseRequest<HanhwalMemberRegistrationRow[]>(
     `${hanhwalMemberRegistrationsTable}?id=eq.${encodeURIComponent(
       input.id
@@ -229,19 +288,22 @@ export async function patchHanhwalMemberRegistration(input: {
       headers: {
         Prefer: "return=representation"
       },
-      body: JSON.stringify({
-        admin_note: cleanText(input.adminNote, 1200),
-        official_member: paymentConfirmed,
-        official_member_approved_at: paymentConfirmed ? now : null,
-        official_member_approved_by: paymentConfirmed ? input.adminEmail : "",
-        payment_confirmed: paymentConfirmed,
-        payment_confirmed_at: paymentConfirmed ? now : null,
-        payment_confirmed_by: paymentConfirmed ? input.adminEmail : "",
-        status: paymentConfirmed ? "approved" : "payment_pending",
-        updated_at: now
-      })
+      body: JSON.stringify(payload)
     }
   );
 
-  return rows[0] ? toHanhwalMemberRegistration(rows[0]) : null;
+  return {
+    changed: true,
+    paymentConfirmedChanged,
+    registration: rows[0] ? toHanhwalMemberRegistration(rows[0]) : existing
+  };
+}
+
+export async function patchHanhwalMemberRegistration(input: {
+  adminEmail: string;
+  adminNote?: string;
+  id: string;
+  paymentConfirmed: boolean;
+}) {
+  return (await patchHanhwalMemberRegistrationWithChangeInfo(input)).registration;
 }

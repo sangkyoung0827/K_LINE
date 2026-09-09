@@ -57,3 +57,22 @@ export function defaultHanhwalActivityStatuses(): HanhwalActivityStatuses {
     "english-class": true
   };
 }
+
+
+export type HanhwalActivityId = string;
+
+export function normalizeHanhwalActivityId(value: string | null | undefined): HanhwalActivityId {
+  const normalized = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return normalized || "gathering";
+}
+
+export function defaultHanhwalActivityTitle(activityId: string) {
+  const legacy = activityId as HanhwalActivityType;
+  return hanhwalActivityTypeSet.has(legacy) ? hanhwalActivityTitles[legacy] : activityId;
+}
