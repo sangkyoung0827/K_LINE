@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import type React from "react";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { EccOutageAssistant } from "@/components/EccOutageAssistant";
+import { eccEntryCookie, validEccEntry } from "@/lib/eccTemporaryEntry";
+import { withinEccLookupDeadline } from "@/lib/eccAccessRetry";
 import {
   ArrowRight,
   Banknote,
@@ -16,7 +20,7 @@ import { EccOfficialTeamChatCard } from "@/components/EccOfficialTeamChatCard";
 import { EccPermissionRequestCard } from "@/components/EccPermissionRequestCard";
 import { I18nText } from "@/components/LanguageProvider";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
-import { getEccOperationalSettings } from "@/lib/eccOperations";
+import { defaultEccOperationalSettings, getEccOperationalSettings } from "@/lib/eccOperations";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
@@ -46,7 +50,18 @@ export default async function EccOfficialPage() {
     );
   }
 
-  if (!access.isOfficialMember) {
+  const temporaryEntry = !access.isOfficialMember && access.lookupFailed &&
+    access.temporaryEntryEligible && validEccEntry(
+      (await cookies()).get(eccEntryCookie)?.value,
+      access.email,
+      process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || ""
+    );
+
+  if (!access.isOfficialMember && access.lookupFailed && !temporaryEntry) {
+    return <OfficialShell><EccOutageAssistant eligible={Boolean(access.temporaryEntryEligible)} /></OfficialShell>;
+  }
+
+  if (!access.isOfficialMember && !temporaryEntry) {
     return (
       <OfficialShell>
         <AccessMessage
@@ -69,7 +84,11 @@ export default async function EccOfficialPage() {
     );
   }
 
-  const operations = await getEccOperationalSettings();
+  const operationsRequest = getEccOperationalSettings();
+  const operations = await (temporaryEntry ? withinEccLookupDeadline(operationsRequest) : operationsRequest).catch((error) => {
+    if (!temporaryEntry) throw error;
+    return defaultEccOperationalSettings;
+  });
   const teamChatUrl = operations.officialTeamChatUrl;
 
   return (
@@ -79,6 +98,7 @@ export default async function EccOfficialPage() {
           initialPeriodLabel={operations.periodLabel}
           initialTeamChatUrl={teamChatUrl}
           isAdmin={access.isAdmin}
+          temporaryEntry={Boolean(temporaryEntry)}
         />
 
         <div className="mx-auto w-full max-w-5xl">

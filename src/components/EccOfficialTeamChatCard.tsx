@@ -8,6 +8,7 @@ type Props = {
   initialPeriodLabel: string;
   initialTeamChatUrl: string;
   isAdmin: boolean;
+  temporaryEntry?: boolean;
 };
 
 type OperationsResponse = {
@@ -21,7 +22,8 @@ type OperationsResponse = {
 export function EccOfficialTeamChatCard({
   initialPeriodLabel,
   initialTeamChatUrl,
-  isAdmin
+  isAdmin,
+  temporaryEntry = false
 }: Props) {
   const { language } = useLanguage();
   const korean = language === "ko";
@@ -103,7 +105,7 @@ export function EccOfficialTeamChatCard({
         <>
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
-              <I18nText en="Confirmed member" ko="정식회원 확인됨" />
+              <I18nText en={temporaryEntry ? "Temporary entry (15 minutes)" : "Confirmed member"} ko={temporaryEntry ? "임시 입장 (15분)" : "정식회원 확인됨"} />
             </div>
 
             {isAdmin && periodLabel ? (
@@ -133,12 +135,12 @@ export function EccOfficialTeamChatCard({
           </div>
 
           <div className="mt-5 grid w-full max-w-52 gap-3 sm:mt-6 sm:max-w-60">
-            <img
+            {!temporaryEntry ? <img
               key={qrVersion}
               src={`/api/ecc/official-team-qr?v=${qrVersion}`}
               alt="ECC official team chat QR code"
               className="aspect-square w-full border border-ink/10 bg-white object-contain p-3"
-            />
+            /> : null}
             <a
               href={teamChatUrl}
               target="_blank"
