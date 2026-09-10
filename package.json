@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "pretest": "npm run test:woohyukmon && npm run test:ecc-approval-retry",
-    "test:ecc-approval-retry": "node --test scripts/ecc-approval-retry.test.mjs scripts/ecc-outage-entry.test.mjs",
+    "test:ecc-approval-retry": "node --test scripts/ecc-approval-retry.test.mjs scripts/ecc-outage-entry.test.mjs scripts/read-only-developer.test.mjs",
     "test:woohyukmon": "tsx --test src/lib/woohyukmon/*.test.ts",
     "dev": "next dev",
     "build": "next build",

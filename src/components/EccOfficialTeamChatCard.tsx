@@ -3,6 +3,7 @@
 import { Edit3, Loader2, MessageCircle, Save, X } from "lucide-react";
 import { useState } from "react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
+import { useReadOnlyDeveloper } from "@/components/ReadOnlyDeveloperNotice";
 
 type Props = {
   initialPeriodLabel: string;
@@ -22,9 +23,11 @@ type OperationsResponse = {
 export function EccOfficialTeamChatCard({
   initialPeriodLabel,
   initialTeamChatUrl,
-  isAdmin,
+  isAdmin: adminAccess,
   temporaryEntry = false
 }: Props) {
+  const readOnly = useReadOnlyDeveloper();
+  const isAdmin = adminAccess && !readOnly;
   const { language } = useLanguage();
   const korean = language === "ko";
   const [teamChatUrl, setTeamChatUrl] = useState(initialTeamChatUrl);

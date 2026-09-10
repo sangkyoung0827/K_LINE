@@ -3,6 +3,7 @@ import {
   SupabaseRequestError,
   supabaseRequest
 } from "@/lib/supabaseServer";
+import { isReadOnlyDeveloperEmail, readOnlyDeveloperEmails } from "@/lib/readOnlyDeveloper";
 
 export type AdminRole = "member" | "super_admin" | "developer";
 
@@ -11,6 +12,7 @@ export type AdminAccess = {
   role: AdminRole;
   isDeveloper: boolean;
   isSuperAdmin: boolean;
+  isReadOnly?: boolean;
 };
 
 type AdminRoleRow = {
@@ -48,7 +50,7 @@ export function getSuperAdminEmails() {
 
 export function getDeveloperEmails() {
   const configured = parseEmailList(process.env.DEVELOPER_EMAILS);
-  return configured.length > 0 ? configured : fallbackDeveloperEmails;
+  return [...new Set([...(configured.length > 0 ? configured : fallbackDeveloperEmails), ...readOnlyDeveloperEmails])];
 }
 
 export function isDeveloperEmail(email?: string | null) {
@@ -110,7 +112,8 @@ export async function getAdminAccess(email?: string | null): Promise<AdminAccess
       email: normalized,
       role: "developer",
       isDeveloper: true,
-      isSuperAdmin: true
+      isSuperAdmin: true,
+      isReadOnly: isReadOnlyDeveloperEmail(normalized)
     };
   }
 

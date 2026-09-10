@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { isReadOnlyDeveloperEmail, isReadOnlyMethod, readOnlyDeveloperHeader } from "@/lib/readOnlyDeveloper";
 
 const publicFilePattern =
   /\.(?:avif|gif|html|ico|jpeg|jpg|json|png|svg|txt|webmanifest|webp|xml)$/i;
@@ -97,17 +99,37 @@ function hasAuthSessionCookie(request: NextRequest) {
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  // Never trust a client-supplied read-only marker. Only a verified session sets it.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete(readOnlyDeveloperHeader);
+  if (hasAuthSessionCookie(request) || request.headers.has("authorization")) {
+    const token = await getToken({
+      req: request,
+      secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+      secureCookie: request.nextUrl.protocol === "https:"
+    });
+    if (isReadOnlyDeveloperEmail(token?.email)) {
+      if (!isReadOnlyMethod(request.method)) {
+        return NextResponse.json({
+          error: "This developer account is read-only. Changes are not allowed.",
+          code: "READ_ONLY_DEVELOPER"
+        }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
+      }
+      requestHeaders.set(readOnlyDeveloperHeader, "1");
+    }
+  }
+  const next = () => NextResponse.next({ request: { headers: requestHeaders } });
 
   if (isPublicPath(pathname)) {
-    return NextResponse.next();
+    return next();
   }
 
   if (isPublicSeoPage(pathname)) {
-    return NextResponse.next();
+    return next();
   }
 
   if (hasAuthSessionCookie(request)) {
-    return NextResponse.next();
+    return next();
   }
 
   const loginUrl = new URL("/login", request.url);
