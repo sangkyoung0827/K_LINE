@@ -17,11 +17,13 @@ export async function applyEccMemberAdminUpdate(input: {
   const result = await patchEccMemberRegistrationWithChangeInfo(input);
   const registration = result.registration;
 
-  if (!registration || !result.changed) {
+  if (!registration) {
     return result;
   }
 
-  if (result.paymentConfirmedChanged) {
+  // A previous attempt may have saved the registration before the role write
+  // failed. An identical retry must finish that write instead of reporting success.
+  if (result.paymentConfirmedChanged || !result.changed) {
     if (registration.paymentConfirmed) {
       await approveEccOfficialMember({
         approvedBy: input.adminEmail,
@@ -37,5 +39,5 @@ export async function applyEccMemberAdminUpdate(input: {
     }
   }
 
-  return result;
+  return { ...result, changed: true };
 }
