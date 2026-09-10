@@ -17,6 +17,7 @@ import {
 } from "@/data/eccRegistrationContent";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { useEccAccess } from "@/hooks/useEccAccess";
+import { useReadOnlyDeveloper } from "@/components/ReadOnlyDeveloperNotice";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
 
@@ -147,7 +148,9 @@ function statusDescription(registration: EccMemberRegistration, language: "en" |
 
 export function EccMemberRegistrationForm() {
   const { language } = useLanguage();
-  const access = useEccAccess();
+  const membershipAccess = useEccAccess();
+  const readOnly = useReadOnlyDeveloper();
+  const access = { ...membershipAccess, isAdmin: membershipAccess.isAdmin && !readOnly };
   const pathname = usePathname();
   const loginHref = `/login?callbackUrl=${encodeURIComponent(pathname || "/ecc-join")}`;
   const [registration, setRegistration] = useState<EccMemberRegistration | null>(null);

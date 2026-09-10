@@ -1,4 +1,5 @@
 import "server-only";
+import { isReadOnlyMethod } from "@/lib/readOnlyDeveloper";
 
 export type SupabaseConfig = {
   url: string;
@@ -31,6 +32,10 @@ export function getSupabaseConfig(): SupabaseConfig {
 }
 
 export async function supabaseRequest<T>(path: string, init: RequestInit = {}) {
+  if (!isReadOnlyMethod(init.method ?? "GET")) {
+    const { assertDeveloperWriteAllowed } = await import("@/lib/readOnlyDeveloperServer");
+    await assertDeveloperWriteAllowed();
+  }
   const config = getSupabaseConfig();
   const headers = new Headers(init.headers);
   headers.set("apikey", config.serviceRoleKey);
