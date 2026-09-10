@@ -2,6 +2,7 @@ import "server-only";
 
 import { auth } from "@/auth";
 import { getAdminAccess, normalizeEmail } from "@/lib/admin";
+import { isTemporaryEccLookupError, retryEccLookup, withinEccLookupDeadline } from "@/lib/eccAccessRetry";
 import {
   SupabaseConfigError,
   SupabaseRequestError,
@@ -18,6 +19,8 @@ export type EccAccess = {
   isOfficialMember: boolean;
   isSuperAdmin: boolean;
   role: EccRole;
+  lookupFailed?: boolean;
+  temporaryEntryEligible?: boolean;
 };
 
 export type EccRoleRow = {
@@ -116,7 +119,7 @@ function resolveEccRole(
   return "user";
 }
 
-export async function getEccRoleRow(email?: string | null) {
+export async function getEccRoleRow(email?: string | null, strict = false) {
   const normalized = normalizeEmail(email);
 
   if (!normalized) {
@@ -124,14 +127,17 @@ export async function getEccRoleRow(email?: string | null) {
   }
 
   try {
-    const rows = await supabaseRequest<EccRoleRow[]>(
+    const read = (signal?: AbortSignal) => supabaseRequest<EccRoleRow[]>(
       `${eccRolesTable}?select=${eccRoleColumns}&email=eq.${encodeURIComponent(
         normalized
-      )}&order=created_at.desc&limit=1`
+      )}&order=created_at.desc&limit=1`,
+      { cache: "no-store", signal }
     );
+    const rows = strict ? await retryEccLookup(read) : await read();
 
     return rows[0] ?? null;
   } catch (error) {
+    if (strict) throw error;
     if (error instanceof SupabaseConfigError) {
       return null;
     }
@@ -152,10 +158,24 @@ export async function getEccAccessForEmail(email?: string | null): Promise<EccAc
     return emptyAccess("", false);
   }
 
-  const [adminAccess, roleRow] = await Promise.all([
-    getAdminAccess(normalized),
-    getEccRoleRow(normalized)
-  ]);
+  const adminAccessPromise = withinEccLookupDeadline(getAdminAccess(normalized)).catch(() => ({
+    email: normalized, role: "member" as const, isDeveloper: false, isSuperAdmin: false
+  }));
+  let roleRow: EccRoleRow | null;
+  try {
+    roleRow = await getEccRoleRow(normalized, true);
+  } catch (error) {
+    const adminAccess = await adminAccessPromise;
+    console.error("ECC access lookup unavailable", {
+      status: error instanceof SupabaseRequestError ? error.status : "transport-or-config"
+    });
+    return {
+      ...toEccAccess(normalized, resolveEccRole(adminAccess, null)),
+      lookupFailed: true,
+      temporaryEntryEligible: isTemporaryEccLookupError(error)
+    };
+  }
+  const adminAccess = await adminAccessPromise;
 
   return toEccAccess(normalized, resolveEccRole(adminAccess, roleRow));
 }
