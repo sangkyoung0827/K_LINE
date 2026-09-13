@@ -17,6 +17,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useEccAccess } from "@/hooks/useEccAccess";
 import { adminStorageKeys } from "@/lib/adminStorageKeys";
 import { useLanguage } from "@/components/LanguageProvider";
+import { eccGatheringDays, eccGatheringDayLabels, parseEccGatheringDays, validEccGatheringSelection, type EccGatheringDay } from "@/lib/eccGatheringDays";
+import { isReadOnlyDeveloperEmail } from "@/lib/readOnlyDeveloper";
 
 type Language = "ko" | "en";
 
@@ -77,6 +79,7 @@ type EccApplication = ApplicationForm & {
   activityTitle: string;
   status: string;
   createdAt: string;
+  gatheringDays?: EccGatheringDay[];
 };
 
 type ApplicationCounts = Record<string, number>;
@@ -87,6 +90,7 @@ type ApplicationsApiResponse = {
   counts?: Partial<ApplicationCounts>;
   applications?: EccApplication[];
   error?: string;
+  gatheringOpenDays?: EccGatheringDay[];
 };
 
 type ActivityStatusesApiResponse = {
@@ -94,6 +98,8 @@ type ActivityStatusesApiResponse = {
   requiresPayment?: Partial<ActivityPaymentRequirements>;
   tableReady?: boolean;
   error?: string;
+  gatheringOpenDays?: EccGatheringDay[];
+  gatheringDaysReady?: boolean;
 };
 
 type PaymentDrafts = Record<string, boolean>;
@@ -746,12 +752,16 @@ function normalizeActivityPaymentRequirements(
 }
 
 export function EccActivityPanel() {
-  const { isAdmin, loading } = useEccAccess();
+  const { isAdmin, loading, email } = useEccAccess();
   const { language: siteLanguage, setLanguage: setSiteLanguage } = useLanguage();
   const [language, setLanguage] = useState<Language>("en");
   const [activeApplicationType, setActiveApplicationType] =
     useState<ApplicationType>("gathering");
   const [applicationForm, setApplicationForm] = useState(initialApplicationForm);
+  const [gatheringOpenDays, setGatheringOpenDays] = useState<EccGatheringDay[]>([]);
+  const [selectedGatheringDays, setSelectedGatheringDays] = useState<EccGatheringDay[]>([]);
+  const [gatheringDaysReady, setGatheringDaysReady] = useState(false);
+  const [gatheringDaysSaving, setGatheringDaysSaving] = useState(false);
   const [applications, setApplications] = useState<EccApplication[]>([]);
   const [applicationCounts, setApplicationCounts] = useState<ApplicationCounts>(
     emptyApplicationCounts
@@ -801,6 +811,32 @@ export function EccActivityPanel() {
   );
 
   const text = copy[language];
+  const applyGatheringSettings = (data: ActivityStatusesApiResponse) => {
+    if (data.gatheringOpenDays === undefined) return;
+    const days = parseEccGatheringDays(data.gatheringOpenDays) ?? [];
+    setGatheringOpenDays(days);
+    setGatheringDaysReady(data.gatheringDaysReady === true);
+    setSelectedGatheringDays((current) => current.filter((day) => days.includes(day)));
+  };
+
+  useEffect(() => {
+    if (loading || activeApplicationType !== "gathering") return;
+    const controller = new AbortController();
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/ecc/activity-statuses", { cache: "no-store", signal: controller.signal });
+        if (response.ok) {
+          const data = await response.json() as ActivityStatusesApiResponse;
+          if (!controller.signal.aborted) {
+            applyGatheringSettings(data);
+            setActivityStatuses(normalizeActivityStatuses(data.statuses));
+          }
+        }
+      } catch { /* Submission is also validated against current server settings. */ }
+    };
+    window.addEventListener("focus", refresh);
+    return () => { controller.abort(); window.removeEventListener("focus", refresh); };
+  }, [loading, activeApplicationType]);
 
   useEffect(() => {
     const storedTeams = readStoredTeams();
@@ -874,6 +910,7 @@ export function EccActivityPanel() {
         setApplicationCounts(normalizeApplicationCounts(data.counts));
         setApplications(Array.isArray(data.applications) ? data.applications : []);
         setActivityStatuses(normalizeActivityStatuses(statusData.statuses));
+        applyGatheringSettings(statusData);
         setActivityPaymentRequirements(
           normalizeActivityPaymentRequirements(statusData.requiresPayment)
         );
@@ -1015,6 +1052,26 @@ export function EccActivityPanel() {
     }
   };
 
+  const saveGatheringDays = async (day: EccGatheringDay, open: boolean) => {
+    if (!isAdmin || isReadOnlyDeveloperEmail(email) || gatheringDaysSaving) return;
+    const days = eccGatheringDays.filter((item) => item === day ? open : gatheringOpenDays.includes(item));
+    setGatheringDaysSaving(true);
+    setActivityStatusMessage("");
+    setApplicationError("");
+    try {
+      const response = await fetch("/api/ecc/activity-statuses", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gatheringOpenDays: days })
+      });
+      const data = await response.json() as ActivityStatusesApiResponse;
+      if (!response.ok) throw new Error(data.error || text.activityStatusStorageError);
+      applyGatheringSettings(data);
+      setActivityStatusMessage(text.activityStatusSaved);
+    } catch (error) {
+      setApplicationError(error instanceof Error ? error.message : text.activityStatusStorageError);
+    } finally { setGatheringDaysSaving(false); }
+  };
+
   const saveActivityPaymentRequirement = async (
     type: ApplicationType,
     requiresPayment: boolean
@@ -1077,6 +1134,7 @@ export function EccActivityPanel() {
         : defaultActivityCatalog
     );
     setActivityStatuses(normalizeActivityStatuses(statusData.statuses));
+    applyGatheringSettings(statusData);
     setActivityPaymentRequirements(
       normalizeActivityPaymentRequirements(statusData.requiresPayment)
     );
@@ -1234,6 +1292,12 @@ export function EccActivityPanel() {
       return;
     }
 
+    if (activeApplication.type === "gathering" &&
+        (!gatheringDaysReady || !validEccGatheringSelection(selectedGatheringDays, gatheringOpenDays))) {
+      setApplicationError(language === "ko" ? "신청 가능한 요일을 하나 이상 선택해주세요." : "Select at least one available day.");
+      return;
+    }
+
     setApplicationsLoading(true);
     setApplicationError("");
 
@@ -1250,18 +1314,21 @@ export function EccActivityPanel() {
           gender: applicationForm.gender,
           nationality: applicationForm.nationality.trim(),
           preferred_food: applicationForm.preferredFood.trim(),
-          other_requests: applicationForm.otherRequests.trim()
+          other_requests: applicationForm.otherRequests.trim(),
+          ...(activeApplication.type === "gathering" ? { gathering_days: selectedGatheringDays } : {})
         })
       });
       const data = (await response.json()) as ApplicationsApiResponse;
 
       if (!response.ok) {
+        if (data.gatheringOpenDays) applyGatheringSettings({ gatheringOpenDays: data.gatheringOpenDays, gatheringDaysReady: true });
         throw new Error(data.error || text.applicationStorageError);
       }
 
       setApplicationCounts(normalizeApplicationCounts(data.counts));
       setApplications(Array.isArray(data.applications) ? data.applications : []);
       setApplicationForm(initialApplicationForm);
+      setSelectedGatheringDays([]);
       setApplicationSuccess(text.applicationSubmitted);
     } catch (error) {
       setApplicationError(error instanceof Error ? error.message : text.applicationStorageError);
@@ -1449,7 +1516,7 @@ export function EccActivityPanel() {
         </div>
       </section>
 
-      <section className="paper-panel grid gap-5 p-4 sm:gap-6 sm:p-6 md:p-8">
+      <section className="paper-panel grid grid-cols-1 gap-5 p-4 sm:gap-6 sm:p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex h-11 w-11 items-center justify-center bg-navy text-paper">
@@ -1780,6 +1847,21 @@ export function EccActivityPanel() {
                         </div>
                       </div>
                     )}
+                    {item.type === "gathering" ? (
+                      <fieldset className="min-w-0 border-t border-ink/10 pt-3" disabled={gatheringDaysSaving || !gatheringDaysReady || isReadOnlyDeveloperEmail(email)}>
+                        <legend className="text-sm font-semibold text-ink">{language === "ko" ? "Gathering 요일별 신청 열기" : "Open Gathering weekdays"}</legend>
+                        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          {eccGatheringDays.map((day) => (
+                            <label key={day} className="flex min-h-11 cursor-pointer flex-wrap items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink">
+                              <input type="checkbox" role="switch" aria-label={`${eccGatheringDayLabels[day][language]} ${language === "ko" ? "신청 열기" : "applications open"}`} checked={gatheringOpenDays.includes(day)} onChange={(event) => void saveGatheringDays(day, event.target.checked)} className="h-5 w-5 accent-navy" />
+                              {eccGatheringDayLabels[day][language]}
+                              <span className="text-xs text-muted">{gatheringOpenDays.includes(day) ? (language === "ko" ? "열림" : "Open") : (language === "ko" ? "닫힘" : "Closed")}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {!gatheringDaysReady ? <p className="mt-2 text-xs text-red-700">{language === "ko" ? "요일 설정 DB 준비가 필요합니다." : "Weekday settings require the database migration."}</p> : null}
+                      </fieldset>
+                    ) : null}
                   </div>
                 );
               })}
@@ -1813,6 +1895,23 @@ export function EccActivityPanel() {
           ) : null}
 
           <div className="grid gap-4 md:grid-cols-2">
+            {activeApplication.type === "gathering" ? (
+              <fieldset className="min-w-0 md:col-span-2" disabled={!activeApplicationIsOpen || applicationsLoading || !gatheringDaysReady}>
+                <legend className="text-sm font-semibold text-ink">{language === "ko" ? "참여 요일 (복수 선택 가능)" : "Attendance days (select one or both)"}</legend>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {gatheringOpenDays.map((day) => (
+                    <label key={day} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-ink/15 bg-white px-4 py-3 text-sm font-semibold text-ink">
+                      <input type="checkbox" checked={selectedGatheringDays.includes(day)} onChange={(event) => {
+                        setSelectedGatheringDays((current) => eccGatheringDays.filter((item) => item === day ? event.target.checked : current.includes(item)));
+                        setApplicationError(""); setApplicationSuccess("");
+                      }} className="h-5 w-5 accent-navy" />
+                      {eccGatheringDayLabels[day][language]}
+                    </label>
+                  ))}
+                </div>
+                {!gatheringDaysReady || gatheringOpenDays.length === 0 ? <p className="mt-2 text-sm text-muted">{language === "ko" ? "현재 신청 가능한 Gathering 요일이 없습니다." : "No Gathering days are currently available."}</p> : null}
+              </fieldset>
+            ) : null}
             <label className="grid gap-2 text-sm font-semibold text-ink">
               {text.kakaoNameLabel}
               <input
@@ -1872,7 +1971,7 @@ export function EccActivityPanel() {
 
           <button
             type="submit"
-            disabled={applicationsLoading || !activeApplicationIsOpen}
+            disabled={applicationsLoading || !activeApplicationIsOpen || (activeApplication.type === "gathering" && (!gatheringDaysReady || selectedGatheringDays.length === 0))}
             className="inline-flex min-h-11 w-fit items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
           >
             <Save aria-hidden className="h-4 w-4" />
@@ -1885,7 +1984,7 @@ export function EccActivityPanel() {
         ) : null}
 
         {isAdmin ? (
-          <div className="border border-ink/10 bg-white/50 p-5 md:p-6">
+          <div className="min-w-0 border border-ink/10 bg-white/50 p-5 md:p-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase text-brass">
@@ -1920,6 +2019,7 @@ export function EccActivityPanel() {
                       <tr>
                         <th className="border-b border-ink/10 px-4 py-3">{text.paidHeader}</th>
                         <th className="border-b border-ink/10 px-4 py-3">{text.kakaoNameLabel}</th>
+                        {activeApplication.type === "gathering" ? <th className="border-b border-ink/10 px-4 py-3">{language === "ko" ? "참여 요일" : "Attendance days"}</th> : null}
                         <th className="border-b border-ink/10 px-4 py-3">{text.genderLabel}</th>
                         <th className="border-b border-ink/10 px-4 py-3">{text.nationalityLabel}</th>
                         <th className="border-b border-ink/10 px-4 py-3">{text.preferredFoodLabel}</th>
@@ -1946,6 +2046,7 @@ export function EccActivityPanel() {
                           <td className="px-4 py-3 font-semibold text-ink">
                             {application.name}
                           </td>
+                          {activeApplication.type === "gathering" ? <td className="px-4 py-3 text-ink/70">{(parseEccGatheringDays(application.gatheringDays) ?? []).map((day) => eccGatheringDayLabels[day][language]).join(", ") || (language === "ko" ? "미선택 (기존 신청)" : "Not recorded (earlier application)")}</td> : null}
                           <td className="px-4 py-3 text-ink/70">{application.gender}</td>
                           <td className="px-4 py-3 text-ink/70">{application.nationality}</td>
                           <td className="px-4 py-3 text-ink/70">{application.preferredFood}</td>

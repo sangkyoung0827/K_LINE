@@ -3,6 +3,8 @@ import { normalizeEccActivityId } from "@/lib/eccActivities";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { getEccActivityStatuses } from "@/lib/eccActivityStatuses";
 import { getEccActivityCatalog } from "@/lib/eccOperations";
+import { parseEccGatheringDays, validEccGatheringSelection, type EccGatheringDay } from "@/lib/eccGatheringDays";
+import { getEccGatheringSettings, isMissingGatheringColumn } from "@/lib/eccGatheringSettings";
 import {
   cleanText,
   SupabaseConfigError,
@@ -23,6 +25,7 @@ type SupabaseApplicationRow = {
   other_requests: string | null;
   status: string;
   created_at: string;
+  gathering_days?: string[] | null;
 };
 
 type EccApplication = {
@@ -36,6 +39,7 @@ type EccApplication = {
   otherRequests: string;
   status: string;
   createdAt: string;
+  gatheringDays: EccGatheringDay[];
 };
 
 const tableName = "ecc_activity_applications";
@@ -80,7 +84,8 @@ function toClientApplication(row: SupabaseApplicationRow): EccApplication {
     preferredFood: row.preferred_food,
     otherRequests: row.other_requests ?? "",
     status: row.status,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    gatheringDays: parseEccGatheringDays(row.gathering_days) ?? []
   };
 }
 
@@ -104,9 +109,16 @@ function isMissingActivityHistoryColumn(error: unknown) {
 }
 
 async function listApplications() {
-  return supabaseRequest<SupabaseApplicationRow[]>(
-    `${tableName}?select=${selectedColumns}&order=created_at.desc`
-  );
+  try {
+    return await supabaseRequest<SupabaseApplicationRow[]>(
+      `${tableName}?select=${selectedColumns},gathering_days&order=created_at.desc`
+    );
+  } catch (error) {
+    if (!isMissingGatheringColumn(error, "gathering_days")) throw error;
+    return supabaseRequest<SupabaseApplicationRow[]>(
+      `${tableName}?select=${selectedColumns}&order=created_at.desc`
+    );
+  }
 }
 
 async function buildApplicationsResponse(includeApplications: boolean) {
@@ -124,6 +136,12 @@ async function getAdminEmail() {
 }
 
 function apiErrorResponse(error: unknown) {
+  if (error instanceof SupabaseRequestError && error.message.includes("ECC_GATHERING_DAYS_CLOSED")) {
+    return NextResponse.json({ error: "선택한 요일의 신청이 닫혔습니다. / A selected day is now closed.", debugCode: "ECC_GATHERING_DAYS_CLOSED" }, { status: 409 });
+  }
+  if (isMissingGatheringColumn(error, "gathering_days")) {
+    return NextResponse.json({ error: "요일 신청 저장소를 준비 중입니다. / Gathering weekday storage is not ready.", debugCode: "ECC_GATHERING_DAYS_NOT_READY" }, { status: 503 });
+  }
   if (error instanceof SupabaseConfigError) {
     return NextResponse.json(
       {
@@ -262,6 +280,17 @@ export async function POST(request: Request) {
       other_requests: otherRequests,
       status: "pending"
     };
+    if (activityId === "gathering") {
+      const settings = await getEccGatheringSettings();
+      if (!settings.gatheringDaysReady) {
+        return NextResponse.json({ error: "요일 신청 설정을 준비 중입니다. / Gathering weekday settings are not ready.", debugCode: "ECC_GATHERING_DAYS_NOT_READY" }, { status: 503 });
+      }
+      const days = parseEccGatheringDays(body.gathering_days ?? body.gatheringDays);
+      if (!validEccGatheringSelection(days, settings.gatheringOpenDays)) {
+        return NextResponse.json({ error: "현재 신청 가능한 요일을 하나 이상 선택해주세요. / Select at least one currently open day.", debugCode: "ECC_GATHERING_DAYS_INVALID", gatheringOpenDays: settings.gatheringOpenDays }, { status: 400 });
+      }
+      Object.assign(application, { gathering_days: days });
+    }
     const trackedApplication = activityInstanceId
       ? {
           ...application,
@@ -281,7 +310,7 @@ export async function POST(request: Request) {
         }
       );
     } catch (error) {
-      if (!activityInstanceId || !isMissingActivityHistoryColumn(error)) {
+      if (!activityInstanceId || isMissingGatheringColumn(error, "gathering_days") || !isMissingActivityHistoryColumn(error)) {
         throw error;
       }
 

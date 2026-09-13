@@ -4,6 +4,9 @@ import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { getEccActivityCatalog } from "@/lib/eccOperations";
 import { getEccActivityStatuses } from "@/lib/eccActivityStatuses";
 import { applyEccActivityStatusAdminUpdate } from "@/lib/eccActivityAdminActions";
+import { parseEccGatheringDays } from "@/lib/eccGatheringDays";
+import { getEccGatheringSettings, updateEccGatheringSettings } from "@/lib/eccGatheringSettings";
+import { isReadOnlyDeveloperEmail } from "@/lib/readOnlyDeveloper";
 import {
   cleanText,
   SupabaseConfigError,
@@ -24,7 +27,8 @@ function logStatusError(error: unknown) {
 
 export async function GET() {
   try {
-    return NextResponse.json(await getEccActivityStatuses());
+    const [statuses, gathering] = await Promise.all([getEccActivityStatuses(), getEccGatheringSettings()]);
+    return NextResponse.json({ ...statuses, ...gathering });
   } catch (error) {
     logStatusError(error);
 
@@ -45,7 +49,7 @@ export async function PATCH(request: Request) {
   try {
     const access = await getCurrentEccAccess();
 
-    if (!access.isAdmin || !access.email) {
+    if (!access.isAdmin || !access.email || isReadOnlyDeveloperEmail(access.email)) {
       return NextResponse.json(
         {
           error: "Only ECC admins can open or close activity applications.",
@@ -68,7 +72,16 @@ export async function PATCH(request: Request) {
       requiresPayment?: unknown;
       statuses?: Record<string, unknown>;
       paymentRequirements?: Record<string, unknown>;
+      gatheringOpenDays?: unknown;
     };
+    if (Object.hasOwn(body, "gatheringOpenDays")) {
+      const days = parseEccGatheringDays(body.gatheringOpenDays);
+      if (days === null || !activeIds.has("gathering") ||
+          Object.keys(body).some((key) => key !== "gatheringOpenDays")) {
+        return NextResponse.json({ error: "Provide only a valid Gathering weekday selection.", debugCode: "ECC_GATHERING_DAYS_INVALID" }, { status: 400 });
+      }
+      return NextResponse.json(await updateEccGatheringSettings(days, access.email));
+    }
     const updates: Record<string, boolean> = {};
     const paymentRequirements: Record<string, boolean> = {};
 
