@@ -414,7 +414,7 @@ export function JejuExploreMap() {
         </button>
       </div>
 
-      {browserMapsKey ? <div ref={mapElementRef} className="h-[min(62svh,38rem)] min-h-[22rem] w-full" aria-label="Interactive Google Map of South Korea" /> : <JejuGoogleMap />}
+      {browserMapsKey ? <div ref={mapElementRef} className="h-[min(54svh,38rem)] min-h-64 w-full sm:h-[min(62svh,38rem)] sm:min-h-[22rem]" aria-label="Interactive Google Map of South Korea" /> : <JejuGoogleMap />}
 
       <div className="border-t border-[#0d5962]/12 px-4 py-3 sm:px-5">
         {browserMapsKey ? <p className="text-xs leading-5 text-[#4c6769]">Click a named Google map place anywhere in South Korea to save your own rating and optional photos. Click a K_LINE marker to check in, then leave a verified review.</p> : <p className="text-xs leading-5 text-[#4c6769]">Interactive place recording will activate after the restricted Google Maps browser key is added. The nationwide live map remains available now.</p>}
@@ -534,11 +534,11 @@ function PersonalPlacePanel({ poi, record, onClose, onSaved }: { poi: GoogleMapP
 }
 
 function PanelHeader({ eyebrow, onClose, title }: { eyebrow: string; onClose: () => void; title: string }) {
-  return <div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs font-bold uppercase text-[#0d5962]">{eyebrow}</p><h2 className="mt-1 truncate font-serif text-2xl font-semibold text-[#073c44]">{title}</h2></div><button type="button" onClick={onClose} aria-label="Close place record" className="inline-flex h-9 w-9 shrink-0 items-center justify-center border border-[#0d5962]/20 bg-white text-[#315b5f] transition hover:bg-[#e8f4ef]"><X aria-hidden className="h-4 w-4" /></button></div>;
+  return <div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs font-bold uppercase text-[#0d5962]">{eyebrow}</p><h2 className="mt-1 break-words font-serif text-xl font-semibold text-[#073c44] sm:text-2xl">{title}</h2></div><button type="button" onClick={onClose} aria-label="Close place record" className="inline-flex h-11 w-11 shrink-0 items-center justify-center border border-[#0d5962]/20 bg-white text-[#315b5f] transition hover:bg-[#e8f4ef]"><X aria-hidden className="h-4 w-4" /></button></div>;
 }
 
 function StarRating({ onChange, value }: { onChange: (value: number) => void; value: number }) {
-  return <div className="mt-2 flex gap-1" aria-label={`${value} out of 5 stars`}>{[1, 2, 3, 4, 5].map((star) => <button key={star} type="button" aria-label={`${star} stars`} aria-pressed={value === star} onClick={() => onChange(star)} className={`p-1 transition ${star <= value ? "text-[#d49b42]" : "text-[#9cb7b6]"}`}><Star aria-hidden className={`h-6 w-6 ${star <= value ? "fill-current" : ""}`} /></button>)}</div>;
+  return <div className="mt-2 flex gap-1" aria-label={`${value} out of 5 stars`}>{[1, 2, 3, 4, 5].map((star) => <button key={star} type="button" aria-label={`${star} stars`} aria-pressed={value === star} onClick={() => onChange(star)} className={`flex h-11 w-11 shrink-0 items-center justify-center transition ${star <= value ? "text-[#d49b42]" : "text-[#9cb7b6]"}`}><Star aria-hidden className={`h-6 w-6 ${star <= value ? "fill-current" : ""}`} /></button>)}</div>;
 }
 
 function PhotoPicker({ files, setFiles }: { files: File[]; setFiles: (files: File[]) => void }) {

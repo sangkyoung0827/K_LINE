@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Save, UserCheck } from "lucide-react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
+import { MobileDisclosure } from "@/components/MobileDisclosure";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
 
@@ -218,7 +219,7 @@ export function HanhwalMemberRegistrationManagementPanel() {
       <div className="border-b border-ink/10 p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
-            <h2 className="font-serif text-3xl font-semibold text-ink">
+            <h2 className="font-serif text-2xl font-semibold text-ink sm:text-3xl">
               <I18nText en="Hanhwal New Member Approval" ko="한활 신규회원 승인" />
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/68">
@@ -260,8 +261,8 @@ export function HanhwalMemberRegistrationManagementPanel() {
             };
 
             return (
-              <article key={registration.id} className="grid gap-5 p-5 md:p-6 xl:grid-cols-[auto_1fr_320px]">
-                <label className="flex items-start gap-3 text-sm font-semibold text-ink">
+              <article key={registration.id} className="grid gap-2 p-4 [overflow-wrap:anywhere] md:gap-5 md:p-6 xl:grid-cols-[auto_1fr_320px]">
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold text-ink md:items-start">
                   <input
                     type="checkbox"
                     checked={draft.paymentConfirmed}
@@ -275,7 +276,7 @@ export function HanhwalMemberRegistrationManagementPanel() {
                   </span>
                 </label>
 
-                <div className="grid gap-4">
+                <div className="grid min-w-0 gap-3 md:gap-4">
                   <div className="flex flex-wrap items-center gap-3">
                     {registration.googleAvatarUrl ? (
                       <img
@@ -288,14 +289,14 @@ export function HanhwalMemberRegistrationManagementPanel() {
                         <UserCheck aria-hidden className="h-5 w-5" />
                       </div>
                     )}
-                    <div>
+                    <div className="min-w-0 flex-1 basis-[calc(100%-60px)] md:basis-0">
                       <h3 className="font-semibold text-ink">{registration.fullName}</h3>
                       <p className="text-xs leading-5 text-ink/56">
                         {registration.googleName || registration.googleEmail} / {registration.googleEmail}
                       </p>
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1 border px-2 py-1 text-xs font-semibold ${
+                      className={`ml-[60px] inline-flex items-center gap-1 border px-2 py-1 text-xs font-semibold md:ml-0 ${
                         registration.officialMember || draft.paymentConfirmed
                           ? "border-pine/20 bg-pine/10 text-pine"
                           : "border-brass/25 bg-brass/10 text-ink"
@@ -308,55 +309,59 @@ export function HanhwalMemberRegistrationManagementPanel() {
                     </span>
                   </div>
 
-                  <dl className="grid gap-3 text-sm md:grid-cols-2">
-                    {[
-                      ["Student ID / 학번", registration.studentId],
-                      ["Department or Major / 학과 또는 전공", registration.departmentOrMajor],
-                      ["Nationality / 국적", registration.nationality],
-                      ["Gender / 성별", registration.gender],
-                      ["KakaoTalk Display Name / 카카오톡 표시 이름", registration.kakaoDisplayName],
-                      ["Kakao ID / 카카오톡 ID", registration.kakaoId]
-                    ].map(([label, value]) => (
-                      <div key={label} className="border border-ink/10 bg-white/45 p-3">
-                        <dt className="text-xs font-semibold uppercase text-ink/45">{label}</dt>
-                        <dd className="mt-1 font-semibold text-ink">{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
+                  <MobileDisclosure title={<I18nText en="Member details" ko="회원 정보" />}>
+                    <dl className="grid gap-3 text-sm md:grid-cols-2">
+                      {[
+                        ["Student ID / 학번", registration.studentId],
+                        ["Department or Major / 학과 또는 전공", registration.departmentOrMajor],
+                        ["Nationality / 국적", registration.nationality],
+                        ["Gender / 성별", registration.gender],
+                        ["KakaoTalk Display Name / 카카오톡 표시 이름", registration.kakaoDisplayName],
+                        ["Kakao ID / 카카오톡 ID", registration.kakaoId]
+                      ].map(([label, value]) => (
+                        <div key={label} className="border border-ink/10 bg-white/45 p-3">
+                          <dt className="text-xs font-semibold uppercase text-ink/45">{label}</dt>
+                          <dd className="mt-1 font-semibold text-ink">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </MobileDisclosure>
                 </div>
 
-                <div className="grid content-start gap-3">
-                  <div className="border border-ink/10 bg-white/45 p-3 text-xs leading-6 text-ink/56">
-                    <p>
-                      <strong className="text-ink">
-                        <I18nText en="Submitted" ko="제출" />:
-                      </strong>{" "}
-                      {formatDate(registration.createdAt, language)}
-                    </p>
-                    {registration.paymentConfirmedAt ? (
+                <MobileDisclosure title={<I18nText en="Notes & history" ko="관리자 메모 · 처리 내역" />}>
+                  <div className="grid min-w-0 content-start gap-3">
+                    <div className="border border-ink/10 bg-white/45 p-3 text-xs leading-6 text-ink/56">
                       <p>
                         <strong className="text-ink">
-                          <I18nText en="Approved" ko="승인" />:
+                          <I18nText en="Submitted" ko="제출" />:
                         </strong>{" "}
-                        {formatDate(registration.paymentConfirmedAt, language)}
+                        {formatDate(registration.createdAt, language)}
                       </p>
-                    ) : null}
-                    {registration.paymentConfirmedBy ? (
-                      <p>
-                        <strong className="text-ink">
-                          <I18nText en="By" ko="처리자" />:
-                        </strong>{" "}
-                        {registration.paymentConfirmedBy}
-                      </p>
-                    ) : null}
+                      {registration.paymentConfirmedAt ? (
+                        <p>
+                          <strong className="text-ink">
+                            <I18nText en="Approved" ko="승인" />:
+                          </strong>{" "}
+                          {formatDate(registration.paymentConfirmedAt, language)}
+                        </p>
+                      ) : null}
+                      {registration.paymentConfirmedBy ? (
+                        <p>
+                          <strong className="text-ink">
+                            <I18nText en="By" ko="처리자" />:
+                          </strong>{" "}
+                          {registration.paymentConfirmedBy}
+                        </p>
+                      ) : null}
+                    </div>
+                    <textarea
+                      className="form-field min-h-28"
+                      placeholder={language === "ko" ? "관리자 메모" : "Admin note"}
+                      value={draft.adminNote}
+                      onChange={(event) => updateDraft(registration.id, { adminNote: event.target.value })}
+                    />
                   </div>
-                  <textarea
-                    className="form-field min-h-28"
-                    placeholder={language === "ko" ? "관리자 메모" : "Admin note"}
-                    value={draft.adminNote}
-                    onChange={(event) => updateDraft(registration.id, { adminNote: event.target.value })}
-                  />
-                </div>
+                </MobileDisclosure>
               </article>
             );
           })}

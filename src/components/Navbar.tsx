@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, ChevronDown, Code2, Menu, ShoppingBag, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { activityBoards } from "@/data/activityBoards";
 import { AuthStatus } from "@/components/AuthStatus";
 import { ClubMark } from "@/components/ClubMark";
@@ -22,6 +22,7 @@ const boardLabels = {
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { totalQuantity } = useCart();
   const { language, pick } = useLanguage();
   const { isDeveloper } = useSuperAdmin();
@@ -37,15 +38,22 @@ export function Navbar() {
 
     const previousOverflow = document.body.style.overflow;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        menuButtonRef.current?.focus();
+      }
     };
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => { if (desktop.matches) setOpen(false); };
 
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
+    desktop.addEventListener("change", closeOnDesktop);
 
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
+      desktop.removeEventListener("change", closeOnDesktop);
     };
   }, [open]);
 
@@ -55,7 +63,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-navy/8 bg-paper/96 backdrop-blur-xl">
-      <nav className="mx-auto flex min-h-[76px] max-w-7xl items-center justify-between gap-1.5 px-3 sm:min-h-[92px] sm:gap-2 sm:px-5 md:px-8">
+      <nav className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-1.5 px-3 sm:min-h-[92px] sm:gap-2 sm:px-5 md:px-8">
         <Link href="/" aria-label="K_LINE home" className="min-w-0 shrink-0">
           <span className="sm:hidden">
             <Logo size="sm" showTagline={false} />
@@ -120,7 +128,7 @@ export function Navbar() {
         </div>
 
         <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-          <LanguageSwitcher />
+          <div className="hidden sm:block"><LanguageSwitcher /></div>
           <AuthStatus />
           {isDeveloper ? (
             <Link
@@ -137,6 +145,7 @@ export function Navbar() {
             </Link>
           ) : null}
           <button
+            ref={menuButtonRef}
             type="button"
             aria-label={language === "ko" ? (open ? "메뉴 닫기" : "메뉴 열기") : open ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={open}
@@ -152,6 +161,10 @@ export function Navbar() {
       {open ? (
         <div id="kline-mobile-navigation" className="border-t border-navy/8 bg-paper/98 shadow-[0_20px_45px_rgba(31,42,68,0.10)] lg:hidden">
           <div className="mx-auto grid max-w-7xl gap-1 px-3 py-3 sm:px-5 sm:py-4">
+            <div className="mb-2 flex min-h-12 items-center justify-between border-b border-navy/10 px-3 pb-3 sm:hidden">
+              <span className="text-sm font-semibold text-muted">{language === "ko" ? "언어" : "Language"}</span>
+              <LanguageSwitcher />
+            </div>
             <MobileMenuLink href="/" onClick={() => setOpen(false)}>
               <I18nNavText en="Home" ko="홈" language={language} />
             </MobileMenuLink>
@@ -172,18 +185,12 @@ export function Navbar() {
                 <MobileMenuLink href="/ecc-join" onClick={() => setOpen(false)}>
                   <I18nNavText en="New Member Registration" ko="신규회원 등록" language={language} />
                 </MobileMenuLink>
-                <MobileMenuLink href="/ecc-join" onClick={() => setOpen(false)}>
-                  <I18nNavText en="My Status" ko="내 상태 확인" language={language} />
-                </MobileMenuLink>
               </>
             ) : null}
             {eccAccess.isOfficialMember ? (
               <>
                 <MobileMenuLink href="/ecc-official" onClick={() => setOpen(false)}>
                   ECC OFFICIAL
-                </MobileMenuLink>
-                <MobileMenuLink href="/ecc-official" onClick={() => setOpen(false)}>
-                  <I18nNavText en="My Status" ko="내 상태 확인" language={language} />
                 </MobileMenuLink>
               </>
             ) : null}
