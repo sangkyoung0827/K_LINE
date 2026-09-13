@@ -2,14 +2,14 @@ import { I18nText } from "@/components/LanguageProvider";
 
 export function HeroSection() {
   return (
-    <section className="relative isolate flex min-h-[300px] items-center justify-center bg-paper px-4 py-10 text-center sm:min-h-[430px] sm:px-5 sm:py-20 md:min-h-[500px] md:px-8 md:py-28 lg:py-32">
+    <section className="relative isolate flex min-h-[120px] items-center justify-center bg-paper px-4 py-6 text-center sm:min-h-[430px] sm:px-5 sm:py-20 md:min-h-[500px] md:px-8 md:py-28 lg:py-32">
       <div className="mx-auto max-w-4xl">
-        <h1 className="font-serif text-5xl font-semibold tracking-[-0.04em] text-navy sm:text-6xl md:text-7xl lg:text-8xl">
+        <h1 className="font-serif text-4xl font-semibold tracking-normal text-navy sm:text-6xl md:text-7xl lg:text-8xl">
           K_LINE
         </h1>
       </div>
 
-      <div className="absolute inset-x-4 bottom-5 mx-auto max-w-3xl text-muted sm:inset-x-5 sm:bottom-9 md:inset-x-8 md:bottom-11">
+      <div className="absolute inset-x-4 bottom-5 mx-auto hidden max-w-3xl text-muted sm:inset-x-5 sm:bottom-9 sm:block md:inset-x-8 md:bottom-11">
         <p className="text-[11px] font-semibold leading-5 text-navy/58 sm:text-xs">
           <span aria-hidden className="mr-1 text-brass">✦</span>
           <I18nText

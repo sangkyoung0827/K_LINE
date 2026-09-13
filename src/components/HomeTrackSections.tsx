@@ -66,7 +66,7 @@ function HomePortalCard({ card }: { card: HomeCard }) {
   return (
     <Link
       href={card.href}
-      className="group relative flex min-h-0 flex-col rounded-xl border border-navy/10 bg-white/58 p-4 text-left shadow-[0_18px_45px_rgba(31,42,68,0.06)] transition duration-200 hover:-translate-y-1 hover:border-brass/70 hover:bg-white/78 hover:shadow-[0_22px_55px_rgba(31,42,68,0.10)] sm:p-5 md:min-h-[292px] md:rounded-2xl md:p-8"
+      className="group relative grid min-h-24 grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-3 rounded-lg border border-navy/10 bg-white/58 p-4 text-left transition duration-200 hover:border-brass/70 hover:bg-white/78 sm:flex sm:flex-col sm:items-stretch sm:gap-0 sm:rounded-xl sm:p-5 sm:shadow-[0_18px_45px_rgba(31,42,68,0.06)] md:min-h-[292px] md:rounded-2xl md:p-8"
     >
       <div className="flex items-start justify-between gap-4">
         {card.accent === "jeju" ? (
@@ -81,22 +81,25 @@ function HomePortalCard({ card }: { card: HomeCard }) {
           />
         )}
 
-        <span className="rounded-full bg-hanji/80 px-3 py-1 text-xs font-bold text-navy/80">
+        <span className="hidden rounded-full bg-hanji/80 px-3 py-1 text-xs font-bold text-navy/80 sm:inline">
           {pick(card.badge)}
         </span>
       </div>
 
-      <div className="mt-4 flex-1 sm:mt-6 md:mt-8">
-        <h2 className="font-serif text-2xl font-semibold tracking-[-0.02em] text-navy sm:text-3xl md:text-4xl">
+      <div className="min-w-0 flex-1 sm:mt-6 md:mt-8">
+        <h2 className="font-serif text-xl font-semibold tracking-normal text-navy sm:text-3xl md:text-4xl">
           {pick(card.title)}
         </h2>
-        <p className="mt-2 text-sm font-medium leading-6 text-muted sm:mt-4 sm:leading-7 md:mt-6 md:min-h-[4.5rem]">
+        <p className="mt-1 text-xs leading-5 text-muted sm:hidden">
+          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : <I18nText en="Places, memories & WooHyukmon" ko="지도 · 여행 기록 · 우혁몬" />}
+        </p>
+        <p className="mt-2 hidden text-sm font-medium leading-6 text-muted sm:mt-4 sm:block sm:leading-7 md:mt-6 md:min-h-[4.5rem]">
           {pick(card.description)}
         </p>
       </div>
 
-      <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-navy sm:mt-6 md:mt-7">
-        <I18nText en="View Details" ko="자세히 보기" />
+      <span className="inline-flex items-center gap-2 text-sm font-bold text-navy sm:mt-6 md:mt-7">
+        <span className="hidden sm:inline"><I18nText en="View Details" ko="자세히 보기" /></span>
         <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
       </span>
     </Link>

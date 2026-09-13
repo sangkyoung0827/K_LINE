@@ -6,7 +6,7 @@
   color-scheme: light;
   --font-sans: "Helvetica Neue", Helvetica, Arial, "Noto Sans KR", system-ui, sans-serif;
   --font-serif: "Georgia", "Noto Serif KR", serif;
-  --mobile-header-height: 76px;
+  --mobile-header-height: 64px;
 }
 
 * {
@@ -132,6 +132,46 @@ main > section.bg-navy:first-child {
 }
 
 @media (max-width: 767px) {
+  .mobile-app-shell:has(.mobile-bottom-nav) {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .mobile-member-save {
+    bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  .mobile-app-shell:has(.mobile-member-save) {
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom));
+  }
+
+  body:has(.mobile-member-save) button[aria-label="Open Global Woohyukmon"] {
+    bottom: calc(9rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Leave the on-screen keyboard and expanded menu their full viewport. */
+  body:has(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus, textarea:focus, [contenteditable="true"]:focus, #kline-mobile-navigation) :is(.mobile-bottom-nav, .mobile-member-save) {
+    display: none;
+  }
+
+  .mobile-disclosure > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobile-disclosure[open] > summary > svg {
+    transform: rotate(180deg);
+  }
+
+  :is(input, textarea, select, summary, button) {
+    scroll-margin-top: calc(var(--mobile-header-height) + 1rem + env(safe-area-inset-top));
+    scroll-margin-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
   .feedback-float {
     display: none;
   }
@@ -233,7 +273,7 @@ main > section.bg-navy:first-child {
   }
 
   button[aria-label="Open Global Woohyukmon"] {
-    bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+    bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
     right: max(0.75rem, env(safe-area-inset-right)) !important;
   }
 
@@ -241,6 +281,12 @@ main > section.bg-navy:first-child {
     max-height: calc(100dvh - env(safe-area-inset-top)) !important;
     padding-bottom: env(safe-area-inset-bottom);
     overscroll-behavior: contain;
+  }
+}
+
+@media (min-width: 640px) {
+  :root {
+    --mobile-header-height: 92px;
   }
 }
 
