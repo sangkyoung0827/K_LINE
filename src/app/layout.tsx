@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@/app/globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { CartProvider } from "@/components/CartProvider";
@@ -6,6 +6,13 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 import { Layout } from "@/components/Layout";
 import { SiteVisitTracker } from "@/components/SiteVisitTracker";
 import { absoluteUrl, seoKeywords, siteConfig } from "@/lib/seo";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#F4EBDD"
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
