@@ -1,5 +1,18 @@
 # ECC Gathering Weekdays
 
+## Release Follow-up (2026-09-14)
+
+After the mobile release (`011a86f`, PR #27), the owner confirmed that the required
+SQL had been executed. The weekday-only commit is now selected onto a separate
+release branch based on that production version. The earlier local-only status
+below records the implementation phase, not the current rollout decision.
+
+Do not run SQL again or toggle live activity settings as part of deployment.
+Require Browser Safety CI and the preview build before merging, then verify the
+production API reports `gatheringDaysReady: true` and the UI uses the stored days.
+Validate submissions and open/close permutations with synthetic fixtures only.
+Club Website Builder and Hanhwal parity drafts remain excluded.
+
 ## Scope
 
 - International Gathering applicants select Monday, Wednesday, or both.
