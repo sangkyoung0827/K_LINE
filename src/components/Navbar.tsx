@@ -10,6 +10,7 @@ import { ClubMark } from "@/components/ClubMark";
 import { useCart } from "@/components/CartProvider";
 import { LanguageSwitcher, useLanguage } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
+import { MobileNavigationMenu } from "@/components/MobileNavigationMenu";
 import { useEccAccess } from "@/hooks/useEccAccess";
 import { useHanhwalAccess } from "@/hooks/useHanhwalAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -159,92 +160,18 @@ export function Navbar() {
       </nav>
 
       {open ? (
-        <div id="kline-mobile-navigation" className="border-t border-navy/8 bg-paper/98 shadow-[0_20px_45px_rgba(31,42,68,0.10)] lg:hidden">
+        <div id="kline-mobile-navigation" className="max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-navy/8 bg-paper/98 pb-[env(safe-area-inset-bottom)] shadow-[0_20px_45px_rgba(31,42,68,0.10)] sm:max-h-[calc(100dvh-92px)] lg:hidden">
           <div className="mx-auto grid max-w-7xl gap-1 px-3 py-3 sm:px-5 sm:py-4">
             <div className="mb-2 flex min-h-12 items-center justify-between border-b border-navy/10 px-3 pb-3 sm:hidden">
               <span className="text-sm font-semibold text-muted">{language === "ko" ? "언어" : "Language"}</span>
               <LanguageSwitcher />
             </div>
-            <MobileMenuLink href="/" onClick={() => setOpen(false)}>
-              <I18nNavText en="Home" ko="홈" language={language} />
-            </MobileMenuLink>
-            <MobileMenuLink href="/our-activities" onClick={() => setOpen(false)}>
-              <I18nNavText en="International Student Club" ko="국제학생클럽" language={language} />
-            </MobileMenuLink>
-            <MobileMenuLink href="/our-activities/ecc" onClick={() => setOpen(false)}>
-              ECC
-            </MobileMenuLink>
-            <MobileMenuLink href="/our-activities/hanhwal" onClick={() => setOpen(false)}>
-              <I18nNavText en="Hanhwal" ko="한활" language={language} />
-            </MobileMenuLink>
-            <MobileMenuLink href="/jeju" onClick={() => setOpen(false)}>
-              <span className="inline-flex items-center gap-2"><BookOpen aria-hidden className="h-4 w-4" /><I18nNavText en="Memory Book" ko="추억록" language={language} /></span>
-            </MobileMenuLink>
-            {eccAccess.isLoggedIn && !eccAccess.isOfficialMember ? (
-              <>
-                <MobileMenuLink href="/ecc-join" onClick={() => setOpen(false)}>
-                  <I18nNavText en="New Member Registration" ko="신규회원 등록" language={language} />
-                </MobileMenuLink>
-              </>
-            ) : null}
-            {eccAccess.isOfficialMember ? (
-              <>
-                <MobileMenuLink href="/ecc-official" onClick={() => setOpen(false)}>
-                  ECC OFFICIAL
-                </MobileMenuLink>
-              </>
-            ) : null}
-            {eccAccess.isAdmin ? (
-              <MobileMenuLink href="/our-activities/ecc/members" onClick={() => setOpen(false)}>
-                <I18nNavText en="Member Management" ko="회원 관리" language={language} />
-              </MobileMenuLink>
-            ) : null}
-            {hanhwalAccess.isLoggedIn && !hanhwalAccess.isOfficialMember ? (
-              <MobileMenuLink href="/hanhwal-join" onClick={() => setOpen(false)}>
-                <I18nNavText
-                  en="Hanhwal New Member Registration"
-                  ko="한활 신규회원 등록"
-                  language={language}
-                />
-              </MobileMenuLink>
-            ) : null}
-            {hanhwalAccess.isOfficialMember ? (
-              <MobileMenuLink href="/hanhwal-official" onClick={() => setOpen(false)}>
-                HANHWAL OFFICIAL
-              </MobileMenuLink>
-            ) : null}
-            {hanhwalAccess.isAdmin ? (
-              <MobileMenuLink
-                href="/our-activities/hanhwal/members"
-                onClick={() => setOpen(false)}
-              >
-                <I18nNavText en="Hanhwal Member Management" ko="한활 회원 관리" language={language} />
-              </MobileMenuLink>
-            ) : null}
-            {!eccAccess.isLoggedIn && !eccAccess.loading ? (
-              <MobileMenuLink href="/login" onClick={() => setOpen(false)}>
-                <I18nNavText en="Login / Profile" ko="로그인 / 프로필" language={language} />
-              </MobileMenuLink>
-            ) : null}
-            {isDeveloper ? (
-              <Link
-                href="/developer"
-                onClick={() => setOpen(false)}
-                className="inline-flex min-h-12 items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-brass transition hover:bg-white/60"
-              >
-                <Code2 aria-hidden className="h-4 w-4" />
-                {language === "ko" ? "개발자" : "Developer"}
-              </Link>
-            ) : null}
-            {isDeveloper ? (
-              <MobileMenuLink href="/cart" onClick={() => setOpen(false)}>
-                <span className="inline-flex items-center gap-2">
-                  <ShoppingBag aria-hidden className="h-4 w-4" />
-                  {language === "ko" ? "장바구니" : "Cart"}
-                  {totalQuantity > 0 ? ` (${totalQuantity})` : ""}
-                </span>
-              </MobileMenuLink>
-            ) : null}
+            <MobileNavigationMenu
+              language={language}
+              eccAccess={eccAccess}
+              hanhwalAccess={hanhwalAccess}
+              onNavigate={() => setOpen(false)}
+            />
           </div>
         </div>
       ) : null}
@@ -274,36 +201,4 @@ function DesktopNavLink({
       ) : null}
     </Link>
   );
-}
-
-function MobileMenuLink({
-  children,
-  href,
-  onClick
-}: {
-  children: React.ReactNode;
-  href: string;
-  onClick: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className="flex min-h-12 items-center rounded-xl px-3 py-3 text-sm font-semibold text-ink/76 transition hover:bg-white/60 hover:text-navy"
-    >
-      {children}
-    </Link>
-  );
-}
-
-function I18nNavText({
-  en,
-  ko,
-  language
-}: {
-  en: string;
-  ko: string;
-  language: "en" | "ko";
-}) {
-  return <>{language === "ko" ? ko : en}</>;
 }

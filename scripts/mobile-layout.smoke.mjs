@@ -27,6 +27,15 @@ try {
       await menu.click();
       await page.locator('#kline-mobile-navigation button').filter({ hasText: "EN" }).click();
       assert.equal(await nav.isVisible(), false);
+      const mobileMenu = page.locator('#kline-mobile-navigation');
+      assert.equal(await mobileMenu.getByRole("link", { name: "My Journey profile", exact: true }).getAttribute("href"), "/jeju/profile");
+      assert.equal(await mobileMenu.locator("summary").count(), 2);
+      const eccMenu = mobileMenu.locator('[data-club-menu="ecc"]');
+      assert.equal(await eccMenu.getByRole("link", { name: "ECC home", exact: true }).isVisible(), false);
+      await eccMenu.locator("summary").click();
+      assert.equal(await eccMenu.getByRole("link", { name: "ECC home", exact: true }).isVisible(), true);
+      await eccMenu.locator("summary").press("Enter");
+      assert.equal(await eccMenu.getByRole("link", { name: "ECC home", exact: true }).isVisible(), false);
       await menu.press("Escape");
       assert.equal(await menu.getAttribute("aria-expanded"), "false");
       assert.equal(await menu.evaluate((element) => element === document.activeElement), true);
