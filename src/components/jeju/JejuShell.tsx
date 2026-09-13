@@ -23,17 +23,17 @@ export function JejuShell({ children, eyebrow, title, description, actions, show
   return (
     <main className="min-h-[calc(100svh-76px)] overflow-x-hidden bg-[#eff8f5] text-ink sm:min-h-[calc(100svh-92px)]">
       <section className="border-b border-[#0d5962]/12 bg-[#e4f3ee]">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
+          <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
               <p className="inline-flex items-center gap-2 text-xs font-bold uppercase text-[#0d5962]">
                 <MapPinned aria-hidden className="h-4 w-4" />
                 {eyebrow || "K_LINE / My Journey"}
               </p>
-              <h1 className="mt-2 font-serif text-3xl font-semibold text-[#073c44] sm:text-4xl">{title}</h1>
+              <h1 className="mt-2 break-words font-serif text-3xl font-semibold text-[#073c44] sm:text-4xl">{title}</h1>
               {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-[#234e53] sm:text-base">{description}</p> : null}
             </div>
-            {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+            {actions ? <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">{actions}</div> : null}
           </div>
         </div>
       </section>
@@ -48,7 +48,7 @@ export function JejuShell({ children, eyebrow, title, description, actions, show
                 <Link
                   key={route.href}
                   href={route.href}
-                  className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-bold transition sm:px-4 sm:text-sm ${
+                  className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-bold transition sm:px-4 sm:text-sm ${
                     active
                       ? "bg-[#0d5962] text-white shadow-[0_8px_18px_rgba(13,89,98,0.18)]"
                       : "text-[#315b5f] hover:bg-[#dcedea] hover:text-[#073c44]"
@@ -63,7 +63,7 @@ export function JejuShell({ children, eyebrow, title, description, actions, show
         </nav>
       ) : null}
 
-      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-8 lg:px-8">{children}</div>
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">{children}</div>
     </main>
   );
 }

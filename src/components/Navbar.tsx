@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, ChevronDown, Code2, Menu, ShoppingBag, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { activityBoards } from "@/data/activityBoards";
 import { AuthStatus } from "@/components/AuthStatus";
 import { ClubMark } from "@/components/ClubMark";
@@ -28,13 +28,34 @@ export function Navbar() {
   const eccAccess = useEccAccess();
   const hanhwalAccess = useHanhwalAccess();
 
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   if (pathname === "/login") {
     return null;
   }
 
   return (
     <header className="sticky top-0 z-50 border-b border-navy/8 bg-paper/96 backdrop-blur-xl">
-      <nav className="mx-auto flex min-h-[76px] max-w-7xl items-center justify-between gap-2 px-4 sm:min-h-[92px] sm:px-5 md:px-8">
+      <nav className="mx-auto flex min-h-[76px] max-w-7xl items-center justify-between gap-1.5 px-3 sm:min-h-[92px] sm:gap-2 sm:px-5 md:px-8">
         <Link href="/" aria-label="K_LINE home" className="min-w-0 shrink-0">
           <span className="sm:hidden">
             <Logo size="sm" showTagline={false} />
@@ -98,7 +119,7 @@ export function Navbar() {
           ) : null}
         </div>
 
-        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
           <LanguageSwitcher />
           <AuthStatus />
           {isDeveloper ? (
@@ -117,9 +138,11 @@ export function Navbar() {
           ) : null}
           <button
             type="button"
-            aria-label={language === "ko" ? "메뉴 열기" : "Open navigation menu"}
+            aria-label={language === "ko" ? (open ? "메뉴 닫기" : "메뉴 열기") : open ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={open}
+            aria-controls="kline-mobile-navigation"
             onClick={() => setOpen((value) => !value)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-navy/12 bg-white/45 text-ink transition hover:border-brass hover:bg-brass/15 lg:hidden"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-navy/12 bg-white/45 text-ink transition hover:border-brass hover:bg-brass/15 lg:hidden"
           >
             {open ? <X aria-hidden className="h-5 w-5" /> : <Menu aria-hidden className="h-5 w-5" />}
           </button>
@@ -127,8 +150,8 @@ export function Navbar() {
       </nav>
 
       {open ? (
-        <div className="border-t border-navy/8 bg-paper lg:hidden">
-          <div className="mx-auto grid max-w-7xl gap-1 px-5 py-4">
+        <div id="kline-mobile-navigation" className="border-t border-navy/8 bg-paper/98 shadow-[0_20px_45px_rgba(31,42,68,0.10)] lg:hidden">
+          <div className="mx-auto grid max-w-7xl gap-1 px-3 py-3 sm:px-5 sm:py-4">
             <MobileMenuLink href="/" onClick={() => setOpen(false)}>
               <I18nNavText en="Home" ko="홈" language={language} />
             </MobileMenuLink>
@@ -200,7 +223,7 @@ export function Navbar() {
               <Link
                 href="/developer"
                 onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-brass transition hover:bg-white/60"
+                className="inline-flex min-h-12 items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-brass transition hover:bg-white/60"
               >
                 <Code2 aria-hidden className="h-4 w-4" />
                 {language === "ko" ? "개발자" : "Developer"}
@@ -259,7 +282,7 @@ function MobileMenuLink({
     <Link
       href={href}
       onClick={onClick}
-      className="rounded-xl px-3 py-3 text-sm font-semibold text-ink/76 transition hover:bg-white/60 hover:text-navy"
+      className="flex min-h-12 items-center rounded-xl px-3 py-3 text-sm font-semibold text-ink/76 transition hover:bg-white/60 hover:text-navy"
     >
       {children}
     </Link>
