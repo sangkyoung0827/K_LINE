@@ -19,7 +19,8 @@ try {
     await page.goto(base);
     const nav = page.locator(".mobile-bottom-nav");
     assert.equal(await nav.isVisible(), width < 768);
-    assert.equal(await nav.getByRole("link").count(), 4);
+    assert.equal(await nav.getByRole("link").count(), 2);
+    assert.equal(await nav.getByRole("button", { name: "My clubs" }).count(), 1);
     assert.equal(await nav.locator('[aria-current="page"]').getAttribute("href"), "/");
     if (width < 768) {
       const menu = page.locator('[aria-controls="kline-mobile-navigation"]');
