@@ -98,7 +98,7 @@ export function EccOfficialTeamChatCard({
           beginEditing();
         }
       }}
-      className={`paper-panel mx-auto grid w-full max-w-5xl justify-items-center p-4 text-center sm:p-6 md:p-10 ${
+      className={`paper-panel mx-auto grid w-full max-w-5xl justify-items-center text-center ${!editing ? "max-md:rounded-none max-md:border-0 max-md:bg-transparent p-0 md:p-10" : "p-4 sm:p-6 md:p-10"} ${
         isAdmin && !editing
           ? "cursor-pointer outline-none transition hover:border-brass hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-navy/35"
           : ""
@@ -106,7 +106,7 @@ export function EccOfficialTeamChatCard({
     >
       {!editing ? (
         <>
-          <div className="max-w-2xl">
+          <div className="hidden max-w-2xl md:block">
             <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
               <I18nText en={temporaryEntry ? "Temporary entry (15 minutes)" : "Confirmed member"} ko={temporaryEntry ? "임시 입장 (15분)" : "정식회원 확인됨"} />
             </div>
@@ -137,23 +137,39 @@ export function EccOfficialTeamChatCard({
             ) : null}
           </div>
 
-          <div className="mt-5 grid w-full max-w-52 gap-3 sm:mt-6 sm:max-w-60">
+          <div className="flex w-full items-center gap-3 md:mt-6 md:grid md:max-w-60">
             {!temporaryEntry ? <img
               key={qrVersion}
               src={`/api/ecc/official-team-qr?v=${qrVersion}`}
               alt="ECC official team chat QR code"
-              className="aspect-square w-full border border-ink/10 bg-white object-contain p-3"
+              className="hidden aspect-square w-full border border-ink/10 bg-white object-contain p-3 md:block"
             /> : null}
             <a
               href={teamChatUrl}
               target="_blank"
               rel="noreferrer"
               onClick={(event) => event.stopPropagation()}
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
+              onKeyDown={(event) => event.stopPropagation()}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy max-md:min-w-0 max-md:rounded-lg max-md:py-3"
             >
               <MessageCircle aria-hidden className="h-4 w-4" />
               <I18nText en="Join ECC Official Team Chat" ko="ECC 공식 팀채팅 입장" />
             </a>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  beginEditing();
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+                aria-label={korean ? "팀채팅 정보 수정" : "Edit team chat"}
+                title={korean ? "팀채팅 정보 수정" : "Edit team chat"}
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-ink/15 bg-white/65 text-ink md:hidden"
+              >
+                <Edit3 aria-hidden className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
         </>
       ) : (

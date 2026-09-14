@@ -102,7 +102,7 @@ export default async function EccOfficialPage() {
         />
 
         <div className="mx-auto w-full max-w-5xl">
-          <EccMemberRegistrationForm />
+          <EccMemberRegistrationForm collapsibleMobileIntro />
         </div>
 
         <div className="mx-auto w-full max-w-5xl">
