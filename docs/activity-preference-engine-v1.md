@@ -4,7 +4,7 @@
 
 - Inspected base: `08d4d3b9f0d024b76ee57147f0d6fb6b51212590` (`origin/main`, fetched 2026-09-14).
 - Work branch: `feat/activity-preference-engine-v1`.
-- The user subsequently instructed **do not deploy yet**. This branch is local only; no push, PR, merge, Vercel deployment, production migration, or production backfill is authorized for this handoff.
+- The initial deployment hold was lifted on 2026-09-14. The user explicitly selected application/rating-only deployment. Sensitive information and conversation-to-score analysis are excluded. PR #29 is the isolated release; held builder/parity work remains excluded.
 - Production has not been used as a test environment. No real application, membership, payment, rating, role, or setting was changed.
 
 ## Inspected Architecture
@@ -98,9 +98,9 @@ Includes indexes, unique canonical/event keys, V1 event/rating checks, manual se
 
 The migration never alters or deletes existing ECC/Hanhwal/history/auth tables. `DELETE` inside the recomputation function only replaces the current user's derived preference rows within its transaction. Applying SQL alone creates empty analytics tables and classification seeds, not behavioral events.
 
-**Production migration: not applied.** This SQL is different from the earlier Gathering weekday SQL. Do not confuse that earlier confirmation with approval/application of this migration.
+**Production migration verified on 2026-09-14:** all five tables have RLS; anon/authenticated cannot select them or execute the four RPCs; service_role can. The database initially contained 0 events/profiles and 10 classified activity mappings. Source preflight found 125 ECC applications with identity and 3 explicit ratings; no Hanhwal application rows. No individual member information was returned to the diagnostic UI.
 
-## Deferred Production Runbook
+## Production Runbook
 
 Proceed only after the user explicitly reauthorizes the release:
 
@@ -112,11 +112,13 @@ Proceed only after the user explicitly reauthorizes the release:
 6. Deploy the reviewed application branch after merge authorization, then run reconciliation once more to catch applications submitted between the first backfill and deployment. Check authenticated self-profile privacy, live hooks on controlled test data, mobile/desktop chat and normal club application flows.
 7. Use a maintenance reconciliation when mappings change, after a failed ingestion, and as part of later operational maintenance. No new scheduler or cron is created in this task.
 
+The production service credentials are protected/redacted on Vercel export, so the owner SQL Editor can instead run `supabase/activity_preferences_backfill.sql`. It defaults to dry-run, uses temporary tables, and calls the same event/recompute RPCs. Change only `kline.preference_apply` from `false` to `true` after passing release gates. Source projection, rating timestamp keys, V1 weights, repeat execution and source-table invariance are checked against the adapters in PostgreSQL tests. The entire write run is transactional: an error rolls it back. This alternative creates no permanent functions, credentials or expanded grants. Run again to verify zero new events on unchanged sources.
+
 Rollback: revert only this feature commit through a reviewed PR; do not drop event/history tables or edit source history. Existing source flows continue without analytics.
 
 ## Verification and Limitations
 
-- New preference tests: 28 passing, covering all requested behavior groups including source adapters, weights/confidence/decay, duplicate keys, localization, private self API, non-blocking real ECC/Hanhwal/rating route hooks, unknown mapping repair, future/attendance rejection, recommendation values and Woohyukmon restrictions.
+- New preference tests: 29 passing, covering all requested behavior groups including source adapters, weights/confidence/decay, duplicate keys, localization, private self API, non-blocking real ECC/Hanhwal/rating route hooks, unknown mapping repair, future/attendance rejection, recommendation values and Woohyukmon restrictions. The additional SQL Editor backfill test verifies default dry-run, adapter-compatible millisecond rating keys, repeat execution and unchanged source rows.
 - Embedded PostgreSQL (PGlite) ran the actual migration twice, actual event/upsert/recompute/read RPCs, immutable identity conflict, remapping, role grants/RLS and SQL-versus-TypeScript score comparison. These are isolated fixtures, NOT production records.
 - The reconciliation test scans 3 synthetic ECC rows (one lacks identity), 1 synthetic Hanhwal row and 1 synthetic rating, yielding 4 events; rerunning adds none. These numbers do not describe production.
 - Existing Woohyukmon tests (29), ECC approval/access/read-only developer tests (16), My Clubs (7), mobile navigation (5), Gathering weekdays (8) passed. Existing import/analytics/intents, business collection, ECC notice, Jeju and market-collector tests also passed separately.
@@ -138,7 +140,7 @@ Rollback: revert only this feature commit through a reviewed PR; do not drop eve
 | 2-4. Architecture/application/rating inspection | Documented above; NextAuth, independent club POSTs, owner-filtered rating PATCH |
 | 5. Created files | Engine directory, private API directory, three scripts, new SQL and this report |
 | 6. Modified files | ECC/Hanhwal application routes; rating route; Gemini, legacy Woohyukmon and operations routes; package/lock; existing Gathering test dependency stub |
-| 7-8. Migration | Created and tested twice locally; not applied to production |
+| 7-8. Migration | Created and tested twice locally; production tables, RPCs and RLS verified |
 | 9-10. Taxonomy/mappings | 14 categories; 12 conservative canonical mappings including 2 unclassified ECC activities |
 | 11. Events | applied + rating_submitted; unique deterministic source keys |
 | 12-15. Weights/formulas | Centralized V1 values, 180-day decay, tanh affinity, separate exponential confidence |
@@ -148,14 +150,14 @@ Rollback: revert only this feature commit through a reviewed PR; do not drop eve
 | 21. Woohyukmon | Conditional read-only compact context, deterministic rankings, no score-write action |
 | 22. Self API | Session-owned, no owner override, no-store, 401/503 distinctions |
 | 23. Recommendations | Server-only affinity x confidence matching, neutral unknown evidence |
-| 24. Production source rows scanned | Not queried |
-| 25-26. Production events/profiles created | None created by this task; production totals not inspected |
-| 27-28. Production unmapped/duplicates | Not queried; duplicate prevention and remapping verified in fixtures |
+| 24. Production source rows scanned | Preflight: ECC 125, Hanhwal 0, explicit ratings 3; all source rows have identity |
+| 25-26. Production events/profiles created | Initially 0; backfill pending release gates |
+| 27-28. Production unmapped/duplicates | Initially 0 events; duplicate prevention and remapping verified in fixtures |
 | 29. Attendance events | 0 in V1 tests; SQL rejects unsupported types; production migration/backfill not run |
 | 30. Privacy/security | RLS/grants, owner-only API, empty event metadata, restricted diagnostics tested |
-| 31. Tests | 28 preference tests pass; regression results and one local browser limitation above |
+| 31. Tests | 29 preference tests pass; regression results and one local browser limitation above |
 | 32-33. Typecheck/build | Passed locally |
-| 34-35. Production migration/backfill | Not run, deferred |
-| 36. Deployment | Not deployed; explicitly held per user's latest instruction |
+| 34-35. Production migration/backfill | Migration verified; backfill prepared in SQL Editor without exporting private rows |
+| 36. Deployment | Authorized, PR #29; awaiting green CI and backfill validation |
 | 37. Runtime | Local verification only; production authenticated runtime not claimed |
 | 38. Known limitations | Unidentified historical applications, sparse mappings, async reconciliation repair, CI/live QA pending |

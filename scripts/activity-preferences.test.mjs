@@ -42,6 +42,45 @@ const applied = (id = "one", map = mapping) => applicationPreferenceEvent("ecc",
 const rated = (rating) => ratingPreferenceEvent({ id: `rating-${rating}`, user_id: "a@example.test", source: "ecc", activity_id: "opening", activity_instance_id: null, rating, rated_at: now }, mapping);
 const category = (events) => aggregatePreferenceEvents(events, now).find((d) => d.dimension_type === "category");
 
+test("SQL Editor backfill matches adapters, is dry by default, reruns safely and never edits sources", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec("create role anon; create role authenticated; create role service_role bypassrls;");
+    await db.exec(readFileSync("supabase/activity_preferences_v1.sql", "utf8"));
+    await db.exec(`create table ecc_activity_applications(id uuid, user_id text, activity_id text, activity_instance_id uuid, created_at timestamptz);
+      create table hanhwal_activity_applications (like ecc_activity_applications);
+      create table user_activity_records(id uuid,user_id text,source text,activity_id text,activity_instance_id uuid,rating smallint,rated_at timestamptz);
+      insert into ecc_activity_applications values ('00000000-0000-0000-0000-000000000001',' A@EXAMPLE.TEST ','opening',null,'2026-09-01T01:02:03.456789Z'),
+      ('00000000-0000-0000-0000-000000000002',null,'opening',null,now());
+      insert into hanhwal_activity_applications values ('00000000-0000-0000-0000-000000000003','a@example.test','gathering',null,now());
+      insert into user_activity_records values ('00000000-0000-0000-0000-000000000004','a@example.test','ecc','opening',null,5,'2026-09-01T10:02:03.456789+09:00'),
+      ('00000000-0000-0000-0000-000000000005','a@example.test','ecc','opening',null,null,now());`);
+    const sourceSnapshot = async () => (await db.query(`select jsonb_build_object('ecc',(select jsonb_agg(t) from ecc_activity_applications t),
+      'hanhwal',(select jsonb_agg(t) from hanhwal_activity_applications t),'ratings',(select jsonb_agg(t) from user_activity_records t)) snapshot`)).rows[0].snapshot;
+    const original = await sourceSnapshot();
+    const sql = readFileSync("supabase/activity_preferences_backfill.sql", "utf8");
+    const dry = await db.exec(sql);
+    assert.equal(dry.at(-2).rows[0].backfill_report.mode, 'dry-run');
+    assert.equal(dry.at(-2).rows[0].diagnostics.events, 0);
+    const apply = sql.replace("kline.preference_apply = 'false'", "kline.preference_apply = 'true'");
+    const first = (await db.exec(apply)).at(-2).rows[0];
+    assert.equal(first.backfill_report.newEvents, 3);
+    assert.equal(first.backfill_report.skippedMissingIdentityOrInvalid, 1);
+    assert.equal(first.diagnostics.profiles, 1);
+    assert.equal(first.diagnostics.attendanceEvents, 0);
+    const rows = (await db.query("select source_event_key,base_weight from activity_preference_events order by source_event_key")).rows;
+    const expectedRating = ratingPreferenceEvent({id:'00000000-0000-0000-0000-000000000004',user_id:'a@example.test',source:'ecc',activity_id:'opening',rating:5,rated_at:'2026-09-01T10:02:03.456789+09:00'},mapping);
+    assert.equal(rows[0].source_event_key, expectedRating.source_event_key);
+    assert.equal(Number(rows[0].base_weight), config.ratingWeights[5]);
+    assert.equal(Number(rows[1].base_weight), config.appliedWeight);
+    const again = (await db.exec(apply)).at(-2).rows[0];
+    assert.equal(again.backfill_report.newEvents, 0);
+    assert.equal(again.backfill_report.alreadyPresent, 3);
+    assert.deepEqual(await sourceSnapshot(), original);
+    assert.match(sql, new RegExp(`'v1',${config.halfLifeDays},${config.affinityScale},${config.confidenceScale}`));
+  } finally { await db.close(); }
+});
+
 test("one real application creates only an applied interest event with normalized identity", () => {
   assert.equal(applied().event_type, "applied"); assert.equal(applied().source_event_key, "ecc_application:one");
   assert.equal(applied().user_key, "a@example.test"); assert.equal(applied().base_weight, 2);
