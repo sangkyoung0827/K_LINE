@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText } from "@/components/LanguageProvider";
+import { HanhwalIntroduction } from "@/components/HanhwalIntroduction";
 import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import { createPublicMetadata } from "@/lib/seo";
 
@@ -33,6 +34,8 @@ export default async function HanhwalHubPage() {
             </h1>
           </div>
         </div>
+
+        <HanhwalIntroduction />
 
         <div className="mt-6 border border-navy/10 bg-white p-5 shadow-soft sm:mt-10 sm:p-8 md:p-10">
           <h2 className="font-serif text-2xl font-semibold text-navy sm:text-3xl md:text-4xl">

@@ -30,8 +30,8 @@ const homeCards: HomeCard[] = [
     href: "/our-activities/hanhwal",
     title: { en: "Hanhwal", ko: "한활" },
     description: {
-      en: "A channel for Korean traditional archery culture experiences and club member exchange.",
-      ko: "한국 전통 국궁(國弓) 문화 체험과 동문/회원 교류 채널입니다."
+      en: "Hanhwal trains body and mind through Korean archery. Beginners and experienced archers learn, practice, and continue this traditional culture together.",
+      ko: "한활은 국궁으로 심신을 수련하는 한국 활쏘기 모임입니다. 초보자부터 경험자까지 함께 배우고 연습하며 한국 전통 활쏘기의 문화를 이어갑니다."
     },
     badge: { en: "Traditional", ko: "국궁 Traditional" },
     accent: "hanhwal"

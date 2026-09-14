@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { HanhwalOfficialTeamChatCard } from "@/components/HanhwalOfficialTeamChatCard";
+import { HanhwalIntroduction } from "@/components/HanhwalIntroduction";
 import { HanhwalPermissionRequestCard } from "@/components/HanhwalPermissionRequestCard";
 import { I18nText } from "@/components/LanguageProvider";
 import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
@@ -73,6 +74,7 @@ export default async function HanhwalOfficialPage() {
   return (
     <OfficialShell>
       <section className="grid gap-6">
+        <HanhwalIntroduction />
         <HanhwalOfficialTeamChatCard
           initialPeriodLabel={operations.periodLabel}
           initialTeamChatUrl={operations.officialTeamChatUrl}

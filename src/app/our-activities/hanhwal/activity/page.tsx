@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Lock } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { HanhwalActivityPanel } from "@/components/HanhwalActivityPanel";
+import { HanhwalStructuredActivityPanel } from "@/components/HanhwalStructuredActivityPanel";
 import { I18nText } from "@/components/LanguageProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
@@ -41,7 +42,10 @@ export default async function HanhwalActivityPage() {
         />
         <div className="mt-7 sm:mt-10">
           {access.isOfficialMember ? (
-            <HanhwalActivityPanel />
+            <>
+              <HanhwalActivityPanel />
+              <HanhwalStructuredActivityPanel />
+            </>
           ) : (
             <div className="paper-panel flex flex-col items-start gap-4 p-5 sm:flex-row sm:p-6 md:p-8">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-navy text-paper">
