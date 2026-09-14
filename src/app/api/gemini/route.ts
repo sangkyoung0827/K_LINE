@@ -11,6 +11,7 @@ import {
   runEphemeralBusinessDataPipeline
 } from "@/lib/business-data/ephemeral-pipeline";
 import { detectEccAnnouncementRequest } from "@/lib/ecc/announcement";
+import { buildEccActivityGuide } from "@/lib/ecc/activity-guide";
 import { formatKnowledgeContext, searchKnowledge } from "@/lib/knowledge/search";
 import { buildJejuWoohyukmonContext } from "@/lib/jeju/ai-context";
 import { supabaseRequest } from "@/lib/supabaseServer";
@@ -581,6 +582,7 @@ export async function POST(request: Request) {
   }
 
   let body: {
+    activityGuide?: unknown;
     attachmentNames?: unknown;
     context?: unknown;
     currentLocation?: unknown;
@@ -594,6 +596,7 @@ export async function POST(request: Request) {
 
   try {
     body = (await request.json()) as {
+      activityGuide?: unknown;
       attachmentNames?: unknown;
       context?: unknown;
       currentLocation?: unknown;
@@ -652,6 +655,8 @@ export async function POST(request: Request) {
       }, 10_000);
       try {
         const configuredProviders = getConfiguredSearchProviders();
+        const eccActivityGuide = experienceContext !== "jeju" && isPublicV4
+          ? await buildEccActivityGuide(query, body.activityGuide === "ecc") : "";
         const activityPreferenceContext = await activityPreferenceContextForMessage(message, session?.user?.email);
         const personalMemory = await loadPersonalMemory(session?.user?.email, message, body.memoryEnabled !== false);
         if (personalMemory.count || Object.keys(personalMemory.preferences).length) {
@@ -686,6 +691,7 @@ export async function POST(request: Request) {
             })
           : "";
         const databaseProviders = [
+          ...(eccActivityGuide ? ["ECC Official Activity Notices"] : []),
           ...(activityPreferenceContext.ready ? ["Activity Preference Engine"] : []),
           ...(jejuGuide ? ["Jeju Explorer DB"] : []),
           ...(eccAnnouncementRequest ? ["ECC Notice Style"] : []),
@@ -714,6 +720,7 @@ export async function POST(request: Request) {
                 : databaseProviders.length ? `${databaseProviders.join(" · ")} 조회 완료` : "대화 맥락 확인 중",
             providers: needsExternalSearch ? configuredProviders : databaseProviders,
             sourceCount: (activityPreferenceContext.ready ? 1 : 0) + (jejuGuide ? 1 : 0)
+              + (eccActivityGuide ? 1 : 0)
               + (eccAnnouncementRequest ? 1 : 0)
               + (traditionalLiquor?.hasRecords ? 1 : 0)
               + (operationalContext ? 1 : 0)
@@ -771,6 +778,7 @@ export async function POST(request: Request) {
         const allSources = [...knowledgeSources, ...externalSources];
         const publicKnowledgeCount = isPublicV4 && !developerAccess.isDeveloper ? knowledgeResults.length : 0;
         const groundedContextCount = allSources.length
+          + (eccActivityGuide ? 1 : 0)
           + (activityPreferenceContext.ready ? 1 : 0)
           + publicKnowledgeCount
           + (jejuContext ? 1 : 0)
@@ -779,6 +787,7 @@ export async function POST(request: Request) {
           + (businessCollectionContext ? 1 : 0)
           + (eccAnnouncementContext ? 1 : 0);
         const allProviders = [
+          ...(eccActivityGuide ? ["ECC Official Activity Notices"] : []),
           ...(activityPreferenceContext.ready ? ["Activity Preference Engine"] : []),
           ...(jejuContext ? ["Jeju Explorer DB"] : []),
           ...(eccAnnouncementContext ? ["ECC Notice Style"] : []),
@@ -841,6 +850,7 @@ export async function POST(request: Request) {
               jejuContext,
               knowledgeResults.length > 0 ? formatKnowledgeContext(knowledgeResults) : "",
               eccAnnouncementContext,
+              eccActivityGuide,
               traditionalLiquorContext,
               operationalContext,
               businessCollectionContext,

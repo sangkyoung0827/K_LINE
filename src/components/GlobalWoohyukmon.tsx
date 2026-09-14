@@ -3,6 +3,7 @@ import { WoohyukmonPromptInput } from "@/components/WoohyukmonPromptInput";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
 import { useConversationMemory } from "@/hooks/useConversationMemory";
 import { useSavedConversation } from "@/hooks/useSavedConversation";
+import { useLanguage } from "@/components/LanguageProvider";
 
 import { Check, Loader2, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -114,7 +115,10 @@ function CompactTable({ rows }: { rows: WoohyukmonTableRow[] }) {
   );
 }
 
-export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string; actorEmail: string }) {
+export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false, readOnly = false }: {
+  actorRole: string; actorEmail: string; activityGuide?: boolean; readOnly?: boolean;
+}) {
+  const { pick } = useLanguage();
   const memory = useConversationMemory(actorEmail);
   const savedConversation = useSavedConversation(actorEmail);
   const saveLog = savedConversation.save;
@@ -164,6 +168,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
     requestText: string,
     selectedTargetId = ""
   ) => {
+    if (readOnly) return { handled: false } as const;
     const response = await fetch("/api/woohyukmon/operations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -214,6 +219,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
         history,
         mode: "chat",
         modelVersion: "4",
+        activityGuide: activityGuide ? "ecc" : undefined,
         memoryEnabled: memory.enabled,
         expectedUserId: actorEmail,
         localBoardPosts: [],
@@ -410,7 +416,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
       { kind: "confirmation" }
     >
   ) => {
-    if (busy) return;
+    if (busy || readOnly) return;
     setBusy(true);
 
     try {
@@ -485,7 +491,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-ink">Woohyukmon</p>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brass">
-                K_LINE Operations · {actorRole}
+                {activityGuide ? pick({ ko: "ECC 활동 안내", en: "ECC Activity Guide" }) : `K_LINE Operations · ${actorRole}`}
               </p>
             </div>
             <button
@@ -506,10 +512,10 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
                     <WoohyukmonGlassesIcon className="h-full w-full" />
                   </div>
                   <h2 className="mt-3 font-serif text-2xl font-semibold text-ink">
-                    무엇을 도와드릴까요?
+                    {pick({ ko: "무엇을 도와드릴까요?", en: "How can I help?" })}
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-ink/58">
-                    회원 현황 조회부터 회비·정회원 승인, 활동 신청 관리까지 한 문장으로 요청하세요.
+                    {activityGuide ? pick({ ko: "어떤 활동이 궁금하세요?", en: "Which activity would you like to know about?" }) : "회원 현황 조회부터 회비·정회원 승인, 활동 신청 관리까지 한 문장으로 요청하세요."}
                   </p>
                 </div>
               </div>
@@ -525,7 +531,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
                       : "mr-2 rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 text-sm leading-6 text-ink"
                   }
                 >
-                  <div className="whitespace-pre-line">{message.content}</div>
+                  <div className="whitespace-pre-line break-words [overflow-wrap:anywhere]">{message.content}</div>
 
                   {message.operation &&
                   "rows" in message.operation &&
@@ -558,7 +564,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
                     </div>
                   ) : null}
 
-                  {message.operation?.kind === "confirmation" ? (
+                  {!readOnly && message.operation?.kind === "confirmation" ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -640,8 +646,8 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
               value={input}
               onChange={(event) => setInput(event.target.value)}
               disabled={busy}
-              placeholder="자연어로 업무를 입력하세요"
-              aria-label="우혁몬에게 보낼 업무 메시지"
+              placeholder={activityGuide ? pick({ ko: "활동에 대해 질문해 주세요", en: "Ask about an activity" }) : "자연어로 업무를 입력하세요"}
+              aria-label={activityGuide ? pick({ ko: "우혁몬에게 보낼 활동 질문", en: "Activity question for Woohyukmon" }) : "우혁몬에게 보낼 업무 메시지"}
               className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/12 bg-white px-3 py-2 text-sm leading-6 text-ink outline-none focus:border-brass"
             />
             <button
@@ -657,17 +663,27 @@ export function GlobalWoohyukmon({ actorRole, actorEmail }: { actorRole: string;
       ) : null}
 
       {!open ? (
+        <div className={`fixed right-4 z-[81] flex max-w-[calc(100vw-2rem)] items-center gap-2 md:right-5 ${activityGuide ? "bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-5" : "bottom-5"}`}>
+        {activityGuide ? (
+          <button type="button" onClick={() => setOpen(true)}
+            className="relative min-w-0 max-w-[210px] break-keep rounded-lg border border-ink/15 bg-white px-3 py-2 text-left text-xs leading-5 text-ink shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-brass"
+          >
+            {pick({ ko: "활동에 관련된 질문을 무엇이든 물어보세요", en: "Ask me anything about activities." })}
+            <span aria-hidden className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-r border-t border-ink/15 bg-white" />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-4 z-[81] flex h-14 w-16 items-center justify-center rounded-full border border-ink/10 bg-white/95 shadow-xl transition hover:-translate-y-0.5 hover:border-brass md:right-5"
+          className="flex h-14 w-16 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-white/95 shadow-xl transition hover:-translate-y-0.5 hover:border-brass"
           aria-label="Open Global Woohyukmon"
-          title="K_LINE Operations"
+          title={activityGuide ? pick({ ko: "ECC 활동 질문", en: "Ask about ECC activities" }) : "K_LINE Operations"}
         >
           <span className={busy ? "animate-spin" : ""}>
             <WoohyukmonGlassesIcon className="h-8 w-12" />
           </span>
         </button>
+        </div>
       ) : null}
     </>
   );
