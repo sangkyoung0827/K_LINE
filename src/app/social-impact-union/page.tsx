@@ -5,6 +5,7 @@ import { I18nText } from "@/components/LanguageProvider";
 import { SocialImpactUnionMark } from "@/components/social-impact-union/SocialImpactUnionMark";
 import { socialImpactUnion } from "@/data/socialImpactUnion";
 import { createPublicMetadata } from "@/lib/seo";
+import { SiuHomeSections } from "@/components/social-impact-union/SiuPlatform";
 
 export const metadata: Metadata = createPublicMetadata({
   title: socialImpactUnion.title.en,
@@ -62,6 +63,7 @@ export default async function SocialImpactUnionPage() {
             </a>
           </div>
         </div>
+        <SiuHomeSections />
       </div>
     </section>
   );

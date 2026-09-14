@@ -1,6 +1,6 @@
 export type MyHistoryRecord = {
   id: string;
-  source: "ecc" | "hanhwal";
+  source: "ecc" | "hanhwal" | "social_impact_union";
   activityTitle: string;
   closedAt: string | null;
   rating: number | null;

@@ -60,6 +60,10 @@ function isProtectedPage(pathname: string) {
 }
 
 function isPublicSeoPage(pathname: string) {
+  if (pathname === "/social-impact-union/activities" ||
+    /^\/social-impact-union\/activities\/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(pathname)) {
+    return true;
+  }
   if (publicSeoPages.has(pathname)) {
     return true;
   }

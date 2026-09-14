@@ -26,6 +26,7 @@ function load(path, language = "en", developer = false) {
     if (name === "@/hooks/useHanhwalAccess") return { useHanhwalAccess: () => ({}) };
     if (name === "@/components/CartProvider") return { useCart: () => ({ totalQuantity: 0 }) };
     if (name === "next/link") return ({ children, ...props }) => React.createElement("a", props, children);
+    if (name === "@/components/social-impact-union/SiuPlatform") return { SiuHomeSections: () => null };
     if (name === "@/components/LanguageProvider") return {
       I18nText: (copy) => copy[language], useLanguage: () => ({ language, pick: (copy) => copy[language] }), LanguageSwitcher: () => null
     };
@@ -38,7 +39,7 @@ function load(path, language = "en", developer = false) {
   return module.exports;
 }
 
-test("SIU page is public, localized and contains only an introduction and exact open-chat link", async () => {
+test("SIU page preserves its public localized introduction and exact open-chat block", async () => {
   for (const language of ["en", "ko"]) {
     const page = load("src/app/social-impact-union/page.tsx", language);
     const html = renderToStaticMarkup(await page.default());
@@ -103,7 +104,10 @@ test("SIU metadata is public and navigation is not added to the student club reg
 test("anonymous SIU access does not open any existing protected page or a future SIU subpage", async () => {
   const { middleware } = load("src/middleware.ts");
   assert.equal((await middleware(new NextRequest("https://kline.test/social-impact-union"))).status, 200);
-  for (const path of ["/ecc-join", "/ecc-official", "/hanhwal-join", "/hanhwal-official", "/developer", "/jeju", "/v4", "/social-impact-union/admin"]) {
+  for (const path of ["/social-impact-union/activities", "/social-impact-union/activities/00000000-0000-0000-0000-000000000001"]) {
+    assert.equal((await middleware(new NextRequest("https://kline.test" + path))).status, 200);
+  }
+  for (const path of ["/ecc-join", "/ecc-official", "/hanhwal-join", "/hanhwal-official", "/developer", "/jeju", "/v4", "/social-impact-union/admin", "/social-impact-union/my", "/social-impact-union/activities/create"]) {
     const result = await middleware(new NextRequest(`https://kline.test${path}`));
     assert.equal(result.status, 307, path);
     assert.equal(new URL(result.headers.get("location")).pathname, "/login", path);

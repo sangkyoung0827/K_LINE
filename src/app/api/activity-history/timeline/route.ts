@@ -9,7 +9,7 @@ const pageSize = 50;
 type Cursor = { date: string | null; id: string };
 type Row = {
   id: string;
-  source: "ecc" | "hanhwal";
+  source: "ecc" | "hanhwal" | "social_impact_union";
   activity_title_snapshot: string;
   activity_date_snapshot: string | null;
   rating: number | null;
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       query.set("activity_date_snapshot", "is.null");
       query.set("id", `lt.${cursor.id}`);
     }
-    const rows = await supabaseRequest<Row[]>(`user_activity_records?${query}`, {
+    const rows = await supabaseRequest<Row[]>(`kline_activity_history_v1?${query}`, {
       method: "GET", cache: "no-store", signal: AbortSignal.timeout(12000)
     });
     const page = rows.slice(0, pageSize);
