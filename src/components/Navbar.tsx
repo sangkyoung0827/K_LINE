@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { BookOpen, ChevronDown, Code2, Menu, ShoppingBag, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { activityBoards } from "@/data/activityBoards";
-import { socialImpactUnion } from "@/data/socialImpactUnion";
 import { AuthStatus } from "@/components/AuthStatus";
 import { ClubMark } from "@/components/ClubMark";
 import { useCart } from "@/components/CartProvider";
@@ -108,10 +107,6 @@ export function Navbar() {
               ))}
             </div>
           </div>
-
-          <DesktopNavLink href={socialImpactUnion.path} active={pathname.startsWith(socialImpactUnion.path)}>
-            Social Impact Union
-          </DesktopNavLink>
 
           <DesktopNavLink href="/jeju" active={pathname.startsWith("/jeju")}>
             <span className="inline-flex items-center gap-1.5">
