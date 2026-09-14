@@ -103,9 +103,9 @@ test("activity launcher displays exact localized bubble left of unchanged glasse
 
 test("member guide bypasses operations, guards confirmation, and keeps server authorization intact", () => {
   const widget = readFileSync("src/components/GlobalWoohyukmon.tsx", "utf8");
-  assert.match(widget, /if \(readOnly\) return \{ handled: false \} as const;/);
-  assert.match(widget, /if \(busy \|\| readOnly\) return;/);
-  assert.match(widget, /!readOnly && message.operation\?\.kind === "confirmation"/);
+  assert.match(widget, /if \(readOnly \|\| activityGuide\) return \{ handled: false \} as const;/);
+  assert.match(widget, /if \(busy \|\| readOnly \|\| activityGuide\) return;/);
+  assert.match(widget, /!readOnly && !activityGuide && message.operation\?\.kind === "confirmation"/);
   assert.match(widget, /activityGuide: activityGuide \? "ecc" : undefined/);
   const gate = readFileSync("src/components/GlobalWoohyukmonGate.tsx", "utf8");
   assert.match(gate, /actorEmail.toLowerCase\(\) !== sessionEmail.toLowerCase\(\)/);
