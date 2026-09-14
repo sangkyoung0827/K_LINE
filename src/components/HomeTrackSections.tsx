@@ -4,13 +4,15 @@ import Link from "next/link";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
+import { SocialImpactUnionMark } from "@/components/social-impact-union/SocialImpactUnionMark";
+import { socialImpactUnion } from "@/data/socialImpactUnion";
 
 type HomeCard = {
   href: string;
   title: { en: string; ko: string };
   description: { en: string; ko: string };
   badge: { en: string; ko: string };
-  accent: "ecc" | "hanhwal" | "jeju";
+  accent: "ecc" | "hanhwal" | "jeju" | "siu";
 };
 
 const homeCards: HomeCard[] = [
@@ -33,6 +35,16 @@ const homeCards: HomeCard[] = [
     },
     badge: { en: "Traditional", ko: "국궁 Traditional" },
     accent: "hanhwal"
+  },
+  {
+    href: socialImpactUnion.path,
+    title: socialImpactUnion.title,
+    description: {
+      en: "Connect people and ideas to create local impact together.",
+      ko: "사람과 아이디어를 연결해 지역의 새로운 변화를 만듭니다."
+    },
+    badge: { en: "Community", ko: "커뮤니티" },
+    accent: "siu"
   },
   {
     href: "/jeju",
@@ -73,6 +85,8 @@ function HomePortalCard({ card }: { card: HomeCard }) {
           <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dcefe8] text-[#0d5962] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
             <BookOpen aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
           </span>
+        ) : card.accent === "siu" ? (
+          <SocialImpactUnionMark className="h-11 w-11 border-4 border-white shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16" />
         ) : (
           <ClubMark
             id={card.accent === "ecc" ? "ecc" : "hanhwal"}
@@ -91,7 +105,7 @@ function HomePortalCard({ card }: { card: HomeCard }) {
           {pick(card.title)}
         </h2>
         <p className="mt-1 text-xs leading-5 text-muted sm:hidden">
-          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : <I18nText en="Places, memories & WooHyukmon" ko="지도 · 여행 기록 · 우혁몬" />}
+          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : card.accent === "siu" ? <I18nText en="People, ideas & local impact" ko="사람 · 아이디어 · 지역의 변화" /> : <I18nText en="Places, memories & WooHyukmon" ko="지도 · 여행 기록 · 우혁몬" />}
         </p>
         <p className="mt-2 hidden text-sm font-medium leading-6 text-muted sm:mt-4 sm:block sm:leading-7 md:mt-6 md:min-h-[4.5rem]">
           {pick(card.description)}

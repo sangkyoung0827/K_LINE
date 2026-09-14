@@ -10,6 +10,7 @@ const publicRoutes = [
   "/our-activities",
   "/our-activities/ecc",
   "/our-activities/hanhwal",
+  "/social-impact-union",
   "/contact"
 ];
 

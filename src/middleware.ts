@@ -15,7 +15,8 @@ const publicSeoPages = new Set([
   "/k-culture-project",
   "/our-activities",
   "/our-activities/ecc",
-  "/our-activities/hanhwal"
+  "/our-activities/hanhwal",
+  "/social-impact-union"
 ]);
 
 const protectedPagePrefixes = [

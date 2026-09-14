@@ -15,6 +15,7 @@ const module = { exports: {} };
 vm.runInNewContext(`(function(require,module,exports){${code}\n})`)((name) => {
   if (name === "next/link") return { default: ({ children, ...props }) => React.createElement("a", props, children) };
   if (name === "@/components/ClubMark") return { ClubMark: () => React.createElement("span", { "aria-hidden": true }) };
+  if (name === "@/data/socialImpactUnion") return { socialImpactUnion: { path: "/social-impact-union" } };
   return require(name);
 }, module, module.exports);
 const { MobileNavigationMenu } = module.exports;
@@ -31,7 +32,9 @@ test("mobile menu contains Journey profile and two initially collapsed club grou
   assert.equal((html.match(/<details /g) ?? []).length, 2);
   assert.equal((html.match(/<summary /g) ?? []).length, 2);
   assert.doesNotMatch(html, /<details[^>]*\bopen=/);
-  assert.deepEqual(hrefs(html), ["/jeju/profile", "/our-activities/ecc", "/our-activities/hanhwal"]);
+  assert.deepEqual(hrefs(html), ["/jeju/profile", "/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union"]);
+  assert.match(html, /Social Impact Union/);
+  assert.ok(html.lastIndexOf("</details>") < html.indexOf('href="/social-impact-union"'));
   assert.match(html, /My Journey profile/);
   assert.doesNotMatch(html, /International Student Club|Login \/ Profile|\/cart|\/developer/);
 });

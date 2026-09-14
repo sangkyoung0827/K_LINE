@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, UserRound } from "lucide-react";
+import { ChevronDown, UserRound, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { ClubMark } from "@/components/ClubMark";
+import { socialImpactUnion } from "@/data/socialImpactUnion";
 
 type ClubAccess = {
   isLoggedIn: boolean;
@@ -28,6 +29,10 @@ export function MobileNavigationMenu({ language, eccAccess, hanhwalAccess, onNav
       </MenuLink>
       <ClubMenu club="ecc" access={eccAccess} language={language} onNavigate={onNavigate} />
       <ClubMenu club="hanhwal" access={hanhwalAccess} language={language} onNavigate={onNavigate} />
+      <MenuLink href={socialImpactUnion.path} onClick={onNavigate}>
+        <UsersRound aria-hidden className="h-6 w-6 shrink-0" />
+        Social Impact Union
+      </MenuLink>
     </div>
   );
 }
