@@ -8,5 +8,6 @@ export const preferenceConfig = {
   strongConfidence: 0.7,
   requestTimeoutMs: 8_000,
   summaryTimeoutMs: 5_000,
+  candidatesTimeoutMs: 2_500,
   pageSize: 500
 } as const;
