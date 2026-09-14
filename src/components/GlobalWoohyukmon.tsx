@@ -168,7 +168,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
     requestText: string,
     selectedTargetId = ""
   ) => {
-    if (readOnly) return { handled: false } as const;
+    if (readOnly || activityGuide) return { handled: false } as const;
     const response = await fetch("/api/woohyukmon/operations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -416,7 +416,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
       { kind: "confirmation" }
     >
   ) => {
-    if (busy || readOnly) return;
+    if (busy || readOnly || activityGuide) return;
     setBusy(true);
 
     try {
@@ -564,7 +564,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
                     </div>
                   ) : null}
 
-                  {!readOnly && message.operation?.kind === "confirmation" ? (
+                  {!readOnly && !activityGuide && message.operation?.kind === "confirmation" ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"

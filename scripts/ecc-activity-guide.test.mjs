@@ -13,7 +13,7 @@ function load(path, mocks = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
   }).outputText;
   const module = { exports: {} };
-  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { AbortSignal, Date })((name) => {
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { AbortSignal, Date, TextDecoder, fetch: mocks.fetch })((name) => {
     if (name === "server-only") return {};
     if (name in mocks) return mocks[name];
     if (name.startsWith("@/")) return load(`src/${name.slice(2)}${name.startsWith("@/components/") ? ".tsx" : ".ts"}`, mocks);
@@ -103,17 +103,56 @@ test("activity launcher displays exact localized bubble left of unchanged glasse
 
 test("member guide bypasses operations, guards confirmation, and keeps server authorization intact", () => {
   const widget = readFileSync("src/components/GlobalWoohyukmon.tsx", "utf8");
-  assert.match(widget, /if \(readOnly\) return \{ handled: false \} as const;/);
-  assert.match(widget, /if \(busy \|\| readOnly\) return;/);
-  assert.match(widget, /!readOnly && message.operation\?\.kind === "confirmation"/);
+  assert.match(widget, /if \(readOnly \|\| activityGuide\) return \{ handled: false \} as const;/);
+  assert.match(widget, /if \(busy \|\| readOnly \|\| activityGuide\) return;/);
+  assert.match(widget, /!readOnly && !activityGuide && message.operation\?\.kind === "confirmation"/);
   assert.match(widget, /activityGuide: activityGuide \? "ecc" : undefined/);
   const gate = readFileSync("src/components/GlobalWoohyukmonGate.tsx", "utf8");
   assert.match(gate, /actorEmail.toLowerCase\(\) !== sessionEmail.toLowerCase\(\)/);
-  assert.match(gate, /\[pathname, sessionEmail, status\]/);
+  assert.match(gate, /const activityPath = pathname === "\/our-activities\/ecc\/activity" \? pathname : ""/);
+  assert.match(gate, /\[activityPath, sessionEmail, status\]/);
   const operations = readFileSync("src/app/api/woohyukmon/operations/route.ts", "utf8");
   assert.match(operations, /!access.isAdmin \|\| !access.email/);
   const route = readFileSync("src/app/api/gemini/route.ts", "utf8");
   assert.match(route, /buildEccActivityGuide\(query, body.activityGuide === "ecc"\)/);
   assert.match(route, /eccAnnouncementContext,\s*eccActivityGuide,/);
   assert.match(route, /"ECC Official Activity Notices"/);
+});
+
+test("real send handler routes fee questions to answers for both member and administrator guide users", async () => {
+  const question = "개강총회 참가비는 회비와 별도인가요?";
+  for (const [readOnly, activityGuide] of [[true, true], [false, true], [false, false]]) {
+    const calls = [];
+    let stateIndex = 0;
+    let finished;
+    const saved = new Promise((resolve) => { finished = resolve; });
+    const { GlobalWoohyukmon } = load("src/components/GlobalWoohyukmon.tsx", {
+      react: { ...React, useEffect: () => {}, useMemo: (fn) => fn(), useRef: () => ({current:null}),
+        useState: (initial) => { const index = stateIndex++; return [index === 0 ? true : index === 1 ? question : initial, () => {}]; } },
+      "@/components/LanguageProvider": { useLanguage: () => ({ pick: (copy) => copy.ko }) },
+      "@/hooks/useConversationMemory": { useConversationMemory: () => ({ enabled: false }) },
+      "@/hooks/useSavedConversation": { useSavedConversation: () => ({ clearWarning: () => {}, save: async (_, role) => { if (role === "assistant") finished(); } }) },
+      fetch: async (path, init) => {
+        calls.push({ path, body: JSON.parse(init.body) });
+        if (path.endsWith("operations")) return Response.json({ handled: false });
+        return new Response(JSON.stringify({ type: "text", text: "별도입니다." }) + "\n" + JSON.stringify({ type: "done" }) + "\n");
+      }
+    });
+    // Render the open composer with isolated hooks; never contact production or save real chats.
+    const tree = GlobalWoohyukmon({ actorEmail: "test@example.test", actorRole: "admin", readOnly, activityGuide });
+    function findForm(node) {
+      if (!node || typeof node !== "object") return;
+      if (node.type === "form") return node;
+      for (const child of React.Children.toArray(node.props?.children)) { const form = findForm(child); if (form) return form; }
+    }
+    const form = findForm(tree);
+    assert.ok(form);
+    form.props.onSubmit({ preventDefault() {} });
+    let timeout;
+    try { await Promise.race([saved, new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("Send did not finish")), 1000); })]); }
+    finally { clearTimeout(timeout); }
+    assert.deepEqual(calls.map((call) => call.path), readOnly || activityGuide ? ["/api/gemini"] : ["/api/woohyukmon/operations", "/api/gemini"]);
+    assert.equal(calls.at(-1).body.message, question);
+    assert.equal(calls.at(-1).body.activityGuide, activityGuide ? "ecc" : undefined);
+  }
 });
