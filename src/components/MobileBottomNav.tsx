@@ -24,7 +24,7 @@ export function MobileBottomNav() {
   }, [clubsOpen]);
   if (pathname === "/login") return null;
 
-  const clubsActive = clubsOpen || pathname.startsWith("/our-activities/ecc") ||
+  const clubsActive = clubsOpen || pathname === "/my-history" || pathname.startsWith("/our-activities/ecc") ||
     pathname.startsWith("/our-activities/hanhwal") || pathname.startsWith("/ecc-") ||
     pathname.startsWith("/hanhwal-");
 
