@@ -87,10 +87,10 @@ export function HistoryRecords({ ownerEmail }: { ownerEmail: string }) {
           <li key={record.id} className="flex items-start gap-3 py-5">
             <span aria-hidden className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${record.source === "ecc" ? "bg-navy" : "bg-pine"}`} />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted">{record.source === "ecc" ? "ECC" : ko ? "한활" : "Hanhwal"}</p>
+              <p className="text-xs font-semibold text-muted">{record.source === "social_impact_union" ? "Social Impact Union" : record.source === "ecc" ? "ECC" : ko ? "한활" : "Hanhwal"}</p>
               <h2 className="mt-1 break-words text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">{record.activityTitle || (ko ? "활동" : "Activity")}</h2>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-                <span>{record.closedAt ? <><span>{ko ? "신청 마감 " : "Registration closed "}</span><time dateTime={record.closedAt}>{historyDate(record.closedAt, language)}</time></> : historyDate(null, language)}</span>
+                <span>{record.closedAt ? <><span>{record.source === "social_impact_union" ? (ko ? "활동 종료 " : "Activity ended ") : (ko ? "신청 마감 " : "Registration closed ")}</span><time dateTime={record.closedAt}>{historyDate(record.closedAt, language)}</time></> : historyDate(null, language)}</span>
                 {record.rating !== null && record.rating >= 1 && record.rating <= 5 ? <span className="inline-flex items-center gap-1" aria-label={`${ko ? "내 별점" : "My rating"}: ${record.rating}/5`}><Star aria-hidden className="h-3.5 w-3.5 fill-brass text-brass" />{record.rating}/5</span> : null}
               </div>
             </div>

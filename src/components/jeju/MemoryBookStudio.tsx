@@ -18,7 +18,7 @@ type ActivityRecord = {
   id: string;
   ratedAt: string | null;
   rating: number | null;
-  source: "ecc" | "hanhwal";
+  source: "ecc" | "hanhwal" | "social_impact_union";
 };
 
 type ProfileResponse = {
@@ -356,7 +356,7 @@ export function MemoryBookStudio() {
         id: `activity-${activity.id}`,
         kind: "activity",
         title: activity.activityTitle,
-        subtitle: activity.source === "ecc" ? "ECC activity" : "Hanhwal activity",
+        subtitle: activity.source === "social_impact_union" ? "Social Impact Union activity" : activity.source === "ecc" ? "ECC activity" : "Hanhwal activity",
         rating: activity.rating,
         photos: []
       });

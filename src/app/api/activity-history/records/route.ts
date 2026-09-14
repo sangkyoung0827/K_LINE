@@ -10,7 +10,7 @@ const privateHeaders = { "Cache-Control": "private, no-store, max-age=0" };
 
 type ActivityHistoryRow = {
   id: string;
-  source: "ecc" | "hanhwal";
+  source: "ecc" | "hanhwal" | "social_impact_union";
   activity_id: string;
   activity_instance_id: string;
   activity_title_snapshot: string;
@@ -34,7 +34,7 @@ export async function GET() {
     await ensureUserActivityRecords(email);
 
     const rows = await supabaseRequest<ActivityHistoryRow[]>(
-      `user_activity_records?select=id,source,activity_id,activity_instance_id,activity_title_snapshot,activity_date_snapshot,eligible_at,rating,rated_at,dismissed_at,created_at&user_id=eq.${encodeURIComponent(email)}&order=activity_date_snapshot.desc&limit=500`
+      `kline_activity_history_v1?select=id,source,activity_id,activity_instance_id,activity_title_snapshot,activity_date_snapshot,eligible_at,rating,rated_at,dismissed_at,created_at&user_id=eq.${encodeURIComponent(email)}&order=activity_date_snapshot.desc&limit=500`
     );
 
     return NextResponse.json({
