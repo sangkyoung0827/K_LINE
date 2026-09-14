@@ -96,7 +96,7 @@ test("SIU metadata is public and navigation is not added to the student club reg
   assert.ok(metadata.alternates.canonical.endsWith("/social-impact-union"));
   assert.doesNotMatch(readFileSync("src/data/activityBoards.ts", "utf8"), /social-impact|siu/i);
   const nav = readFileSync("src/components/Navbar.tsx", "utf8");
-  assert.match(nav, /<DesktopNavLink href=\{socialImpactUnion.path\}/);
+  assert.doesNotMatch(nav, /socialImpactUnion|social-impact-union|Social Impact Union/);
   assert.match(nav, /\{isDeveloper \? \(\s*<Link\s*href="\/developer"/);
 });
 
@@ -110,7 +110,7 @@ test("anonymous SIU access does not open any existing protected page or a future
   }
 });
 
-test("desktop SIU destination is public while Developer and cart navigation remain conditional", () => {
+test("desktop navigation excludes SIU while preserving other destinations and conditional controls", () => {
   for (const language of ["en", "ko"]) {
     for (const developer of [false, true]) {
       const { Navbar } = load("src/components/Navbar.tsx", language, developer);
@@ -118,10 +118,10 @@ test("desktop SIU destination is public while Developer and cart navigation rema
       assert.match(html, /hidden min-w-0 flex-wrap items-center justify-center/);
       assert.match(html, /flex min-w-0 shrink-0 items-center gap-1/);
       const links = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
-      for (const path of ["/", "/our-activities", "/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", "/jeju"]) assert.ok(links.includes(path));
+      for (const path of ["/", "/our-activities", "/our-activities/ecc", "/our-activities/hanhwal", "/jeju"]) assert.ok(links.includes(path));
       assert.equal(links.includes("/developer"), developer);
       assert.equal(links.includes("/cart"), developer);
-      assert.equal(links.filter((path) => path === "/social-impact-union").length, 1);
+      assert.equal(links.filter((path) => path === "/social-impact-union").length, 0);
     }
   }
 });
