@@ -74,7 +74,7 @@ function ClubMenu({ club, access, language, onNavigate }: {
         {(club === "ecc" ? access.isAdmin : access.isSuperAdmin) ? (
           <MenuLink href={`${base}/fund`} onClick={onNavigate}>{korean ? "자금 관리" : "Fund Management"}</MenuLink>
         ) : null}
-        {club === "ecc" && access.isAdmin ? (
+        {access.isAdmin ? (
           <MenuLink href={`${base}/operations`} onClick={onNavigate}>{korean ? "학기 운영 설정" : "Semester Operations"}</MenuLink>
         ) : null}
       </div>
