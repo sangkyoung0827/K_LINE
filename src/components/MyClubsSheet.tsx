@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, LoaderCircle, LogIn, RefreshCw, X } from "lucide-react";
+import { ArrowRight, History, LoaderCircle, LogIn, RefreshCw, X } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { useLanguage } from "@/components/LanguageProvider";
 import { loadMyClubs, myClubOptions, type MyClubResult } from "@/lib/myClubs";
@@ -78,6 +78,11 @@ export function MyClubsSheet({ ownerEmail, sessionStatus, returnTo, onClose }: P
             <X aria-hidden className="h-5 w-5" />
           </button>
         </div>
+        <Link href="/my-history" onClick={onClose} className="flex min-h-16 items-center gap-3 border-b border-navy/10 py-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-navy/10 text-navy"><History aria-hidden className="h-5 w-5" /></span>
+          <span className="min-w-0 flex-1 text-base font-bold">My history</span>
+          <ArrowRight aria-hidden className="h-4 w-4 shrink-0" />
+        </Link>
         {loading ? (
           <p role="status" className="flex items-center gap-2 py-6 text-sm text-muted"><LoaderCircle aria-hidden className="h-4 w-4 animate-spin" />{ko ? "가입 정보를 불러오는 중입니다." : "Loading your clubs..."}</p>
         ) : loginRequired ? (

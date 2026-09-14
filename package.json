@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "pretest": "npm run test:ecc-official-mobile && npm run test:ecc-activity-guide && npm run test:social-impact-union && npm run test:activity-preferences && npm run test:woohyukmon && npm run test:ecc-approval-retry && npm run test:my-clubs && npm run test:mobile-navigation && npm run test:ecc-gathering-days",
+    "pretest": "npm run test:my-history && npm run test:ecc-official-mobile && npm run test:ecc-activity-guide && npm run test:social-impact-union && npm run test:activity-preferences && npm run test:woohyukmon && npm run test:ecc-approval-retry && npm run test:my-clubs && npm run test:mobile-navigation && npm run test:ecc-gathering-days",
+    "test:my-history": "node --test scripts/my-history.test.mjs",
     "test:ecc-official-mobile": "node --test scripts/ecc-official-mobile.test.mjs",
     "test:ecc-activity-guide": "node --test scripts/ecc-activity-guide.test.mjs",
     "test:social-impact-union": "node --test scripts/social-impact-union.test.mjs",
