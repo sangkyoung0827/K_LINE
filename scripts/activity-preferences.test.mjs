@@ -187,6 +187,36 @@ test("recommendations use affinity and confidence, unknown categories rank neutr
   assert.equal(ranked[0].activityId, "opening"); assert.equal(ranked[1].matchScore, 50);
 });
 
+test("slow or failed optional catalogs preserve the user's successfully loaded profile", async () => {
+  const profile = toPreferenceProfile({ state: { application_count: 1, rating_count: 0, unmapped_count: 0, computed_at: now }, dimensions: aggregatePreferenceEvents([applied()], now) }, now);
+  for (const store of [async () => new Promise(() => {}), async () => { throw Error('Catalog unavailable'); }]) {
+    const module = loader({
+      "@/lib/eccOperations": { getEccActivityCatalog: async () => [] },
+      "./server": { getUserActivityPreferenceProfile: async () => profile },
+      "./store": { preferenceStore: store, logPreferenceFailure() {} },
+      "./config": { preferenceConfig: { ...config, summaryTimeoutMs: 30, candidatesTimeoutMs: 5 } }
+    })(`${root}/woohyukmon.ts`);
+    const response = await module.activityPreferenceContextForMessage('내 취향 분석해줘', 'me@example.test');
+    assert.equal(response.ready, true);
+    const summary = JSON.parse(response.text.split('Private calculated activity-interest context:\n')[1]);
+    assert.equal(summary.stats.applications, 1);
+    assert.equal(summary.candidatesReady, false);
+    assert.equal(summary.emergingCategories[0].affinity, profile.categories[0].affinity);
+    assert.deepEqual(summary.openApplicationRecommendations, []);
+  }
+});
+
+test("a stalled private profile remains unavailable, never an invented zero profile", async () => {
+  const module = loader({
+    "@/lib/eccOperations": { getEccActivityCatalog: async () => [] },
+    "./server": { getUserActivityPreferenceProfile: async () => new Promise(() => {}) },
+    "./config": { preferenceConfig: { ...config, summaryTimeoutMs: 5, candidatesTimeoutMs: 5 } }
+  })(`${root}/woohyukmon.ts`);
+  const response = await module.activityPreferenceContextForMessage('내 취향 분석해줘', 'me@example.test');
+  assert.equal(response.ready, false);
+  assert.match(response.text, /temporarily unavailable, NOT zero evidence/);
+});
+
 test("PostgreSQL migration twice, idempotent events/backfill, atomic profiles, RLS and zero source changes", async () => {
   const db = new PGlite();
   try {
