@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "pretest": "npm run test:woohyukmon && npm run test:ecc-approval-retry && npm run test:my-clubs && npm run test:mobile-navigation && npm run test:ecc-gathering-days",
+    "pretest": "npm run test:activity-preferences && npm run test:woohyukmon && npm run test:ecc-approval-retry && npm run test:my-clubs && npm run test:mobile-navigation && npm run test:ecc-gathering-days",
+    "test:activity-preferences": "node --test scripts/activity-preferences.test.mjs",
+    "reconcile:activity-preferences": "node scripts/run-activity-preferences.mjs",
     "test:mobile-navigation": "node --test scripts/mobile-navigation.test.mjs",
     "test:my-clubs": "tsx --test src/lib/myClubs.test.ts",
     "test:ecc-gathering-days": "node --test scripts/ecc-gathering-days.test.mjs",
@@ -52,11 +54,13 @@
     "tus-js-client": "^4.3.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^22.10.2",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "autoprefixer": "^10.4.20",
+    "esbuild": "^0.28.2",
     "playwright": "^1.62.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",

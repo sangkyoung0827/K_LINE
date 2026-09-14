@@ -98,6 +98,7 @@ test("only writable admins can configure days; invalid or mixed updates never wr
 function applicationHarness(options = {}) {
   const writes = [];
   const route = load("src/app/api/ecc/applications/route.ts", {
+    "@/lib/activity-preferences/hooks": { scheduleApplicationPreference() {} },
     "next/server": next, "@/lib/eccActivities": activities, "@/lib/eccGatheringDays": days,
     "@/lib/eccAccess": { getCurrentEccAccess: async () => options.access ?? { isLoggedIn: true, isOfficialMember: true, email: "member@test" } },
     "@/lib/eccActivityStatuses": { getEccActivityStatuses: async () => options.status ?? status },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { normalizeEmail } from "@/lib/admin";
+import { scheduleRatingPreference } from "@/lib/activity-preferences/hooks";
 import {
   dismissActivityRecord,
   getPendingActivityRating,
@@ -61,6 +62,7 @@ export async function PATCH(request: Request) {
     }
 
     const record = await rateActivityRecord({ rating, recordId, userId: email });
+    if (record) scheduleRatingPreference(record.id, email);
     return record
       ? NextResponse.json({ ok: true })
       : NextResponse.json({ error: "Activity record was not found." }, { status: 404 });

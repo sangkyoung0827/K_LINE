@@ -1,4 +1,5 @@
 import { generateAnswer, hasGenerationProvider } from "@/lib/woohyukmon/generation";
+import { activityPreferenceContextForMessage } from "@/lib/activity-preferences/woohyukmon";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
 import { loadPersonalMemory } from "@/lib/woohyukmon/personal-memory";
 import { matchesExpectedOwner, personalStyleInstruction } from "@/lib/woohyukmon/memory";
@@ -651,6 +652,7 @@ export async function POST(request: Request) {
       }, 10_000);
       try {
         const configuredProviders = getConfiguredSearchProviders();
+        const activityPreferenceContext = await activityPreferenceContextForMessage(message, session?.user?.email);
         const personalMemory = await loadPersonalMemory(session?.user?.email, message, body.memoryEnabled !== false);
         if (personalMemory.count || Object.keys(personalMemory.preferences).length) {
           controller.enqueue(ndjson({ type: "status", status: "personal_memory_ready", label: "내 이전 대화와 답변 선호 참고 / Using your conversation preferences" }));
@@ -684,6 +686,7 @@ export async function POST(request: Request) {
             })
           : "";
         const databaseProviders = [
+          ...(activityPreferenceContext.ready ? ["Activity Preference Engine"] : []),
           ...(jejuGuide ? ["Jeju Explorer DB"] : []),
           ...(eccAnnouncementRequest ? ["ECC Notice Style"] : []),
           ...(traditionalLiquor?.hasRecords ? ["Traditional Liquor DB"] : []),
@@ -693,7 +696,7 @@ export async function POST(request: Request) {
           businessCollection: Boolean(businessCollectionRequest),
           journeyNeedsPlaces: experienceContext === "jeju" && !jejuGuide?.hasPlaces,
           traditionalLiquorNeedsResearch: traditionalLiquorQuestion && !traditionalLiquor?.hasRecords,
-          hasInternalAnswer: databaseProviders.length > 0
+          hasInternalAnswer: databaseProviders.length > 0 || Boolean(activityPreferenceContext.text)
         });
 
         controller.enqueue(
@@ -710,7 +713,7 @@ export async function POST(request: Request) {
                 ? `${configuredProviders.join(" · ")} 검색 중`
                 : databaseProviders.length ? `${databaseProviders.join(" · ")} 조회 완료` : "대화 맥락 확인 중",
             providers: needsExternalSearch ? configuredProviders : databaseProviders,
-            sourceCount: (jejuGuide ? 1 : 0)
+            sourceCount: (activityPreferenceContext.ready ? 1 : 0) + (jejuGuide ? 1 : 0)
               + (eccAnnouncementRequest ? 1 : 0)
               + (traditionalLiquor?.hasRecords ? 1 : 0)
               + (operationalContext ? 1 : 0)
@@ -768,6 +771,7 @@ export async function POST(request: Request) {
         const allSources = [...knowledgeSources, ...externalSources];
         const publicKnowledgeCount = isPublicV4 && !developerAccess.isDeveloper ? knowledgeResults.length : 0;
         const groundedContextCount = allSources.length
+          + (activityPreferenceContext.ready ? 1 : 0)
           + publicKnowledgeCount
           + (jejuContext ? 1 : 0)
           + (traditionalLiquorContext ? 1 : 0)
@@ -775,6 +779,7 @@ export async function POST(request: Request) {
           + (businessCollectionContext ? 1 : 0)
           + (eccAnnouncementContext ? 1 : 0);
         const allProviders = [
+          ...(activityPreferenceContext.ready ? ["Activity Preference Engine"] : []),
           ...(jejuContext ? ["Jeju Explorer DB"] : []),
           ...(eccAnnouncementContext ? ["ECC Notice Style"] : []),
           ...(knowledgeResults.length > 0 ? ["WooHyukmon DB"] : []),
@@ -831,6 +836,7 @@ export async function POST(request: Request) {
             businessReport: Boolean(businessCollectionContext),
             controller,
             externalSearchContext: [
+              activityPreferenceContext.text,
               personalMemory.context,
               jejuContext,
               knowledgeResults.length > 0 ? formatKnowledgeContext(knowledgeResults) : "",
