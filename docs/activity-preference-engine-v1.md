@@ -6,6 +6,7 @@
 - Work branch: `feat/activity-preference-engine-v1`.
 - The initial deployment hold was lifted on 2026-09-14. The user explicitly selected application/rating-only deployment. Sensitive information and conversation-to-score analysis are excluded. PR #29 is the isolated release; held builder/parity work remains excluded.
 - Production has not been used as a test environment. No real application, membership, payment, rating, role, or setting was changed.
+- Release evidence: PR #29 records the final merge/deployment and post-deployment checks. Historical backfill completed on 2026-09-14 16:03 KST: 128 events from 125 ECC applications and 3 explicit ratings, 100 private profiles. An immediate repeat added 0 events. Errors, missing identities, unmapped activities and unsupported/attendance events were all 0. Only new preference tables were written.
 
 ## Inspected Architecture
 
@@ -122,7 +123,7 @@ Rollback: revert only this feature commit through a reviewed PR; do not drop eve
 - Embedded PostgreSQL (PGlite) ran the actual migration twice, actual event/upsert/recompute/read RPCs, immutable identity conflict, remapping, role grants/RLS and SQL-versus-TypeScript score comparison. These are isolated fixtures, NOT production records.
 - The reconciliation test scans 3 synthetic ECC rows (one lacks identity), 1 synthetic Hanhwal row and 1 synthetic rating, yielding 4 events; rerunning adds none. These numbers do not describe production.
 - Existing Woohyukmon tests (29), ECC approval/access/read-only developer tests (16), My Clubs (7), mobile navigation (5), Gathering weekdays (8) passed. Existing import/analytics/intents, business collection, ECC notice, Jeju and market-collector tests also passed separately.
-- `npm run check` was run but stopped at the existing traditional-liquor browser fixture: local Chrome aborted with EPERM/SIGABRT under this environment. Three non-browser tests in that suite passed. The failing test was not deleted, disabled or weakened. Full green Browser Safety CI remains a pre-merge requirement.
+- `npm run check` was run but stopped at the existing traditional-liquor browser fixture: local Chrome aborted with EPERM/SIGABRT under this environment. The failing test was not deleted, disabled or weakened. The full equivalent Browser Safety CI passed on release commit `5d40e50` (run `34815859949`), including npm test, build and V4 isolation. The final PR head must also be green before merge.
 - Typecheck and production build passed locally; browser metadata, Hanhwal isolation and V4 isolation validators passed. Final validation output is recorded at handoff.
 - CLI without credentials fails before any DB operation, as intended.
 - Local built-server smoke check (2026-09-14): `/api/activity-preferences/me` and the same path with another email query both returned 401/private-no-store without a session; POST returned 405; diagnostics returned 401/private-no-store. The temporary verification server was stopped afterward. No production credentials were used.
@@ -151,13 +152,13 @@ Rollback: revert only this feature commit through a reviewed PR; do not drop eve
 | 22. Self API | Session-owned, no owner override, no-store, 401/503 distinctions |
 | 23. Recommendations | Server-only affinity x confidence matching, neutral unknown evidence |
 | 24. Production source rows scanned | Preflight: ECC 125, Hanhwal 0, explicit ratings 3; all source rows have identity |
-| 25-26. Production events/profiles created | Initially 0; backfill pending release gates |
-| 27-28. Production unmapped/duplicates | Initially 0 events; duplicate prevention and remapping verified in fixtures |
-| 29. Attendance events | 0 in V1 tests; SQL rejects unsupported types; production migration/backfill not run |
+| 25-26. Production events/profiles created | 128 events, 100 profiles; rerun added 0 events |
+| 27-28. Production unmapped/duplicates | Both 0; 128 events equal 128 unique source keys |
+| 29. Attendance events | 0 in production; only applied/rating_submitted supported |
 | 30. Privacy/security | RLS/grants, owner-only API, empty event metadata, restricted diagnostics tested |
 | 31. Tests | 29 preference tests pass; regression results and one local browser limitation above |
 | 32-33. Typecheck/build | Passed locally |
-| 34-35. Production migration/backfill | Migration verified; backfill prepared in SQL Editor without exporting private rows |
-| 36. Deployment | Authorized, PR #29; awaiting green CI and backfill validation |
-| 37. Runtime | Local verification only; production authenticated runtime not claimed |
+| 34-35. Production migration/backfill | Migration verified; SQL Editor backfill and repeat completed without exporting private rows |
+| 36. Deployment | Authorized isolated release PR #29; final deployment evidence recorded there |
+| 37. Runtime | Local/CI validation above; post-deployment checks recorded in PR #29, not inferred from unit tests |
 | 38. Known limitations | Unidentified historical applications, sparse mappings, async reconciliation repair, CI/live QA pending |
