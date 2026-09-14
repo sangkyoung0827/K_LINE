@@ -25,7 +25,10 @@ with applications as (
     case rating when 1 then -3 when 2 then -1 when 3 then 0 when 4 then 2 when 5 then 4 end,
     rated_at from public.user_activity_records where rating is not null and rated_at is not null
 ), normalized as (
-  select *, lower(btrim(user_id, E' \t\n\r\f\v' || chr(160) || chr(65279))) user_key from signals
+  select *, lower(btrim(user_id, E' \t\n\r\f' || chr(11) || chr(160) || chr(5760) ||
+    chr(8192) || chr(8193) || chr(8194) || chr(8195) || chr(8196) || chr(8197) ||
+    chr(8198) || chr(8199) || chr(8200) || chr(8201) || chr(8202) || chr(8232) ||
+    chr(8233) || chr(8239) || chr(8287) || chr(12288) || chr(65279))) user_key from signals
 )
 select bucket,
   coalesce(user_key <> '' and id is not null and source <> '' and activity_id <> ''

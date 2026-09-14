@@ -50,10 +50,10 @@ test("SQL Editor backfill matches adapters, is dry by default, reruns safely and
     await db.exec(`create table ecc_activity_applications(id uuid, user_id text, activity_id text, activity_instance_id uuid, created_at timestamptz);
       create table hanhwal_activity_applications (like ecc_activity_applications);
       create table user_activity_records(id uuid,user_id text,source text,activity_id text,activity_instance_id uuid,rating smallint,rated_at timestamptz);
-      insert into ecc_activity_applications values ('00000000-0000-0000-0000-000000000001',' A@EXAMPLE.TEST ','opening',null,'2026-09-01T01:02:03.456789Z'),
+      insert into ecc_activity_applications values ('00000000-0000-0000-0000-000000000001',' V@EXAMPLE.TEST ','opening',null,'2026-09-01T01:02:03.456789Z'),
       ('00000000-0000-0000-0000-000000000002',null,'opening',null,now());
-      insert into hanhwal_activity_applications values ('00000000-0000-0000-0000-000000000003','a@example.test','gathering',null,now());
-      insert into user_activity_records values ('00000000-0000-0000-0000-000000000004','a@example.test','ecc','opening',null,5,'2026-09-01T10:02:03.456789+09:00'),
+      insert into hanhwal_activity_applications values ('00000000-0000-0000-0000-000000000003','v@example.test','gathering',null,now());
+      insert into user_activity_records values ('00000000-0000-0000-0000-000000000004','v@example.test','ecc','opening',null,5,'2026-09-01T10:02:03.456789+09:00'),
       ('00000000-0000-0000-0000-000000000005','a@example.test','ecc','opening',null,null,now());`);
     const sourceSnapshot = async () => (await db.query(`select jsonb_build_object('ecc',(select jsonb_agg(t) from ecc_activity_applications t),
       'hanhwal',(select jsonb_agg(t) from hanhwal_activity_applications t),'ratings',(select jsonb_agg(t) from user_activity_records t)) snapshot`)).rows[0].snapshot;
@@ -67,6 +67,7 @@ test("SQL Editor backfill matches adapters, is dry by default, reruns safely and
     assert.equal(first.backfill_report.newEvents, 3);
     assert.equal(first.backfill_report.skippedMissingIdentityOrInvalid, 1);
     assert.equal(first.diagnostics.profiles, 1);
+    assert.equal((await db.query('select user_key from activity_preference_profile_state')).rows[0].user_key, 'v@example.test');
     assert.equal(first.diagnostics.attendanceEvents, 0);
     const rows = (await db.query("select source_event_key,base_weight from activity_preference_events order by source_event_key")).rows;
     const expectedRating = ratingPreferenceEvent({id:'00000000-0000-0000-0000-000000000004',user_id:'a@example.test',source:'ecc',activity_id:'opening',rating:5,rated_at:'2026-09-01T10:02:03.456789+09:00'},mapping);
