@@ -46,7 +46,7 @@ test("SIU page preserves its public localized introduction and exact open-chat b
     assert.match(html, /<h1[^>]*>Social Impact Union<\/h1>/);
     assert.match(html, /소셜임팩트유니온/);
     assert.match(html, language === "ko" ? /전주를 기반으로/ : /people and ideas in Jeonju/);
-    assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), [url]);
+    assert.deepEqual([...html.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map((match) => match[1]), [url]);
     assert.match(html, /target="_blank" rel="noopener noreferrer"/);
     assert.match(html, /focus-visible:outline/);
     assert.match(html, language === "ko" ? /새 탭에서 열림/ : /opens in a new tab/);
@@ -77,16 +77,22 @@ test("SIU and existing home cards share the exact responsive wrapper, with prese
   }
 });
 
-test("temporary mark stays separate from official club marks and browser metadata", () => {
+test("owner-supplied SIU logo is framed without changing other club marks or browser metadata", () => {
   const { SocialImpactUnionMark } = load("src/components/social-impact-union/SocialImpactUnionMark.tsx");
   const html = renderToStaticMarkup(React.createElement(SocialImpactUnionMark));
-  assert.equal((html.match(/<circle /g) ?? []).length, 3);
-  assert.match(html, /viewBox="0 0 64 64"/);
+  assert.match(html, /viewBox="300 300 650 470"/);
+  assert.match(html, /y="90" width="650" height="470" viewBox="300 300 650 470" overflow="hidden"/);
+  assert.match(html, /<image href="\/images\/social-impact-union-logo\.png" width="1254" height="1254"/);
+  assert.match(html, /preserveAspectRatio="xMidYMid meet"/);
   assert.match(html, /aria-hidden="true"/);
-  assert.doesNotMatch(html, /<image|<text|gradient|official/i);
+  assert.doesNotMatch(html, /<circle|<path|<text|gradient/i);
+  const logo = readFileSync("public/images/social-impact-union-logo.png");
+  assert.equal(logo.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  assert.equal(logo.readUInt32BE(16), 1254);
+  assert.equal(logo.readUInt32BE(20), 1254);
   assert.doesNotMatch(readFileSync("src/components/ClubMark.tsx", "utf8"), /social-impact|siu/i);
   for (const path of ["src/app/manifest.ts", "src/app/layout.tsx"]) {
-    assert.doesNotMatch(readFileSync(path, "utf8"), /SocialImpactUnionMark/);
+    assert.doesNotMatch(readFileSync(path, "utf8"), /SocialImpactUnionMark|social-impact-union-logo/);
   }
 });
 
