@@ -25,6 +25,7 @@ export function GlobalWoohyukmonGate() {
   const [actorEmail, setActorEmail] = useState("");
   const [access, setAccess] = useState<AccessResponse>({});
   const pathname = usePathname();
+  const activityPath = pathname === "/our-activities/ecc/activity" ? pathname : "";
   const { data: session, status } = useSession();
   const sessionEmail = session?.user?.email ?? "";
   const guide = activityGuideAccess(pathname, access);
@@ -43,7 +44,7 @@ export function GlobalWoohyukmonGate() {
         return (await response.json()) as AccessResponse;
       })
       .then(async (access) => {
-        if (!access || !activityGuideAccess(pathname, access).visible || controller.signal.aborted) return;
+        if (!access || !activityGuideAccess(activityPath, access).visible || controller.signal.aborted) return;
         if (access.email?.toLowerCase() !== sessionEmail.toLowerCase()) return;
 
         const module = await import("@/components/GlobalWoohyukmon");
@@ -60,7 +61,7 @@ export function GlobalWoohyukmonGate() {
     return () => {
       controller.abort();
     };
-  }, [pathname, sessionEmail, status]);
+  }, [activityPath, sessionEmail, status]);
 
   if (!Agent || !guide.visible || status !== "authenticated" || actorEmail.toLowerCase() !== sessionEmail.toLowerCase()) {
     return null;
