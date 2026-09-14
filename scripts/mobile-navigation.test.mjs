@@ -63,6 +63,7 @@ test("club administrative access remains separate and preserves existing fund vi
   assert.ok(!eccOnly.includes("/our-activities/hanhwal/members"));
   const hanhwalOnly = hrefs(render(member, admin));
   assert.ok(hanhwalOnly.includes("/our-activities/hanhwal/members"));
+  assert.ok(hanhwalOnly.includes("/our-activities/hanhwal/operations"));
   assert.ok(!hanhwalOnly.includes("/our-activities/hanhwal/fund"));
   assert.ok(!hanhwalOnly.includes("/our-activities/ecc/members"));
   assert.ok(hrefs(render(member, { ...admin, isSuperAdmin: true })).includes("/our-activities/hanhwal/fund"));

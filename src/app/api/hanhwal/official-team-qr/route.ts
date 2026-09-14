@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { NextResponse } from "next/server";
-import { getCurrentHanhwalAccess, getHanhwalOfficialTeamChatUrl } from "@/lib/hanhwalAccess";
+import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
+import { getHanhwalOperationalSettings } from "@/lib/hanhwalOperations";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,8 @@ export async function GET() {
     );
   }
 
-  const qrBuffer = await QRCode.toBuffer(getHanhwalOfficialTeamChatUrl(), {
+  const settings = await getHanhwalOperationalSettings();
+  const qrBuffer = await QRCode.toBuffer(settings.officialTeamChatUrl, {
     errorCorrectionLevel: "M",
     margin: 2,
     type: "png",
