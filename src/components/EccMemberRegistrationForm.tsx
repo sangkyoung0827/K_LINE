@@ -1,11 +1,12 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CheckCircle2,
+  ChevronDown,
   Edit3,
   Loader2,
   Save,
@@ -146,7 +147,7 @@ function statusDescription(registration: EccMemberRegistration, language: "en" |
     : "Your registration is submitted. ECC officers will approve official membership after confirming payment.";
 }
 
-export function EccMemberRegistrationForm() {
+export function EccMemberRegistrationForm({ collapsibleMobileIntro = false }: { collapsibleMobileIntro?: boolean }) {
   const { language } = useLanguage();
   const membershipAccess = useEccAccess();
   const readOnly = useReadOnlyDeveloper();
@@ -181,6 +182,8 @@ export function EccMemberRegistrationForm() {
   const [savingOperations, setSavingOperations] = useState(false);
   const [operationsError, setOperationsError] = useState("");
   const [qrVersion, setQrVersion] = useState(0);
+  const [introExpanded, setIntroExpanded] = useState(false);
+  const introId = useId();
 
   useEffect(() => {
     let active = true;
@@ -441,6 +444,23 @@ export function EccMemberRegistrationForm() {
 
   return (
     <div className="grid gap-8">
+      <div className="grid gap-4 md:gap-0">
+        {collapsibleMobileIntro ? (
+          <button
+            type="button"
+            aria-expanded={introExpanded}
+            aria-controls={introId}
+            onClick={() => setIntroExpanded((expanded) => !expanded)}
+            className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-ink/15 py-3 text-left text-sm font-semibold text-ink md:hidden"
+          >
+            <I18nText en="About ECC & registration" ko="ECC 설명 및 등록 안내" />
+            <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 transition-transform ${introExpanded ? "rotate-180" : ""}`} />
+          </button>
+        ) : null}
+        <div
+          id={introId}
+          className={`${collapsibleMobileIntro && !introExpanded ? "hidden md:grid" : "grid"} gap-8`}
+        >
       <section className="paper-panel p-5 md:p-8">
         <div className="grid gap-6">
           {!editingContent ? (
@@ -711,6 +731,9 @@ export function EccMemberRegistrationForm() {
           </div>
         )}
       </section>
+
+        </div>
+      </div>
 
       {loading ? (
         <div className="paper-panel flex items-center gap-3 p-6 text-sm font-semibold text-ink/62">
