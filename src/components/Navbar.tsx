@@ -75,7 +75,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        <div className="hidden min-w-0 items-center gap-2 lg:flex xl:gap-5">
+        <div className="hidden min-w-0 flex-wrap items-center justify-center gap-x-1 lg:flex xl:gap-x-3">
           <DesktopNavLink href="/" active={pathname === "/"}>
             {language === "ko" ? "홈" : "Home"}
           </DesktopNavLink>
@@ -83,7 +83,7 @@ export function Navbar() {
           <div className="group relative">
             <Link
               href="/our-activities"
-              className={`inline-flex items-center gap-1.5 px-2 py-3 text-sm font-semibold transition ${
+              className={`inline-flex items-center gap-1.5 px-1 py-3 text-xs font-semibold transition xl:px-2 xl:text-sm ${
                 pathname.startsWith("/our-activities")
                   ? "text-navy"
                   : "text-ink/70 hover:text-navy"
@@ -123,7 +123,7 @@ export function Navbar() {
           {isDeveloper ? (
             <Link
               href="/developer"
-              className={`inline-flex items-center gap-1.5 px-2 py-3 text-sm font-semibold transition ${
+              className={`inline-flex items-center gap-1.5 px-1 py-3 text-xs font-semibold transition xl:px-2 xl:text-sm ${
                 pathname.startsWith("/developer") ? "text-navy" : "text-brass hover:text-navy"
               }`}
             >
@@ -133,7 +133,7 @@ export function Navbar() {
           ) : null}
         </div>
 
-        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+        <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-2">
           <div className="hidden sm:block"><LanguageSwitcher /></div>
           <AuthStatus />
           {isDeveloper ? (
@@ -196,7 +196,7 @@ function DesktopNavLink({
   return (
     <Link
       href={href}
-      className={`relative px-2 py-3 text-sm font-semibold transition ${
+      className={`relative px-1 py-3 text-xs font-semibold transition xl:px-2 xl:text-sm ${
         active ? "text-navy" : "text-ink/70 hover:text-navy"
       }`}
     >

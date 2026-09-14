@@ -115,6 +115,8 @@ test("desktop SIU destination is public while Developer and cart navigation rema
     for (const developer of [false, true]) {
       const { Navbar } = load("src/components/Navbar.tsx", language, developer);
       const html = renderToStaticMarkup(React.createElement(Navbar));
+      assert.match(html, /hidden min-w-0 flex-wrap items-center justify-center/);
+      assert.match(html, /flex min-w-0 shrink-0 items-center gap-1/);
       const links = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
       for (const path of ["/", "/our-activities", "/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", "/jeju"]) assert.ok(links.includes(path));
       assert.equal(links.includes("/developer"), developer);
