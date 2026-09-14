@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { scheduleApplicationPreference } from "@/lib/activity-preferences/hooks";
 import { normalizeEccActivityId } from "@/lib/eccActivities";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { getEccActivityStatuses } from "@/lib/eccActivityStatuses";
@@ -300,8 +301,10 @@ export async function POST(request: Request) {
         }
       : application;
 
+    let savedRows: SupabaseApplicationRow[];
+    let savedInstanceId = activityInstanceId || null;
     try {
-      await supabaseRequest<SupabaseApplicationRow[]>(
+      savedRows = await supabaseRequest<SupabaseApplicationRow[]>(
         `${tableName}?select=${selectedColumns}`,
         {
           method: "POST",
@@ -314,7 +317,7 @@ export async function POST(request: Request) {
         throw error;
       }
 
-      await supabaseRequest<SupabaseApplicationRow[]>(
+      savedRows = await supabaseRequest<SupabaseApplicationRow[]>(
         `${tableName}?select=${selectedColumns}`,
         {
           method: "POST",
@@ -322,8 +325,13 @@ export async function POST(request: Request) {
           body: JSON.stringify(application)
         }
       );
+      savedInstanceId = null;
     }
 
+    if (savedRows[0]) scheduleApplicationPreference("ecc", {
+      id: savedRows[0].id, created_at: savedRows[0].created_at,
+      activity_id: activityId, activity_instance_id: savedInstanceId, user_id: access.email
+    });
     return NextResponse.json(await buildApplicationsResponse(access.isAdmin), {
       status: 201
     });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isActivityReadRequest, isConversationAdvice, isMemberSummaryRequest } from "@/lib/woohyukmon/intent";
+import { isActivityPreferenceRequest } from "@/lib/activity-preferences/intent";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { cleanText } from "@/lib/supabaseServer";
 import {
@@ -914,7 +915,7 @@ export async function POST(request: Request) {
   }
 
   // Quoted member conversations belong to the assistant, not the admin tools.
-  if (isConversationAdvice(message)) return json({ handled: false });
+  if (isConversationAdvice(message) || isActivityPreferenceRequest(message)) return json({ handled: false });
 
   if (
     /(?:raw\s*)?sql|service.?role|환경\s*변수|environment\s*variable|api\s*key|secret|github|vercel|shell|터미널|임의\s*코드|arbitrary\s*code/i.test(

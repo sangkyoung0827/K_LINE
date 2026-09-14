@@ -1,4 +1,5 @@
 import { generateAnswer } from "@/lib/woohyukmon/generation";
+import { activityPreferenceContextForMessage } from "@/lib/activity-preferences/woohyukmon";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
 
 export const maxDuration = 180;
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
         })
       : [];
     const assistantContext = [
+      (await activityPreferenceContextForMessage(message, email)).text,
       siteAssistantContext,
       access.isDeveloper ? formatKnowledgeContext(knowledgeResults) : ""
     ].filter(Boolean).join("\n\n");
