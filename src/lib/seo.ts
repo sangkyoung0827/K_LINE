@@ -78,11 +78,13 @@ type SeoMetadataOptions = {
   description: string;
   path: string;
   keywords?: string[];
+  image?: string;
   imageAlt?: string;
 };
 
 export function createPublicMetadata({
   description,
+  image,
   imageAlt,
   keywords = [],
   path,
@@ -91,6 +93,7 @@ export function createPublicMetadata({
   const url = absoluteUrl(path);
   const ogImage = {
     ...defaultOgImage,
+    url: image ?? defaultOgImage.url,
     alt: imageAlt ?? defaultOgImage.alt
   };
 

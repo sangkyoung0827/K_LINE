@@ -12,6 +12,9 @@ export default function robots(): MetadataRoute.Robots {
           "/our-activities",
           "/our-activities/ecc",
           "/our-activities/hanhwal",
+          "/our-activities/hanhwal/gallery",
+          "/our-activities/hanhwal/solbam",
+          "/our-activities/hanhwal/activities",
           "/contact",
           "/ecc-alumni",
           "/ecc-alumni/notices"
