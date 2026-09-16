@@ -205,7 +205,7 @@ test("only creators/admins may read private applicant lists; public detail hides
   assert.ok(await owner.siuApplicants(id,owner.access,new URLSearchParams()));
   const admin=serverHarness({admin:true,store});assert.ok(await admin.siuApplicants(id,admin.access,new URLSearchParams()));
 });
-test("server ignores spoofed identity; successful application survives secondary failure", async () => {
+test("server retires native SIU applications before any write or preference side effect", async () => {
   const id="00000000-0000-0000-0000-000000000001";
   let writes=0;
   const row={id,activity_id:id,user_key:"me@example.test",applied_at:future(-1),categories_snapshot:["outdoor"],tags_snapshot:[],title_snapshot:"Walk",rating:null,rated_at:null};
@@ -214,8 +214,8 @@ test("server ignores spoofed identity; successful application survives secondary
     throw Error("Preference service offline");
   }});
   const req=request({action:"apply",user_key:"victim@test",creator_user_key:"victim@test"});
-  const result=await h.mutateApplication(req,h.access,id);
-  assert.equal(result.ok,true); await h.runSecondary(); assert.equal(writes,1);
+  await assert.rejects(h.mutateApplication(req,h.access,id),(error)=>error?.code==="NATIVE_APPLICATION_RETIRED"&&error?.status===410);
+  await h.runSecondary(); assert.equal(writes,0);
 });
 test("SIU structured mapping and idempotent events reach the unchanged preference engine", async () => {
   const db=await setup();

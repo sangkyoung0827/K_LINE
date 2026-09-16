@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { jejuAdminDenied, jejuErrorResponse } from "@/lib/jeju/http";
 import {
-  applyToJejuProgram,
   getCurrentJejuUser,
-  listJejuProgramApplications,
-  updateJejuProgramApplication
+  listJejuProgramApplications
 } from "@/lib/jeju/service";
 
 export const dynamic = "force-dynamic";
@@ -25,30 +23,11 @@ export async function GET(_request: Request, { params }: RouteContext) {
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
-  try {
-    const user = await getCurrentJejuUser();
-    const { id } = await params;
-    const body = (await request.json()) as Record<string, unknown>;
-    return NextResponse.json({ application: await applyToJejuProgram({ body, email: user.email, name: user.name, programId: id }) }, { status: 201 });
-  } catch (error) {
-    return jejuErrorResponse(error);
-  }
+  void request; void params;
+  return NextResponse.json({ error: "Native K_LINE application submission has been retired. Use the configured Google Form." }, { status: 410 });
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  try {
-    const user = await getCurrentJejuUser();
-    if (!user.access.isAdmin) return jejuAdminDenied(true);
-    await params;
-    const body = (await request.json()) as Record<string, unknown>;
-    return NextResponse.json({
-      application: await updateJejuProgramApplication({
-        adminNote: body.adminNote ?? body.admin_note,
-        id: body.applicationId ?? body.id,
-        status: body.status
-      })
-    });
-  } catch (error) {
-    return jejuErrorResponse(error);
-  }
+  void request; void params;
+  return NextResponse.json({ error: "Historical K_LINE applications are read-only." }, { status: 410 });
 }

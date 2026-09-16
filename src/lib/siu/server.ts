@@ -105,6 +105,7 @@ export async function mutateApplication(request: Request, access: SiuAccess, id:
   requireSiuWrite(access);
   const input = await body(request);
   if (!["apply", "cancel", "rate"].includes(String(input.action))) throw new SiuError("INVALID_ACTION");
+  if (input.action === "apply" || input.action === "cancel") throw new SiuError("NATIVE_APPLICATION_RETIRED", 410);
   if (input.action === "rate" && (typeof input.rating !== "number" || !Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5)) throw new SiuError("INVALID_RATING");
   const saved = await db<SiuApplication>("rpc/siu_apply", { method: "POST", body: JSON.stringify({
     p_activity_id: siuId(id), p_user: access.email, p_name: access.displayName, p_action: input.action, p_rating: input.rating ?? null

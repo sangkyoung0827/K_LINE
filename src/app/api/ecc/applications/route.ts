@@ -193,6 +193,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  void request;
+  return NextResponse.json(
+    { error: "Native K_LINE application submission has been retired. Use the configured Google Form." },
+    { status: 410 }
+  );
+  /* Legacy implementation retained temporarily for historical audit context.
   try {
     const access = await getCurrentEccAccess();
 
@@ -338,9 +344,13 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiErrorResponse(error);
   }
+  */
 }
 
 export async function PATCH(request: Request) {
+  void request;
+  return NextResponse.json({ error: "Historical K_LINE applications are read-only." }, { status: 410 });
+  /* Legacy mutation retained temporarily for historical audit context.
   try {
     const email = await getAdminEmail();
 
@@ -377,9 +387,13 @@ export async function PATCH(request: Request) {
   } catch (error) {
     return apiErrorResponse(error);
   }
+  */
 }
 
 export async function DELETE(request: Request) {
+  void request;
+  return NextResponse.json({ error: "Historical K_LINE applications cannot be deleted." }, { status: 410 });
+  /* Legacy deletion retained temporarily for historical audit context.
   try {
     const email = await getAdminEmail();
 
@@ -409,4 +423,5 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return apiErrorResponse(error);
   }
+  */
 }

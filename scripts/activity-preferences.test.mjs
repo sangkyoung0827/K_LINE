@@ -260,7 +260,7 @@ test("PostgreSQL migration twice, idempotent events/backfill, atomic profiles, R
   } finally { await db.close(); }
 });
 
-for (const source of ["ecc", "hanhwal"]) test(`${source} application succeeds even when the real secondary preference task fails`, async () => {
+for (const source of ["ecc", "hanhwal"]) test(`${source} application follows its current source-of-truth policy`, async () => {
   let task, primaryWrites = 0;
   const access = { isLoggedIn: true, isOfficialMember: true, isAdmin: false, email: "me@example.test" };
   class SupabaseRequestError extends Error {}
@@ -279,8 +279,12 @@ for (const source of ["ecc", "hanhwal"]) test(`${source} application succeeds ev
   };
   const route = loader(shared)(`src/app/api/${source}/applications/route.ts`);
   const response = await route.POST({ json: async () => ({ activity_id: "opening", name: "Test", gender: "X", nationality: "X", preferred_food: "X" }) });
-  assert.equal(response.status, 201); assert.equal(primaryWrites, 1);
-  assert.ok(task); await task(); assert.equal(primaryWrites, 1);
+  if (source === "ecc") {
+    assert.equal(response.status, 410); assert.equal(primaryWrites, 0); assert.equal(task, undefined);
+  } else {
+    assert.equal(response.status, 201); assert.equal(primaryWrites, 1);
+    assert.ok(task); await task(); assert.equal(primaryWrites, 1);
+  }
 });
 test("rating success survives preference failure; dismissal never creates a preference event", async () => {
   let task;

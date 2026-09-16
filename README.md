@@ -854,6 +854,31 @@ WooHyukmon 4.0 now uses the shared chat workspace. Developer accounts can open W
 Training from the chat sidebar. Uploaded originals and processed knowledge remain stored in the
 private Supabase knowledge tables and bucket when the user navigates back to chat.
 
+## Google Forms Application Source Of Truth
+
+New ECC, Social Impact Union, Jeju, and general K_LINE activity applications are created in
+Google Forms. The existing K_LINE application tables remain available only as historical records;
+new application API writes are rejected. Hanhwal keeps its independent application system.
+
+Before enabling the manager in production:
+
+1. Run `supabase/google_forms_application_migration.sql` in the Supabase SQL Editor.
+2. Enable the Google Forms API and Google Drive API in the Google Cloud project.
+3. Configure an OAuth web client with this production redirect URI:
+   `https://kline-nine-wheat.vercel.app/api/google-forms/oauth/callback`.
+4. Add the Forms body, Forms responses read-only, and Drive file scopes to the OAuth consent
+   configuration.
+5. Set `GOOGLE_FORMS_CLIENT_ID`, `GOOGLE_FORMS_CLIENT_SECRET`, and a random server-only
+   `GOOGLE_TOKEN_ENCRYPTION_KEY` of at least 32 characters in Vercel.
+6. Sign in as the global superadmin or developer, open `/admin/google-forms`, and connect the
+   dedicated K_LINE operations Google account. Do not connect a personal club member account.
+7. Create a test form, submit a test response, synchronize it, then close and reopen the form
+   before enabling real activity links.
+
+OAuth refresh tokens are encrypted before storage and are never returned to the browser. Club
+admins can manage only their authorized club. Google Form responses shown in K_LINE are a
+read-only mirror; edits and the authoritative response record remain in Google Forms.
+
 The Traditional Liquor Database remains developer-only. It is not shown as a public navigation
 item and opens from chat only for either exact Korean command: `전통주 DB열어` or
 `전통주 데이터베이스 열어`. Ordinary traditional-liquor questions are answered with

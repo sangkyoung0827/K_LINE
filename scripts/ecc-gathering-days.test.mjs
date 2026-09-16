@@ -122,42 +122,15 @@ function applicationHarness(options = {}) {
 }
 const form = { activity_id: "gathering", name: "Test", gender: "Etc", nationality: "Test", preferred_food: "Test" };
 
-test("Gathering applications require one or both open days, preserving activity tracking", async () => {
-  for (const selected of [["monday"], ["wednesday"], ["monday", "wednesday"]]) {
+test("all ECC native applications are retired before validation or database writes", async () => {
+  for (const selected of [["monday"], ["wednesday"], ["monday", "wednesday"], [], ["friday"]]) {
     const h = applicationHarness();
-    assert.equal((await h.route.POST(request({ ...form, gathering_days: selected }))).status, 201);
-    assert.deepEqual(h.writes[0].gathering_days, selected);
-    assert.equal(h.writes[0].activity_instance_id, "instance-1");
-    assert.equal(h.writes[0].user_id, "member@test");
-  }
-});
-
-test("closed/stale days, empty choices, unavailable settings and nonmembers never insert", async () => {
-  for (const options of [{ settings: { ...settingsResult, gatheringOpenDays: ["monday"] } }, { settings: { ...settingsResult, gatheringOpenDays: [] } }, { settings: { gatheringDaysReady: false, gatheringOpenDays: [] } }, { access: { isLoggedIn: true, isOfficialMember: false } }, { status: { ...status, statuses: { gathering: false } } }]) {
-    const h = applicationHarness(options);
-    assert.ok((await h.route.POST(request({ ...form, gathering_days: ["wednesday"] }))).status >= 400);
-    assert.equal(h.writes.length, 0);
-  }
-  for (const value of [undefined, [], ["friday"], ["monday", "monday"]]) {
-    const h = applicationHarness();
-    assert.equal((await h.route.POST(request({ ...form, gathering_days: value }))).status, 400);
+    assert.equal((await h.route.POST(request({ ...form, gathering_days: selected }))).status, 410);
     assert.equal(h.writes.length, 0);
   }
 });
 
-test("DB close-race or missing weekday column is an error, never a lossy fallback insert", async () => {
-  for (const error of [new SupabaseRequestError("ECC_GATHERING_DAYS_CLOSED"), new SupabaseRequestError("column gathering_days does not exist")]) {
-    const h = applicationHarness({ insertError: error });
-    assert.ok((await h.route.POST(request({ ...form, gathering_days: ["monday"] }))).status >= 400);
-    assert.ok(h.writes.length >= 1);
-    assert.ok(h.writes.every((row) => row.gathering_days?.[0] === "monday"));
-  }
-});
-
-test("other activities retain their existing submission behavior; historic days remain empty", async () => {
-  const h = applicationHarness();
-  assert.equal((await h.route.POST(request({ ...form, activity_id: "mt" }))).status, 201);
-  assert.equal("gathering_days" in h.writes[0], false);
+test("historic gathering days remain available through the read-only archive", async () => {
   const admin = applicationHarness({ access: { isAdmin: true }, rows: [{ id: "old", activity_id: "gathering", name: "Earlier" }, { id: "new", activity_id: "gathering", name: "New", gathering_days: ["monday", "wednesday"] }] });
   const result = await admin.route.GET();
   assert.deepEqual(copy(result.body.applications[0].gatheringDays), []);
