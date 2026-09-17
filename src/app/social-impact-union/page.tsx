@@ -61,6 +61,16 @@ export default async function SocialImpactUnionPage() {
               <ExternalLink aria-hidden className="h-4 w-4 shrink-0" />
               <span className="sr-only"><I18nText en="(opens in a new tab)" ko="(새 탭에서 열림)" /></span>
             </a>
+            <a
+              href="https://www.socialimpactunion.com/about.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-ink/15 bg-paper px-5 py-3 text-sm font-semibold text-navy transition hover:border-navy/40 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-navy"
+            >
+              <I18nText en="Official Website" ko="공식 사이트" />
+              <ExternalLink aria-hidden className="h-4 w-4 shrink-0" />
+              <span className="sr-only"><I18nText en="(opens in a new tab)" ko="(새 탭에서 열림)" /></span>
+            </a>
           </div>
         </div>
         <SiuHomeSections />

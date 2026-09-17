@@ -61,21 +61,8 @@ function SiuHomeAccess() {
 export function SiuHomeSections() {
   const { t } = useSiuCopy();
   const { data: session } = useSession();
-  const cards = [
-    ["Community", "커뮤니티", "We connect people through gatherings and communities.", "사람과 사람을 연결하는 모임과 커뮤니티를 만듭니다."],
-    ["Local Experience", "로컬 경험", "Temple stays, travel, cultural experiences and parties create new local experiences.", "템플스테이, 여행, 문화체험, 파티 등 지역에서 새로운 경험을 만듭니다."],
-    ["Social Innovation", "사회혁신", "Together we find new ways to address youth and local challenges.", "청년과 지역의 문제를 새로운 방식으로 함께 해결합니다."],
-    ["Create Together", "함께 만들기", "Create an activity and start something together.", "하고 싶은 활동이 있다면 직접 만들고 사람들과 함께 시작할 수 있습니다."]
-  ];
   return <>
     <section className="mt-12 border-t border-ink/15 pt-8">
-      <p className="text-xs font-bold text-brass">WHAT WE DO</p><h2 className="mt-2 font-serif text-2xl font-semibold text-navy">{t("What We Do", "우리가 하는 일")}</h2>
-      <p className="my-4 text-sm leading-7 text-muted">{t("People and ideas meet to create new local experiences and projects.", "사람과 아이디어가 만나 지역의 새로운 경험과 프로젝트를 만듭니다.")}</p>
-      <div className="grid gap-3 sm:grid-cols-2">{cards.map(([en, ko, de, dk]) => <article className="paper-panel p-4 sm:p-6" key={en}>
-        <h3 className="text-lg font-bold text-navy">{t(en, ko)}</h3><p className="mt-3 text-sm leading-7 text-muted">{t(de, dk)}</p>
-      </article>)}</div>
-    </section>
-    <section className="mt-10 border-t border-ink/15 pt-8">
       <p className="text-xs font-bold text-brass">CURRENT ACTIVITIES</p><h2 className="mb-5 mt-2 font-serif text-2xl font-semibold text-navy">{t("Current Activities", "현재 모집 중인 활동")}</h2>
       <SiuActivityList mode="current" /><SiuHomeAccess key={session?.user?.email || "guest"} />
       <Link className={siuButton} href={siuPath + "/activities"}>{t("View all activities", "모든 활동 보기")}</Link>
