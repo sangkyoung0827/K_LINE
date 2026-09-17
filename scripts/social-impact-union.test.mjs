@@ -11,6 +11,7 @@ import { NextRequest } from "next/server.js";
 
 const require = createRequire(import.meta.url);
 const url = "https://open.kakao.com/o/gOIWwoni";
+const officialWebsiteUrl = "https://www.socialimpactunion.com/about.html";
 
 function load(path, language = "en", developer = false) {
   const code = ts.transpileModule(readFileSync(path, "utf8"), {
@@ -46,12 +47,19 @@ test("SIU page preserves its public localized introduction and exact open-chat b
     assert.match(html, /<h1[^>]*>Social Impact Union<\/h1>/);
     assert.match(html, /소셜임팩트유니온/);
     assert.match(html, language === "ko" ? /전주를 기반으로/ : /people and ideas in Jeonju/);
-    assert.deepEqual([...html.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map((match) => match[1]), [url]);
-    assert.match(html, /target="_blank" rel="noopener noreferrer"/);
+    assert.deepEqual([...html.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map((match) => match[1]), [url, officialWebsiteUrl]);
+    assert.equal((html.match(/target="_blank" rel="noopener noreferrer"/g) || []).length, 2);
     assert.match(html, /focus-visible:outline/);
+    assert.match(html, language === "ko" ? /공식 사이트/ : /Official Website/);
     assert.match(html, language === "ko" ? /새 탭에서 열림/ : /opens in a new tab/);
     assert.doesNotMatch(html, /<form|<input|Project JIT|Official Social Impact Union Logo|temporary/i);
   }
+});
+
+test("SIU home removes the unclear What We Do card section", () => {
+  const source = readFileSync("src/components/social-impact-union/SiuPlatform.tsx", "utf8");
+  assert.doesNotMatch(source, /WHAT WE DO|What We Do|우리가 하는 일|Local Experience|로컬 경험/);
+  assert.match(source, /CURRENT ACTIVITIES/);
 });
 
 test("rendered QR is the local library PNG generated from the exact owner-supplied URL", async () => {
