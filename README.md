@@ -854,11 +854,13 @@ WooHyukmon 4.0 now uses the shared chat workspace. Developer accounts can open W
 Training from the chat sidebar. Uploaded originals and processed knowledge remain stored in the
 private Supabase knowledge tables and bucket when the user navigates back to chat.
 
-## Google Forms Application Source Of Truth
+## Google Forms Integration (Migration Pending)
 
-New ECC, Social Impact Union, Jeju, and general K_LINE activity applications are created in
-Google Forms. The existing K_LINE application tables remain available only as historical records;
-new application API writes are rejected. Hanhwal keeps its independent application system.
+ECC, Social Impact Union, and Jeju continue to accept applications through their existing
+K_LINE forms and APIs, including their existing cancellation and administrator workflows.
+Google Forms integration is still in preparation; it must not replace or disable native
+applications until the integration is complete, verified end to end, and explicitly approved
+for cutover. Hanhwal keeps its independent application system.
 
 Before enabling the manager in production:
 

@@ -14,15 +14,21 @@ test("migration is additive, private, and preserves legacy tables", async () => 
   assert.doesNotMatch(sql, /drop table|truncate\s+table|delete\s+from\s+public\.(ecc|siu|jeju)/i);
 });
 
-test("ECC, SIU, and Jeju native writes are retired while Google links are rendered", async () => {
+test("ECC, SIU, and Jeju retain native applications while Google migration is pending", async () => {
   const [eccApi, eccPanel, siuServer, siuPanel, jejuApi, jejuPanel] = await Promise.all([
     read("src/app/api/ecc/applications/route.ts"), read("src/components/EccActivityPanel.tsx"),
     read("src/lib/siu/server.ts"), read("src/components/social-impact-union/SiuPlatform.tsx"),
     read("src/app/api/jeju/programs/[id]/applications/route.ts"), read("src/components/jeju/JejuProgramPanel.tsx")
   ]);
-  assert.match(eccApi, /status:\s*410/); assert.match(eccPanel, /GoogleFormApplicationLink/);
-  assert.match(siuServer, /NATIVE_APPLICATION_RETIRED["'],\s*410/); assert.match(siuPanel, /GoogleFormApplicationLink/);
-  assert.match(jejuApi, /status:\s*410/); assert.match(jejuPanel, /GoogleFormApplicationLink/);
+  for (const source of [eccApi, siuServer, jejuApi]) {
+    assert.doesNotMatch(source, /status:\s*410|NATIVE_APPLICATION_RETIRED/);
+  }
+  for (const panel of [eccPanel, siuPanel, jejuPanel]) {
+    assert.doesNotMatch(panel, /GoogleFormApplicationLink/);
+  }
+  assert.match(eccPanel, /<form onSubmit=\{submitApplication\}/);
+  assert.match(siuPanel, /setConfirm\("apply"\)/);
+  assert.match(jejuPanel, /<form onSubmit=\{submit\}/);
 });
 
 test("Google integration keeps secrets server-side and uses official endpoints", async () => {

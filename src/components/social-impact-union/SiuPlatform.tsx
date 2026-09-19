@@ -5,8 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useSession } from "next-auth/react";
 import { CalendarDays, ClipboardList, Eye, EyeOff, Pencil, Plus, Search, Settings, Shield, Star, Users, X } from "lucide-react";
 import { socialImpactUnion } from "@/data/socialImpactUnion";
-import { siuDate, siuPath, siuRoles, type SiuAccess, type SiuActivity, type SiuDetail, type SiuMyItem, type SiuRole } from "@/lib/siu/model";
-import { GoogleFormApplicationLink } from "@/components/google-forms/GoogleFormApplicationLink";
+import { canApply, siuDate, siuPath, siuRoles, type SiuAccess, type SiuActivity, type SiuDetail, type SiuMyItem, type SiuRole } from "@/lib/siu/model";
 import { SiuActivityForm } from "./SiuActivityForm";
 import { SiuCard, SiuConfirm, SiuErrorMessage, SiuLoading, SiuShell, siuButton, siuPrimary, siuInput, siuFetch, useSiuCopy } from "./SiuUI";
 
@@ -137,8 +136,9 @@ function SiuActivityDetail({ id }: { id: string }) {
     </section>
     <section className="border-t border-ink/15 pt-5">
       {access.isReadOnly ? <SiuErrorMessage error="READ_ONLY_DEVELOPER" /> : !access.authenticated ? <Login path={siuPath + "/activities/" + id} /> :
-        applied ? <div className="flex flex-wrap items-center gap-3"><p role="status" className="font-semibold">{t("Historical K_LINE application", "이전 K_LINE 신청 기록")}</p></div> :
-          a.status === "published" && Date.now() < Date.parse(a.application_deadline || a.starts_at) ? <GoogleFormApplicationLink activityId={a.id} clubKey="social_impact_union" language={ko ? "ko" : "en"} /> : <span className="text-sm font-semibold text-muted">{t("Applications closed", "신청 마감")}</span>}
+        applied ? <div className="flex flex-wrap items-center gap-3"><p role="status" className="font-semibold">{t("Application saved", "신청 완료")}</p>
+          {Date.now() < Date.parse(a.starts_at) && <button disabled={busy} className={siuButton} onClick={() => setConfirm("withdraw")}><X className="h-4 w-4" />{t("Cancel application", "신청 취소")}</button>}</div> :
+          <button disabled={busy || !canApply(a)} className={siuPrimary} onClick={() => setConfirm("apply")}><Plus className="h-4 w-4" />{canApply(a) ? t("Apply", "신청하기") : t("Applications closed / full", "신청 마감 · 정원 마감")}</button>}
       {application?.rating && <p className="mt-4 flex items-center gap-2 text-sm"><Star className="h-4 w-4 fill-brass text-brass" />{t("Your rating", "내 별점")}: {application.rating} / 5</p>}
       {canRate && !access.isReadOnly && <div className="mt-6">
         <h3 className="text-lg font-bold">{t("How was this activity?", "이번 활동은 어땠나요?")}</h3>
@@ -171,7 +171,7 @@ function SiuApplicants({ id }: { id: string }) {
   const { t } = useSiuCopy();
   const [offset, setOffset] = useState(0);
   const result = useLoad<{ applicants: { id: string; display_name: string; status: string }[]; nextOffset: number | null }>("/api/siu/activities/" + id + "/applications?offset=" + offset);
-  return <div><h3 className="font-semibold">{t("Historical K_LINE applications", "이전 K_LINE 신청 기록")}</h3>{result.busy && <SiuLoading />}<SiuErrorMessage error={result.error} retry={result.reload} />
+  return <div><h3 className="font-semibold">{t("Applicants", "신청자")}</h3>{result.busy && <SiuLoading />}<SiuErrorMessage error={result.error} retry={result.reload} />
     {result.data && <><ul className="mt-3 divide-y divide-ink/10">{result.data.applicants.map((p) => <li key={p.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span className="break-all">{p.display_name}</span><span className="text-muted">{p.status === "applied" ? t("Applied", "신청") : t("Cancelled", "취소")}</span></li>)}</ul>
       {!result.data.applicants.length && <p className="py-4 text-sm text-muted">{t("No applications yet.", "아직 신청자가 없습니다.")}</p>}
       <div className="flex gap-2">{offset > 0 && <button className={siuButton} onClick={() => setOffset(offset - 50)}>{t("Previous", "이전")}</button>}
@@ -221,7 +221,6 @@ function SiuAdmin({ access }: { access: SiuAccess }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return <><div className="mb-6 grid gap-3 sm:grid-cols-2">
-    <Link className={siuButton} href="/admin/google-forms"><ClipboardList className="h-5 w-5" />{t("Google Forms", "Google 신청폼")}</Link>
     <button className={siuButton} onClick={() => setTab("activities")} aria-pressed={tab === "activities"}><ClipboardList className="h-5 w-5" />{t("Activity Management", "활동 관리")}</button>
     <button className={siuButton} onClick={() => setTab("roles")} aria-pressed={tab === "roles"}><Shield className="h-5 w-5" />{t("Role Management", "권한 관리")}</button>
     <Link className={siuButton} href={siuPath}><Eye className="h-5 w-5" />{t("Open Public Page", "공개 페이지")}</Link>

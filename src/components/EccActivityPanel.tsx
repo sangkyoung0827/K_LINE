@@ -17,7 +17,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useEccAccess } from "@/hooks/useEccAccess";
 import { adminStorageKeys } from "@/lib/adminStorageKeys";
 import { useLanguage } from "@/components/LanguageProvider";
-import { GoogleFormApplicationLink, GoogleFormResponseCount } from "@/components/google-forms/GoogleFormApplicationLink";
 import { eccGatheringDays, eccGatheringDayLabels, parseEccGatheringDays, validEccGatheringSelection, type EccGatheringDay } from "@/lib/eccGatheringDays";
 import { isReadOnlyDeveloperEmail } from "@/lib/readOnlyDeveloper";
 
@@ -1555,7 +1554,7 @@ export function EccActivityPanel() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-semibold uppercase text-brass">
-                      <GoogleFormResponseCount activityId={item.type} clubKey="ecc" language={language} />
+                      {text.applicantCount}: {applicationsLoading ? "-" : (applicationCounts[item.type] ?? 0)}
                     </p>
                     <span
                       className={`inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-semibold uppercase ${
@@ -1871,13 +1870,15 @@ export function EccActivityPanel() {
         ) : null}
 
         {(isAdmin || publicOpenApplication) ? (
-          <div className="grid gap-4 border border-ink/10 bg-white/50 p-5 md:p-6">
+          <form onSubmit={submitApplication} className="grid gap-4 border border-ink/10 bg-white/50 p-5 md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold uppercase text-brass">
                 {activeApplication.labels[language].title}
               </p>
-              <h3 className="mt-2 font-serif text-3xl font-semibold text-ink">Google Forms</h3>
+              <h3 className="mt-2 font-serif text-3xl font-semibold text-ink">
+                {text.applicationFormTitle}
+              </h3>
             </div>
             {applicationSuccess ? (
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-pine">
@@ -1887,12 +1888,99 @@ export function EccActivityPanel() {
             ) : null}
           </div>
 
-          <p className="text-sm leading-7 text-ink/65">{language === "ko" ? "신규 신청 원본은 Google Forms에만 저장됩니다. K_LINE은 별도의 신청서를 만들지 않습니다." : "Google Forms is the sole source of truth for new applications. K_LINE does not create a second submission."}</p>
-          <GoogleFormApplicationLink activityId={activeApplication.type} clubKey="ecc" language={language} className="w-fit" />
+          {!activeApplicationIsOpen ? (
+            <p className="border border-ink/10 bg-ink/5 p-4 text-sm font-semibold leading-7 text-ink/68">
+              {text.applicationClosedNotice}
+            </p>
+          ) : null}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {activeApplication.type === "gathering" ? (
+              <fieldset className="min-w-0 md:col-span-2" disabled={!activeApplicationIsOpen || applicationsLoading || !gatheringDaysReady}>
+                <legend className="text-sm font-semibold text-ink">{language === "ko" ? "참여 요일 (복수 선택 가능)" : "Attendance days (select one or both)"}</legend>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {gatheringOpenDays.map((day) => (
+                    <label key={day} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-ink/15 bg-white px-4 py-3 text-sm font-semibold text-ink">
+                      <input type="checkbox" checked={selectedGatheringDays.includes(day)} onChange={(event) => {
+                        setSelectedGatheringDays((current) => eccGatheringDays.filter((item) => item === day ? event.target.checked : current.includes(item)));
+                        setApplicationError(""); setApplicationSuccess("");
+                      }} className="h-5 w-5 accent-navy" />
+                      {eccGatheringDayLabels[day][language]}
+                    </label>
+                  ))}
+                </div>
+                {!gatheringDaysReady || gatheringOpenDays.length === 0 ? <p className="mt-2 text-sm text-muted">{language === "ko" ? "현재 신청 가능한 Gathering 요일이 없습니다." : "No Gathering days are currently available."}</p> : null}
+              </fieldset>
+            ) : null}
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {text.kakaoNameLabel}
+              <input
+                required
+                disabled={!activeApplicationIsOpen}
+                className="form-field"
+                value={applicationForm.name}
+                onChange={(event) => updateApplicationForm("name", event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {text.genderLabel}
+              <select
+                required
+                disabled={!activeApplicationIsOpen}
+                className="form-field"
+                value={applicationForm.gender}
+                onChange={(event) => updateApplicationForm("gender", event.target.value)}
+              >
+                <option value="">{text.genderPlaceholder}</option>
+                <option>{text.genderMale}</option>
+                <option>{text.genderFemale}</option>
+                <option>{text.genderOther}</option>
+                <option>{text.genderPreferNot}</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {text.nationalityLabel}
+              <input
+                required
+                disabled={!activeApplicationIsOpen}
+                className="form-field"
+                value={applicationForm.nationality}
+                onChange={(event) => updateApplicationForm("nationality", event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              {text.preferredFoodLabel}
+              <input
+                required
+                disabled={!activeApplicationIsOpen}
+                className="form-field"
+                value={applicationForm.preferredFood}
+                onChange={(event) => updateApplicationForm("preferredFood", event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink md:col-span-2">
+              {text.requestLabel}
+              <textarea
+                disabled={!activeApplicationIsOpen}
+                className="form-field min-h-28"
+                value={applicationForm.otherRequests}
+                onChange={(event) => updateApplicationForm("otherRequests", event.target.value)}
+              />
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={applicationsLoading || !activeApplicationIsOpen || (activeApplication.type === "gathering" && (!gatheringDaysReady || selectedGatheringDays.length === 0))}
+            className="inline-flex min-h-11 w-fit items-center justify-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
+          >
+            <Save aria-hidden className="h-4 w-4" />
+            {text.submitApplication}
+          </button>
           {applicationError ? (
             <p className="text-sm font-semibold text-red-700">{applicationError}</p>
           ) : null}
-          </div>
+          </form>
         ) : null}
 
         {isAdmin ? (
@@ -1948,8 +2036,9 @@ export function EccActivityPanel() {
                                 type="checkbox"
                                 className="h-5 w-5 accent-blue-600"
                                 checked={Boolean(paymentDrafts[application.id])}
-                                disabled
-                                readOnly
+                                onChange={(event) =>
+                                  updatePaymentDraft(application.id, event.target.checked)
+                                }
                               />
                               {text.paidLabel}
                             </label>
@@ -1976,7 +2065,26 @@ export function EccActivityPanel() {
             ) : (
               <p className="mt-5 text-sm leading-7 text-ink/62">{text.noApplicants}</p>
             )}
-            <p className="mt-5 border border-brass/25 bg-brass/10 p-3 text-sm font-semibold text-ink/70">{language === "ko" ? "Google Forms 전환 이전 기록 · 읽기 전용" : "Pre-Google Forms historical record · read-only"}</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={saveApplicationPayments}
+                disabled={applicationsLoading || selectedApplications.length === 0}
+                className="inline-flex min-h-11 items-center justify-center gap-2 bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save aria-hidden className="h-4 w-4" />
+                {text.savePayments}
+              </button>
+              <button
+                type="button"
+                onClick={resetApplicants}
+                disabled={applicationsLoading || applicationCounts[activeApplicationType] === 0}
+                className="inline-flex min-h-11 items-center justify-center gap-2 border border-red-900/20 px-5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 aria-hidden className="h-4 w-4" />
+                {text.resetApplicants}
+              </button>
+            </div>
             {paymentMessage ? (
               <p className="mt-3 text-sm font-semibold text-pine">{paymentMessage}</p>
             ) : null}
