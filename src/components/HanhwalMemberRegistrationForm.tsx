@@ -11,6 +11,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
+import styles from "./HanhwalJoinForm.module.css";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
 
@@ -120,7 +121,8 @@ function statusDescription(registration: HanhwalMemberRegistration, language: "e
     : "Your registration is submitted. Hanhwal officers will approve official membership after confirming payment.";
 }
 
-export function HanhwalMemberRegistrationForm() {
+export function HanhwalMemberRegistrationForm({ variant = "default" }: { variant?: "default" | "site" }) {
+  const isSite = variant === "site";
   const { language } = useLanguage();
   const pathname = usePathname();
   const loginHref = `/login?callbackUrl=${encodeURIComponent(pathname || "/hanhwal-join")}`;
@@ -251,8 +253,8 @@ export function HanhwalMemberRegistrationForm() {
   };
 
   return (
-    <div className="grid gap-8">
-      <section className="paper-panel p-5 md:p-8">
+    <div className={isSite ? styles.siteForm : "grid gap-8"}>
+      {!isSite ? <section className="paper-panel p-5 md:p-8">
         <div className="grid gap-6">
           <div>
             <p className="text-sm font-semibold uppercase text-brass">Membership Fee</p>
@@ -283,7 +285,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             </p>
           </div>
         </div>
-      </section>
+      </section> : null}
 
       {loading ? (
         <div className="paper-panel flex items-center gap-3 p-6 text-sm font-semibold text-ink/62">
@@ -310,6 +312,12 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             <I18nText en="Go to Login" ko="로그인하러 가기" />
           </Link>
         </section>
+      ) : null}
+
+      {isSite && !loading && !loginRequired && !registration && !error ? (
+        <p className={styles.availableStatus} role="status">
+          <I18nText en="Registration form is ready" ko="가입 신청서를 작성할 수 있습니다" />
+        </p>
       ) : null}
 
       {!loading && !loginRequired && registration && !editing ? (
@@ -400,49 +408,59 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
       ) : null}
 
       {!loading && !loginRequired && showForm ? (
-        <form onSubmit={submit} className="paper-panel grid gap-5 p-5 md:p-8">
-          <div>
+        <form onSubmit={submit} className={isSite ? styles.registrationForm : "paper-panel grid gap-5 p-5 md:p-8"}>
+          {!isSite ? <div>
             <p className="text-sm font-semibold uppercase text-brass">
               <I18nText en="K_LINE registration form" ko="K_LINE 신규회원 등록폼" />
             </p>
             <h2 className="mt-3 font-serif text-3xl font-semibold text-ink">
               <I18nText en="Official Hanhwal member request" ko="한활 정식회원 신청" />
             </h2>
-          </div>
+          </div> : null}
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className={isSite ? styles.fieldsGrid : "grid gap-4 md:grid-cols-2"}>
             <TextField
               label="Full Name / 이름"
+              site={isSite}
+              placeholder={isSite ? "Your full name" : undefined}
               error={fieldErrors.fullName}
               value={form.fullName}
               onChange={(value) => updateForm("fullName", value)}
             />
             <TextField
               label="Student ID / 학번"
+              site={isSite}
+              placeholder={isSite ? "Your student ID" : undefined}
               error={fieldErrors.studentId}
               value={form.studentId}
               onChange={(value) => updateForm("studentId", value)}
             />
             <TextField
               label="Department or Major / 학과 또는 전공"
+              site={isSite}
+              placeholder={isSite ? "e.g. Computer Science" : undefined}
               error={fieldErrors.departmentOrMajor}
               value={form.departmentOrMajor}
               onChange={(value) => updateForm("departmentOrMajor", value)}
             />
             <TextField
               label="Nationality / 국적"
+              site={isSite}
+              placeholder={isSite ? "e.g. Indonesia" : undefined}
               error={fieldErrors.nationality}
               value={form.nationality}
               onChange={(value) => updateForm("nationality", value)}
             />
             <TextField
               label="KakaoTalk Display Name / 카카오톡 표시 이름"
+              site={isSite}
               error={fieldErrors.kakaoDisplayName}
               value={form.kakaoDisplayName}
               onChange={(value) => updateForm("kakaoDisplayName", value)}
             />
             <TextField
               label="Kakao ID / 카카오톡 ID"
+              site={isSite}
               error={fieldErrors.kakaoId}
               helper={
                 language === "ko"
@@ -486,11 +504,11 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             ) : null}
           </fieldset>
 
-          <div className="sticky bottom-0 z-10 -mx-5 flex flex-wrap items-center gap-3 border-t border-ink/10 bg-paper/95 p-4 pt-4 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:pt-2">
+          <div className={isSite ? styles.actions : "sticky bottom-0 z-10 -mx-5 flex flex-wrap items-center gap-3 border-t border-ink/10 bg-paper/95 p-4 pt-4 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:pt-2"}>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
+              className={isSite ? styles.submitButton : "inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"}
             >
               {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
               {saving ? (
@@ -528,21 +546,26 @@ function TextField({
   helper,
   label,
   onChange,
+  placeholder,
+  site = false,
   value
 }: {
   error?: string;
   helper?: string;
   label: string;
   onChange: (value: string) => void;
+  placeholder?: string;
+  site?: boolean;
   value: string;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-ink">
+    <label className={site ? styles.field : "grid gap-2 text-sm font-semibold text-ink"}>
       <span>{label}</span>
       <input
         required
         aria-invalid={Boolean(error)}
         className="form-field"
+        placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />

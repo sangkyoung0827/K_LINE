@@ -1,0 +1,84 @@
+.joinPage {
+  min-height: 70vh;
+  background: #fff;
+  color: #0b2342;
+}
+
+.content {
+  width: min(100%, 960px);
+  margin: 0 auto;
+  padding: 92px 30px 120px;
+}
+
+.pageHeader {
+  margin-bottom: 72px;
+}
+
+.eyebrow {
+  margin: 0 0 26px;
+  color: #163c68;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 5px;
+}
+
+.pageHeader h1 {
+  margin: 0;
+  font-size: clamp(50px, 7vw, 85px);
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1.1;
+}
+
+.intro {
+  max-width: 760px;
+  margin: 30px 0 0;
+  color: #657991;
+  font-size: 19px;
+  line-height: 1.8;
+}
+
+.membershipFee {
+  margin-bottom: 32px;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.membershipFee h2 {
+  margin: 0 0 3px;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.membershipFee p {
+  margin: 0;
+}
+
+.feeNote {
+  color: #415a76;
+}
+
+@media (max-width: 700px) {
+  .content {
+    padding: 64px 20px 90px;
+  }
+
+  .pageHeader {
+    margin-bottom: 50px;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 3px;
+  }
+
+  .pageHeader h1 {
+    font-size: clamp(42px, 12vw, 58px);
+    letter-spacing: -1px;
+  }
+
+  .intro {
+    margin-top: 24px;
+    font-size: 16px;
+  }
+}
