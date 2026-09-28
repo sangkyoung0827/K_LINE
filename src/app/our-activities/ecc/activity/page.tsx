@@ -39,6 +39,7 @@ export default async function EccActivityPage() {
             />
           }
         />
+        {access.isAdmin ? <Link href="/admin/google-forms" className="mt-5 inline-flex min-h-10 items-center justify-center bg-ink px-4 text-sm font-semibold text-paper">Google 신청폼 관리</Link> : null}
         <div className="mt-7 sm:mt-10">
           {access.isOfficialMember ? (
             <EccActivityPanel />
