@@ -22,6 +22,8 @@ import {
   type EccRoleRow
 } from "@/lib/eccAccess";
 import { resetEccMemberRegistrationData } from "@/lib/klineMemberDeletion";
+import { eccMemberRegistrationsTable } from "@/lib/eccMemberRegistrations";
+import { getEccPermissionEmails } from "@/lib/eccPermissionList";
 
 export const dynamic = "force-dynamic";
 
@@ -130,6 +132,12 @@ async function listEccRoles() {
   );
 }
 
+async function listEccRegistrationEmails() {
+  return supabaseRequest<Array<{ google_email: string }>>(
+    `${eccMemberRegistrationsTable}?select=google_email&limit=1000`
+  );
+}
+
 function latestRoleMap(rows: EccRoleRow[]) {
   const map = new Map<string, EccRoleRow>();
 
@@ -195,17 +203,15 @@ async function buildResponse() {
     };
   }
 
-  const [siteMembers, roleRows] = await Promise.all([listSiteMembers(), listEccRoles()]);
+  const [siteMembers, roleRows, registrations] = await Promise.all([
+    listSiteMembers(),
+    listEccRoles(),
+    listEccRegistrationEmails()
+  ]);
   const rolesByEmail = latestRoleMap(roleRows);
-  const mergedEmails = new Set<string>();
-
-  siteMembers.forEach((member) => mergedEmails.add(normalizeEmail(member.email)));
-  roleRows.forEach((row) => mergedEmails.add(normalizeEmail(row.email)));
 
   const allMembers = await Promise.all(
-    Array.from(mergedEmails)
-      .filter(Boolean)
-      .sort()
+    getEccPermissionEmails(registrations, roleRows)
       .map(async (email) => {
         const siteMember = siteMembers.find((member) => normalizeEmail(member.email) === email);
         const roleRow = rolesByEmail.get(email);
