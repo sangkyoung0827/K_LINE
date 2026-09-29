@@ -37,12 +37,9 @@ export async function PATCH(request: Request, context: Context) {
     if (!isResearchId(id)) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const existing = await getResearchItem(id);
     if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
-    const input = cleanResearchInput(await request.json() as Record<string, unknown>);
+    const input = cleanResearchInput(await request.json() as Record<string, unknown>, existing.attachmentPaths.length > 0);
     if (existing.isSample && input.status === "published") {
       return NextResponse.json({ error: "Sample drafts cannot be published." }, { status: 400 });
-    }
-    if (input.status === "published" && !existing.coverPath) {
-      return NextResponse.json({ error: "Published research needs a cover image." }, { status: 400 });
     }
     const item = await updateResearchItem(id, {
       ...input,

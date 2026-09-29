@@ -78,21 +78,20 @@ function cleanList(value: unknown, maxItems: number, maxLength: number) {
   return value.map((item) => cleanText(item, maxLength)).filter(Boolean).slice(0, maxItems);
 }
 
-export function cleanResearchInput(value: Record<string, unknown>) {
+export function cleanResearchInput(value: Record<string, unknown>, hasVerifiedAttachment = false) {
   const status = value.status === "published" || value.status === "archived" ? value.status : "draft";
   const visibility = value.visibility === "public" || value.visibility === "members" ? value.visibility : "private";
   const titleKo = cleanText(value.titleKo, 240);
   const titleEn = cleanText(value.titleEn, 240);
   const bodyKo = cleanText(value.bodyKo, 100000);
   const bodyEn = cleanText(value.bodyEn, 100000);
-  const summaryKo = cleanText(value.summaryKo, 1500);
-  const summaryEn = cleanText(value.summaryEn, 1500);
+  const summaryKo = cleanText(value.summaryKo, 1500) || cleanText(bodyKo.slice(0, 300), 1500);
+  const summaryEn = cleanText(value.summaryEn, 1500) || cleanText(bodyEn.slice(0, 300), 1500);
   const authorName = cleanText(value.authorName, 160);
   const authorOrganization = cleanText(value.authorOrganization, 160);
   if (!titleKo && !titleEn) throw new ResearchInputError("A Korean or English title is required.");
-  if (status === "published" && !bodyKo && !bodyEn) throw new ResearchInputError("Published research needs a body.");
-  if (status === "published" && !summaryKo && !summaryEn) throw new ResearchInputError("Published research needs a summary.");
-  if (status === "published" && !authorName && !authorOrganization) throw new ResearchInputError("Published research needs an author or research team.");
+  const fileOnly = !bodyKo && !bodyEn && hasVerifiedAttachment;
+  if (status === "published" && !bodyKo && !bodyEn && !fileOnly) throw new ResearchInputError("Add a body or upload a document before publishing.");
   if (status === "published" && visibility !== "public") throw new ResearchInputError("Publish only public research; keep other visibility levels as drafts.");
   return {
     title_ko: titleKo, title_en: titleEn,

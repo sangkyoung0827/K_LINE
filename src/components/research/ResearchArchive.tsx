@@ -9,7 +9,7 @@ import { filterResearchItems, researchCategories, type ResearchItem } from "@/li
 const base = "/open-k-culture-research";
 
 function mediaUrl(item: ResearchItem) {
-  return item.coverPath ? `/api/research/media/${item.id}/${item.coverPath.split("/").pop()}` : "/images/hanhwal-site/arrows.webp";
+  return `/api/research/media/${item.id}/${item.coverPath.split("/").pop()}`;
 }
 
 export function ResearchArchive({ initialItems, canEdit, initialOrganization = "", initialTag = "" }: { initialItems: ResearchItem[]; canEdit: boolean; initialOrganization?: string; initialTag?: string }) {
@@ -104,8 +104,9 @@ export function ResearchArchive({ initialItems, canEdit, initialOrganization = "
         </div>
         {shown.length ? <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((item) => <Link href={`${base}/${item.id}`} key={item.id} className="group overflow-hidden rounded-lg border border-navy/10 bg-white transition hover:border-brass/60 hover:shadow-md">
-            <div className="aspect-[16/10] overflow-hidden bg-hanji">
-              <img src={mediaUrl(item)} alt={item.titleEn || item.titleKo} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+            <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-hanji">
+              {item.coverPath ? <img src={mediaUrl(item)} alt={item.titleEn || item.titleKo} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+                : <div className="flex flex-col items-center gap-3 text-navy/65"><BookOpen aria-hidden className="h-11 w-11" /><span className="text-xs font-semibold uppercase">{item.attachmentPaths[0]?.split(".").pop() || "Research"}</span></div>}
             </div>
             <div className="p-4 sm:p-5">
               <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted">
@@ -114,8 +115,8 @@ export function ResearchArchive({ initialItems, canEdit, initialOrganization = "
               </div>
               <h2 className="mt-3 font-serif text-xl font-semibold text-navy">{language === "ko" ? item.titleKo || item.titleEn : item.titleEn || item.titleKo}</h2>
               {item.titleKo && item.titleEn ? <p className="mt-1 text-sm text-muted">{language === "ko" ? item.titleEn : item.titleKo}</p> : null}
-              <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted">{language === "ko" ? item.summaryKo || item.summaryEn : item.summaryEn || item.summaryKo}</p>
-              <p className="mt-4 text-xs font-semibold text-navy">{item.authorOrganization || item.authorName}</p>
+              {item.summaryKo || item.summaryEn ? <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted">{language === "ko" ? item.summaryKo || item.summaryEn : item.summaryEn || item.summaryKo}</p> : null}
+              {item.authorOrganization || item.authorName ? <p className="mt-4 text-xs font-semibold text-navy">{item.authorOrganization || item.authorName}</p> : null}
               <div className="mt-3 flex flex-wrap gap-1.5">{item.tags.slice(0, 3).map((value) => <span key={value} className="bg-hanji px-2 py-1 text-xs text-navy">{value}</span>)}</div>
             </div>
           </Link>)}

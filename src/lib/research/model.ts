@@ -9,6 +9,20 @@ export const researchTopics = [
   "Translation & Interpretation", "International Perspectives"
 ] as const;
 
+export const researchDocumentTypes = {
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  hwp: "application/x-hwp",
+  hwpx: "application/vnd.hancom.hwpx",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+} as const;
+
+export function researchDocumentType(name: string) {
+  const extension = name.split(".").pop()?.toLowerCase() as keyof typeof researchDocumentTypes;
+  return researchDocumentTypes[extension] ? { extension, mimeType: researchDocumentTypes[extension] } : null;
+}
+
 export type ResearchItem = {
   id: string;
   titleKo: string;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isPublicResearch } from "@/lib/research/model";
+import { researchDocumentType } from "@/lib/research/model";
 import { getResearchEditorAccess, getResearchItem, isResearchId } from "@/lib/research/server";
 import { fetchResearchFile } from "@/lib/research/storage";
 
@@ -9,7 +10,7 @@ type Context = { params: Promise<{ id: string; asset: string }> };
 export async function GET(_request: Request, context: Context) {
   try {
     const { id, asset } = await context.params;
-    if (!isResearchId(id) || !/^[0-9a-f-]{36}\.(jpg|png|webp|pdf|docx)$/i.test(asset)) {
+    if (!isResearchId(id) || !/^[0-9a-f-]{36}\.(jpg|png|webp|pdf|docx|hwp|hwpx|ppt|pptx)$/i.test(asset)) {
       return NextResponse.json({ error: "Not found." }, { status: 404 });
     }
     const item = await getResearchItem(id);
@@ -23,13 +24,11 @@ export async function GET(_request: Request, context: Context) {
     }
     const stored = await fetchResearchFile(path);
     if (!stored.ok || !stored.body) return NextResponse.json({ error: "Not found." }, { status: 404 });
-    const type = asset.endsWith(".pdf") ? "application/pdf"
-      : asset.endsWith(".docx") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        : asset.endsWith(".png") ? "image/png" : asset.endsWith(".webp") ? "image/webp" : "image/jpeg";
+    const type = researchDocumentType(asset)?.mimeType || (asset.endsWith(".png") ? "image/png" : asset.endsWith(".webp") ? "image/webp" : "image/jpeg");
     return new Response(stored.body, {
       headers: {
         "Content-Type": type,
-        "Content-Disposition": `${asset.endsWith(".docx") ? "attachment" : "inline"}; filename="${asset}"`,
+        "Content-Disposition": `${type === "application/pdf" || type.startsWith("image/") ? "inline" : "attachment"}; filename="${asset}"`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff"
       }

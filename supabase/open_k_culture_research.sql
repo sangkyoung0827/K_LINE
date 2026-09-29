@@ -61,3 +61,16 @@ values (
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
 )
 on conflict (id) do nothing;
+
+-- Preserve the private bucket while enabling common Korean research documents.
+update storage.buckets
+set allowed_mime_types = array(
+  select distinct mime from unnest(
+    coalesce(allowed_mime_types, array[]::text[]) || array[
+      'application/x-hwp', 'application/vnd.hancom.hwpx',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ]
+  ) as mime
+)
+where id = 'open-k-culture-research';

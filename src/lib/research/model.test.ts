@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterResearchItems, isPublicResearch, toPublicResearchItem, type ResearchItem } from "./model";
+import { filterResearchItems, isPublicResearch, researchDocumentType, toPublicResearchItem, type ResearchItem } from "./model";
 
 const item = {
   id: "1", titleKo: "반구저기", titleEn: "Looking Within Yourself",
@@ -28,4 +28,11 @@ test("search combines title, tags, category, and organization filters", () => {
 
 test("public records omit the editor account identifier", () => {
   assert.equal(toPublicResearchItem({ ...item, createdBy: "private@example.com" }).createdBy, "");
+});
+
+test("research documents include Korean word processor and presentation formats", () => {
+  for (const extension of ["pdf", "docx", "hwp", "hwpx", "ppt", "pptx"]) {
+    assert.equal(researchDocumentType(`document.${extension.toUpperCase()}`)?.extension, extension);
+  }
+  assert.equal(researchDocumentType("malware.exe"), null);
 });
