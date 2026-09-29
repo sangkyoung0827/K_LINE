@@ -27,18 +27,6 @@ export async function applyEccActivityStatusAdminUpdate(input: {
     )
   );
 
-  const openedActivity = Object.keys(updates).find(
-    (id) => updates[id] === true
-  );
-
-  if (openedActivity) {
-    catalog
-      .filter((item) => !item.archived)
-      .forEach((item) => {
-        updates[item.id] = item.id === openedActivity;
-      });
-  }
-
   const result = await updateEccActivityStatuses(
     updates,
     input.adminEmail,
