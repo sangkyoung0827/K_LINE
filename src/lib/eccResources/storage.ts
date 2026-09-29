@@ -35,13 +35,14 @@ export async function createResourceUploadUrl(path: string) {
 }
 
 export async function inspectResourceFile(path: string) {
-  const response = await fetch(storageUrl(`object/${bucket}/${path}`), {
-    method: "HEAD", headers: storageHeaders(), cache: "no-store"
+  const response = await fetch(storageUrl(`object/info/${bucket}/${path}`), {
+    headers: storageHeaders(), cache: "no-store"
   });
   if (!response.ok) throw new SupabaseRequestError(await response.text(), response.status);
+  const data = await response.json() as { size?: number; content_type?: string; contentType?: string };
   return {
-    sizeBytes: Number(response.headers.get("content-length")),
-    mimeType: response.headers.get("content-type")?.split(";")[0]?.trim() || ""
+    sizeBytes: data.size,
+    mimeType: (data.content_type || data.contentType || "").split(";")[0].trim()
   };
 }
 
