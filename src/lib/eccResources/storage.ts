@@ -28,6 +28,7 @@ export async function createResourceUploadUrl(path: string) {
     throw new Error("Storage did not return a valid signed upload URL.");
   }
   return {
+    signedUrl: signedUrl.toString(),
     token: signedUrl.searchParams.get("token")!,
     endpoint: new URL("/storage/v1/upload/resumable", signedUrl).toString()
   };

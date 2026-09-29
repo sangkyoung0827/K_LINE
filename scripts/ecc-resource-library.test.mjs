@@ -93,6 +93,21 @@ test("only official members can initiate an ECC resource upload", async () => {
   assert.equal(writes, 0);
 });
 
+test("upload ticket includes a signed standard URL for direct browser upload", async () => {
+  const server = {
+    sameOrigin: () => true,
+    getResourceAccess: async () => ({ email: "member@test", canUpload: true }),
+    createPendingResource: async () => resource,
+    deleteResource: async () => { throw new Error("unexpected cleanup"); }
+  };
+  const api = route("src/app/api/ecc/resources/route.ts", stubs(server, {
+    createResourceUploadUrl: async () => ({ token: "token", endpoint: "https://files.test/tus", signedUrl: "https://files.test/signed" })
+  }));
+  const result = await api.POST(request("POST", "/api/ecc/resources", { title: "Slides" }));
+  assert.equal(result.status, 201);
+  assert.equal(result.body.signedUrl, "https://files.test/signed");
+});
+
 test("only the uploader can publish after storage size and type match", async () => {
   let writes = 0;
   const server = {
