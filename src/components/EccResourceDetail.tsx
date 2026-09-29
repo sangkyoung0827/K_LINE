@@ -57,7 +57,7 @@ export function EccResourceDetail({ id, isAdmin }: { id: string; isAdmin: boolea
         {isAdmin ? <button type="button" onClick={remove} disabled={busy} className="inline-flex min-h-11 items-center gap-2 border border-red-300 px-4 text-sm font-semibold text-red-700 disabled:opacity-50"><Trash2 aria-hidden className="h-4 w-4" />{ko ? "삭제" : "Delete"}</button> : null}
       </div>
       {resource.mimeType.startsWith("image/") ? <img src={fileUrl} alt={resource.title} className="mt-8 max-h-[70vh] w-full object-contain" /> : null}
-      {resource.mimeType === "application/pdf" || resource.mimeType.startsWith("text/") ? <iframe title={resource.title} src={fileUrl} className="mt-8 h-[65vh] w-full border border-navy/10 bg-white" /> : null}
+      {resource.mimeType === "application/pdf" || resource.mimeType.startsWith("text/") ? <p className="mt-8 border-t border-navy/10 py-8 text-sm text-muted">{ko ? "새 창에서 보기로 파일을 열거나 다운로드할 수 있습니다." : "Open the file in a new tab or download it."}</p> : null}
       {resource.mimeType === "video/mp4" ? <video src={fileUrl} controls className="mt-8 w-full" /> : null}
       {resource.mimeType === "audio/mpeg" ? <audio src={fileUrl} controls className="mt-8 w-full" /> : null}
       {!canPreviewResource(resource.mimeType) ? <p className="mt-8 border-t border-navy/10 py-8 text-sm text-muted">{ko ? "이 형식은 브라우저 미리보기를 지원하지 않습니다. 다운로드하여 열어주세요." : "This file type does not support an in-browser preview. Download it to open."}</p> : null}
