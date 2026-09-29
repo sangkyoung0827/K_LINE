@@ -16,7 +16,7 @@ function load(file, stubs = {}) {
   }).outputText;
   const module = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
-    Error, Date, URL, console: { error() {} }
+    Error, Date, URL, crypto: { randomUUID: () => "11111111-1111-4111-8111-111111111111" }, console: { error() {} }
   })((name) => {
     if (name in stubs) return stubs[name];
     throw Error(`Unexpected dependency: ${name}`);
@@ -162,4 +162,66 @@ test("other activities retain their existing submission behavior; historic days 
   const result = await admin.route.GET();
   assert.deepEqual(copy(result.body.applications[0].gatheringDays), []);
   assert.deepEqual(copy(result.body.applications[1].gatheringDays), ["monday", "wednesday"]);
+});
+
+test("two open ECC activities remain visible and accept separate applications", async () => {
+  const visible = activities.visibleEccActivities(
+    catalog.map((item) => ({ type: item.id })), { gathering: true, mt: true }, false
+  );
+  assert.deepEqual(copy(visible.map((item) => item.type)), ["gathering", "mt"]);
+  assert.deepEqual(copy(activities.visibleEccActivities(visible, { gathering: false, mt: true }, false).map((item) => item.type)), ["mt"]);
+
+  const h = applicationHarness({ status: { ...status, activityInstances: { gathering: "gathering-instance", mt: "mt-instance" } } });
+  assert.equal((await h.route.POST(request({ ...form, gathering_days: ["monday"] }))).status, 201);
+  assert.equal((await h.route.POST(request({ ...form, activity_id: "mt" }))).status, 201);
+  assert.deepEqual(copy(h.writes.map((row) => [row.activity_id, row.activity_instance_id])), [
+    ["gathering", "gathering-instance"], ["mt", "mt-instance"]
+  ]);
+});
+
+test("opening a second ECC activity leaves the first open", async () => {
+  let rows = catalog.map((item) => ({ activity_id: item.id, is_open: false, requires_payment: false, activity_instance_id: null }));
+  const statuses = load("src/lib/eccActivityStatuses.ts", {
+    "server-only": {}, "@/lib/eccActivities": activities,
+    "@/lib/eccOperations": { getEccActivityCatalog: async () => catalog },
+    "@/lib/supabaseServer": { supabaseRequest: async (_path, init = {}) => {
+      if (init.method === "POST") {
+        for (const row of JSON.parse(init.body)) rows = [...rows.filter((item) => item.activity_id !== row.activity_id), row];
+      }
+      return rows;
+    } }
+  });
+  const admin = load("src/lib/eccActivityAdminActions.ts", {
+    "server-only": {}, "@/lib/eccActivityStatuses": statuses,
+    "@/lib/eccOperations": { getEccActivityCatalog: async () => catalog },
+    "@/lib/userActivityRecords": { markActivityApplicationsClosed: async () => {}, createActivityRecordsForClosedActivities: async () => {} }
+  });
+  await admin.applyEccActivityStatusAdminUpdate({ adminEmail: "admin@test", updates: { gathering: true } });
+  const result = await admin.applyEccActivityStatusAdminUpdate({ adminEmail: "admin@test", updates: { mt: true } });
+  assert.equal(result.statuses.gathering, true);
+  assert.equal(result.statuses.mt, true);
+  assert.equal(result.closedActivities.length, 0);
+});
+
+test("closed ECC activities produce separate history records for the same member", async () => {
+  const saved = [];
+  const applications = ["gathering", "mt"].map((activityId) => ({
+    activity_id: activityId, activity_instance_id: `${activityId}-instance`,
+    activity_title: activityId, created_at: "2026-09-01T00:00:00Z",
+    registration_closed_at: "2026-09-30T00:00:00Z", requires_payment: false,
+    status: "pending", user_id: "member@test"
+  }));
+  const history = load("src/lib/userActivityRecords.ts", {
+    "server-only": {}, "@/lib/supabaseServer": { supabaseRequest: async (path, init = {}) => {
+      if (init.method === "POST") { saved.push(...JSON.parse(init.body)); return []; }
+      return applications.filter((application) => path.includes(`activity_id=eq.${application.activity_id}`));
+    } }
+  });
+  await history.createActivityRecordsForClosedActivities("ecc", applications.map((application) => ({
+    activityId: application.activity_id, activityInstanceId: application.activity_instance_id,
+    registrationClosedAt: application.registration_closed_at
+  })));
+  assert.deepEqual(saved.map((record) => [record.activity_id, record.activity_instance_id]), [
+    ["gathering", "gathering-instance"], ["mt", "mt-instance"]
+  ]);
 });

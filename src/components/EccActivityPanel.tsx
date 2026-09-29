@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useEccAccess } from "@/hooks/useEccAccess";
 import { adminStorageKeys } from "@/lib/adminStorageKeys";
 import { useLanguage } from "@/components/LanguageProvider";
+import { visibleEccActivities } from "@/lib/eccActivities";
 import { eccGatheringDays, eccGatheringDayLabels, parseEccGatheringDays, validEccGatheringSelection, type EccGatheringDay } from "@/lib/eccGatheringDays";
 import { isReadOnlyDeveloperEmail } from "@/lib/readOnlyDeveloper";
 
@@ -941,21 +942,18 @@ export function EccActivityPanel() {
     };
   }, [isAdmin, loading, text.activityStatusStorageError, text.applicationStorageError]);
 
-  const publicOpenApplication = useMemo(
-    () => applicationTypes.find((application) => activityStatuses[application.type]),
-    [activityStatuses]
+  const publicOpenApplications = useMemo(
+    () => visibleEccActivities(applicationTypes, activityStatuses, false),
+    [applicationTypes, activityStatuses]
   );
-  const visibleApplicationTypes = isAdmin
-    ? applicationTypes
-    : publicOpenApplication
-      ? [publicOpenApplication]
-      : [];
+  const visibleApplicationTypes = isAdmin ? applicationTypes : publicOpenApplications;
 
   useEffect(() => {
-    if (!isAdmin && publicOpenApplication) {
-      setActiveApplicationType(publicOpenApplication.type);
+    if (!isAdmin && publicOpenApplications.length > 0 &&
+        !publicOpenApplications.some((application) => application.type === activeApplicationType)) {
+      setActiveApplicationType(publicOpenApplications[0].type);
     }
-  }, [isAdmin, publicOpenApplication]);
+  }, [isAdmin, publicOpenApplications, activeApplicationType]);
 
   useEffect(() => {
     if (
@@ -1869,7 +1867,7 @@ export function EccActivityPanel() {
           </div>
         ) : null}
 
-        {(isAdmin || publicOpenApplication) ? (
+        {(isAdmin || publicOpenApplications.length > 0) ? (
           <form onSubmit={submitApplication} className="grid gap-4 border border-ink/10 bg-white/50 p-5 md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

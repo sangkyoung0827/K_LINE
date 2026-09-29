@@ -76,3 +76,9 @@ export function defaultEccActivityTitle(activityId: string) {
   const legacy = activityId as EccActivityType;
   return eccActivityTypeSet.has(legacy) ? eccActivityTitles[legacy] : activityId;
 }
+
+export function visibleEccActivities<T extends { type: string }>(
+  activities: T[], statuses: Record<string, boolean>, isAdmin: boolean
+) {
+  return isAdmin ? activities : activities.filter((activity) => statuses[activity.type]);
+}
