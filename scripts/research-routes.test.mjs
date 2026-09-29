@@ -60,7 +60,7 @@ test("research creation requires editor access and always starts as a private dr
   assert.equal(created.body.item.visibility, "private");
 });
 
-test("research publishing needs a cover; anonymous users cannot update or delete", async () => {
+test("research publishing does not require a cover; anonymous users cannot update or delete", async () => {
   let writes = 0;
   const server = {
     ...access(false), cleanResearchInput: (value) => value,
@@ -72,15 +72,30 @@ test("research publishing needs a cover; anonymous users cannot update or delete
   assert.equal((await api.PATCH(publish(), context)).status, 403);
   assert.equal((await api.DELETE(request("DELETE", {}), context)).status, 403);
   server.getResearchEditorAccess = async () => ({ email: "editor@test", canEdit: true });
-  assert.equal((await api.PATCH(publish(), context)).status, 400);
-  assert.equal(writes, 0);
-  item.coverPath = `${id}/22222222-2222-4222-8222-222222222222.jpg`;
   assert.equal((await api.PATCH(publish(), context)).status, 200);
   assert.equal(writes, 1);
-  item.coverPath = "";
 });
 
-test("a published research cover cannot be removed without replacement", async () => {
+test("a verified document permits publishing without body, summary, or cover", async () => {
+  let verified = false;
+  let writes = 0;
+  const fileItem = { ...item, attachmentPaths: [`${id}/22222222-2222-4222-8222-222222222222.pdf`] };
+  const server = {
+    ...access(true), getResearchItem: async () => fileItem,
+    cleanResearchInput: (value, hasVerifiedAttachment) => {
+      verified = hasVerifiedAttachment;
+      return value;
+    },
+    updateResearchItem: async () => { writes++; return fileItem; }
+  };
+  const api = route("src/app/api/research/[id]/route.ts", common(server));
+  const result = await api.PATCH(request("PATCH", { titleKo: "Document", status: "published", visibility: "public" }), context);
+  assert.equal(result.status, 200);
+  assert.equal(verified, true);
+  assert.equal(writes, 1);
+});
+
+test("a published research cover is optional and can be removed", async () => {
   let writes = 0;
   const published = { ...item, status: "published", coverPath: `${id}/22222222-2222-4222-8222-222222222222.jpg` };
   const server = {
@@ -89,6 +104,46 @@ test("a published research cover cannot be removed without replacement", async (
   };
   const api = route("src/app/api/research/[id]/upload/route.ts", common(server));
   const result = await api.DELETE(request("DELETE", { path: published.coverPath }), context);
-  assert.equal(result.status, 400);
+  assert.equal(result.status, 200);
+  assert.equal(writes, 1);
+});
+
+test("document upload uses an editor-only signed ticket and verifies bytes before attaching", async () => {
+  let writes = 0;
+  let valid = false;
+  const path = `${id}/22222222-2222-4222-8222-222222222222.hwp`;
+  const server = { ...access(false), updateResearchItem: async () => { writes++; return { ...item, attachmentPaths: [path] }; } };
+  const stubs = common(server);
+  stubs["@/lib/research/storage"] = {
+    createResearchDocumentUpload: async () => ({ path, signedUrl: "https://storage.test/signed", mimeType: "application/x-hwp" }),
+    verifyResearchDocument: async () => valid,
+    deleteResearchFiles: async () => {}
+  };
+  const api = route("src/app/api/research/[id]/upload/route.ts", stubs);
+  const ticket = () => request("POST", { action: "ticket", fileName: "document.hwp", size: 100 });
+  assert.equal((await api.POST(ticket(), context)).status, 403);
+  server.getResearchEditorAccess = async () => ({ email: "editor@test", canEdit: true });
+  assert.equal((await api.POST(ticket(), context)).body.path, path);
+  const finalize = () => request("POST", { action: "finalize", path, size: 100 });
+  assert.equal((await api.POST(finalize(), context)).status, 400);
   assert.equal(writes, 0);
+  valid = true;
+  assert.equal((await api.POST(finalize(), context)).status, 200);
+  assert.equal(writes, 1);
+});
+
+test("editor validation accepts title and body or title and verified document", () => {
+  const server = route("src/lib/research/server.ts", {
+    "server-only": {},
+    "@/auth": { auth: async () => null },
+    "@/lib/admin": { getAdminAccess: async () => ({}), normalizeEmail: (value) => value },
+    "@/lib/supabaseServer": { cleanText: (value, length) => typeof value === "string" ? value.trim().slice(0, length) : "", supabaseRequest: async () => [] },
+    "./model": { isPublicResearch: () => false, toPublicResearchItem: (value) => value }
+  });
+  const text = server.cleanResearchInput({ titleKo: "Title", bodyKo: "Written research", status: "published", visibility: "public" });
+  assert.equal(text.summary_ko, "Written research");
+  const document = server.cleanResearchInput({ titleKo: "Title", status: "published", visibility: "public" }, true);
+  assert.equal(document.body_ko, "");
+  assert.equal(document.summary_ko, "");
+  assert.throws(() => server.cleanResearchInput({ titleKo: "Title", status: "published", visibility: "public" }), /body or upload/);
 });
