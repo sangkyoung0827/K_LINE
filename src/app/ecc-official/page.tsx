@@ -111,9 +111,9 @@ export default async function EccOfficialPage() {
           </p>
           <div className="overflow-hidden border border-ink/10 bg-white/50">
             <OfficialRow
-              href="/our-activities/ecc/free-board"
+              href="/our-activities/ecc/resources"
               icon={MessageSquareText}
-              title={<I18nText en="Board" ko="ECC 게시판" />}
+              title={<I18nText en="ECC Resource Library" ko="ECC 통합자료실" />}
             />
             <OfficialRow
               href="/our-activities/ecc/activity"

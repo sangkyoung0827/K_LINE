@@ -65,7 +65,9 @@ function ClubMenu({ club, access, language, onNavigate }: {
           <>
             <MenuLink href={`/${club}-official`} onClick={onNavigate}>{label.toUpperCase()} OFFICIAL</MenuLink>
             <MenuLink href={`${base}/activity`} onClick={onNavigate}>{korean ? "활동 신청" : "Activity Application"}</MenuLink>
-            <MenuLink href={`${base}/free-board`} onClick={onNavigate}>{korean ? "게시판" : "Board"}</MenuLink>
+            <MenuLink href={`${base}/${club === "ecc" ? "resources" : "free-board"}`} onClick={onNavigate}>
+              {club === "ecc" ? (korean ? "ECC 통합자료실" : "ECC Resource Library") : (korean ? "게시판" : "Board")}
+            </MenuLink>
           </>
         ) : null}
         {access.isAdmin ? (

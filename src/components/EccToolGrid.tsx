@@ -30,16 +30,16 @@ const officialEccTools = [
     minimumRole: "official_member"
   },
   {
-    eyebrow: "Free board",
-    title: "ECC Board",
-    titleKo: "ECC 게시판",
+    eyebrow: "Resource library",
+    title: "ECC Resource Library",
+    titleKo: "ECC 통합자료실",
     description:
-      "Share ECC activity records, photos, questions, notices, and open student community posts in chronological cards.",
+      "Browse and download ECC photos, presentations, documents, and shared resources.",
     descriptionKo:
-      "ECC 활동 기록, 사진, 질문, 공지, 자유로운 학생 커뮤니티 글을 시간순 카드 형태로 공유합니다.",
-    href: "/our-activities/ecc/free-board",
-    cta: "Open ECC Board",
-    ctaKo: "ECC 게시판 열기",
+      "ECC 사진, 발표자료, 문서와 공유 자료를 열람하고 다운로드합니다.",
+    href: "/our-activities/ecc/resources",
+    cta: "Open Resource Library",
+    ctaKo: "ECC 통합자료실 열기",
     icon: MessageSquareText,
     minimumRole: "official_member"
   },

@@ -45,6 +45,10 @@ export default async function EccHubPage() {
             등록하기
           </Link>
         </div>
+
+        <Link href="/our-activities/ecc/resources" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-navy underline underline-offset-4">
+          ECC 통합자료실 보기
+        </Link>
       </div>
     </section>
   );

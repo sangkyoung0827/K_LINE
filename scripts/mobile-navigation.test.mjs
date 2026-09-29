@@ -47,11 +47,10 @@ test("registration links stay within the corresponding club for logged-in nonmem
   assert.ok(hrefs(html).includes("/hanhwal-official"));
 });
 
-test("members see official, activity and board links without administrative links", () => {
+test("members see official, activity and resource links without administrative links", () => {
   const links = hrefs(render(member, member));
-  for (const club of ["ecc", "hanhwal"]) {
-    for (const href of [`/${club}-official`, `/our-activities/${club}/activity`, `/our-activities/${club}/free-board`]) assert.ok(links.includes(href));
-  }
+  for (const href of ["/ecc-official", "/our-activities/ecc/activity", "/our-activities/ecc/resources",
+    "/hanhwal-official", "/our-activities/hanhwal/activity", "/our-activities/hanhwal/free-board"]) assert.ok(links.includes(href));
   assert.ok(!links.some((href) => /\/(members|fund|operations)$/.test(href)));
 });
 
