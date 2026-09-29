@@ -22,10 +22,29 @@ function route(file, stubs) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
-    console, Date, Request, Response, Headers, URL
+    console, Date, Request, Response, Headers, URL, fetch: stubs.__fetch || fetch
   })((name) => stubs[name] || require(name), module, module.exports);
   return module.exports;
 }
+
+test("storage inspection uses file metadata, not HEAD response headers", async () => {
+  let requested = "";
+  const api = route("src/lib/eccResources/storage.ts", {
+    "server-only": {},
+    "@/lib/supabaseServer": {
+      getSupabaseConfig: () => ({ url: "https://files.test", serviceRoleKey: "test-key" }),
+      SupabaseRequestError: class extends Error {}
+    },
+    __fetch: async (url, options) => {
+      requested = `${options.method || "GET"} ${url}`;
+      return new Response(JSON.stringify({ size: 101, content_type: "text/plain;charset=UTF-8" }), { status: 200 });
+    }
+  });
+  const info = await api.inspectResourceFile(`${id}/file.txt`);
+  assert.equal(info.sizeBytes, 101);
+  assert.equal(info.mimeType, "text/plain");
+  assert.equal(requested, `GET https://files.test/storage/v1/object/info/ecc-resource-library/${id}/file.txt`);
+});
 
 const noAccess = { email: "", canUpload: false, isAdmin: false };
 const resource = {
