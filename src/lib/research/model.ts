@@ -69,7 +69,7 @@ export function filterResearchItems(items: ResearchItem[], input: {
     if (input.category && item.category !== input.category) return false;
     if (input.organization && item.authorOrganization.toLocaleLowerCase() !== input.organization.toLocaleLowerCase()) return false;
     if (input.tag && !item.tags.some((tag) => tag.toLocaleLowerCase() === input.tag?.toLocaleLowerCase())) return false;
-    return !query || [item.titleKo, item.titleEn, item.summaryKo, item.summaryEn, ...item.tags]
+    return !query || [item.titleKo, item.titleEn, item.summaryKo, item.summaryEn, item.bodyKo, item.bodyEn]
       .some((value) => value.toLocaleLowerCase().includes(query));
   });
 }

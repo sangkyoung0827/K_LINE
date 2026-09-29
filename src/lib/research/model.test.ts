@@ -26,6 +26,13 @@ test("search combines title, tags, category, and organization filters", () => {
   assert.deepEqual(filterResearchItems([item, other], { query: "tea", organization: "HANHWAL" }), []);
 });
 
+test("single search finds titles and article content, not unrelated tags", () => {
+  const bodyOnly = { ...item, id: "3", titleKo: "차 문화", titleEn: "Tea Culture", summaryKo: "", summaryEn: "", bodyKo: "전통 다도의 역사", bodyEn: "Tea ceremony history", tags: ["HiddenLabel"] };
+  assert.deepEqual(filterResearchItems([bodyOnly], { query: "다도의 역사" }).map((value) => value.id), ["3"]);
+  assert.deepEqual(filterResearchItems([bodyOnly], { query: "Tea Culture" }).map((value) => value.id), ["3"]);
+  assert.deepEqual(filterResearchItems([bodyOnly], { query: "HiddenLabel" }), []);
+});
+
 test("public records omit the editor account identifier", () => {
   assert.equal(toPublicResearchItem({ ...item, createdBy: "private@example.com" }).createdBy, "");
 });

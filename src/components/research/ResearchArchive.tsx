@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BookOpen, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
-import { filterResearchItems, researchCategories, type ResearchItem } from "@/lib/research/model";
+import { filterResearchItems, type ResearchItem } from "@/lib/research/model";
 
 const base = "/open-k-culture-research";
 
@@ -16,18 +16,11 @@ export function ResearchArchive({ initialItems, canEdit, initialOrganization = "
   const { language } = useLanguage();
   const [items, setItems] = useState(initialItems);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("");
-  const [organization, setOrganization] = useState(
-    initialItems.find((item) => item.authorOrganization.toLowerCase() === initialOrganization.toLowerCase())?.authorOrganization || initialOrganization
-  );
-  const [tag, setTag] = useState(initialTag);
   const [manage, setManage] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const organizations = useMemo(() => [...new Set(items.map((item) => item.authorOrganization).filter(Boolean))].sort(), [items]);
-  const categories = useMemo(() => [...new Set([...researchCategories, ...items.map((item) => item.category)])], [items]);
-  const shown = useMemo(() => filterResearchItems(items, { query, category, organization, tag }), [items, query, category, organization, tag]);
+  const shown = useMemo(() => filterResearchItems(items, { query, organization: initialOrganization, tag: initialTag }), [items, query, initialOrganization, initialTag]);
 
   const toggleManage = async () => {
     setBusy(true);
@@ -80,22 +73,12 @@ export function ResearchArchive({ initialItems, canEdit, initialOrganization = "
           </div> : null}
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+        <div className="mt-6">
           <label className="relative block">
-            <span className="sr-only">{language === "ko" ? "제목 또는 태그 검색" : "Search titles or tags"}</span>
+            <span className="sr-only">{language === "ko" ? "제목과 자료 내용 검색" : "Search titles and content"}</span>
             <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy/50" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={language === "ko" ? "제목 또는 태그 검색" : "Search titles or tags"} className="form-field !min-h-11 !rounded-md !pl-10" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={language === "ko" ? "제목과 자료 내용 검색" : "Search titles and content"} className="form-field !min-h-11 !rounded-md !pl-10" />
           </label>
-          <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Category" className="form-field !min-h-11 !rounded-md">
-            <option value="">{language === "ko" ? "전체 유형" : "All categories"}</option>
-            {categories.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-          <select value={organization} onChange={(event) => setOrganization(event.target.value)} aria-label="Organization" className="form-field !min-h-11 !rounded-md">
-            <option value="">{language === "ko" ? "전체 단체" : "All organizations"}</option>
-            {organization && !organizations.includes(organization) ? <option value={organization}>{organization}</option> : null}
-            {organizations.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-          <input value={tag} onChange={(event) => setTag(event.target.value)} aria-label="Tag" placeholder={language === "ko" ? "태그" : "Tag"} className="form-field !min-h-11 !rounded-md" />
         </div>
         {error ? <p role="alert" className="mt-4 text-sm text-red-700">{error}</p> : null}
         <div className="mt-8 flex items-center justify-between text-sm text-muted">
