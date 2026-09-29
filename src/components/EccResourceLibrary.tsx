@@ -8,6 +8,15 @@ import { maxResourceBytes, resourceMime, type EccResource } from "@/lib/eccResou
 
 const base = "/our-activities/ecc/resources";
 const supported = ".pdf,.ppt,.pptx,.doc,.docx,.hwp,.hwpx,.odt,.odp,.ods,.rtf,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.txt,.csv,.zip,.mp4,.mp3";
+const standardUploadLimit = 6 * 1024 * 1024;
+
+async function uploadSignedFile(url: string, file: File) {
+  const body = new FormData();
+  body.append("cacheControl", "3600");
+  body.append("", file);
+  const response = await fetch(url, { method: "PUT", headers: { "x-upsert": "false" }, body });
+  if (!response.ok) throw new Error(`Storage upload failed (${response.status}).`);
+}
 
 function iconFor(resource: EccResource) {
   if (resource.mimeType.startsWith("image/")) return FileImage;
@@ -65,30 +74,39 @@ export function EccResourceLibrary({ canUpload }: { canUpload: boolean }) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, description, fileName: file.name, mimeType, sizeBytes: file.size })
       });
-      const ticket = await init.json() as { id?: string; storagePath?: string; uploadToken?: string; uploadEndpoint?: string; mimeType?: string; error?: string };
-      if (!init.ok || !ticket.id || !ticket.storagePath || !ticket.uploadToken || !ticket.uploadEndpoint || !ticket.mimeType) {
+      const ticket = await init.json() as { id?: string; storagePath?: string; uploadToken?: string; uploadEndpoint?: string; signedUrl?: string; mimeType?: string; error?: string };
+      if (!init.ok || !ticket.id || !ticket.storagePath || !ticket.uploadToken || !ticket.uploadEndpoint || !ticket.signedUrl || !ticket.mimeType) {
         throw new Error(ticket.error || "Upload could not start.");
       }
-      const tus = await import("tus-js-client");
-      await new Promise<void>((resolve, reject) => {
-        const upload = new tus.Upload(file, {
-          endpoint: ticket.uploadEndpoint,
-          headers: { "x-signature": ticket.uploadToken! },
-          uploadDataDuringCreation: true,
-          removeFingerprintOnSuccess: true,
-          retryDelays: [0, 3000, 5000, 10000],
-          chunkSize: 6 * 1024 * 1024,
-          metadata: {
-            bucketName: "ecc-resource-library",
-            objectName: ticket.storagePath!,
-            contentType: ticket.mimeType!,
-            cacheControl: "3600"
-          },
-          onError: reject,
-          onSuccess: () => resolve()
-        });
-        upload.start();
-      });
+      if (file.size <= standardUploadLimit) {
+        await uploadSignedFile(ticket.signedUrl, file);
+      } else {
+        const tus = await import("tus-js-client");
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const upload = new tus.Upload(file, {
+              endpoint: ticket.uploadEndpoint,
+              headers: { "x-signature": ticket.uploadToken! },
+              uploadDataDuringCreation: true,
+              removeFingerprintOnSuccess: true,
+              retryDelays: [0, 3000, 5000, 10000],
+              chunkSize: 6 * 1024 * 1024,
+              metadata: {
+                bucketName: "ecc-resource-library",
+                objectName: ticket.storagePath!,
+                contentType: ticket.mimeType!,
+                cacheControl: "3600"
+              },
+              onError: reject,
+              onSuccess: () => resolve()
+            });
+            upload.start();
+          });
+        } catch (error) {
+          if (!(error instanceof Error) || !error.message.includes("Invalid Compact JWS")) throw error;
+          await uploadSignedFile(ticket.signedUrl, file);
+        }
+      }
       const complete = await fetch(`/api/ecc/resources/${ticket.id}/publish`, { method: "POST" });
       const result = await complete.json() as { resource?: EccResource; error?: string };
       if (!complete.ok || !result.resource) throw new Error(result.error || "Upload could not be published.");

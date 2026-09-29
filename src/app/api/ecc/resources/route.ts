@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       const signed = await createResourceUploadUrl(pending.storage_path);
       return NextResponse.json({
         id: pending.id, storagePath: pending.storage_path,
-        uploadToken: signed.token, uploadEndpoint: signed.endpoint,
+        uploadToken: signed.token, uploadEndpoint: signed.endpoint, signedUrl: signed.signedUrl,
         mimeType: pending.mime_type
       }, { status: 201 });
     } catch (error) {
