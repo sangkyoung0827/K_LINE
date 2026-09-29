@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpen } from "lucide-react";
+import { ArrowRight, BookOpen, LibraryBig } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { SocialImpactUnionMark } from "@/components/social-impact-union/SocialImpactUnionMark";
@@ -12,7 +12,7 @@ type HomeCard = {
   title: { en: string; ko: string };
   description: { en: string; ko: string };
   badge: { en: string; ko: string };
-  accent: "ecc" | "hanhwal" | "jeju" | "siu";
+  accent: "ecc" | "hanhwal" | "jeju" | "siu" | "research";
 };
 
 const homeCards: HomeCard[] = [
@@ -55,6 +55,16 @@ const homeCards: HomeCard[] = [
     },
     badge: { en: "Memory Book", ko: "추억록" },
     accent: "jeju"
+  },
+  {
+    href: "/open-k-culture-research",
+    title: { en: "Open K-Culture Research", ko: "Open K-Culture Research" },
+    description: {
+      en: "Exploring Korean Culture, Tradition & Experience",
+      ko: "한국문화의 전통, 철학, 생활문화와 실제 체험을 연구하고 기록하는 공개 아카이브"
+    },
+    badge: { en: "Research Archive", ko: "공개 연구" },
+    accent: "research"
   }
 ];
 
@@ -85,6 +95,10 @@ function HomePortalCard({ card }: { card: HomeCard }) {
           <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dcefe8] text-[#0d5962] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
             <BookOpen aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
           </span>
+        ) : card.accent === "research" ? (
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#e9e2d1] text-[#184b54] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
+            <LibraryBig aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
+          </span>
         ) : card.accent === "siu" ? (
           <SocialImpactUnionMark className="h-11 w-11 border-4 border-white shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16" />
         ) : (
@@ -105,7 +119,7 @@ function HomePortalCard({ card }: { card: HomeCard }) {
           {pick(card.title)}
         </h2>
         <p className="mt-1 text-xs leading-5 text-muted sm:hidden">
-          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : card.accent === "siu" ? <I18nText en="People, ideas & local impact" ko="사람 · 아이디어 · 지역의 변화" /> : <I18nText en="Places, memories & WooHyukmon" ko="지도 · 여행 기록 · 우혁몬" />}
+          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : card.accent === "siu" ? <I18nText en="People, ideas & local impact" ko="사람 · 아이디어 · 지역의 변화" /> : card.accent === "research" ? <I18nText en="Culture, tradition & experience" ko="문화 · 전통 · 체험 연구" /> : <I18nText en="Places, memories & WooHyukmon" ko="지도 · 여행 기록 · 우혁몬" />}
         </p>
         <p className="mt-2 hidden text-sm font-medium leading-6 text-muted sm:mt-4 sm:block sm:leading-7 md:mt-6 md:min-h-[4.5rem]">
           {pick(card.description)}

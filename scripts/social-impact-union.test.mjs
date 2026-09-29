@@ -78,7 +78,7 @@ test("SIU and existing home cards share the exact responsive wrapper, with prese
     const { HomeTrackSections } = load("src/components/HomeTrackSections.tsx", language);
     const html = renderToStaticMarkup(React.createElement(HomeTrackSections));
     const cards = [...html.matchAll(/<a href="([^"]+)" class="([^"]+)"/g)];
-    assert.deepEqual(cards.map((card) => card[1]), ["/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", "/jeju"]);
+    assert.deepEqual(cards.map((card) => card[1]), ["/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", "/jeju", "/open-k-culture-research"]);
     assert.equal(new Set(cards.map((card) => card[2])).size, 1);
     assert.match(html, /md:grid-cols-2 xl:grid-cols-4/);
     assert.match(html, /grid-cols-\[44px_minmax\(0,1fr\)_20px\]/);

@@ -64,6 +64,10 @@ function isPublicSeoPage(pathname: string) {
     /^\/social-impact-union\/activities\/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(pathname)) {
     return true;
   }
+  if (pathname === "/open-k-culture-research" ||
+    /^\/open-k-culture-research\/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(pathname)) {
+    return true;
+  }
   if (publicSeoPages.has(pathname)) {
     return true;
   }
