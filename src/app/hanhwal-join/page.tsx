@@ -21,10 +21,6 @@ export default async function HanhwalJoinPage() {
     redirect("/login?callbackUrl=/hanhwal-join");
   }
 
-  if (access.isOfficialMember) {
-    redirect("/hanhwal-official");
-  }
-
   return (
     <HanhwalPublicShell>
       <main className={styles.joinPage}>
