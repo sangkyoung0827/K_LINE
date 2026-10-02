@@ -14,7 +14,7 @@
     "test:activity-preferences": "node --test scripts/activity-preferences.test.mjs",
     "reconcile:activity-preferences": "node scripts/run-activity-preferences.mjs",
     "test:mobile-navigation": "node --test scripts/mobile-navigation.test.mjs",
-    "test:hanhwal-operations": "node --test scripts/hanhwal-operations.test.mjs",
+    "test:hanhwal-operations": "node --test scripts/hanhwal-operations.test.mjs scripts/hanhwal-introduction.test.mjs",
     "test:hanhwal-structured": "tsx --test src/lib/hanhwalStructured.test.ts",
     "test:hanhwal-public": "node --import tsx --test src/lib/hanhwalPublic.test.ts",
     "test:my-clubs": "tsx --test src/lib/myClubs.test.ts",

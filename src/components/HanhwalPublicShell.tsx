@@ -1,5 +1,6 @@
 import Link from "next/link";
 import styles from "@/app/our-activities/hanhwal/hanhwal.module.css";
+import { HanhwalAdminNavigation } from "@/components/HanhwalAdminNavigation";
 
 const base = "/our-activities/hanhwal";
 
@@ -14,6 +15,7 @@ export function HanhwalHeader() {
           <Link href={base}>Home</Link>
           <Link href={`${base}/gallery`}>Gallery</Link>
           <Link href="/hanhwal-join">Join</Link>
+          <HanhwalAdminNavigation />
           <Link href={`${base}/solbam`}><span aria-hidden>🐆</span> Solbam</Link>
           <Link href={`${base}/activities`}>News &amp; Activities</Link>
         </nav>
