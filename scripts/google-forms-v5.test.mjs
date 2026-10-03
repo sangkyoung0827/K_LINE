@@ -65,7 +65,7 @@ function harness() {
     if (modules.has(full)) return modules.get(full).exports;
     const module = { exports: {} }; modules.set(full, module);
     const code = ts.transpileModule(readFileSync(full, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { process: { env: { AUTH_SECRET: "test-only-approval-secret", GOOGLE_FORMS_CLIENT_ID: "test", GOOGLE_FORMS_CLIENT_SECRET: "test", GOOGLE_FORMS_TEST_ORIGIN: "http://localhost:3300" } }, fetch, Response, Request, Headers, AbortSignal, URL, URLSearchParams, Buffer, crypto: webcrypto, console, Date, Map, Set })(
+    vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { process: { env: { AUTH_SECRET: "test-only-approval-secret", GOOGLE_FORMS_AUTOMATION_ENABLED: "true", GOOGLE_FORMS_CLIENT_ID: "test", GOOGLE_FORMS_CLIENT_SECRET: "test", GOOGLE_FORMS_TEST_ORIGIN: "http://localhost:3300" } }, fetch, Response, Request, Headers, AbortSignal, URL, URLSearchParams, Buffer, crypto: webcrypto, console, Date, Map, Set })(
       (id) => {
         const normalized = id.startsWith(".") ? "@/" + resolve(dirname(full), id).split("/src/")[1] : id;
         if (stubs[normalized]) return stubs[normalized];
@@ -119,6 +119,8 @@ test("paginated response sync is idempotent, isolated and updates counts only af
   assert.equal(Object.values(h.tables.google_form_responses[0].raw_answers_json)[0].title, "Name");
   h.control.pages = [{ nextPageToken: "same" }, { nextPageToken: "same" }]; await assert.rejects(api.syncGoogleFormResponses(form), /REPEATED/);
   assert.equal(h.tables.google_forms[0].response_count, 1);
+  h.control.pages = [{ responses: [] }]; assert.equal(await api.syncGoogleFormResponses(form), 0);
+  assert.equal(h.tables.google_form_responses.length, 1); // Historical mirror is preserved, not deleted.
 });
 
 test("Korean/English requests produce drafts or explicit clarification without guessing dates", () => {
@@ -188,4 +190,13 @@ test("all question types and duplicate IDs are validated; templates do not force
   const templates = load("src/lib/googleForms/templates.ts").googleFormTemplates;
   for (const id of ["ecc_english_class", "ecc_special_event", "ecc_farewell", "ecc_staff_recruitment"]) assert.ok(templates.some((template) => template.id === id));
   assert.equal(templates.find((template) => template.id === "ecc_gathering").questions.some((question) => question.options.includes("Monday / 월요일")), false);
+});
+
+test("feature and isolated database fail closed when test configuration is absent", async () => {
+  const h = harness();
+  assert.throws(() => h.load("src/lib/googleForms/safety.ts").assertGoogleFormsTestEnvironment(), /TEST_ENVIRONMENT/);
+  await assert.rejects(h.load("src/lib/googleForms/store.ts").supabaseRequest("google_forms"), /ISOLATED/);
+  const run = h.load("src/lib/googleForms/gateway.ts").handleGoogleFormsOperation;
+  assert.equal(await run({ message: "Google Forms가 무엇인가요?" }), null);
+  assert.equal(await run({ message: "이 회원이 납부했나요?" }), null);
 });

@@ -81,7 +81,8 @@ export async function handleGoogleFormsOperation(body: Command): Promise<NextRes
   const action = cleanText(body.action, 80);
   const message = cleanText(body.message, 5000);
   const recognized = Object.hasOwn(googleFormsActionRegistry, action) || action === "confirm_google_forms" || action === "list_google_form_workflows";
-  if (!recognized && !/(google\s*forms?|구글\s*폼)/i.test(message)) return null;
+  const naturalCommand = /(google\s*forms?|구글\s*폼)/i.test(message) && /create|make|draft|design|만들|작성|생성|설계/i.test(message);
+  if (!recognized && (!naturalCommand || process.env.GOOGLE_FORMS_AUTOMATION_ENABLED !== "true")) return null;
   try {
     const access = await getGoogleFormsAccess();
     if (!access.authenticated) throw new GoogleFormsAuthorizationError("LOGIN_REQUIRED", 401);
