@@ -24,11 +24,24 @@ function sign(encoded: string) {
 export function createWoohyukmonConfirmationToken(
   payload: WoohyukmonConfirmationPayload
 ) {
+  return createSignedWoohyukmonPayload(payload);
+}
+
+export function createSignedWoohyukmonPayload(payload: object) {
   const encoded = encode(JSON.stringify(payload));
   return `${encoded}.${sign(encoded)}`;
 }
 
 export function verifyWoohyukmonConfirmationToken(token: string) {
+  const payload = verifySignedWoohyukmonPayload(token) as WoohyukmonConfirmationPayload;
+  if (payload.version !== 1 || !payload.actorEmail || !payload.tool || !Array.isArray(payload.targetIds) || payload.expiresAt <= Date.now()) {
+    throw new Error("Confirmation has expired or is invalid.");
+  }
+  return payload;
+}
+
+export function verifySignedWoohyukmonPayload(token: string): unknown {
+  if (token.split(".").length !== 2) throw new Error("Invalid confirmation token.");
   const [encoded, signature] = token.split(".");
 
   if (!encoded || !signature) {
@@ -46,19 +59,7 @@ export function verifyWoohyukmonConfirmationToken(token: string) {
     throw new Error("Invalid confirmation token.");
   }
 
-  const payload = JSON.parse(
+  return JSON.parse(
     Buffer.from(encoded, "base64url").toString("utf8")
-  ) as WoohyukmonConfirmationPayload;
-
-  if (
-    payload.version !== 1 ||
-    !payload.actorEmail ||
-    !payload.tool ||
-    !Array.isArray(payload.targetIds) ||
-    payload.expiresAt <= Date.now()
-  ) {
-    throw new Error("Confirmation has expired or is invalid.");
-  }
-
-  return payload;
+  );
 }
