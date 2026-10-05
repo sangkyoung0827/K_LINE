@@ -1,4 +1,4 @@
-import type { GoogleFormQuestion } from "./types";
+import type { GoogleFormDraft, GoogleFormQuestion } from "./types";
 
 export type GoogleFormTemplate = {
   id: string;
@@ -53,4 +53,14 @@ export const googleFormTemplates: GoogleFormTemplate[] = [
 export function instantiateTemplate(templateId: string) {
   const template = googleFormTemplates.find((item) => item.id === templateId) ?? googleFormTemplates.at(-1)!;
   return template.questions.map((question) => ({ ...question, options: [...question.options], id: crypto.randomUUID() }));
+}
+
+export function draftFromTemplate(clubKey: GoogleFormDraft["clubKey"], templateId: string, title: string): GoogleFormDraft {
+  const template = googleFormTemplates.find((item) => item.id === templateId);
+  if (!template || !template.questions.length) throw new Error("ACTIVITY_TEMPLATE_REQUIRED");
+  return {
+    clubKey, templateId, title, activityTitle: title,
+    description: template.description, questions: instantiateTemplate(templateId),
+    activityId: "", activityDate: "", applicationDeadline: "", location: "", editorEmail: ""
+  };
 }

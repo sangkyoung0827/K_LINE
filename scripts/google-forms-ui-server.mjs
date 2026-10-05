@@ -5,8 +5,11 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const temp = mkdtempSync(join(tmpdir(), "kline-forms-ui-"));
+await build({ stdin: { contents: 'export { draftFromTemplate } from "./src/lib/googleForms/templates"; export { generateActivityNotice } from "./src/lib/googleForms/planning";', resolveDir: process.cwd(), loader: "ts" }, outfile: join(temp, "presets.mjs"), bundle: true, platform: "node", format: "esm" });
+const { draftFromTemplate, generateActivityNotice } = await import(pathToFileURL(join(temp, "presets.mjs")).href);
 await build({ entryPoints: ["scripts/fixtures/google-forms-ui.tsx"], outfile: join(temp, "ui.js"), bundle: true, platform: "browser", jsx: "automatic", define: { "process.env.NODE_ENV": '"development"' }, plugins: [{ name: "fixture-link", setup(builder) {
   builder.onResolve({ filter: /^next\/link$/ }, () => ({ path: "link", namespace: "fixture" }));
   builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({ loader: "tsx", resolveDir: process.cwd(), contents: 'import React from "react"; export default function Link({children,...props}) {return <a {...props}>{children}</a>}' }));
@@ -24,10 +27,11 @@ createServer(async (request, response) => {
   if (url.pathname.startsWith("/api/")) {
     let raw = ""; for await (const chunk of request) raw += chunk;
     const body = JSON.parse(raw || "{}");
-    if (body.action === "confirm_google_forms") { workflow.workflow_status = "notice_saved"; return send({ workflow, summary: "Private test complete" }); }
+    if (body.action === "confirm_google_forms") { workflow.workflow_status = "notice_saved"; form.title = workflow.draft.title; return send({ workflow, form, notice: workflow.notice.replaceAll("{{GOOGLE_FORM_URL}}", form.responder_url), summary: "Private test complete" }); }
     if (body.action?.startsWith("UPDATE_")) { workflow = { ...workflow, draft: body.draft, notice: body.notice, revision: workflow.revision + 1 }; return send({ workflow, token: "fixture-preview" }); }
     if (body.message) return send({ summary: "행사명과 정확한 일시·장소·마감을 입력해주세요.", missing: ["date"] });
-    workflow = { id: "fixture-workflow", draft: body, notice: `[${body.title}]\n\n신청 링크 / Application Form URL: {{GOOGLE_FORM_URL}}`, workflow_status: "draft", revision: 1 };
+    const draft = body.presetOnly ? draftFromTemplate(body.clubKey, body.templateId, body.title) : body;
+    workflow = { id: "fixture-workflow", draft, notice: generateActivityNotice(draft), workflow_status: "draft", revision: 1 };
     return send({ workflow, token: "fixture-preview" });
   }
   response.writeHead(200, { "Content-Type": "text/html" });

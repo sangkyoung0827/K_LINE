@@ -4,6 +4,9 @@ import { getGoogleConnectionStatus, registryColumns } from "@/lib/googleForms/go
 import { type GoogleFormRegistryRow } from "@/lib/googleForms/types";
 import { supabaseRequest } from "@/lib/googleForms/store";
 import { handleGoogleFormsOperation } from "@/lib/googleForms/gateway";
+import { draftFromTemplate } from "@/lib/googleForms/templates";
+import { cleanText } from "@/lib/supabaseServer";
+import type { GoogleFormDraft } from "@/lib/googleForms/types";
 
 export const dynamic = "force-dynamic";
 
@@ -24,5 +27,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  return (await handleGoogleFormsOperation({ action: "DRAFT_GOOGLE_FORM", draft: await request.json().catch(() => null) }))!;
+  try {
+    const input = await request.json();
+    const draft = input?.presetOnly === true ? draftFromTemplate(
+      cleanText(input.clubKey, 40) as GoogleFormDraft["clubKey"],
+      cleanText(input.templateId, 80), cleanText(input.title, 200)
+    ) : input;
+    return (await handleGoogleFormsOperation({ action: "DRAFT_GOOGLE_FORM", draft }))!;
+  } catch (error) { return failure(error); }
 }

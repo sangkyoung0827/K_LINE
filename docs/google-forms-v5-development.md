@@ -91,6 +91,8 @@ Vercel Hobby supports daily invocation with hour-level precision; Pro/Enterprise
 
 ## Verification
 
+The manager's Google Forms tab now accepts only an existing template and activity title. The preset is built server-side from existing questions and descriptions, then the same actor-bound workflow creates the private test form and notice with its returned responder URL at the bottom. Unknown dates, deadlines and locations are omitted, not invented. The notice can be copied; failures retain the pending workflow for safe retry. The local fixture also uses the real preset/notice functions, but its Google URL and storage remain mocks. Actual OAuth creation remains unverified; no production deployment is authorized by this UI change.
+
 - `npm run test:google-forms`: actual module execution against mocked Google/storage + isolated PGlite, not real Google.
 - `npm run typecheck` and `npm run build`: passed during development; re-run after final edits.
 - Native regression suites in `npm test` passed through the pretest stage. Local full check hits the existing traditional-liquor Chromium launch test and fails under macOS sandbox (`SIGABRT` / Mach launch permission), not an ECC application assertion. The browser is not silently skipped.

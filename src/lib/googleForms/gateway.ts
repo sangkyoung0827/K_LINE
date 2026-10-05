@@ -108,7 +108,10 @@ export async function handleGoogleFormsOperation(body: Command): Promise<NextRes
         return reply({ handled: true, kind: "result", title: "테스트 공지 게시 확인", succeeded: 1, failed: 0, workflow: await publishTestNotice(workflow, access.email) });
       }
       if (approval.revision !== workflow.revision || approval.action !== "CREATE_ACTIVITY_WITH_FORM_AND_NOTICE") throw new Error("WORKFLOW_CHANGED_REVIEW_AGAIN");
-      return reply({ handled: true, kind: "result", title: "비공개 테스트 작업 완료", summary: "비공개 Google Form과 테스트 공지 초안이 저장되었습니다. 운영 게시·배포는 하지 않았습니다.", succeeded: 1, failed: 0, workflow: await execute(workflow, access.email) });
+      const completed = await execute(workflow, access.email);
+      const forms = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?select=${registryColumns}&id=eq.${completed.form_registry_id}&limit=1`, { cache: "no-store" });
+      if (!forms[0]) throw new Error("FORM_NOT_FOUND");
+      return reply({ handled: true, kind: "result", title: "비공개 테스트 작업 완료", summary: "비공개 Google Form과 테스트 공지 초안이 저장되었습니다. 운영 게시·배포는 하지 않았습니다.", succeeded: 1, failed: 0, workflow: completed, form: forms[0], notice: noticeWithFormUrl(completed.notice, forms[0].responder_url) });
     }
     if (action === "DRAFT_GOOGLE_FORM" || action === "GENERATE_ACTIVITY_NOTICE" || (!recognized && message)) {
       const planned = body.draft ? { draft: parseGoogleFormDraft(body.draft), missing: [] } : planActivity(message);

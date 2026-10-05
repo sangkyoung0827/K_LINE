@@ -131,6 +131,17 @@ test("Korean/English requests produce drafts or explicit clarification without g
   assert.throws(() => planning.noticeWithFormUrl("no placeholder", "https://docs.google.com/forms/d/e/actual/viewform"));
 });
 
+test("title-only presets retain existing questions without inventing event metadata", () => {
+  const templates = harness().load("src/lib/googleForms/templates.ts");
+  const preset = templates.draftFromTemplate("ecc", "ecc_gathering", "Friday Gathering");
+  assert.equal(preset.title, "Friday Gathering");
+  assert.ok(preset.questions.length > 0);
+  assert.equal(preset.activityDate, "");
+  assert.equal(preset.applicationDeadline, "");
+  assert.equal(preset.location, "");
+  assert.throws(() => templates.draftFromTemplate("ecc", "unknown", "Title"));
+});
+
 test("gateway requires approval, binds actor and revision, preserves form on notice failure and recovers without duplicates", async () => {
   const h = harness(); const { handleGoogleFormsOperation: run } = h.load("src/lib/googleForms/gateway.ts");
   const initial = await (await run({ action: "DRAFT_GOOGLE_FORM", draft })).json();
@@ -140,7 +151,11 @@ test("gateway requires approval, binds actor and revision, preserves form on not
   assert.equal(h.control.externalCreates, 1); assert.ok(h.tables.google_form_workflows[0].form_registry_id);
   h.control.failNotice = false;
   const retry = await (await run({ action: "PREVIEW_GOOGLE_FORM", workflowId: initial.workflow.id })).json();
-  assert.equal((await run({ action: "confirm_google_forms", token: retry.token })).status, 200);
+  const confirmed = await run({ action: "confirm_google_forms", token: retry.token });
+  assert.equal(confirmed.status, 200);
+  const result = await confirmed.json();
+  assert.ok(result.notice.endsWith(result.form.responder_url));
+  assert.equal(result.notice.includes("{{GOOGLE_FORM_URL}}"), false);
   assert.equal(h.control.externalCreates, 1); assert.equal(h.tables.club_board_posts.length, 1); assert.equal(h.tables.club_board_posts[0].status, "draft");
   assert.match(h.tables.club_board_posts[0].content, /real-response/);
   assert.equal((await run({ action: "PUBLISH_ACTIVITY_NOTICE", workflowId: initial.workflow.id })).status, 400);
