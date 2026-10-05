@@ -1,5 +1,5 @@
 import type { GoogleFormDraft } from "./types";
-import { instantiateTemplate } from "./templates";
+import { instantiateTemplate, draftFromTemplate } from "./templates";
 import { actualResponderUrl } from "./responses";
 
 export const googleFormsActionRegistry = {
@@ -20,9 +20,12 @@ export function planActivity(message: string): { draft: GoogleFormDraft; missing
   const event = /International Gathering|English Class|Farewell|Special Event|\bMT\b|\bOT\b/i.exec(message)?.[0] || "";
   const dates = message.match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?/g) || [];
   const location = /(?:장소는?|location\s*:|at\s+the)\s*([^,.\n]+?)(?:이고|이며|이고,|,|\.|\n|$)/i.exec(message)?.[1]?.trim() || "";
+  if (event && !dates.length && !location && !/내일|다음\s*주|이번\s*주|tomorrow|next\s+week|this\s+week|월요일|수요일|금요일/i.test(message)) {
+    return { draft: draftFromTemplate("ecc", templateId, `ECC ${event}`), missing: [] };
+  }
   const questions = instantiateTemplate(templateId);
   for (const [pattern, title] of [[/국적|nationality/i, "Nationality / 국적"], [/성별|gender/i, "Gender / 성별"], [/참여 가능|availability/i, "Availability / 참여 가능 여부"]] as const) {
-    if (pattern.test(message)) questions.push({ id: crypto.randomUUID(), title, type: "short_answer", required: true, options: [] });
+    if (pattern.test(message) && !questions.some(question => question.title === title)) questions.push({ id: crypto.randomUUID(), title, type: "short_answer", required: true, options: [] });
   }
   const draft: GoogleFormDraft = {
     title: event ? `ECC ${event}` : "", clubKey: "ecc", templateId, questions,

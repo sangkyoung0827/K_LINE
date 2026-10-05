@@ -121,7 +121,23 @@ Local OAuth bootstrap: `node scripts/google-forms-oauth-local.mjs <downloaded-cl
 - `npm run test:google-forms`: 20 passed. `npm run typecheck` and `npm run build`: passed after the ID fix.
 - Full `npm test` was attempted again and stopped at the existing browser launch step with macOS Mach/sandbox `SIGABRT`/`EPERM`. Do not report full regression success or silently skip that gate.
 
-- Normal Next.js authenticated workflow and application REST writes to the test DB.
+### Gathering Command Integration, 2026-10-06 KST
+
+The owner completed Supabase dashboard login. The existing service-role key was read, not created/rotated, and saved only in Git-ignored `private/supabase-server.local.json` (0600). No project security settings changed.
+
+`node scripts/google-forms-live-server.mjs <downloaded-client-json>` runs a loopback-only preview at `http://127.0.0.1:3318/`. It executes the actual gateway, encrypted connection from the real prefixed REST store, Google API, signed approval, private notice adapter and audit writes. Its isolated operator identity is independently verified from the existing Google grant. It is NOT normal Next.js sign-in/session verification. The server enforces an exact host, same-origin mutations, an HttpOnly SameSite cookie, test storage allowlist and no publication flags. It adds no auth bypass to Next.js.
+
+- UI command: `International Gathering 폼 만들기`. Preview -> approval -> real Google form -> private DB notice succeeded.
+- Workflow: `b27c609e-ed19-40da-8bb1-12371e3952e6`, form: `10glbXt4ZzbkBWdDYH18CdB6dl5TvYjjNCNfIRFUqPZw`.
+- Seven questions: email, KakaoTalk name, gender, nationality, preferred food, other requests, weekday multi-selection.
+- Description uses the existing owner-reviewed ECC OFFICIAL CHAT process guidance from `src/lib/ecc/activity-guide.ts`. Preset fields follow `src/components/EccActivityPanel.tsx`. This is curated template reuse, not live generative retrieval of every uploaded training document.
+- A fixed read-only GET reads current Gathering weekday options. Only Wednesday was configured; the generated checkbox contains only Wednesday. Invalid/empty/unavailable settings fail closed. The native activity's overall `is_open=false` switch was not changed.
+- No invented dates, fixed venue, deadline or Monday time. Title-only natural commands work; incomplete explicit date/location requests still request clarification.
+- Independent SQL read confirmed `notice_saved`, seven questions, blank date/location, draft form, draft notice, actual responder URL at notice end, and three audit records. Google editor independently showed all seven questions and the expected Wednesday option.
+- Completed UI now shows the real form links and finalized notice rather than a stale placeholder. 390px layout had document width 390px and no horizontal overflow.
+- 22 Forms tests passed; typecheck and build passed. Previous full regression browser-launch blocker remains. No public notice, response submission, production merge/deploy or native cutover occurred.
+
+- Normal Next.js sign-in/session workflow. Application REST writes were subsequently verified in the isolated loopback operator test below.
 - Real respondent submission (requires separate test-form publication approval).
 - Real sync with all question types, reopen/close and Google Workspace responder restrictions.
 - Full test-account command-to-private-notice-to-roster flow, including API latency/quota limits.

@@ -6,7 +6,7 @@ import type { GoogleFormDraft } from "@/lib/googleForms/types";
 import type { GoogleQuestionType } from "@/lib/googleForms/types";
 
 export type WorkflowPreview = { id: string; draft: GoogleFormDraft; notice: string; workflow_status: string; revision: number; last_error?: string | null };
-type Result = { workflow?: WorkflowPreview; token?: string; error?: string; summary?: string; draft?: GoogleFormDraft };
+type Result = { workflow?: WorkflowPreview; token?: string; error?: string; summary?: string; draft?: GoogleFormDraft; notice?: string; form?: { edit_url?: string; responder_url: string } };
 export async function formsCommand(body: object): Promise<Result> {
   const response = await fetch("/api/woohyukmon/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const result = await response.json() as Result;
@@ -37,6 +37,15 @@ export function DraftReview({ initial, onComplete }: { initial: Result; onComple
     finally { setBusy(false); }
   }
   if (!draft || !result.workflow) return <p role="status" className="whitespace-pre-wrap text-sm">{result.summary}</p>;
+  if (result.workflow.workflow_status === "notice_saved" && result.form) return <div className="mt-5 space-y-4 border-t border-ink/15 pt-5">
+    <p role="status" className="text-sm">{result.summary}</p>
+    <h3 className="text-lg font-bold">{draft.title}</h3>
+    <div className="flex flex-wrap gap-3">
+      {result.form.edit_url ? <a className="min-h-11 border border-ink/20 px-4 py-3 text-sm" href={result.form.edit_url} target="_blank" rel="noopener noreferrer">Google 폼 확인</a> : null}
+      <a className="min-h-11 border border-ink/20 px-4 py-3 text-sm" href={result.form.responder_url} target="_blank" rel="noopener noreferrer">신청 링크</a>
+    </div>
+    <label className="grid gap-2 text-sm font-semibold">완성된 공지<textarea aria-label="Completed activity notice" readOnly className="form-field min-h-80" value={result.notice || ""} /></label>
+  </div>;
   return <div className="mt-5 space-y-4 border-t border-ink/15 pt-5">
     <p className="text-xs font-semibold">{result.workflow.workflow_status} · {result.workflow.id}</p>
     <label className="grid gap-2 text-sm font-semibold">제목 / Title<input className="form-field" value={draft.title} onChange={(e) => { setDraft({ ...draft, title: e.target.value }); setDirty(true); }} /></label>

@@ -6,6 +6,7 @@ import { createGoogleForm, registryColumns, setGoogleFormStatus, syncGoogleFormR
 import { googleFormsActionRegistry, generateActivityNotice, noticeWithFormUrl, planActivity, type GoogleFormsAction } from "./planning";
 import { parseGoogleFormDraft } from "./validation";
 import { assertGoogleFormsNoticePublicationApproval } from "./safety";
+import { withCurrentGatheringDays } from "./gathering";
 import type { GoogleFormDraft, GoogleFormRegistryRow } from "./types";
 import { cleanText } from "@/lib/supabaseServer";
 import { supabaseRequest } from "./store";
@@ -81,7 +82,7 @@ export async function handleGoogleFormsOperation(body: Command): Promise<NextRes
   const action = cleanText(body.action, 80);
   const message = cleanText(body.message, 5000);
   const recognized = Object.hasOwn(googleFormsActionRegistry, action) || action === "confirm_google_forms" || action === "list_google_form_workflows";
-  const naturalCommand = /(google\s*forms?|구글\s*폼)/i.test(message) && /create|make|draft|design|만들|작성|생성|설계/i.test(message);
+  const naturalCommand = /(google\s*forms?|구글\s*폼|\bform\b|폼)/i.test(message) && /create|make|draft|design|만들|작성|생성|설계/i.test(message);
   if (!recognized && (!naturalCommand || process.env.GOOGLE_FORMS_AUTOMATION_ENABLED !== "true")) return null;
   try {
     const access = await getGoogleFormsAccess();
@@ -117,7 +118,7 @@ export async function handleGoogleFormsOperation(body: Command): Promise<NextRes
       const planned = body.draft ? { draft: parseGoogleFormDraft(body.draft), missing: [] } : planActivity(message);
       assertClubAccess(access, planned.draft.clubKey, true);
       if (planned.missing.length) return reply({ handled: true, kind: "answer", title: "추가 정보가 필요합니다", summary: planned.missing.join("\n"), draft: planned.draft, missing: planned.missing });
-      const draft = parseGoogleFormDraft(planned.draft);
+      const draft = await withCurrentGatheringDays(parseGoogleFormDraft(planned.draft));
       const workflows = await supabaseRequest<Workflow[]>("google_form_workflows?select=*", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ id: randomUUID(), club_key: draft.clubKey, draft, notice: generateActivityNotice(draft), created_by: access.email }) });
       await audit(access.email, "DRAFT_GOOGLE_FORM", "saved", workflows[0].id);
       return preview(workflows[0], access.email);
