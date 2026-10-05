@@ -46,6 +46,16 @@ function harness(envOverrides = {}) {
     "@/lib/supabaseServer": { cleanText: (value, max = 240) => typeof value === "string" ? value.trim().slice(0, max) : "" }
   };
   const fetch = async (url, init = {}) => {
+    if (url === "https://kline-nine-wheat.vercel.app/api/woohyukmon") {
+      control.existingAiCalls = (control.existingAiCalls || 0) + 1;
+      const body = JSON.parse(init.body);
+      assert.deepEqual(body.history, []);
+      assert.equal(init.headers.Authorization, undefined);
+      assert.equal(init.headers.Cookie, undefined);
+      assert.equal(init.redirect, "error");
+      if (control.failExistingAi) return Response.json({ error: "unavailable" }, { status: 500 });
+      return Response.json({ answer: JSON.stringify(control.aiDraft), provider: "nvidia" });
+    }
     if (url === "https://integrate.api.nvidia.com/v1/chat/completions") {
       control.aiCalls = (control.aiCalls || 0) + 1;
       return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(control.aiDraft) } }] });
@@ -220,6 +230,20 @@ test("new activity AI gateway preserves approval and checks permission before in
   const completed = await run({ action: "confirm_google_forms", token: preview.token });
   assert.equal(completed.status, 200); assert.equal(h.control.externalCreates, 1);
   assert.equal(h.tables.club_board_posts[0].status, "draft");
+});
+
+test("existing Woohyukmon API works without local keys and fails closed when unavailable", async () => {
+  const h = harness({ GOOGLE_FORMS_AI_PLANNING_ENABLED: "true", GOOGLE_FORMS_AI_EXISTING_API_ENABLED: "true" });
+  h.control.aiDraft = { title: "바다 사진 산책", description: "함께 사진을 찍습니다.", questions: [
+    { title: "카카오톡 이름", type: "short_answer", required: true, options: [] },
+    { title: "사용할 촬영 장비", type: "multiple_choice", required: true, options: ["카메라", "스마트폰"] }] };
+  const run = h.load("src/lib/googleForms/gateway.ts").handleGoogleFormsOperation;
+  const response = await run({ message: "바다 사진 산책 폼 만들어줘" });
+  assert.equal(response.status, 200); assert.equal(h.control.existingAiCalls, 1);
+  assert.equal(h.control.externalCreates, 0);
+  h.control.failExistingAi = true;
+  assert.equal((await run({ message: "바다 사진 산책 폼 만들어줘" })).status, 400);
+  assert.equal(h.tables.google_form_workflows.length, 1);
 });
 
 test("Gathering weekdays use verified live switches and fail closed on missing options", async () => {

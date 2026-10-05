@@ -106,6 +106,16 @@ Official Google API references checked: https://developers.google.com/workspace/
 
 ### New Activity AI Design, 2026-10-06
 
+### Existing Woohyukmon API Integration Verification
+
+- Vercel's Gemini/NVIDIA keys are sensitive production-only values and cannot be exported through the connector. No key was read, rotated, copied or logged.
+- The opt-in test adapter `GOOGLE_FORMS_AI_EXISTING_API_ENABLED=true` reuses the fixed existing public endpoint `https://kline-nine-wheat.vercel.app/api/woohyukmon`. It sends only the synthetic activity design request with empty history, without cookies, credentials or personal records, and rejects redirects. The existing production endpoint is not modified.
+- Latest live test UI: `http://127.0.0.1:3320/`. Google OAuth still independently verifies the loopback operator. This is not a normal Next.js authenticated-session E2E test.
+- A real model response designed six questions for a new Jeju beach photo walk: KakaoTalk name, device choices, experience level, photography topic checkboxes, preferred language and optional requests. Supplied dates/deadline/venue were preserved; no email or review metadata appeared.
+- Workflow `50c981f2-fce2-42e0-8bc5-f8a0a7ea76da` reached `notice_saved`. Google Form `1A7oFAejy5mygougqh44Vr5WySw4ESZVnhV0gwZlRk3M` was independently opened in Google's editor and the six questions/choices verified. An independent SQL SELECT confirmed form/notice remain drafts and the notice ends with the actual responder URL.
+- Automated tests: 26 passed, including fixed-endpoint reuse without local keys, failure handling and approval-gated creation. Build passed. No publication, recruitment switch, production write, push or deployment was performed.
+- A second real request, `ECC 한국 차문화 교류 워크숍 구글폼과 공지를 만들어줘. 처음 여는 활동이야.`, supplied no question hints or logistics. The model produced nine questions including tea experience, interests, learning goals and proposed availability preferences. Date/deadline/location stayed empty. Workflow `54d6f8b8-0c37-4b86-ad8f-ac4fda03ae80` remains an unapproved draft; preference choices and proposed tasting/teaching content are suggestions for administrator review, not confirmed event commitments. No second Google Form was created.
+
 - Unknown activities now use `aiPlanning.ts` and the existing Woohyukmon provider/failover generator, rather than silently returning the generic ECC preset. Known activity templates retain their existing behavior.
 - AI output is validated as a bounded JSON draft. Scheduling fields are parsed from the administrator's request, not AI metadata. Club identity and editor permissions cannot be changed by model output. Email and sensitive identity/health questions are rejected.
 - Permission checks occur before inference; test-only safety gates and a separate opt-in flag remain required. A generated draft still needs the existing signed, revision-bound approval before any Google Form or private notice is created.
