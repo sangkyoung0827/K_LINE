@@ -149,6 +149,9 @@ test("Korean/English requests produce drafts or explicit clarification without g
   assert.equal(gathering.draft.activityDate, "");
   assert.equal(gathering.draft.location, "");
   assert.match(gathering.draft.description, /group decides its activity and meeting place together/);
+  assert.doesNotMatch(gathering.draft.description, /reviewed|not specified in this template/i);
+  assert.equal(gathering.draft.questions.some(question => /email|이메일/i.test(question.title)), false);
+  assert.equal(gathering.draft.questions.length, 5);
   assert.ok(gathering.draft.questions.some(question => /Preferred food/.test(question.title)));
   assert.throws(() => planning.noticeWithFormUrl("no placeholder", "https://docs.google.com/forms/d/e/actual/viewform"));
 });
