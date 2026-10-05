@@ -84,13 +84,16 @@ async function googleFetch<T>(url: string, init: RequestInit = {}) {
 }
 
 function questionItem(question: GoogleFormQuestion) {
-  const id = createHash("sha256").update(question.id).digest("hex").slice(0, 16);
-  const base = { questionId: `q${id}`, required: question.required } as Record<string, unknown>;
+  // Keep retry-stable IDs within Google's positive 31-bit hexadecimal range.
+  const googleId = (namespace: string) => (createHash("sha256").update(`${namespace}:${question.id}`).digest().readUInt32BE(0) & 0x7fffffff).toString(16).padStart(8, "0");
+  const itemId = googleId("item");
+  const questionId = googleId("question");
+  const base = { questionId, required: question.required } as Record<string, unknown>;
   if (question.type === "short_answer" || question.type === "paragraph") base.textQuestion = { paragraph: question.type === "paragraph" };
   else if (["multiple_choice", "checkbox", "dropdown"].includes(question.type)) base.choiceQuestion = { type: question.type === "multiple_choice" ? "RADIO" : question.type === "checkbox" ? "CHECKBOX" : "DROP_DOWN", options: question.options.filter(Boolean).map((value) => ({ value })) };
   else if (question.type === "date") base.dateQuestion = { includeTime: false, includeYear: true };
   else base.timeQuestion = { duration: false };
-  return { itemId: `i${id}`, title: question.title.trim(), questionItem: { question: base } };
+  return { itemId, title: question.title.trim(), questionItem: { question: base } };
 }
 
 async function setPublication(formId: string, isPublished: boolean, isAcceptingResponses: boolean) {
@@ -104,6 +107,11 @@ async function setPublication(formId: string, isPublished: boolean, isAcceptingR
 export async function createGoogleForm(draft: GoogleFormDraft, createdBy: string, idempotencyKey: string) {
   assertGoogleFormsTestEnvironment();
   if (!/^[a-zA-Z0-9_-]{16,120}$/.test(idempotencyKey)) throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  const items = draft.questions.map(questionItem);
+  if (new Set(items.map(item => item.itemId)).size !== items.length ||
+      new Set(items.map(item => item.questionItem.question.questionId)).size !== items.length) {
+    throw new Error("GOOGLE_QUESTION_ID_COLLISION");
+  }
   const draftHash = createHash("sha256").update(JSON.stringify(draft)).digest("hex");
   type Attempt = { idempotency_key: string; draft_hash: string; remote_form_id: string | null; status: string };
   const attemptQuery = `google_form_creation_attempts?idempotency_key=eq.${encodeURIComponent(idempotencyKey)}`;
@@ -130,8 +138,7 @@ export async function createGoogleForm(draft: GoogleFormDraft, createdBy: string
     const existingIds = new Set((initial.items || []).map((item) => item.itemId));
     const requests: Record<string, unknown>[] = [];
     if (draft.description.trim()) requests.push({ updateFormInfo: { info: { description: draft.description.trim() }, updateMask: "description" } });
-    draft.questions.forEach((question, index) => {
-      const item = questionItem(question);
+    items.forEach((item, index) => {
       if (!existingIds.has(item.itemId)) requests.push({ createItem: { item, location: { index } } });
     });
     if (requests.length) await googleFetch(`${formsBase}/${encodeURIComponent(formId)}:batchUpdate`, { method: "POST", body: JSON.stringify({ includeFormInResponse: true, requests }) });

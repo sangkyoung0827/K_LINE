@@ -91,7 +91,7 @@ Vercel Hobby supports daily invocation with hour-level precision; Pro/Enterprise
 
 ## Verification
 
-The manager's Google Forms tab now accepts only an existing template and activity title. The preset is built server-side from existing questions and descriptions, then the same actor-bound workflow creates the private test form and notice with its returned responder URL at the bottom. Unknown dates, deadlines and locations are omitted, not invented. The notice can be copied; failures retain the pending workflow for safe retry. The local fixture also uses the real preset/notice functions, but its Google URL and storage remain mocks. Actual OAuth creation remains unverified; no production deployment is authorized by this UI change.
+The manager's Google Forms tab now accepts only an existing template and activity title. The preset is built server-side from existing questions and descriptions, then the same actor-bound workflow creates the private test form and notice with its returned responder URL at the bottom. Unknown dates, deadlines and locations are omitted, not invented. The notice can be copied; failures retain the pending workflow for safe retry. The local fixture also uses the real preset/notice functions, but its Google URL and storage remain mocks. Actual Google API creation has now been smoke-tested separately; normal Next.js authentication and remote REST storage E2E remain unverified. No production deployment is authorized.
 
 - `npm run test:google-forms`: actual module execution against mocked Google/storage + isolated PGlite, not real Google.
 - `npm run typecheck` and `npm run build`: passed during development; re-run after final edits.
@@ -106,10 +106,23 @@ Official Google API references checked: https://developers.google.com/workspace/
 
 OAuth verification completed on 2026-10-05 for `waterfallingsound0827@gmail.com`: exact account/email verification, all three API scopes and a real refresh-token exchange succeeded. The AES-GCM encrypted connection was installed into `kline_forms_test_google_oauth_connections` and its account/scopes were confirmed by the database response. Encryption key and client secret remain local and untracked. This is NOT a completed Next.js form-creation E2E test or a production deployment; the local application still needs its server-only database credential and matching encryption-key configuration. The 3317 UI fixture remains mocked.
 
-Local OAuth bootstrap: `node scripts/google-forms-oauth-local.mjs <downloaded-client-json>`. This loopback-only tool verifies the dedicated project/redirect, cookie-bound expiring state, PKCE, exact account, granted scopes and offline token refresh. It uses the existing AES-GCM helper and ignores both local key/connection files in Git. It does not bypass application authentication or write production data. On 2026-10-05 the account owner approved Forms body, response-read and Drive-file access plus encrypted storage in the prefixed test table. The account was added as the only test user. The Google unverified-app warning is awaiting the user's own continuation; no refresh token or completed connection has been confirmed yet. Vercel's sensitive service-role variable cannot be decrypted via the connector; normal Next.js end-to-end storage integration remains a separate unresolved local configuration gate.
+Local OAuth bootstrap: `node scripts/google-forms-oauth-local.mjs <downloaded-client-json>`. This loopback-only tool verifies the dedicated project/redirect, cookie-bound expiring state, PKCE, exact account, granted scopes and offline token refresh. It uses the existing AES-GCM helper and ignores local key/connection files in Git. It does not bypass application authentication or write production data. On 2026-10-05 the account owner approved Forms body, response-read and Drive-file access plus encrypted storage in the prefixed test table. The account was added as the only test user and manually completed consent. Vercel's sensitive service-role variable cannot be decrypted via the connector. Supabase CLI has no authenticated access token and the dashboard requires sign-in; normal Next.js end-to-end storage integration remains an unresolved local configuration gate.
 
-- Explicit approval for test-account OAuth and isolated-test-DB setup.
-- Real create/edit/responder URL and real respondent submission.
+### Real Google Smoke Test, 2026-10-06 KST
+
+`node scripts/google-forms-live-smoke.mjs <downloaded-client-json>` executes the real template, crypto, Google API and notice modules using real Google HTTP requests and an explicitly local persistent store adapter. It is NOT a normal Next.js/session/remote REST end-to-end test.
+
+- Initial real `batchUpdate` rejected the old prefixed 17-character question/item IDs. Eight-character positive 31-bit hexadecimal IDs succeeded. Added preflight collision rejection and regression assertions for the accepted ID shape.
+- Created one unpublished form, `[KLINE PRIVATE TEST] ECC Gathering 2026-10-06`, with three preset questions. Its form ID is `1hab2m2usa68tA-hkhPGHJNi-c9IqAPKrBwDsWUriIFI`.
+- Setup retries reused that remote form. Independent Google GET verified title, question count, real responder URL, unpublished state and disabled responses. The notice ends with that real responder URL. No public notice was posted.
+- The initial smoke fixture had not persisted its randomized draft; only its local fixture hash was explicitly reconciled to reuse the existing remote form. Subsequent runs persist the exact draft. This is not a production reconciliation workflow.
+- The registry was installed separately through the SQL connector into `kline_forms_test_google_forms`, with metadata explicitly identifying the local adapter/connector verification scope. This does not prove application REST writes.
+- Local smoke state is Git-ignored and saved with mode 0600. Credentials and tokens are never printed.
+- `npm run test:google-forms`: 20 passed. `npm run typecheck` and `npm run build`: passed after the ID fix.
+- Full `npm test` was attempted again and stopped at the existing browser launch step with macOS Mach/sandbox `SIGABRT`/`EPERM`. Do not report full regression success or silently skip that gate.
+
+- Normal Next.js authenticated workflow and application REST writes to the test DB.
+- Real respondent submission (requires separate test-form publication approval).
 - Real sync with all question types, reopen/close and Google Workspace responder restrictions.
 - Full test-account command-to-private-notice-to-roster flow, including API latency/quota limits.
 - Crash/unknown-create reconciliation UI and production-scale batching/pagination of the manager mirror.

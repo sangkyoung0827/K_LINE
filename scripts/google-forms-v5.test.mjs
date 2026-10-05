@@ -52,7 +52,12 @@ function harness() {
     if (url.endsWith(":batchUpdate")) {
       if (control.failSetup) throw new Error("SETUP_TEST_FAILURE");
       const body = JSON.parse(init.body);
-      for (const request of body.requests) if (request.createItem) control.form.items.push(request.createItem.item);
+      for (const request of body.requests) if (request.createItem) {
+        const item = request.createItem.item;
+        assert.match(item.itemId, /^[0-7][0-9a-f]{7}$/);
+        assert.match(item.questionItem.question.questionId, /^[0-7][0-9a-f]{7}$/);
+        control.form.items.push(item);
+      }
       return Response.json({});
     }
     if (url.endsWith(":setPublishSettings")) return Response.json({ formId: control.form.formId, publishSettings: JSON.parse(init.body).publishSettings });
@@ -100,6 +105,12 @@ test("ambiguous create failure stops retries instead of generating duplicate for
   await assert.rejects(api.createGoogleForm(draft, "admin@example.test", "idempotent-uncertain"), /UNCERTAIN/);
   await assert.rejects(api.createGoogleForm(draft, "admin@example.test", "idempotent-uncertain"), /UNCERTAIN/);
   assert.equal(h.control.externalCreates, 1);
+});
+
+test("question ID collisions fail before creating a remote form", async () => {
+  const h = harness(); const api = h.load("src/lib/googleForms/googleApi.ts");
+  await assert.rejects(api.createGoogleForm({ ...draft, questions: [draft.questions[0], draft.questions[0]] }, "admin@example.test", "idempotent-collision"), /QUESTION_ID_COLLISION/);
+  assert.equal(h.control.externalCreates, 0);
 });
 
 test("missing real responder URL never produces a registry or fabricated URL", async () => {
