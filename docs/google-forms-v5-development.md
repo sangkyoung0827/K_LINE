@@ -4,7 +4,7 @@
 
 Status: **DEVELOPMENT / REAL GOOGLE VALIDATION PENDING**. This is not `GOOGLE_FORMS_CUTOVER_READY`.
 
-Production merge, deployment, production SQL, public Google Forms, live ECC notices and native application cutover are NOT authorized by this task. No such actions were performed. Native ECC, SIU, Jeju and Hanhwal applications remain the default. No 410, redirect or replacement was introduced.
+Production merge, deployment, public Google Forms, live ECC notices and native application cutover remain unauthorized. On 2026-10-05 the user authorized reuse of an existing project within the free tier: the additive, prefixed test migration below was applied to K_LINE. No existing production tables or member records were modified. Native ECC, SIU, Jeju and Hanhwal applications remain the default. No 410, redirect or replacement was introduced.
 
 ## Audit
 
@@ -31,7 +31,15 @@ GOOGLE_FORMS_TEST_SUPABASE_SERVICE_ROLE_KEY=<server-only test service key>
 AUTH_SECRET=<existing server-only signing secret>
 ```
 
-Forms storage uses its OWN test URL/key, not the normal K_LINE Supabase client. It refuses the current production project and a test URL equal to the normal Supabase URL. It refuses `VERCEL_ENV=production`. Normal K_LINE authentication/club authorization still determines access; create test administrators through the normal test-account setup, not a bypass.
+Forms storage uses its OWN test URL/key, not the normal K_LINE Supabase client. Without a prefix it refuses the production project and a test URL equal to the normal Supabase URL. With exactly `GOOGLE_FORMS_TEST_TABLE_PREFIX=kline_forms_test_`, it can use the existing project but rewrites every allowlisted table request to that namespace, including notices and member matching. Unknown tables, RPC paths and arbitrary prefixes are rejected. It still refuses `VERCEL_ENV=production`. Normal K_LINE authentication/club authorization still determines access; no authentication bypass is introduced.
+
+### Existing-project test namespace (approved 2026-10-05)
+
+Use `GOOGLE_FORMS_TEST_TABLE_PREFIX=kline_forms_test_` together with the existing project's test URL and server-only key. Never enable this on the production deployment. Apply only `supabase/migrations/20261005092720_google_forms_shared_project_test.sql`, NOT the unprefixed foundation files. This creates eight prefixed test tables, including dummy-only member matching and private test notices. No original board or member table is used by the Forms store.
+
+Applied and verified in K_LINE: eight tables, RLS enabled, anon/authenticated SELECT denied, service-role writes allowed. No paid project, branch, upgrade, or production environment change was performed. Actual Google OAuth/client grant and end-to-end Google response validation remain pending. The Google Cloud OAuth brand was created; the client credential creation screen is handed to the user for its final action.
+
+Validation on 2026-10-05: 18 Forms/SQL tests, typecheck and build passed. Local automated Playwright launch was blocked by macOS Mach-port sandbox permissions; it is not reported as passing. Manual in-app browser checks passed for draft/edit/approval and applicant mirror using the explicitly labeled mock-only fixture. At 390px, scroll width was 390px and no console errors were recorded. The advisor reports RLS-without-policy informational notices for these server-only tables; this deny-by-default configuration is intentional, with browser-role privileges revoked.
 
 After explicit user approval for external authentication, enable Forms API and Drive API for the test Google Cloud project; register the exact redirect URI `<GOOGLE_FORMS_TEST_ORIGIN>/api/google-forms/oauth/callback`; add the dedicated Google account as an OAuth test user. Visit `/admin/google-forms` as an authorized administrator and connect that account. Required scopes are Forms body, Forms responses read-only, Drive file, openid/email. Refresh tokens are AES-256-GCM encrypted; OAuth state is signed, cookie-bound and actor-bound. No token is returned to the UI.
 
@@ -39,7 +47,7 @@ No real Google grant was performed during development. Do not paste secrets into
 
 ## SQL
 
-Run only in a fresh isolated TEST DB, in order:
+For a fresh isolated TEST DB only (not the approved shared-project namespace), run in order:
 
 1. `supabase/google_forms_application_migration.sql`
 2. `supabase/google_forms_workflows.sql`

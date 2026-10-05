@@ -200,3 +200,46 @@ test("feature and isolated database fail closed when test configuration is absen
   assert.equal(await run({ message: "Google Forms가 무엇인가요?" }), null);
   assert.equal(await run({ message: "이 회원이 납부했나요?" }), null);
 });
+
+test("shared project requests can only reach prefixed test tables", async () => {
+  const requests = [];
+  const env = {
+    SUPABASE_URL: "https://okcabiimxuhhhokqajjg.supabase.co",
+    GOOGLE_FORMS_TEST_SUPABASE_URL: "https://okcabiimxuhhhokqajjg.supabase.co",
+    GOOGLE_FORMS_TEST_SUPABASE_SERVICE_ROLE_KEY: "test-key",
+    GOOGLE_FORMS_TEST_TABLE_PREFIX: "kline_forms_test_"
+  };
+  const module = { exports: {} };
+  const code = ts.transpileModule(readFileSync("src/lib/googleForms/store.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
+    process: { env }, URL, Headers, AbortSignal,
+    fetch: async (url) => { requests.push(url); return Response.json([]); }
+  })((id) => id === "server-only" ? {} : { assertGoogleFormsTestEnvironment() {} }, module, module.exports);
+  const store = module.exports.supabaseRequest;
+  for (const table of ["google_forms", "club_board_posts", "site_members", "google_oauth_connections"]) {
+    await store(`${table}?select=*&limit=1`);
+    assert.equal(requests.at(-1), `${env.SUPABASE_URL}/rest/v1/kline_forms_test_${table}?select=*&limit=1`);
+  }
+  for (const path of ["ecc_roles", "rpc/admin_function", "../ecc_roles", "google_forms#fragment", "https://evil.example"]) {
+    await assert.rejects(store(path), /NOT_ALLOWED/);
+  }
+  assert.equal(requests.length, 4);
+  env.GOOGLE_FORMS_TEST_TABLE_PREFIX = "";
+  await assert.rejects(store("google_forms"), /ISOLATED/);
+  env.GOOGLE_FORMS_TEST_TABLE_PREFIX = "other_";
+  await assert.rejects(store("google_forms"), /INVALID/);
+});
+
+test("shared-project migration preserves native data and denies browser roles", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec("create role anon; create role authenticated; create role service_role; create table club_board_posts(id text primary key); insert into club_board_posts values('native-unchanged');");
+    const sql = readFileSync("supabase/migrations/20261005092720_google_forms_shared_project_test.sql", "utf8").replace("create extension if not exists pgcrypto;", "");
+    await db.exec(sql);
+    await db.exec(sql);
+    assert.deepEqual((await db.query("select * from club_board_posts")).rows, [{ id: "native-unchanged" }]);
+    const rows = (await db.query("select relname, relrowsecurity, has_table_privilege('anon', oid, 'SELECT') as anon_read, has_table_privilege('authenticated', oid, 'SELECT') as member_read from pg_class where relnamespace='public'::regnamespace and relkind='r' and relname like 'kline_forms_test_%'")).rows;
+    assert.equal(rows.length, 8);
+    assert.ok(rows.every((row) => row.relrowsecurity && !row.anon_read && !row.member_read));
+  } finally { await db.close(); }
+});
