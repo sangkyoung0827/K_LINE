@@ -104,6 +104,15 @@ Official Google API references checked: https://developers.google.com/workspace/
 
 ## Remaining Gates
 
+### New Activity AI Design, 2026-10-06
+
+- Unknown activities now use `aiPlanning.ts` and the existing Woohyukmon provider/failover generator, rather than silently returning the generic ECC preset. Known activity templates retain their existing behavior.
+- AI output is validated as a bounded JSON draft. Scheduling fields are parsed from the administrator's request, not AI metadata. Club identity and editor permissions cannot be changed by model output. Email and sensitive identity/health questions are rejected.
+- Permission checks occur before inference; test-only safety gates and a separate opt-in flag remain required. A generated draft still needs the existing signed, revision-bound approval before any Google Form or private notice is created.
+- Tests cover structured output, invalid JSON, forbidden questions, invented logistics, disabled/missing configuration, and approval-gated creation using a mocked model response. These tests do not prove live model quality.
+- Latest loopback preview is `http://127.0.0.1:3319/`. Startup may load the Git-ignored server-only file with `node --env-file-if-exists=private/google-forms-ai.env scripts/google-forms-live-server.mjs <client-json>`, setting `KLINE_FORMS_LIVE_PORT=3319` and `GOOGLE_FORMS_AI_PLANNING_ENABLED=true`.
+- Real UI request for a new beach photo walk reaches the AI planner and correctly reports that an AI API connection is required. No provider credentials are configured locally yet; no new live AI-designed form has been created. Existing Google OAuth/Supabase connectivity is verified. Production is unchanged.
+
 Gathering refinement, 2026-10-06: the Gathering preset no longer emits internal review/source metadata or an email question. Its five core questions plus verified attendance days produce six questions. The existing private Google test form was edited in place to match; its original workflow/audit record remains a historical creation snapshot, not a claim that an external editor change updated the saved notice. Production is unchanged.
 
 OAuth verification completed on 2026-10-05 for `waterfallingsound0827@gmail.com`: exact account/email verification, all three API scopes and a real refresh-token exchange succeeded. The AES-GCM encrypted connection was installed into `kline_forms_test_google_oauth_connections` and its account/scopes were confirmed by the database response. Encryption key and client secret remain local and untracked. This is NOT a completed Next.js form-creation E2E test or a production deployment; the local application still needs its server-only database credential and matching encryption-key configuration. The 3317 UI fixture remains mocked.

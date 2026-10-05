@@ -7,6 +7,7 @@ import { googleFormsActionRegistry, generateActivityNotice, noticeWithFormUrl, p
 import { parseGoogleFormDraft } from "./validation";
 import { assertGoogleFormsNoticePublicationApproval } from "./safety";
 import { withCurrentGatheringDays } from "./gathering";
+import { planNewActivity } from "./aiPlanning";
 import type { GoogleFormDraft, GoogleFormRegistryRow } from "./types";
 import { cleanText } from "@/lib/supabaseServer";
 import { supabaseRequest } from "./store";
@@ -115,8 +116,9 @@ export async function handleGoogleFormsOperation(body: Command): Promise<NextRes
       return reply({ handled: true, kind: "result", title: "비공개 테스트 작업 완료", summary: "비공개 Google Form과 테스트 공지 초안이 저장되었습니다. 운영 게시·배포는 하지 않았습니다.", succeeded: 1, failed: 0, workflow: completed, form: forms[0], notice: noticeWithFormUrl(completed.notice, forms[0].responder_url) });
     }
     if (action === "DRAFT_GOOGLE_FORM" || action === "GENERATE_ACTIVITY_NOTICE" || (!recognized && message)) {
-      const planned = body.draft ? { draft: parseGoogleFormDraft(body.draft), missing: [] } : planActivity(message);
+      let planned = body.draft ? { draft: parseGoogleFormDraft(body.draft), missing: [] } : planActivity(message);
       assertClubAccess(access, planned.draft.clubKey, true);
+      if (!body.draft && !planned.draft.activityTitle) planned = await planNewActivity(message);
       if (planned.missing.length) return reply({ handled: true, kind: "answer", title: "추가 정보가 필요합니다", summary: planned.missing.join("\n"), draft: planned.draft, missing: planned.missing });
       const draft = await withCurrentGatheringDays(parseGoogleFormDraft(planned.draft));
       const workflows = await supabaseRequest<Workflow[]>("google_form_workflows?select=*", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ id: randomUUID(), club_key: draft.clubKey, draft, notice: generateActivityNotice(draft), created_by: access.email }) });

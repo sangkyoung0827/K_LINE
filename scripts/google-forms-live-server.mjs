@@ -9,6 +9,8 @@ import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const { web } = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const port = Number(process.env.KLINE_FORMS_LIVE_PORT || 3318);
+if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Invalid loopback port");
 if (web.project_id !== "kline-forms-test") throw new Error("Wrong test Google project");
 const db = JSON.parse(readFileSync("private/supabase-server.local.json", "utf8"));
 const { encryptionKey } = JSON.parse(readFileSync("private/google-forms-oauth.local.json", "utf8"));
@@ -48,12 +50,12 @@ const profile=await profileResponse.json();
 if(!profileResponse.ok||profile.email!==actor||profile.email_verified!==true) throw new Error("Test operator verification failed");
 await build({entryPoints:["scripts/fixtures/google-forms-live-ui.tsx"],outfile:join(temp,"ui.js"),bundle:true,platform:"browser",jsx:"automatic",define:{"process.env.NODE_ENV":'"development"'},plugins:[{name:"link",setup(builder){builder.onResolve({filter:/^next\/link$/},()=>({path:"link",namespace:"ui"}));builder.onLoad({filter:/.*/,namespace:"ui"},()=>({loader:"tsx",resolveDir:process.cwd(),contents:'import React from "react"; export default function Link({children,...props}) {return <a {...props}>{children}</a>}'}));}}]});
 execFileSync("node",["node_modules/tailwindcss/lib/cli.js","-i","src/app/globals.css","-o",join(temp,"ui.css")],{stdio:"ignore"});
-const origin="http://127.0.0.1:3318";
+const origin=`http://127.0.0.1:${port}`;
 const session=randomBytes(32).toString("hex");
 const cookieMatches=value=>{const given=Buffer.from(value||"");const expected=Buffer.from(session);return given.length===expected.length&&timingSafeEqual(given,expected);};
 createServer(async(request,response)=>{
   const send=(value,status=200)=>{response.writeHead(status,{"Content-Type":"application/json","Cache-Control":"no-store"});response.end(JSON.stringify(value));};
-  if(request.headers.host!=="127.0.0.1:3318") return send({error:"Invalid host"},403);
+  if(request.headers.host!==`127.0.0.1:${port}`) return send({error:"Invalid host"},403);
   const url=new URL(request.url,origin);
   try {
     if(url.pathname==="/ui.js"||url.pathname==="/ui.css") {response.writeHead(200,{"Content-Type":url.pathname.endsWith("css")?"text/css":"text/javascript"});return response.end(readFileSync(join(temp,url.pathname.slice(1))));}
@@ -72,4 +74,4 @@ createServer(async(request,response)=>{
     response.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Set-Cookie":`kline_live_test=${session}; HttpOnly; SameSite=Strict; Path=/`,"Content-Security-Policy":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'","Referrer-Policy":"no-referrer"});
     response.end('<!doctype html><html lang="ko"><meta name="viewport" content="width=device-width,initial-scale=1"><title>우혁몬 · 실제 Google Forms 비공개 테스트</title><link rel="stylesheet" href="/ui.css"><body><div id="root"></div><script src="/ui.js"></script></body></html>');
   }catch(error){send({error:error.message},500);}
-}).listen(3318,"127.0.0.1",()=>console.log(`Verified loopback operator: ${origin}; real Google/REST, NOT normal Next.js authentication.`));
+}).listen(port,"127.0.0.1",()=>console.log(`Verified loopback operator: ${origin}; real Google/REST, NOT normal Next.js authentication.`));

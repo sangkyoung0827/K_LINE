@@ -46,6 +46,10 @@ function harness(envOverrides = {}) {
     "@/lib/supabaseServer": { cleanText: (value, max = 240) => typeof value === "string" ? value.trim().slice(0, max) : "" }
   };
   const fetch = async (url, init = {}) => {
+    if (url === "https://integrate.api.nvidia.com/v1/chat/completions") {
+      control.aiCalls = (control.aiCalls || 0) + 1;
+      return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(control.aiDraft) } }] });
+    }
     if (url.startsWith("https://test-db.example.test/rest/v1/ecc_activity_statuses?")) {
       assert.equal(init.method, undefined);
       return Response.json([{ gathering_open_days: control.gatheringDays ?? ["wednesday"] }]);
@@ -165,6 +169,57 @@ test("short Gathering form command reaches the approval workflow", async () => {
   assert.equal(result.workflow.draft.templateId, "ecc_gathering");
   assert.equal(h.control.externalCreates, 0);
   assert.deepEqual(result.workflow.draft.questions.at(-1).options, ["Wednesday / 수요일"]);
+});
+
+test("new activity uses structured AI questions and preserves only supplied logistics", async () => {
+  const h = harness(); const { planNewActivity } = h.load("src/lib/googleForms/aiPlanning.ts");
+  const message = "제주 바다 사진 산책 폼 만들어줘. 일시: 2026-10-20T14:00+09:00. 신청 마감: 2026-10-19T18:00+09:00. 장소: 함덕해수욕장.";
+  const generated = { title: "제주 바다 사진 산책", description: "함께 해변을 걸으며 사진을 찍습니다.",
+    activityDate: "2099-01-01", location: "Invented venue", clubKey: "hanhwal", editorEmail: "attacker@example.test",
+    questions: [{ title: "카카오톡 이름", type: "short_answer", required: true, options: [] },
+      { title: "촬영 장비", type: "multiple_choice", required: true, options: ["스마트폰", "카메라"] },
+      { title: "원하는 촬영 주제", type: "paragraph", required: false, options: [] }] };
+  let calls = 0;
+  const generate = async input => { calls++; assert.deepEqual(json(input.history), []); assert.equal(input.message, message); return { answer: JSON.stringify(generated), provider: "test" }; };
+  const result = await planNewActivity(message, { enabled: true, generate });
+  assert.equal(calls, 1); assert.equal(result.draft.templateId, "blank");
+  assert.equal(result.draft.title, generated.title); assert.equal(result.draft.questions[1].type, "multiple_choice");
+  assert.equal(result.draft.activityDate, "2026-10-20T14:00+09:00");
+  assert.equal(result.draft.location, "함덕해수욕장"); assert.equal(result.draft.clubKey, "ecc");
+  assert.equal(result.draft.editorEmail, "");
+  const noDetails = await planNewActivity("사진 산책 폼 만들어줘", { enabled: true, generate: async () => ({ answer: JSON.stringify(generated), provider: "test" }) });
+  assert.equal(noDetails.draft.activityDate, ""); assert.equal(noDetails.draft.location, "");
+  await assert.rejects(planNewActivity(message, { enabled: false, generate }), /활성화/);
+  await assert.rejects(planNewActivity(message, { enabled: true, generate: async () => ({ answer: "not json", provider: "test" }) }), /형식/);
+  generated.questions[0].title = "Email / 이메일";
+  await assert.rejects(planNewActivity(message, { enabled: true, generate }), /DATA_MINIMIZATION/);
+});
+
+test("unknown activity fails closed without AI configuration and performs no external creation", async () => {
+  const h = harness(); const run = h.load("src/lib/googleForms/gateway.ts").handleGoogleFormsOperation;
+  const response = await run({ message: "새 사진 산책 폼 만들어줘" });
+  assert.equal(response.status, 400);
+  assert.equal(h.control.externalCreates, 0); assert.equal(h.tables.google_form_workflows.length, 0);
+});
+
+test("new activity AI gateway preserves approval and checks permission before inference", async () => {
+  const h = harness({ GOOGLE_FORMS_AI_PLANNING_ENABLED: "true", NVIDIA_API_KEY: "test-only-ai-key" });
+  h.control.aiDraft = { title: "사진 산책", description: "해변을 걸으며 사진을 찍습니다.", questions: [
+    { title: "카카오톡 이름", type: "short_answer", required: true, options: [] },
+    { title: "촬영 장비", type: "multiple_choice", required: true, options: ["스마트폰", "카메라"] }] };
+  const run = h.load("src/lib/googleForms/gateway.ts").handleGoogleFormsOperation;
+  h.control.canWrite = false;
+  assert.equal((await run({ message: "사진 산책 폼 만들어줘" })).status, 400);
+  assert.equal(h.control.aiCalls || 0, 0);
+  h.control.canWrite = true;
+  const preview = await (await run({ message: "사진 산책 폼 만들어줘" })).json();
+  assert.equal(h.control.aiCalls, 1); assert.ok(preview.token);
+  assert.equal(preview.workflow.draft.title, "사진 산책");
+  assert.equal(h.control.externalCreates, 0);
+  assert.equal(h.tables.club_board_posts.length, 0);
+  const completed = await run({ action: "confirm_google_forms", token: preview.token });
+  assert.equal(completed.status, 200); assert.equal(h.control.externalCreates, 1);
+  assert.equal(h.tables.club_board_posts[0].status, "draft");
 });
 
 test("Gathering weekdays use verified live switches and fail closed on missing options", async () => {
