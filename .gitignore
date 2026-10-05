@@ -16,3 +16,5 @@ coverage
 vercel.json
 *.tsbuildinfo
 .vercel
+private/google-forms-oauth.local.json
+private/google-forms-connection.local.json

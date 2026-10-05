@@ -104,6 +104,8 @@ Official Google API references checked: https://developers.google.com/workspace/
 
 ## Remaining Gates
 
+Local OAuth bootstrap: `node scripts/google-forms-oauth-local.mjs <downloaded-client-json>`. This loopback-only tool verifies the dedicated project/redirect, cookie-bound expiring state, PKCE, exact account, granted scopes and offline token refresh. It uses the existing AES-GCM helper and ignores both local key/connection files in Git. It does not bypass application authentication or write production data. On 2026-10-05 the account owner approved Forms body, response-read and Drive-file access plus encrypted storage in the prefixed test table. The account was added as the only test user. The Google unverified-app warning is awaiting the user's own continuation; no refresh token or completed connection has been confirmed yet. Vercel's sensitive service-role variable cannot be decrypted via the connector; normal Next.js end-to-end storage integration remains a separate unresolved local configuration gate.
+
 - Explicit approval for test-account OAuth and isolated-test-DB setup.
 - Real create/edit/responder URL and real respondent submission.
 - Real sync with all question types, reopen/close and Google Workspace responder restrictions.
