@@ -30,7 +30,13 @@ createServer(async (request, response) => {
   if (request.headers.host !== "localhost:3300") return html(response, "Invalid host", 400);
   const url = new URL(request.url, origin);
   try {
-    if (url.pathname === "/") return html(response, `<p>${status}</p><p>Account: ${account}</p><p>Private test only. No production deployment.</p><a href="/connect">Connect Google Forms</a>`);
+    if (url.pathname === "/") {
+      const saved = existsSync(connectionPath) ? JSON.parse(readFileSync(connectionPath, "utf8")) : null;
+      if (saved?.account_email === account && saved?.verified_at) status = saved.database_verified_at
+        ? "Google OAuth connected; offline refresh verified. Encrypted token saved in the private test database."
+        : "Google OAuth connected; offline refresh verified. Encrypted token saved locally. Test database installation pending.";
+      return html(response, `<p>${status}</p><p>Account: ${account}</p><p>Private test only. No production deployment.</p><a href="/connect">Connect Google Forms</a>`);
+    }
     if (url.pathname === "/connect") {
       const state = randomBytes(32).toString("base64url");
       const verifier = randomBytes(48).toString("base64url");

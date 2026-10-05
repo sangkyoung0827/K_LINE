@@ -104,6 +104,8 @@ Official Google API references checked: https://developers.google.com/workspace/
 
 ## Remaining Gates
 
+OAuth verification completed on 2026-10-05 for `waterfallingsound0827@gmail.com`: exact account/email verification, all three API scopes and a real refresh-token exchange succeeded. The AES-GCM encrypted connection was installed into `kline_forms_test_google_oauth_connections` and its account/scopes were confirmed by the database response. Encryption key and client secret remain local and untracked. This is NOT a completed Next.js form-creation E2E test or a production deployment; the local application still needs its server-only database credential and matching encryption-key configuration. The 3317 UI fixture remains mocked.
+
 Local OAuth bootstrap: `node scripts/google-forms-oauth-local.mjs <downloaded-client-json>`. This loopback-only tool verifies the dedicated project/redirect, cookie-bound expiring state, PKCE, exact account, granted scopes and offline token refresh. It uses the existing AES-GCM helper and ignores both local key/connection files in Git. It does not bypass application authentication or write production data. On 2026-10-05 the account owner approved Forms body, response-read and Drive-file access plus encrypted storage in the prefixed test table. The account was added as the only test user. The Google unverified-app warning is awaiting the user's own continuation; no refresh token or completed connection has been confirmed yet. Vercel's sensitive service-role variable cannot be decrypted via the connector; normal Next.js end-to-end storage integration remains a separate unresolved local configuration gate.
 
 - Explicit approval for test-account OAuth and isolated-test-DB setup.
