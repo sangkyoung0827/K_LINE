@@ -4,9 +4,11 @@ import { Glasses, Send, Save, Check, ArrowUp, ArrowDown, Trash2, Plus } from "lu
 import { useState } from "react";
 import type { GoogleFormDraft } from "@/lib/googleForms/types";
 import type { GoogleQuestionType } from "@/lib/googleForms/types";
+import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
+import { noticeBody } from "@/lib/googleForms/planning";
 
 export type WorkflowPreview = { id: string; draft: GoogleFormDraft; notice: string; workflow_status: string; revision: number; last_error?: string | null };
-type Result = { workflow?: WorkflowPreview; token?: string; error?: string; summary?: string; draft?: GoogleFormDraft; notice?: string; form?: { edit_url?: string; responder_url: string } };
+type Result = { workflow?: WorkflowPreview; token?: string; error?: string; summary?: string; draft?: GoogleFormDraft; notice?: string; applicationUrl?: string; form?: { edit_url?: string; responder_url: string } };
 export async function formsCommand(body: object): Promise<Result> {
   const response = await fetch("/api/woohyukmon/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const result = await response.json() as Result;
@@ -17,7 +19,7 @@ export async function formsCommand(body: object): Promise<Result> {
 export function DraftReview({ initial, onComplete }: { initial: Result; onComplete?: () => void }) {
   const [result, setResult] = useState(initial);
   const [draft, setDraft] = useState(initial.workflow?.draft);
-  const [notice, setNotice] = useState(initial.workflow?.notice || "");
+  const [notice, setNotice] = useState(noticeBody(initial.workflow?.notice || ""));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -41,10 +43,10 @@ export function DraftReview({ initial, onComplete }: { initial: Result; onComple
     <p role="status" className="text-sm">{result.summary}</p>
     <h3 className="text-lg font-bold">{draft.title}</h3>
     <div className="flex flex-wrap gap-3">
-      {result.form.edit_url ? <a className="min-h-11 border border-ink/20 px-4 py-3 text-sm" href={result.form.edit_url} target="_blank" rel="noopener noreferrer">Google 폼 확인</a> : null}
-      <a className="min-h-11 border border-ink/20 px-4 py-3 text-sm" href={result.form.responder_url} target="_blank" rel="noopener noreferrer">신청 링크</a>
+      {result.form.edit_url ? <a className="min-h-11 border border-ink/20 px-4 py-3 text-sm" href={result.form.edit_url}>구글폼 원본 보기</a> : null}
     </div>
-    <label className="grid gap-2 text-sm font-semibold">완성된 공지<textarea aria-label="Completed activity notice" readOnly className="form-field min-h-80" value={result.notice || ""} /></label>
+    <ActivityNoticeOutput notice={result.notice || ""} applicationUrl={result.applicationUrl || result.form.responder_url} onError={setError} />
+    {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
   </div>;
   return <div className="mt-5 space-y-4 border-t border-ink/15 pt-5">
     <p className="text-xs font-semibold">{result.workflow.workflow_status} · {result.workflow.id}</p>

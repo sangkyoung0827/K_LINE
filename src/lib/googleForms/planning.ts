@@ -1,6 +1,7 @@
 import type { GoogleFormDraft } from "./types";
-import { instantiateTemplate, draftFromTemplate } from "./templates";
+import { instantiateTemplate, draftFromTemplate, googleFormTemplates } from "./templates";
 import { actualResponderUrl } from "./responses";
+import { eccNoticeKnowledge, presetNoticeIntroductions } from "./noticeKnowledge";
 
 export const googleFormsActionRegistry = {
   DRAFT_GOOGLE_FORM: { write: true }, PREVIEW_GOOGLE_FORM: { write: false },
@@ -38,18 +39,67 @@ export function planActivity(message: string): { draft: GoogleFormDraft; missing
   return { draft, missing };
 }
 
+function noticeDate(value: string, locale: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric",
+    weekday: "long", hour: "numeric", minute: "2-digit",
+  }).format(date) + (locale === "ko-KR" ? " (한국 시간)" : " (KST)");
+}
+
 export function generateActivityNotice(draft: GoogleFormDraft) {
-  return [`[${draft.title}]`, `행사명 / Event: ${draft.activityTitle || draft.title}`,
-    draft.activityDate && `일시 / Date & Time: ${draft.activityDate}`,
-    draft.location && `장소 / Location: ${draft.location}`,
-    draft.description && `활동 내용 / Activities: ${draft.description}`,
-    draft.applicationDeadline && `신청 마감 / Application Deadline: ${draft.applicationDeadline}`,
-    "참여 안내 / How to Join: Complete the application form / 신청폼을 작성해주세요.",
-    "신청 링크 / Application Form URL: {{GOOGLE_FORM_URL}}"].filter(Boolean).join("\n\n");
+  const englishClass = draft.clubKey === "ecc" && draft.templateId === "ecc_english_class";
+  const gathering = draft.clubKey === "ecc" && draft.templateId === "ecc_gathering";
+  const title = englishClass ? "English Conversation Class" : draft.activityTitle || draft.title;
+  const deadlineKo = noticeDate(draft.applicationDeadline, "ko-KR") || ((englishClass || gathering) ? "해당 요일 전날까지 (당일 신청은 받지 않습니다)" : "");
+  const deadlineEn = noticeDate(draft.applicationDeadline, "en-US") || ((englishClass || gathering) ? "Apply by the previous day. Same-day applications will not be accepted." : "");
+  const timeKo = noticeDate(draft.activityDate, "ko-KR") || (englishClass ? "목요일 저녁 6시 이후" : "");
+  const timeEn = noticeDate(draft.activityDate, "en-US") || (englishClass ? "Thursday, after 6pm" : "");
+  const source = draft.clubKey === "ecc" ? eccNoticeKnowledge[draft.templateId] : undefined;
+  const preset = presetNoticeIntroductions[draft.templateId];
+  const templateDescription = googleFormTemplates.find(item => item.id === draft.templateId)?.description;
+  const customDescription = draft.description !== templateDescription ? noticeBody(draft.description) : "";
+  const introKo = draft.descriptionKo || customDescription || source?.ko || preset?.ko || "";
+  const introEn = draft.descriptionEn || customDescription || source?.en || preset?.en || "";
+  const rulesKo = (englishClass || gathering) ? [
+    "⚠️ 그룹은 매주 신청자에 따라 바뀝니다.",
+    "⚠️ 신청하고 나오지 않으면 다음 모임 때 신청이 제한됩니다.",
+  ] : [];
+  const rulesEn = (englishClass || gathering) ? [
+    "⚠️ Group members change weekly based on applicants.",
+    "⚠️ If you do not show up after applying, your next application will be restricted.",
+  ] : [];
+  if (gathering) {
+    rulesKo.push("⚠️ 모임 전날 조별 채팅방이 만들어지며, 활동과 만날 장소는 조원들이 함께 결정합니다.", "⚠️ 활동 비용은 각자 부담합니다.");
+    rulesEn.push("⚠️ Group chats are created one day before the gathering. Decide your activity and meeting place together.", "⚠️ Each participant pays their own activity costs.");
+  }
+  return noticeBody([
+    `🧑‍🤝‍🧑 ${title} 공지`,
+    introKo,
+    deadlineKo && `✅ 신청 기한\n${deadlineKo}`,
+    timeKo && `✅ 활동 시간\n${timeKo}`,
+    draft.location && `✅ 장소\n${draft.location}`,
+    rulesKo.join("\n"),
+    `🧑‍🤝‍🧑 ${title} Notice`,
+    introEn,
+    deadlineEn && `✅ Application\n${deadlineEn}`,
+    timeEn && `✅ Activity time\n${timeEn}`,
+    draft.location && `✅ Location\n${draft.location}`,
+    rulesEn.join("\n"),
+  ].filter(Boolean).join("\n\n"));
+}
+
+export function noticeBody(notice: string) {
+  // Old saved drafts may still contain the former link placeholder or respondent URL.
+  return notice.replaceAll("{{GOOGLE_FORM_URL}}", "")
+    .replace(/https:\/\/docs\.google\.com\/forms\/[^\s]+/g, "")
+    .split("\n").filter(line => !/process notice reviewed|not specified in this template/i.test(line) && !/^\s*(?:신청 링크\s*\/\s*Application Form URL|신청 링크|Application Form URL)\s*:\s*$/.test(line))
+    .join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export function noticeWithFormUrl(notice: string, responderUrl: string) {
-  const url = actualResponderUrl(responderUrl);
-  if (!notice.includes("{{GOOGLE_FORM_URL}}")) throw new Error("NOTICE_FORM_LINK_PLACEHOLDER_REQUIRED");
-  return notice.replaceAll("{{GOOGLE_FORM_URL}}", url);
+  actualResponderUrl(responderUrl);
+  return noticeBody(notice);
 }

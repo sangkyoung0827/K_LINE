@@ -3,11 +3,12 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { assertClubAccess, getGoogleFormsAccess, GoogleFormsAuthorizationError } from "./access";
 import { createGoogleForm, registryColumns, setGoogleFormStatus, syncGoogleFormResponses } from "./googleApi";
-import { googleFormsActionRegistry, generateActivityNotice, noticeWithFormUrl, planActivity, type GoogleFormsAction } from "./planning";
+import { googleFormsActionRegistry, generateActivityNotice, noticeBody, noticeWithFormUrl, planActivity, type GoogleFormsAction } from "./planning";
 import { parseGoogleFormDraft } from "./validation";
 import { assertGoogleFormsNoticePublicationApproval } from "./safety";
 import { withCurrentGatheringDays } from "./gathering";
 import { planNewActivity } from "./aiPlanning";
+import { eccFormApplicationUrl } from "./eccResponderEntry";
 import type { GoogleFormDraft, GoogleFormRegistryRow } from "./types";
 import { cleanText } from "@/lib/supabaseServer";
 import { supabaseRequest } from "./store";
@@ -113,7 +114,7 @@ export async function handleGoogleFormsOperation(body: Command): Promise<NextRes
       const completed = await execute(workflow, access.email);
       const forms = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?select=${registryColumns}&id=eq.${completed.form_registry_id}&limit=1`, { cache: "no-store" });
       if (!forms[0]) throw new Error("FORM_NOT_FOUND");
-      return reply({ handled: true, kind: "result", title: "비공개 테스트 작업 완료", summary: "비공개 Google Form과 테스트 공지 초안이 저장되었습니다. 운영 게시·배포는 하지 않았습니다.", succeeded: 1, failed: 0, workflow: completed, form: forms[0], notice: noticeWithFormUrl(completed.notice, forms[0].responder_url) });
+      return reply({ handled: true, kind: "result", title: "비공개 테스트 작업 완료", summary: "비공개 Google Form과 테스트 공지 초안이 저장되었습니다. 운영 게시·배포는 하지 않았습니다.", succeeded: 1, failed: 0, workflow: completed, form: forms[0], notice: noticeWithFormUrl(completed.notice, forms[0].responder_url), applicationUrl: eccFormApplicationUrl(forms[0]) });
     }
     if (action === "DRAFT_GOOGLE_FORM" || action === "GENERATE_ACTIVITY_NOTICE" || (!recognized && message)) {
       let planned = body.draft ? { draft: parseGoogleFormDraft(body.draft), missing: [] } : planActivity(message);
@@ -150,8 +151,8 @@ export async function handleGoogleFormsOperation(body: Command): Promise<NextRes
       if (workflow.form_registry_id || !["draft", "failed"].includes(workflow.workflow_status)) throw new Error("CREATED_FORM_CANNOT_BE_EDITED_AS_DRAFT");
       const draft = body.draft ? parseGoogleFormDraft(body.draft) : workflow.draft;
       if (draft.clubKey !== workflow.club_key) throw new Error("WORKFLOW_CLUB_CANNOT_CHANGE");
-      const notice = body.notice === undefined ? workflow.notice : cleanText(body.notice, 20_000);
-      if (!notice.includes("{{GOOGLE_FORM_URL}}")) throw new Error("NOTICE_FORM_LINK_PLACEHOLDER_REQUIRED");
+      const notice = noticeBody(body.notice === undefined ? workflow.notice : cleanText(body.notice, 20_000));
+      if (!notice) throw new Error("NOTICE_BODY_REQUIRED");
       const updated = await supabaseRequest<Workflow[]>(`${query(workflow.id)}&revision=eq.${workflow.revision}&workflow_status=eq.${workflow.workflow_status}&select=*`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ draft, notice, revision: workflow.revision + 1 }) });
       if (!updated[0]) throw new Error("WORKFLOW_CHANGED_REVIEW_AGAIN");
       await audit(access.email, action, "saved", workflow.id);

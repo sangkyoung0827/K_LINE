@@ -1,7 +1,7 @@
 export type GoogleApplicant = { id: string; answers_json: Record<string, string[]>; respondent_email: string | null };
 
 export function applicantNames(rows: GoogleApplicant[]) {
-  return rows.map((row) => Object.entries(row.answers_json).find(([title]) => /(?:\bname\b|이름)/i.test(title))?.[1]?.[0] || row.respondent_email || row.id);
+  return rows.map((row) => Object.entries(row.answers_json).find(([title]) => /(?:\bname\b|이름)/i.test(title))?.[1]?.[0]?.trim() || "이름 미입력");
 }
 
 export function groupGoogleApplicants(rows: GoogleApplicant[], teamSize: number) {
@@ -16,4 +16,14 @@ export function groupGoogleApplicants(rows: GoogleApplicant[], teamSize: number)
     groups[cycle < count ? cycle : count * 2 - cycle - 1].push(name);
   });
   return groups;
+}
+
+export function googleTeamNotice(title: string, rows: GoogleApplicant[], teamSize: number) {
+  const groups = groupGoogleApplicants(rows, teamSize);
+  if (!groups.length) return "";
+  return [
+    `${title} — 조 편성 안내 / Team Assignments`,
+    "",
+    ...groups.map((group, index) => `${index + 1}조 / Team ${index + 1}: ${group.join(", ")}`),
+  ].join("\n");
 }

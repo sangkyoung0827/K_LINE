@@ -1,0 +1,12 @@
+{
+  "account": "samgkyoung1004@gmail.com",
+  "startedAt": "2026-10-06T07:51:00.328Z",
+  "formId": "1tnJwah4La_L6x487gA2_P6-8byb2J29zRuz719lVXNU",
+  "permissionId": "15031632603677607843",
+  "nativeExpiryAccepted": false,
+  "postExpiryAccessVerified": false,
+  "cleanupVerified": true,
+  "serverGrantVerified": true,
+  "testScope": "Real Google grant/delete primitives only; no published form, authenticated respondent or remote DB worker verification",
+  "testFormTrashed": true
+}

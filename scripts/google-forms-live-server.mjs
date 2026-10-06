@@ -37,8 +37,8 @@ const isolated = { name: "loopback-operator", setup(builder) {
     export function assertClubAccess(a,club,write) { if(!a.authenticated||club!=='ecc'||(write&&a.isReadOnly)) throw new GoogleFormsAuthorizationError('FORBIDDEN',403); }
   ` : args.path === "admin" ? 'export const normalizeEmail = value => (value||"").trim().toLowerCase();' : args.path === "clean" ? 'export const cleanText = (value,max=240) => typeof value === "string" ? value.trim().slice(0,max) : "";' : "" }));
 } };
-await build({ stdin: { contents: `export { handleGoogleFormsOperation } from './src/lib/googleForms/gateway'; export { supabaseRequest } from './src/lib/googleForms/store'; export { getGoogleConnectionStatus,registryColumns } from './src/lib/googleForms/googleApi'; export { decryptGoogleToken } from './src/lib/googleForms/crypto'; export { draftFromTemplate } from './src/lib/googleForms/templates';`, resolveDir: process.cwd(), loader: "ts" }, outfile: join(temp,"backend.cjs"), bundle:true,platform:"node",format:"cjs",packages:"external",plugins:[isolated] });
-const { handleGoogleFormsOperation, supabaseRequest, getGoogleConnectionStatus, registryColumns, decryptGoogleToken, draftFromTemplate } = (await import(pathToFileURL(join(temp,"backend.cjs")).href)).default;
+await build({ stdin: { contents: `export { handleGoogleFormsOperation } from './src/lib/googleForms/gateway'; export { supabaseRequest } from './src/lib/googleForms/store'; export { getGoogleConnectionStatus,registryColumns } from './src/lib/googleForms/googleApi'; export { GET as getResponses, POST as syncResponses } from './src/app/api/google-forms/forms/[id]/responses/route'; export { decryptGoogleToken } from './src/lib/googleForms/crypto'; export { draftFromTemplate } from './src/lib/googleForms/templates';`, resolveDir: process.cwd(), loader: "ts" }, outfile: join(temp,"backend.cjs"), bundle:true,platform:"node",format:"cjs",packages:"external",plugins:[isolated] });
+const { handleGoogleFormsOperation, supabaseRequest, getGoogleConnectionStatus, registryColumns, getResponses, syncResponses, decryptGoogleToken, draftFromTemplate } = (await import(pathToFileURL(join(temp,"backend.cjs")).href)).default;
 // Read the encrypted grant via the real prefixed REST store; validate its identity independently.
 const connections = await supabaseRequest("google_oauth_connections?id=eq.operations&select=account_email,encrypted_refresh_token&limit=1");
 if (connections[0]?.account_email !== actor) throw new Error("Wrong DB OAuth account");
@@ -63,6 +63,14 @@ createServer(async(request,response)=>{
       const cookie=request.headers.cookie?.split("; ").find(v=>v.startsWith("kline_live_test="))?.split("=")[1];
       if(!cookieMatches(cookie)||(request.method!=="GET"&&request.headers.origin!==origin)) return send({error:"Test session/origin rejected"},403);
       if(url.pathname==="/api/google-forms/forms"&&request.method==="GET") return send({access:{manageableClubs:["ecc"]},connection:await getGoogleConnectionStatus(),forms:await supabaseRequest(`google_forms?select=${registryColumns}&club_key=eq.ecc&order=created_at.desc`)});
+      const responsesPath = url.pathname.match(/^\/api\/google-forms\/forms\/([0-9a-f-]{36})\/responses$/);
+      if (responsesPath) {
+        if (!["GET", "POST"].includes(request.method)) return send({error:"Method not allowed"},405);
+        const context = {params:Promise.resolve({id:responsesPath[1]})};
+        const handler = request.method === "GET" ? getResponses : syncResponses;
+        const result = await handler(new Request(url,{method:request.method}),context);
+        return send(await result.json(),result.status);
+      }
       let raw="";for await(const chunk of request){raw+=chunk;if(raw.length>100_000)return send({error:"Too large"},413);}
       const input=JSON.parse(raw||"{}");
       const command=url.pathname==="/api/google-forms/forms"?{action:"DRAFT_GOOGLE_FORM",draft:draftFromTemplate(input.clubKey,input.templateId,input.title)}:input;

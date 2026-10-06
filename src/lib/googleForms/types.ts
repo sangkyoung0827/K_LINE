@@ -18,6 +18,8 @@ export type GoogleFormDraft = {
   applicationDeadline: string;
   clubKey: GoogleFormClubKey;
   description: string;
+  descriptionKo?: string;
+  descriptionEn?: string;
   editorEmail: string;
   location: string;
   questions: GoogleFormQuestion[];

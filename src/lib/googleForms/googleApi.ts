@@ -73,7 +73,7 @@ async function accessToken() {
   return tokens.access_token!;
 }
 
-async function googleFetch<T>(url: string, init: RequestInit = {}) {
+export async function googleFetch<T>(url: string, init: RequestInit = {}) {
   assertGoogleFormsTestEnvironment();
   const token = await accessToken();
   const response = await fetch(url, { ...init, signal: AbortSignal.timeout(30_000), headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init.headers || {}) }, cache: "no-store" });
@@ -188,7 +188,8 @@ export async function syncGoogleFormResponses(row: GoogleFormRegistryRow) {
     const mapped = mapResponseAnswers(form, response.answers);
     const answers = Object.fromEntries(Object.entries(mapped).map(([id, answer]) => [`${answer.title} [${id}]`, answer.values]));
     const emailFromAnswer = Object.values(mapped).find((answer) => /email|이메일/i.test(answer.title))?.values[0];
-    const respondentEmail = normalizeEmail(response.respondentEmail || emailFromAnswer);
+    const emailCandidate = normalizeEmail(response.respondentEmail || emailFromAnswer);
+    const respondentEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCandidate) ? emailCandidate : "";
     let matchedUserEmail: string | null = null;
     if (respondentEmail) {
       const members = await supabaseRequest<Array<{ email: string }>>(`site_members?select=email&email=eq.${encodeURIComponent(respondentEmail)}&limit=1`, { cache: "no-store" }).catch(() => []);

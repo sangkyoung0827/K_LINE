@@ -1,0 +1,23 @@
+{
+  "account": "samgkyoung1004@gmail.com",
+  "startedAt": "2026-10-06T08:05:33.186Z",
+  "formId": "1hwD3Xhy2RPsrtDFZEBRij8hvmfArzF001w7P0cP_aRA",
+  "permissionId": "15031632603677607843",
+  "expirationTime": null,
+  "nativeExpiryAccepted": false,
+  "postExpiryAccessVerified": false,
+  "cleanupVerified": true,
+  "responderUrl": "https://docs.google.com/forms/d/e/1FAIpQLSeu4jQUqZOfE7iOOkWgVi5LLQ01Ge_ce4ltd0-Of_QqamR-uw/viewform",
+  "testScope": "Real prefixed DB leases and Google permission worker; controlled membership outage, 30-second accelerated expiry, authenticated browser identity not tested",
+  "expiresAt": 1791273973043,
+  "durableLeaseVerified": true,
+  "workerResult": {
+    "revoked": 1,
+    "promoted": 0,
+    "retry": 0,
+    "attention": 0
+  },
+  "automaticRevocationVerified": true,
+  "finishedAt": "2026-10-06T08:06:23.244Z",
+  "testFormTrashed": true
+}
