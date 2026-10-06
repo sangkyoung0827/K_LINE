@@ -7,6 +7,9 @@
     "start": "expo start --dev-client",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "test:release": "node --test scripts/check-release.test.mjs",
+    "release:check": "node scripts/check-release.mjs",
+    "eas-build-pre-install": "node scripts/check-release.mjs --eas-hook",
     "export": "expo export --platform all",
     "prebuild": "expo prebuild --no-install"
   },
@@ -26,6 +29,7 @@
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
     "lucide-react-native": "1.52.0",
     "react": "19.2.3",

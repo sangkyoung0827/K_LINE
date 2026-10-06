@@ -18,6 +18,7 @@ const config: ExpoConfig = {
     blockedPermissions: [
       "android.permission.RECORD_AUDIO",
       "android.permission.CAMERA",
+      "android.permission.SYSTEM_ALERT_WINDOW",
     ],
   },
   web: { favicon: "./assets/icon.png", bundler: "metro" },

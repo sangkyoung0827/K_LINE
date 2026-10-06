@@ -2,6 +2,10 @@
 
 Independent Expo / React Native iOS and Android app, not a WebView of K_LINE.
 This is an unfinished development checkpoint, not an installable store release.
+A separate GitHub Actions workflow builds an Android arm64 test APK with embedded
+JavaScript and disposable template signing; see
+`../../docs/woohyukmon-1/installable-preview.md`. Its backend is not yet deployed.
+An APK artifact is not proof of native-device testing or store publication.
 
 ## Local commands
 
@@ -11,6 +15,7 @@ separately from the root Next.js app.
 ```sh
 npm ci
 npm run typecheck
+npm run test:release
 npx expo install --check
 npm run export
 npm run prebuild
@@ -49,3 +54,6 @@ See `../../docs/woohyukmon-1/release-checkpoint.md` for requirements and gaps.
 Bundle/package `com.kline.woohyukmon` is provisional until the owner registers it.
 No EAS project, developer account or signing identity has been created by the agent.
 No cloud build, store payment, contract acceptance or review submission was made.
+Store EAS production builds now run a fail-closed evidence check before dependency
+installation. Run `npm run release:check -- --platform=ios` (or `android`) to see
+the outstanding requirements. This guard does not enable any production API.
