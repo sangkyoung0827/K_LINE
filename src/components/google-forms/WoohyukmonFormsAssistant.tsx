@@ -16,7 +16,7 @@ export async function formsCommand(body: object): Promise<Result> {
   return result;
 }
 
-export function DraftReview({ initial, onComplete }: { initial: Result; onComplete?: () => void }) {
+export function DraftReview({ initial, onComplete, production = false }: { initial: Result; onComplete?: () => void; production?: boolean }) {
   const [result, setResult] = useState(initial);
   const [draft, setDraft] = useState(initial.workflow?.draft);
   const [notice, setNotice] = useState(noticeBody(initial.workflow?.notice || ""));
@@ -63,11 +63,11 @@ export function DraftReview({ initial, onComplete }: { initial: Result; onComple
     <button className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-4 text-sm" onClick={() => updateQuestions([...draft.questions, { id: crypto.randomUUID(), title: "", type: "short_answer", required: false, options: [] }])}><Plus className="h-4 w-4" />질문 추가</button>
     <label className="grid gap-2 text-sm font-semibold">공지 초안 / Notice<textarea className="form-field min-h-64" value={notice} onChange={(e) => { setNotice(e.target.value); setDirty(true); }} /></label>
     {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
-    <div className="flex flex-wrap gap-2"><button disabled={busy || !dirty} onClick={() => void run(false)} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-4 text-sm disabled:opacity-40"><Save className="h-4 w-4" />초안 변경 저장</button><button disabled={busy || dirty || !result.token || result.workflow.workflow_status === "notice_saved"} onClick={() => void run(true)} className="inline-flex min-h-11 items-center gap-2 bg-ink px-4 text-sm text-paper disabled:opacity-40"><Check className="h-4 w-4" />승인 · 비공개 테스트 생성</button></div>
+    <div className="flex flex-wrap gap-2"><button disabled={busy || !dirty} onClick={() => void run(false)} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-4 text-sm disabled:opacity-40"><Save className="h-4 w-4" />초안 변경 저장</button><button disabled={busy || dirty || !result.token || result.workflow.workflow_status === "notice_saved"} onClick={() => void run(true)} className="inline-flex min-h-11 items-center gap-2 bg-ink px-4 text-sm text-paper disabled:opacity-40"><Check className="h-4 w-4" />{production ? "승인 · 구글폼 생성" : "승인 · 비공개 테스트 생성"}</button></div>
   </div>;
 }
 
-export function WoohyukmonFormsAssistant() {
+export function WoohyukmonFormsAssistant({ production = false, onComplete }: { production?: boolean; onComplete?: () => void } = {}) {
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
@@ -77,7 +77,7 @@ export function WoohyukmonFormsAssistant() {
       <textarea aria-label="Google Forms activity command" className="form-field min-h-32 min-w-0 flex-1" value={message} onChange={(e) => setMessage(e.target.value)} />
       <button aria-label="명령 보내기" title="명령 보내기" disabled={busy || !message.trim()} className="flex h-11 w-11 shrink-0 items-center justify-center bg-ink text-paper transition hover:bg-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-40"><Send aria-hidden className="h-5 w-5" /></button>
     </form>{error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
-    {result ? <DraftReview key={result.token || result.summary} initial={result} /> : null}
+    {result ? <DraftReview key={result.token || result.summary} initial={result} production={production} onComplete={onComplete} /> : null}
     {result?.draft && !result.workflow ? <div className="grid gap-3 sm:grid-cols-2">{(["title", "activityDate", "applicationDeadline", "location"] as const).map((key) => <label key={key} className="grid gap-1 text-sm">{key}<input className="form-field" value={result.draft![key]} onChange={(e) => setResult({ ...result, draft: { ...result.draft!, [key]: e.target.value } })} /></label>)}<button disabled={busy || !result.draft.title.trim()} className="min-h-11 bg-ink px-4 text-sm text-paper disabled:opacity-40" onClick={() => { setBusy(true); void formsCommand({ action: "DRAFT_GOOGLE_FORM", draft: result.draft }).then(setResult).catch((failure) => setError((failure as Error).message)).finally(() => setBusy(false)); }}>초안 저장</button></div> : null}
   </section>;
 }

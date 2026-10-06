@@ -11,6 +11,7 @@ const system = `You design new ECC activity application forms for an administrat
 Return only a JSON object: {title,descriptionKo,descriptionEn,questions:[{title,type,required,options}]}.
 Write matching Korean and English participant-facing introductions (2-4 sentences each).
 Explain the requested experience and what participants will do, using only supplied facts.
+Do not rename or translate supplied venue names into a different venue. Keep the original venue name in both languages.
 Do not transfer rules from another activity to this activity.
 Use the request's language, with concise bilingual question labels where helpful.
 Design 3-10 useful questions for THIS activity, not a generic existing event.
@@ -78,9 +79,11 @@ export async function planNewActivity(message: string, options: { generate?: Gen
     if (/email|e-mail|이메일|전화|phone|주소|address|여권|passport|종교|religion|sexual|성적\s*지향|건강|health|medical|주민등록/i.test(String(item.title))) throw new Error("AI_QUESTION_REQUIRES_DATA_MINIMIZATION");
     return { ...item, id: `ai-${index}` };
   }).filter(item => !/활동\s*후.*(?:소감|평가)|참여\s*후.*(?:소감|평가)|post[- ]event|after (?:the )?(?:event|activity).*(?:reflection|feedback)/i.test(String(item.title)));
-  if (!questions.some(item => /카카오톡.*이름|kakao.*name/i.test(String(item.title)))) {
-    questions.unshift({ id: "ai-kakao-name", title: "KakaoTalk name / 카카오톡에 등록된 이름", type: "short_answer", required: true, options: [] });
-  }
+  const namePattern = /(?:카카오톡|kakao).*(?:이름|name)|^(?:참가자\s*)?(?:name|이름)(?:\s*\/\s*(?:name|이름))?$/i;
+  const nameIndex = questions.findIndex(item => namePattern.test(String(item.title)));
+  const name = nameIndex >= 0 ? questions.splice(nameIndex, 1)[0] : { id: "ai-kakao-name" };
+  for (let index = questions.length - 1; index >= 0; index--) if (namePattern.test(String(questions[index].title))) questions.splice(index, 1);
+  questions.unshift({ ...name, title: "KakaoTalk name / 카카오톡에 등록된 이름", type: "short_answer", required: true, options: [] });
   const requestsIndex = questions.findIndex(item => /요청사항|other requests|additional requests/i.test(String(item.title)));
   const requests = requestsIndex >= 0 ? questions.splice(requestsIndex, 1)[0] : { id: "ai-requests", title: "Other requests / 기타 요청사항", type: "paragraph", options: [] };
   questions.push({ ...requests, required: false });

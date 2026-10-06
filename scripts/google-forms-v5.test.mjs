@@ -767,6 +767,35 @@ test("production requires explicit admin opt-in and never enables member entry o
   assert.throws(() => disabled.load("src/lib/googleForms/safety.ts").assertGoogleFormsTestEnvironment(), /TEST_ENVIRONMENT/);
 });
 
+test("all presets omit email and preserve supplied date-only logistics without inventing a time", () => {
+  const h = harness();
+  const { googleFormTemplates } = h.load("src/lib/googleForms/templates.ts");
+  for (const template of googleFormTemplates) assert.equal(template.questions.some(q => /email|이메일/i.test(q.title)), false);
+  const planning = h.load("src/lib/googleForms/planning.ts");
+  const { draft: planned } = planning.planActivity("책갈피 만들기 구글폼. 신청마감 2026-10-19, 날짜 2026-10-20, 장소: 전북대학교 동아리 전용관.");
+  assert.equal(planned.activityDate, "2026-10-20");
+  assert.equal(planned.applicationDeadline, "2026-10-19");
+  assert.equal(planned.location, "전북대학교 동아리 전용관");
+  const notice = planning.generateActivityNotice({ ...planned, title: "책갈피 만들기", templateId: "blank" });
+  assert.match(notice, /2026년 10월 20일/);
+  assert.match(notice, /October 19, 2026/);
+  assert.doesNotMatch(notice, /오전|오후|AM|PM|KST/);
+});
+
+test("mixed-language Kakao names produce exactly one identity question", async () => {
+  const h = harness();
+  const result = await h.load("src/lib/googleForms/aiPlanning.ts").planNewActivity("전통 매듭 책갈피 만들기", {
+    enabled: true,
+    generate: async () => ({ provider: "test", answer: JSON.stringify({ title: "책갈피 만들기", descriptionKo: "전통 매듭으로 책갈피를 만듭니다.", descriptionEn: "Make a bookmark using traditional knots.", questions: [
+      { title: "참가자 KakaoTalk 이름", type: "short_answer", required: true, options: [] },
+      { title: "Name / 이름", type: "short_answer", required: true, options: [] },
+      { title: "Preferred color / 선호 색상", type: "short_answer", required: true, options: [] }
+    ] }) })
+  });
+  assert.equal(result.draft.questions.filter(q => /name|이름/i.test(q.title)).length, 1);
+  assert.equal(result.draft.questions[0].title, "KakaoTalk name / 카카오톡에 등록된 이름");
+});
+
 test("shared-project migration preserves native data and denies browser roles", async () => {
   const db = new PGlite();
   try {
