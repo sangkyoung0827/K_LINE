@@ -2,6 +2,32 @@
 
 Date: 2026-10-07
 
+## Verified Build Receipt
+
+The GitHub Actions Android preview build succeeded on 2026-10-07:
+https://github.com/sangkyoung0827/K_LINE/actions/runs/37501743355
+
+- Source branch head: `670ecd8d4ad1b48a73b94b9b482d8a3b87862d0d`.
+- CI checkout (PR merge commit): `20907156482eceaa64191ab6994f9befaa35bb30`.
+- APK size: 34,351,755 bytes.
+- SHA-256: `3fb8dfdbd70e69339428f9afb0e57bac079c2bee1697eb3749c52b4c1d024eef`.
+- App name: `우혁몬(WOOHYUKMON)`; package: `com.kline.woohyukmon`.
+- Minimum Android SDK: 24; target SDK: 36; architecture: arm64-v8a.
+- Signature: Android Debug template, verified by Android SDK apksigner.
+- JavaScript bundle embedded; camera, audio recording and overlay permissions absent.
+
+Downloaded APK bytes were independently hashed locally and matched the workflow
+receipt. The retained file is under the workspace's
+`outputs/woohyukmon-1-20261006/android-preview-20261007/android/app/build/outputs/apk/release/app-release.apk`.
+The artifact also includes badging, permissions and verification JSON.
+
+This receipt supersedes the earlier checkpoint statement that no cloud build had
+occurred: a GitHub Actions native TEST build has now occurred. No EAS store build,
+owner signing credential, store submission or production rollout occurred.
+The APK's digital signature does not make it an owner-signed store binary.
+All development/testing/submitted/approved/published completion flags remain false.
+Both developer accounts remain unenrolled, as confirmed by the owner.
+
 ## What This Artifact Is
 
 The Android preview workflow compiles a real arm64 APK with embedded JavaScript
