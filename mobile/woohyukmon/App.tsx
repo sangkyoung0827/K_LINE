@@ -132,13 +132,20 @@ type AppRoutes = {
 const Tabs = createBottomTabNavigator<TabRoutes>();
 const Stack = createNativeStackNavigator<AppRoutes>();
 const color = {
-  ink: "#202825",
-  muted: "#63716B",
-  green: "#176C54",
-  line: "#DEE5E1",
-  bg: "#F8FAF9",
+  ink: "#111827",
+  muted: "#4B5563",
+  primary: "#1F2A44",
+  line: "rgba(31, 42, 68, 0.14)",
+  bg: "#F4EBDD",
+  panel: "#FFFCF6",
+  hanji: "#EFE3D0",
+  selected: "rgba(31, 42, 68, 0.10)",
   red: "#AD353B",
-  gold: "#B88830",
+  gold: "#D6A85A",
+};
+const font = {
+  sans: Platform.OS === "android" ? "sans-serif" : "Helvetica Neue",
+  serif: Platform.OS === "android" ? "serif" : "Georgia",
 };
 const statuses: Record<string, [string, string]> = {
   draft: ["초안", "Draft"],
@@ -230,11 +237,13 @@ function Button({
         secondary && s.secondary,
         danger && s.danger,
         (busy || disabled) && s.disabled,
-        pressed && { opacity: 0.75 },
+        pressed && {
+          backgroundColor: secondary || danger ? color.hanji : color.ink,
+        },
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={secondary ? color.green : "#FFF"} />
+        <ActivityIndicator color={secondary ? color.primary : color.panel} />
       ) : (
         icon
       )}
@@ -265,6 +274,7 @@ function Field({
   numeric?: boolean;
   placeholder?: string;
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={s.field}>
       <Text style={s.label}>{label}</Text>
@@ -276,7 +286,10 @@ function Field({
         keyboardType={numeric ? "number-pad" : "default"}
         placeholder={placeholder}
         placeholderTextColor={color.muted}
-        style={[s.input, multiline && s.multiline]}
+        selectionColor={color.gold}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={[s.input, multiline && s.multiline, focused && s.inputFocused]}
       />
     </View>
   );
@@ -297,7 +310,7 @@ function Toggle({
         accessibilityLabel={label}
         value={value}
         onValueChange={onChange}
-        trackColor={{ true: color.green }}
+        trackColor={{ true: color.primary }}
       />
     </View>
   );
@@ -340,7 +353,7 @@ function Feedback({
   const { t } = useApp();
   return (
     <>
-      {busy && <ActivityIndicator style={s.loading} color={color.green} />}
+      {busy && <ActivityIndicator style={s.loading} color={color.primary} />}
       {!!error && (
         <View style={s.feedback}>
           <Text accessibilityRole="alert" style={s.error}>
@@ -351,7 +364,7 @@ function Feedback({
               secondary
               label={t("다시 시도", "Retry")}
               onPress={retry}
-              icon={<RefreshCw size={18} color={color.green} />}
+              icon={<RefreshCw size={18} color={color.primary} />}
             />
           )}
         </View>
@@ -500,7 +513,7 @@ function Questions({
                   }
                 >
                   <Text style={s.text}>{option}</Text>
-                  {checked && <Check size={18} color={color.green} />}
+                  {checked && <Check size={18} color={color.primary} />}
                 </Pressable>
               );
             })}
@@ -978,7 +991,7 @@ function CreateScreen({ navigation }: any) {
           busy={busy}
           disabled={!organizationId || !prompt.trim() || user.readOnly}
           label={t("AI 초안 만들기", "Generate AI draft")}
-          icon={<WandSparkles color={color.green} size={18} />}
+          icon={<WandSparkles color={color.primary} size={18} />}
           onPress={() =>
             void run(async () => {
               const r = await api<{
@@ -1145,7 +1158,7 @@ function CreateScreen({ navigation }: any) {
         secondary
         disabled={questions.length >= 15}
         label={t("질문 추가", "Add question")}
-        icon={<Plus size={18} color={color.green} />}
+        icon={<Plus size={18} color={color.primary} />}
         onPress={() =>
           setQuestions([
             ...questions,
@@ -1478,7 +1491,17 @@ function MyScreen() {
   return (
     <Page>
       <Text style={s.title}>{t("마이", "My")}</Text>
-      <Text style={s.heading}>{user?.name || t("로그인", "Sign in")}</Text>
+      <View style={s.identity}>
+        <View style={s.identityIcon}>
+          <UserRound size={24} color={color.panel} />
+        </View>
+        <View style={s.identityText}>
+          <Text style={s.heading}>{user?.name || t("로그인", "Sign in")}</Text>
+          {!!user && (
+            <Text style={s.meta}>{t("K_LINE 계정 연결됨", "Connected to K_LINE")}</Text>
+          )}
+        </View>
+      </View>
       <Feedback error={error} busy={busy} />
       {!user ? (
         <Button
@@ -1492,7 +1515,6 @@ function MyScreen() {
         />
       ) : (
         <>
-          <Text style={s.label}>{t("K_LINE 계정 연결됨", "Connected to K_LINE")}</Text>
           <Text selectable style={s.meta}>
             {user.email || user.id}
           </Text>
@@ -1512,9 +1534,28 @@ function MyScreen() {
       )}
       <View style={s.section}>
         <Text style={s.label}>{t("언어", "Language")}</Text>
-        <View style={s.wrap}>
-          <Button label="한국어" secondary={!ko} onPress={() => setKo(true)} />
-          <Button label="English" secondary={ko} onPress={() => setKo(false)} />
+        <View style={s.languageControl}>
+          {[
+            { label: "한국어", active: ko, value: true },
+            { label: "English", active: !ko, value: false },
+          ].map((item) => (
+            <Pressable
+              key={item.label}
+              accessibilityRole="button"
+              accessibilityLabel={item.label}
+              accessibilityState={{ selected: item.active }}
+              onPress={() => setKo(item.value)}
+              style={({ pressed }) => [
+                s.languageOption,
+                item.active && s.languageActive,
+                pressed && { opacity: 0.75 },
+              ]}
+            >
+              <Text style={[s.label, item.active && { color: color.panel }]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
         </View>
       </View>
       {!!user && (
@@ -1552,20 +1593,33 @@ function MainTabs() {
     <Tabs.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: color.green,
+        tabBarActiveTintColor: color.primary,
         tabBarInactiveTintColor: color.muted,
         tabBarStyle: {
           borderTopColor: color.line,
+          backgroundColor: color.bg,
           height: Platform.OS === "web" ? 70 : undefined,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarLabelStyle: {
+          fontFamily: font.sans,
+          fontSize: 11,
+          fontWeight: "600",
+          letterSpacing: 0,
+        },
+        tabBarItemStyle: { minHeight: 56 },
+        tabBarIconStyle: { width: 48, height: 32, borderRadius: 8 },
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
         name="Home"
         options={{
           title: t("홈", "Home"),
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[s.tabIcon, focused && s.tabIconActive]}>
+              <Home color={color} size={size} />
+            </View>
+          ),
         }}
       >
         {(props) => <EventList {...props} home />}
@@ -1575,8 +1629,10 @@ function MainTabs() {
         component={EventList}
         options={{
           title: t("행사", "Events"),
-          tabBarIcon: ({ color, size }) => (
-            <CalendarDays color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[s.tabIcon, focused && s.tabIconActive]}>
+              <CalendarDays color={color} size={size} />
+            </View>
           ),
         }}
       />
@@ -1585,8 +1641,10 @@ function MainTabs() {
         component={MemoryList}
         options={{
           title: t("추억록", "Memories"),
-          tabBarIcon: ({ color, size }) => (
-            <BookOpen color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[s.tabIcon, focused && s.tabIconActive]}>
+              <BookOpen color={color} size={size} />
+            </View>
           ),
         }}
       />
@@ -1595,7 +1653,11 @@ function MainTabs() {
         component={CreateScreen}
         options={{
           title: t("만들기", "Create"),
-          tabBarIcon: ({ color, size }) => <Plus color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[s.tabIcon, focused && s.tabIconActive]}>
+              <Plus color={color} size={size} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
@@ -1603,8 +1665,10 @@ function MainTabs() {
         component={MyScreen}
         options={{
           title: t("마이", "My"),
-          tabBarIcon: ({ color, size }) => (
-            <UserRound color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[s.tabIcon, focused && s.tabIconActive]}>
+              <UserRound color={color} size={size} />
+            </View>
           ),
         }}
       />
@@ -1640,7 +1704,7 @@ export default function App() {
         <StatusBar style="dark" />
         {!ready ? (
           <View style={[s.fill, { justifyContent: "center" }]}>
-            <ActivityIndicator color={color.green} />
+            <ActivityIndicator color={color.primary} />
           </View>
         ) : (
           <NavigationContainer<AppRoutes>
@@ -1656,8 +1720,10 @@ export default function App() {
           >
             <Stack.Navigator
               screenOptions={{
-                headerTintColor: color.ink,
-                headerStyle: { backgroundColor: "#FFFFFF" },
+                headerTintColor: color.primary,
+                headerStyle: { backgroundColor: color.bg },
+                headerTitleStyle: { fontFamily: font.sans, fontWeight: "700" },
+                headerShadowVisible: false,
                 contentStyle: { backgroundColor: color.bg },
               }}
             >
@@ -1666,7 +1732,18 @@ export default function App() {
                 component={MainTabs}
                 options={{
                   title: "WOOHYUKMON",
-                  headerTitleStyle: { fontSize: 17 },
+                  headerTitle: () => (
+                    <View style={s.headerBrand}>
+                      <Image
+                        source={require("./assets/icon.png")}
+                        style={s.headerLogo}
+                        accessible={false}
+                      />
+                      <Text accessibilityRole="header" style={s.wordmark}>
+                        WOOHYUKMON
+                      </Text>
+                    </View>
+                  ),
                 }}
               />
               <Stack.Screen
@@ -1702,13 +1779,24 @@ const s = StyleSheet.create({
     paddingBottom: 40,
   },
   brand: { alignItems: "center", paddingVertical: 24, gap: 12 },
+  headerBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerLogo: { width: 36, height: 36, borderRadius: 8 },
+  wordmark: { fontFamily: font.serif, fontSize: 20, fontWeight: "700", color: color.primary, letterSpacing: 0 },
   logo: { width: 112, height: 112 },
-  title: { fontSize: 28, fontWeight: "700", color: color.ink, flexShrink: 1 },
-  heading: { fontSize: 20, fontWeight: "700", color: color.ink, flexShrink: 1 },
-  text: { fontSize: 16, color: color.ink },
-  meta: { fontSize: 14, lineHeight: 22, color: color.muted },
-  prose: { fontSize: 16, lineHeight: 26, color: color.ink },
-  badge: { fontSize: 13, color: color.green, fontWeight: "700" },
+  title: { fontFamily: font.serif, fontSize: 28, fontWeight: "700", color: color.primary, flexShrink: 1, letterSpacing: 0 },
+  heading: { fontFamily: font.sans, fontSize: 20, fontWeight: "700", color: color.primary, flexShrink: 1, letterSpacing: 0 },
+  text: { fontFamily: font.sans, fontSize: 16, color: color.ink },
+  meta: { fontFamily: font.sans, fontSize: 14, lineHeight: 22, color: color.muted, flexShrink: 1 },
+  prose: { fontFamily: font.sans, fontSize: 16, lineHeight: 26, color: color.ink },
+  badge: { fontFamily: font.sans, fontSize: 13, color: color.primary, fontWeight: "700" },
+  identity: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  identityIcon: { width: 48, height: 48, backgroundColor: color.primary, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  identityText: { flex: 1, gap: 4 },
+  languageControl: { flexDirection: "row", alignSelf: "flex-start", backgroundColor: color.panel, borderWidth: 1, borderColor: color.line, borderRadius: 12, padding: 4, gap: 4 },
+  languageOption: { minHeight: 44, minWidth: 88, paddingHorizontal: 16, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  languageActive: { backgroundColor: color.primary },
+  tabIcon: { width: 48, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  tabIconActive: { backgroundColor: color.selected },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -1717,32 +1805,32 @@ const s = StyleSheet.create({
   },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   button: {
-    backgroundColor: color.green,
+    backgroundColor: color.primary,
     borderWidth: 1,
-    borderColor: color.green,
+    borderColor: color.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    minHeight: 46,
-    borderRadius: 6,
+    minHeight: 48,
+    borderRadius: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
     flexShrink: 1,
   },
-  buttonText: { color: "#FFF", fontSize: 15, fontWeight: "600", flexShrink: 1 },
-  secondary: { backgroundColor: "#FFFFFF", borderColor: color.line },
-  danger: { backgroundColor: "#FFF", borderColor: "#E3BDBD" },
+  buttonText: { fontFamily: font.sans, color: color.panel, fontSize: 15, fontWeight: "700", flexShrink: 1 },
+  secondary: { backgroundColor: color.panel, borderColor: color.line },
+  danger: { backgroundColor: color.panel, borderColor: "#E3BDBD" },
   disabled: { opacity: 0.45 },
   card: {
-    backgroundColor: "#FFF",
+    backgroundColor: color.panel,
     borderWidth: 1,
     borderColor: color.line,
     borderRadius: 8,
     padding: 18,
     gap: 8,
   },
-  cardTitle: { fontSize: 20, fontWeight: "600", color: color.ink },
+  cardTitle: { fontFamily: font.sans, fontSize: 20, fontWeight: "700", color: color.primary, flexShrink: 1 },
   section: {
     borderTopWidth: 1,
     borderTopColor: color.line,
@@ -1750,17 +1838,19 @@ const s = StyleSheet.create({
     gap: 14,
   },
   field: { gap: 8 },
-  label: { fontSize: 14, fontWeight: "600", color: color.ink },
+  label: { fontFamily: font.sans, fontSize: 14, fontWeight: "600", color: color.ink },
   input: {
-    backgroundColor: "#FFF",
+    backgroundColor: color.panel,
     borderColor: color.line,
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 14,
     padding: 13,
     fontSize: 16,
+    fontFamily: font.sans,
     color: color.ink,
     minHeight: 48,
   },
+  inputFocused: { borderColor: color.gold, backgroundColor: "#FFFFFF" },
   multiline: { minHeight: 120, textAlignVertical: "top" },
   toggle: {
     flexDirection: "row",
@@ -1774,19 +1864,19 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     borderWidth: 1,
     borderColor: color.line,
-    borderRadius: 6,
+    borderRadius: 12,
     padding: 14,
     minHeight: 48,
   },
-  selected: { borderColor: color.green, backgroundColor: "#EEF7F2" },
+  selected: { borderColor: color.primary, backgroundColor: color.selected },
   feedback: { gap: 12, paddingVertical: 8 },
-  error: { color: color.red, fontSize: 15, lineHeight: 23 },
+  error: { fontFamily: font.sans, color: color.red, fontSize: 15, lineHeight: 23 },
   loading: { paddingVertical: 12 },
-  empty: { fontSize: 16, color: color.muted, paddingVertical: 36 },
+  empty: { fontFamily: font.sans, fontSize: 16, color: color.muted, paddingVertical: 36 },
   photo: {
     width: "100%",
     aspectRatio: 4 / 3,
     resizeMode: "contain",
-    backgroundColor: "#E8EFEB",
+    backgroundColor: color.hanji,
   },
 });
