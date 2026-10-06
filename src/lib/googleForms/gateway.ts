@@ -5,7 +5,7 @@ import { assertClubAccess, getGoogleFormsAccess, GoogleFormsAuthorizationError }
 import { createGoogleForm, registryColumns, setGoogleFormStatus, syncGoogleFormResponses } from "./googleApi";
 import { googleFormsActionRegistry, generateActivityNotice, noticeBody, noticeWithFormUrl, planActivity, type GoogleFormsAction } from "./planning";
 import { parseGoogleFormDraft } from "./validation";
-import { assertGoogleFormsNoticePublicationApproval } from "./safety";
+import { assertGoogleFormsNoticePublicationApproval, isGoogleFormsAdminProduction } from "./safety";
 import { withCurrentGatheringDays } from "./gathering";
 import { planNewActivity } from "./aiPlanning";
 import { eccFormApplicationUrl } from "./eccResponderEntry";
@@ -114,7 +114,7 @@ export async function handleGoogleFormsOperation(body: Command): Promise<NextRes
       const completed = await execute(workflow, access.email);
       const forms = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?select=${registryColumns}&id=eq.${completed.form_registry_id}&limit=1`, { cache: "no-store" });
       if (!forms[0]) throw new Error("FORM_NOT_FOUND");
-      return reply({ handled: true, kind: "result", title: "비공개 테스트 작업 완료", summary: "비공개 Google Form과 테스트 공지 초안이 저장되었습니다. 운영 게시·배포는 하지 않았습니다.", succeeded: 1, failed: 0, workflow: completed, form: forms[0], notice: noticeWithFormUrl(completed.notice, forms[0].responder_url), applicationUrl: eccFormApplicationUrl(forms[0]) });
+      return reply({ handled: true, kind: "result", title: isGoogleFormsAdminProduction() ? "행사 신청폼 생성 완료" : "비공개 테스트 작업 완료", summary: isGoogleFormsAdminProduction() ? "Google Form과 공지 초안이 저장되었습니다. 구글폼 원본에서 게시한 뒤 공지와 링크를 공유할 수 있습니다." : "비공개 Google Form과 테스트 공지 초안이 저장되었습니다. 운영 게시·배포는 하지 않았습니다.", succeeded: 1, failed: 0, workflow: completed, form: forms[0], notice: noticeWithFormUrl(completed.notice, forms[0].responder_url), applicationUrl: eccFormApplicationUrl(forms[0]) });
     }
     if (action === "DRAFT_GOOGLE_FORM" || action === "GENERATE_ACTIVITY_NOTICE" || (!recognized && message)) {
       let planned = body.draft ? { draft: parseGoogleFormDraft(body.draft), missing: [] } : planActivity(message);

@@ -35,3 +35,24 @@ Respondent temporary access additionally requires a persistent supervised revoke
 monitoring; this must not be simulated by a browser timer or silently disabled guard.
 
 Preserve the existing KLINE application system until an explicit later retirement task.
+
+## Administrator-Only Production Release
+
+The user approved administrator tools first on 2026-10-06. Production uses explicit
+`GOOGLE_FORMS_ENVIRONMENT=admin-production` and administrator opt-in. The store
+always uses the separate `kline_forms_live_` namespace. The additive migration
+creates seven server-only tables, enables RLS and revokes browser-role access.
+Only the approved encrypted operations account connection was copied from the test
+namespace; test forms, responses and member data were not copied.
+
+Production access is restricted to ECC administrators and existing global super
+administrators. Read-only developer restrictions remain. Respondent gating, temporary
+entry and public notice publication are forcibly disabled in this release, even if
+test flags are accidentally enabled. Existing native applications remain intact.
+Forms are created as drafts; administrators publish them from the Google original
+before sharing the separately generated notice and application link. OAuth reconnect
+is disabled until a production redirect is registered; the previously approved
+operations refresh connection is reused without changing KLINE login credentials.
+
+Local checks: 49 Google Forms tests, typecheck, production build and browser metadata
+validation pass. Full regression/browser execution must pass in CI before merge.

@@ -47,7 +47,7 @@ function harness(envOverrides = {}) {
     "@/lib/eccAccessRetry": { isTemporaryEccLookupError: error => error?.message === "transient" },
     "server-only": {}, "@/lib/googleForms/store": { supabaseRequest: store },
     "@/lib/googleForms/crypto": { decryptGoogleToken: () => "test-refresh" },
-    "@/lib/googleForms/safety": { assertGoogleFormsTestEnvironment: () => {}, assertGoogleFormsPublicationApproval: () => {}, assertGoogleFormsNoticePublicationApproval: () => { throw new Error("PUBLIC_NOTICE_PUBLICATION_REQUIRES_SEPARATE_APPROVAL"); } },
+    "@/lib/googleForms/safety": { isGoogleFormsAdminProduction: () => envOverrides.GOOGLE_FORMS_ENVIRONMENT === "admin-production" && envOverrides.GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED === "true", assertGoogleFormsTestEnvironment: () => {}, assertGoogleFormsPublicationApproval: () => {}, assertGoogleFormsNoticePublicationApproval: () => { throw new Error("PUBLIC_NOTICE_PUBLICATION_REQUIRES_SEPARATE_APPROVAL"); } },
     "@/lib/googleForms/access": {
       GoogleFormsAuthorizationError: class extends Error { constructor(message, status) { super(message); this.status = status; } },
       getGoogleFormsAccess: async () => ({ email: "admin@example.test", authenticated: control.authenticated, manageableClubs: control.manageableClubs ?? ["ecc"], isReadOnly: !control.canWrite }),
@@ -733,7 +733,7 @@ test("shared project requests can only reach prefixed test tables", async () => 
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
     process: { env }, URL, Headers, AbortSignal,
     fetch: async (url) => { requests.push(url); return Response.json([]); }
-  })((id) => id === "server-only" ? {} : { assertGoogleFormsTestEnvironment() {} }, module, module.exports);
+  })((id) => id === "server-only" ? {} : { assertGoogleFormsTestEnvironment() {}, isGoogleFormsAdminProduction: () => env.GOOGLE_FORMS_ENVIRONMENT === "admin-production" && env.GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED === "true" }, module, module.exports);
   const store = module.exports.supabaseRequest;
   for (const table of ["google_forms", "club_board_posts", "site_members", "google_oauth_connections"]) {
     await store(`${table}?select=*&limit=1`);
@@ -747,6 +747,24 @@ test("shared project requests can only reach prefixed test tables", async () => 
   await assert.rejects(store("google_forms"), /ISOLATED/);
   env.GOOGLE_FORMS_TEST_TABLE_PREFIX = "other_";
   await assert.rejects(store("google_forms"), /INVALID/);
+  env.GOOGLE_FORMS_ENVIRONMENT = "admin-production";
+  env.GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED = "true";
+  env.SUPABASE_SERVICE_ROLE_KEY = "live-key";
+  await store("google_forms?select=*&limit=1");
+  assert.equal(requests.at(-1), `${env.SUPABASE_URL}/rest/v1/kline_forms_live_google_forms?select=*&limit=1`);
+  for (const path of ["ecc_roles", "site_members", "ecc_form_entry_leases", "ecc_form_revoker_health", "rpc/ecc_form_lock"]) await assert.rejects(store(path), /NOT_ALLOWED/);
+});
+
+test("production requires explicit admin opt-in and never enables member entry or publication", () => {
+  const h = harness({ GOOGLE_FORMS_ENVIRONMENT: "admin-production", GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED: "true", GOOGLE_FORMS_AUTOMATION_ENABLED: "true", VERCEL_ENV: "production", GOOGLE_FORMS_ECC_RESPONDER_GATE_ENABLED: "true" });
+  const safety = h.load("src/lib/googleForms/safety.ts");
+  assert.doesNotThrow(() => safety.assertGoogleFormsTestEnvironment());
+  assert.throws(() => safety.assertGoogleFormsPublicationApproval(), /PUBLICATION_NOT_ENABLED/);
+  assert.throws(() => safety.assertGoogleFormsNoticePublicationApproval(), /PUBLICATION_NOT_ENABLED/);
+  const entry = h.load("src/lib/googleForms/eccResponderEntry.ts");
+  assert.equal(entry.eccFormApplicationUrl({ club_key: "ecc", responder_url: "https://docs.google.com/forms/d/e/public-form/viewform" }), "https://docs.google.com/forms/d/e/public-form/viewform");
+  const disabled = harness({ GOOGLE_FORMS_ENVIRONMENT: "admin-production", GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED: "false", GOOGLE_FORMS_AUTOMATION_ENABLED: "true", VERCEL_ENV: "production" });
+  assert.throws(() => disabled.load("src/lib/googleForms/safety.ts").assertGoogleFormsTestEnvironment(), /TEST_ENVIRONMENT/);
 });
 
 test("shared-project migration preserves native data and denies browser roles", async () => {

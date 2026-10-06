@@ -6,7 +6,7 @@ import { supabaseRequest } from "./store";
 import { decryptGoogleToken, encryptGoogleToken } from "./crypto";
 import type { GoogleFormDraft, GoogleFormQuestion, GoogleFormRegistryRow, GoogleFormStatus } from "./types";
 import { actualResponderUrl, mapResponseAnswers, type FormStructure, type FormAnswer } from "./responses";
-import { assertGoogleFormsTestEnvironment, assertGoogleFormsPublicationApproval } from "./safety";
+import { assertGoogleFormsTestEnvironment, assertGoogleFormsPublicationApproval, isGoogleFormsAdminProduction } from "./safety";
 
 type OAuthConnection = { account_email: string; encrypted_refresh_token: string; scopes: string[] };
 type GoogleTokenResponse = { access_token?: string; expires_in?: number; refresh_token?: string; scope?: string; token_type?: string; error?: string; error_description?: string };
@@ -20,7 +20,7 @@ function oauthConfig() {
   assertGoogleFormsTestEnvironment();
   const clientId = (process.env.GOOGLE_FORMS_CLIENT_ID || process.env.AUTH_GOOGLE_ID)?.trim();
   const clientSecret = (process.env.GOOGLE_FORMS_CLIENT_SECRET || process.env.AUTH_GOOGLE_SECRET)?.trim();
-  const origin = process.env.GOOGLE_FORMS_TEST_ORIGIN?.replace(/\/$/, "");
+  const origin = (isGoogleFormsAdminProduction() ? process.env.GOOGLE_FORMS_ORIGIN : process.env.GOOGLE_FORMS_TEST_ORIGIN)?.replace(/\/$/, "");
   if (!origin) throw new Error("GOOGLE_FORMS_TEST_ORIGIN_REQUIRED");
   if (!clientId || !clientSecret) throw new Error("Google Forms OAuth client is not configured.");
   return { clientId, clientSecret, redirectUri: `${origin}/api/google-forms/oauth/callback` };
@@ -34,6 +34,7 @@ export const googleFormsScopes = [
 ];
 
 export function googleAuthorizationUrl(state: string) {
+  if (isGoogleFormsAdminProduction()) throw new Error("GOOGLE_FORMS_RECONNECT_NOT_ENABLED");
   const { clientId, redirectUri } = oauthConfig();
   const query = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", access_type: "offline", prompt: "consent", include_granted_scopes: "true", scope: googleFormsScopes.join(" "), state });
   return `https://accounts.google.com/o/oauth2/v2/auth?${query}`;
@@ -41,7 +42,8 @@ export function googleAuthorizationUrl(state: string) {
 
 async function exchange(params: URLSearchParams) {
   const { clientId, clientSecret, redirectUri } = oauthConfig();
-  params.set("client_id", clientId); params.set("client_secret", clientSecret); params.set("redirect_uri", redirectUri);
+  params.set("client_id", clientId); params.set("client_secret", clientSecret);
+  if (params.get("grant_type") === "authorization_code") params.set("redirect_uri", redirectUri);
   const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", signal: AbortSignal.timeout(20_000), headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: params, cache: "no-store" });
   const data = await response.json() as GoogleTokenResponse;
   if (!response.ok || !data.access_token) throw new Error(`Google OAuth token exchange failed (${response.status}).`);
@@ -49,6 +51,7 @@ async function exchange(params: URLSearchParams) {
 }
 
 export async function connectGoogleOperationsAccount(code: string, connectedBy: string) {
+  if (isGoogleFormsAdminProduction()) throw new Error("GOOGLE_FORMS_RECONNECT_NOT_ENABLED");
   const tokens = await exchange(new URLSearchParams({ code, grant_type: "authorization_code" }));
   if (!tokens.refresh_token) throw new Error("Google did not return an offline refresh token. Revoke the prior grant and reconnect.");
   const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tokens.access_token}` }, cache: "no-store" });

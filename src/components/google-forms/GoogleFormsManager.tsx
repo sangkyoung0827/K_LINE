@@ -10,11 +10,11 @@ import { WoohyukmonFormsAssistant, type WorkflowPreview } from "./WoohyukmonForm
 import { applicantNames, googleTeamNotice } from "@/lib/googleForms/applicants";
 import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 
-type Props = { initialAccess: GoogleFormsAccess; templates: GoogleFormTemplate[] };
+type Props = { initialAccess: GoogleFormsAccess; templates: GoogleFormTemplate[]; production?: boolean };
 type ListResponse = { access: GoogleFormsAccess; connection: { connected: boolean; accountEmail: string }; forms: GoogleFormRegistryRow[]; error?: string };
 type MirrorResponse = { responses: Array<{ id: string; submitted_at: string; respondent_email: string | null; answers_json: Record<string, string[]> }>; error?: string };
 
-export function GoogleFormsManager({ initialAccess, templates }: Props) {
+export function GoogleFormsManager({ initialAccess, templates, production = false }: Props) {
   const [section, setSection] = useState("assistant");
   const [preview, setPreview] = useState<{ workflow: WorkflowPreview; token: string } | null>(null);
   const [data, setData] = useState<ListResponse>({ access: initialAccess, connection: { connected: false, accountEmail: "" }, forms: [] });
@@ -74,7 +74,7 @@ export function GoogleFormsManager({ initialAccess, templates }: Props) {
   }
   return <section className="bg-paper py-10 sm:py-16"><div className="mx-auto max-w-7xl px-5 md:px-8">
     <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold underline"><ArrowLeft className="h-4 w-4" />K_LINE</Link>
-    <div className="mt-6 flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase text-brass">Google Forms · Test</p><h1 className="mt-2 font-serif text-3xl font-semibold text-ink sm:text-4xl">Application management</h1></div>{initialAccess.canConnect ? <a href="/api/google-forms/oauth/start" className="inline-flex min-h-11 items-center bg-ink px-5 text-sm font-semibold text-paper">{data.connection.connected ? `Reconnect ${data.connection.accountEmail}` : "Connect test Google account"}</a> : null}</div>
+    <div className="mt-6 flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase text-brass">{production ? "ECC · Google Forms" : "Google Forms · Test"}</p><h1 className="mt-2 font-serif text-3xl font-semibold text-ink sm:text-4xl">{production ? "행사 만들기" : "Application management"}</h1></div>{initialAccess.canConnect ? <a href="/api/google-forms/oauth/start" className="inline-flex min-h-11 items-center bg-ink px-5 text-sm font-semibold text-paper">{data.connection.connected ? `Reconnect ${data.connection.accountEmail}` : "Connect test Google account"}</a> : null}</div>
     <div role="tablist" aria-label="Forms management" className="mt-6 flex flex-wrap gap-2">{[["assistant", "우혁몬 5.0"], ["forms", "Google Forms"], ["applicants", "신청자 관리"]].map(([id, label]) => <button key={id} role="tab" aria-selected={section === id} onClick={() => setSection(id)} className={`min-h-11 px-4 text-sm font-semibold ${section === id ? "bg-ink text-paper" : "border border-ink/20"}`}>{label}</button>)}</div>
     {section === "assistant" && !initialAccess.isReadOnly ? <WoohyukmonFormsAssistant /> : null}
     {message ? <p role="status" className="mt-5 border border-brass/30 bg-brass/10 p-3 text-sm font-semibold text-ink">{message}</p> : null}

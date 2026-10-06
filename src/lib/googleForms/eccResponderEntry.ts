@@ -6,7 +6,7 @@ import { normalizeEmail } from "@/lib/admin";
 import { googleFetch } from "./googleApi";
 import { actualResponderUrl } from "./responses";
 import { supabaseRequest } from "./store";
-import { assertGoogleFormsTestEnvironment } from "./safety";
+import { assertGoogleFormsTestEnvironment, isGoogleFormsAdminProduction } from "./safety";
 import type { GoogleFormRegistryRow } from "./types";
 import { grantWithServerRevocation } from "./eccFormLeases";
 
@@ -18,6 +18,7 @@ const driveBase = "https://www.googleapis.com/drive/v3/files";
 
 export function assertEccResponderGate() {
   assertGoogleFormsTestEnvironment();
+  if (isGoogleFormsAdminProduction()) throw new Error("ECC_FORM_GATE_DISABLED");
   if (process.env.GOOGLE_FORMS_ECC_RESPONDER_GATE_ENABLED !== "true") throw new Error("ECC_FORM_GATE_DISABLED");
 }
 
@@ -129,7 +130,7 @@ export async function grantEccFormResponder(form: GoogleFormRegistryRow, email: 
 }
 
 export function eccFormApplicationUrl(form: GoogleFormRegistryRow) {
-  if (form.club_key !== "ecc" || process.env.GOOGLE_FORMS_ECC_RESPONDER_GATE_ENABLED !== "true") return actualResponderUrl(form.responder_url);
+  if (isGoogleFormsAdminProduction() || form.club_key !== "ecc" || process.env.GOOGLE_FORMS_ECC_RESPONDER_GATE_ENABLED !== "true") return actualResponderUrl(form.responder_url);
   assertEccResponderGate();
   const origin = process.env.GOOGLE_FORMS_ECC_ENTRY_ORIGIN;
   if (!origin || !/^https?:\/\//.test(origin)) throw new Error("ECC_ENTRY_ORIGIN_REQUIRED");
