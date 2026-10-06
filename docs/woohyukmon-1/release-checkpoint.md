@@ -131,3 +131,10 @@ not deployed NextAuth or a physical native device. The production Google provide
 member data, club roles, Forms scopes and environment settings remain unchanged.
 See [google-account-linkage.md](google-account-linkage.md) for exact evidence,
 same-origin hosting requirements and remaining native/production checks.
+
+The first login commit passed Browser Safety CI; its native CI found newer Expo
+SDK-compatible patches rather than a typecheck/auth test failure. The follow-up
+updates only native Expo/constants/image-manipulator to 57.0.27/57.0.21/57.0.21.
+The root web lockfile remains unchanged. Native audit now reports 23 findings
+(8 moderate/15 high); root audit reports 19 (5 moderate/11 high/3 critical).
+These warnings remain release gates, not evidence of completed security review.

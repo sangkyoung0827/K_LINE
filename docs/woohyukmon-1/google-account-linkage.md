@@ -79,9 +79,13 @@ status flags remain false.
 - The full local `npm run check` again reaches the existing Chrome collection
   test but fails because the sandbox cannot launch Chrome (EPERM/SIGABRT).
   Its legacy pretest suites passed; CI is still required before any merge.
-- The new branch changes do not modify either lockfile. Root audit nevertheless
+- The login commit does not modify either lockfile. Its native CI found newly
+  recommended Expo patches, so the follow-up updates only the native package and
+  lockfile: Expo 57.0.27, constants 57.0.21 and image-manipulator 57.0.21.
+  SDK compatibility and native typecheck pass after these patches. Root audit
   reports 19 existing findings (5 moderate, 11 high, 3 critical) across the inherited
-  web dependency tree; native audit reports 24 (8 moderate, 16 high). These are
+  web dependency tree; native audit after the patches reports 23 (8 moderate,
+  15 high). These are
   release gates, not claimed repaired. Review compatible upstream patches and
   actual reachability before enabling production auth or submitting store builds;
   do not run forced major-version downgrades during this scoped login change.
