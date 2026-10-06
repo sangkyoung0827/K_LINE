@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-10-06",
+  "asOf": "2026-10-07",
   "appName": "우혁몬(WOOHYUKMON)",
   "version": "1.0.0",
   "targetBefore": "2026-11-02",
@@ -15,5 +15,8 @@
   "physicalDeviceTestsPerformed": false,
   "nativeSignedBinariesBuilt": false,
   "javascriptBundlesExported": true,
-  "nativeProjectsGenerated": true
+  "nativeProjectsGenerated": true,
+  "localBrowserGoogleIdentityVerified": true,
+  "productionNextAuthAppLinkVerified": false,
+  "nativeDeviceOAuthVerified": false
 }

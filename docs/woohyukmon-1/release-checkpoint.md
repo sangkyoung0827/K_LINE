@@ -71,8 +71,8 @@ it. No legacy route code was altered.
   (SIGABRT/EPERM). Do not waive this; CI remains required before any merge.
 
 The PGlite capacity test exercises serialized database commands, not a real
-multi-connection concurrent load test. Live staging OAuth, AI and photo flows have
-not been validated. No production migrations or production test applicants were
+multi-connection concurrent load test. Native-device OAuth, live AI and photo flows
+have not been validated. No production migrations or production test applicants were
 created. Both SQL files must first be reviewed and exercised in private staging.
 
 ## Security/tooling findings
@@ -120,3 +120,14 @@ socket directory in the sandbox; use the connected browser for visible checks.
 Keep each release-status flag false until its corresponding evidence exists.
 Existing K_LINE/ECC/Hanhwal remain in service throughout. Do not merge or deploy
 this unfinished branch merely because JavaScript bundles export successfully.
+
+## Google account follow-up (2026-10-07)
+
+Web Google login and the read-only existing K_LINE identity endpoint are implemented
+with a separate default-off auth flag. Real Google sign-in and the existing member
+profile, plus reload persistence, were verified in the loopback browser preview.
+That preview uses the existing test OAuth client and an isolated session adapter,
+not deployed NextAuth or a physical native device. The production Google provider,
+member data, club roles, Forms scopes and environment settings remain unchanged.
+See [google-account-linkage.md](google-account-linkage.md) for exact evidence,
+same-origin hosting requirements and remaining native/production checks.

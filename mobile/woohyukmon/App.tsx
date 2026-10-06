@@ -20,7 +20,11 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { NavigationContainer, useFocusEffect } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  useFocusEffect,
+  type NavigatorScreenParams,
+} from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -50,7 +54,7 @@ import {
   upload,
 } from "./src/api";
 
-type User = { id: string; name: string; readOnly: boolean };
+type User = { id: string; name: string; email?: string; readOnly: boolean };
 type Question = {
   id: string;
   title: string;
@@ -112,8 +116,21 @@ type Context = {
   setKo: (ko: boolean) => void;
 };
 const Session = createContext<Context>(null!);
-const Tabs = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+type TabRoutes = {
+  Home: undefined;
+  Events: undefined;
+  Memories: undefined;
+  Create: undefined;
+  My: undefined;
+};
+type AppRoutes = {
+  Main: NavigatorScreenParams<TabRoutes>;
+  Event: { id: string };
+  Manage: { id: string };
+  Memory: { eventId: string; memory?: Memory; canManage?: boolean };
+};
+const Tabs = createBottomTabNavigator<TabRoutes>();
+const Stack = createNativeStackNavigator<AppRoutes>();
 const color = {
   ink: "#202825",
   muted: "#63716B",
@@ -1466,7 +1483,7 @@ function MyScreen() {
       {!user ? (
         <Button
           busy={busy}
-          label={t("K_LINE 계정으로 로그인", "Sign in with K_LINE")}
+          label={t("Google 계정으로 로그인", "Sign in with Google")}
           onPress={() =>
             void run(async () => {
               if (await login()) await refreshUser();
@@ -1475,8 +1492,9 @@ function MyScreen() {
         />
       ) : (
         <>
+          <Text style={s.label}>{t("K_LINE 계정 연결됨", "Connected to K_LINE")}</Text>
           <Text selectable style={s.meta}>
-            {user.id}
+            {user.email || user.id}
           </Text>
           <Button
             secondary
@@ -1625,10 +1643,15 @@ export default function App() {
             <ActivityIndicator color={color.green} />
           </View>
         ) : (
-          <NavigationContainer
+          <NavigationContainer<AppRoutes>
             linking={{
-              prefixes: ["woohyukmon://"],
-              config: { screens: { Event: "events/:id" } },
+              prefixes: ["woohyukmon://", ...(Platform.OS === "web" ? [window.location.origin + "/woohyukmon", window.location.origin] : [])],
+              config: { screens: {
+                Main: { path: "Main", screens: {
+                  Home: "Home", Events: "Events", Memories: "Memories", Create: "Create", My: "My",
+                } },
+                Event: "events/:id",
+              } },
             }}
           >
             <Stack.Navigator

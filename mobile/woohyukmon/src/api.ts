@@ -5,7 +5,10 @@ import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 
 WebBrowser.maybeCompleteAuthSession();
-const origin = String(Constants.expoConfig?.extra?.apiOrigin || "");
+// Web shares K_LINE's HttpOnly session; native keeps its PKCE/SecureStore flow.
+const origin = Platform.OS === "web"
+  ? window.location.origin
+  : String(Constants.expoConfig?.extra?.apiOrigin || "");
 const base = `${origin}/api/woohyukmon-app/v1`;
 const key = "woohyukmon-session-v1";
 let token: string | null = null;
@@ -29,9 +32,11 @@ export async function api<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${base}/${path}`, {
+  const endpoint = Platform.OS === "web" && path === "me" ? "auth/session"
+    : Platform.OS === "web" && path === "logout" ? "auth/web" : path;
+  const response = await fetch(`${base}/${endpoint}`, {
     method: body === undefined ? "GET" : "POST",
-    credentials: "omit",
+    credentials: Platform.OS === "web" ? "same-origin" : "omit",
     headers: {
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -61,7 +66,7 @@ export async function upload(memoryId: string, uri: string, consent: boolean) {
   const response = await fetch(`${base}/media`, {
     method: "POST",
     body: data,
-    credentials: "omit",
+    credentials: Platform.OS === "web" ? "same-origin" : "omit",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     signal: AbortSignal.timeout(30000),
   });
@@ -71,7 +76,10 @@ export async function upload(memoryId: string, uri: string, consent: boolean) {
   }
 }
 export async function login() {
-  if (Platform.OS === "web") throw new ApiError("NATIVE_LOGIN_REQUIRED", 400);
+  if (Platform.OS === "web") {
+    window.location.assign(`${base}/auth/web`);
+    return false;
+  }
   const bytes = await Crypto.getRandomBytesAsync(32);
   const verifier = Array.from(bytes, (b) =>
     b.toString(16).padStart(2, "0"),
