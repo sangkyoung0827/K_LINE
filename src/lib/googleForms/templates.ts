@@ -8,8 +8,7 @@ export type GoogleFormTemplate = {
 };
 
 const identityQuestions: GoogleFormTemplate["questions"] = [
-  { title: "Email / 이메일", type: "short_answer", required: true, options: [] },
-  { title: "Name / 이름", type: "short_answer", required: true, options: [] }
+  { title: "KakaoTalk name / 카카오톡에 등록된 이름", type: "short_answer", required: true, options: [] }
 ];
 
 export const googleFormTemplates: GoogleFormTemplate[] = [
@@ -25,7 +24,7 @@ export const googleFormTemplates: GoogleFormTemplate[] = [
     // Source: owner-approved ECC OFFICIAL CHAT notices in ecc/activity-guide.ts.
     description: "ECC International Gathering\n\nParticipants are assigned to groups. A group chat is created one day before the gathering, and the group decides its activity and meeting place together. Apply by the previous day; same-day applications are not accepted. Groups change weekly. Each participant pays their own activity costs.\n\n참가자는 조로 나뉘며, 모임 전날 만들어지는 조별 채팅방에서 활동과 만날 장소를 함께 결정합니다. 전날까지 신청하며 당일 신청은 받지 않습니다. 조는 매주 새로 편성되고 활동 비용은 각자 부담합니다.",
     questions: [
-      { ...identityQuestions[1], title: "KakaoTalk name / 카카오톡에 등록된 이름" },
+      { ...identityQuestions[0] },
       { title: "Gender / 성별", type: "multiple_choice", required: true, options: ["Male / 남성", "Female / 여성", "Other / 기타", "Prefer not to say / 밝히고 싶지 않음"] },
       { title: "Nationality / 국적", type: "short_answer", required: true, options: [] },
       { title: "Preferred food / 선호하는 음식", type: "short_answer", required: true, options: [] },

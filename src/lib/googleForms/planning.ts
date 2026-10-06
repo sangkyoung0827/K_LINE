@@ -19,8 +19,11 @@ export function planActivity(message: string): { draft: GoogleFormDraft; missing
   const templateId = /gathering|게더링/i.test(message) ? "ecc_gathering" : /\bMT\b/i.test(message) ? "ecc_mt" :
     /farewell|종강/i.test(message) ? "ecc_farewell" : /english class|영어.*수업/i.test(message) ? "ecc_english_class" : "ecc_general";
   const event = /International Gathering|English Class|Farewell|Special Event|\bMT\b|\bOT\b/i.exec(message)?.[0] || "";
-  const dates = message.match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?/g) || [];
-  const location = /(?:장소는?|location\s*:|at\s+the)\s*([^,.\n]+?)(?:이고|이며|이고,|,|\.|\n|$)/i.exec(message)?.[1]?.trim() || "";
+  const isoDate = "\\d{4}-\\d{2}-\\d{2}(?:[T ]\\d{2}:\\d{2}(?::\\d{2})?(?:Z|[+-]\\d{2}:\\d{2})?)?";
+  const dates = message.match(new RegExp(isoDate, "g")) || [];
+  const deadline = new RegExp(`(?:신청\\s*마감|마감|deadline)\\s*[:：]?\\s*(${isoDate})`, "i").exec(message)?.[1] || dates[1] || "";
+  const activityDate = new RegExp(`(?:행사\\s*(?:일시|날짜)|활동\\s*(?:일시|날짜)|날짜|일시|activity date|event date)\\s*[:：]?\\s*(${isoDate})`, "i").exec(message)?.[1] || dates.find(value => value !== deadline) || "";
+  const location = /(?:장소는?|location\s*:|at\s+the)\s*[:：]?\s*([^,.\n]+?)(?:이고|이며|이고,|,|\.|\n|$)/i.exec(message)?.[1]?.trim() || "";
   if (event && !dates.length && !location && !/내일|다음\s*주|이번\s*주|tomorrow|next\s+week|this\s+week|월요일|수요일|금요일/i.test(message)) {
     return { draft: draftFromTemplate("ecc", templateId, `ECC ${event}`), missing: [] };
   }
@@ -30,10 +33,10 @@ export function planActivity(message: string): { draft: GoogleFormDraft; missing
   }
   const draft: GoogleFormDraft = {
     title: event ? `ECC ${event}` : "", clubKey: "ecc", templateId, questions,
-    description: "", activityId: "", activityTitle: event, activityDate: dates[0] || "",
-    applicationDeadline: dates[1] || "", location, editorEmail: ""
+    description: "", activityId: "", activityTitle: event, activityDate,
+    applicationDeadline: deadline, location, editorEmail: ""
   };
-  // Relative dates and missing times are deliberately clarified, not silently guessed.
+  // Preserve explicit date-only values without inventing a time; clarify relative dates.
   const missing = [!event && "행사명 / Event", !draft.activityDate && "행사 일시 (YYYY-MM-DDTHH:mm+09:00)",
     !draft.applicationDeadline && "신청 마감 (YYYY-MM-DDTHH:mm+09:00)", !location && "장소 / Location"].filter(Boolean) as string[];
   return { draft, missing };
@@ -45,8 +48,8 @@ function noticeDate(value: string, locale: string) {
   if (!Number.isFinite(date.getTime())) return "";
   return new Intl.DateTimeFormat(locale, {
     timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric",
-    weekday: "long", hour: "numeric", minute: "2-digit",
-  }).format(date) + (locale === "ko-KR" ? " (한국 시간)" : " (KST)");
+    weekday: "long", ...(/^\d{4}-\d{2}-\d{2}$/.test(value) ? {} : { hour: "numeric" as const, minute: "2-digit" as const }),
+  }).format(date) + (/^\d{4}-\d{2}-\d{2}$/.test(value) ? "" : locale === "ko-KR" ? " (한국 시간)" : " (KST)");
 }
 
 export function generateActivityNotice(draft: GoogleFormDraft) {
