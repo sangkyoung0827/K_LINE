@@ -1,0 +1,43 @@
+name: Woohyukmon Native Checkpoint
+on:
+  pull_request:
+    paths:
+      - 'mobile/woohyukmon/**'
+      - 'src/lib/woohyukmonApp/**'
+      - 'src/app/api/woohyukmon-app/**'
+      - 'scripts/woohyukmon-app-*.mjs'
+      - 'supabase/migrations/*woohyukmon*.sql'
+      - '.github/workflows/woohyukmon-app.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checkpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/woohyukmon/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx tsx --test src/lib/woohyukmonApp/model.test.ts
+      - run: node --test scripts/woohyukmon-app-db.test.mjs scripts/woohyukmon-app-isolation.test.mjs
+      - run: npm ci
+        working-directory: mobile/woohyukmon
+      - run: npm run typecheck
+        working-directory: mobile/woohyukmon
+      - run: npx expo install --check
+        working-directory: mobile/woohyukmon
+      - run: npm run export
+        working-directory: mobile/woohyukmon
+        env:
+          EXPO_NO_TELEMETRY: '1'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-js-bundles-not-signed-store-builds
+          path: mobile/woohyukmon/dist

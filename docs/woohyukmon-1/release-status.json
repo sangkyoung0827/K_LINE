@@ -1,0 +1,19 @@
+{
+  "asOf": "2026-10-06",
+  "appName": "우혁몬(WOOHYUKMON)",
+  "version": "1.0.0",
+  "targetBefore": "2026-11-02",
+  "DEVELOPMENT_COMPLETE": false,
+  "TESTING_COMPLETE": false,
+  "SUBMITTED": false,
+  "APPROVED": false,
+  "PUBLISHED": false,
+  "productionMigrationApplied": false,
+  "productionDeploymentPerformed": false,
+  "appleDeveloperEnrolled": false,
+  "googlePlayConsoleEnrolled": false,
+  "physicalDeviceTestsPerformed": false,
+  "nativeSignedBinariesBuilt": false,
+  "javascriptBundlesExported": true,
+  "nativeProjectsGenerated": true
+}
