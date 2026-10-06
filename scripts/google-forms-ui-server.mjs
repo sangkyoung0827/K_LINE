@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const temp = mkdtempSync(join(tmpdir(), "kline-forms-ui-"));
+const port = Number(process.env.GOOGLE_FORMS_UI_PORT || 3317);
 await build({ stdin: { contents: 'export { draftFromTemplate } from "./src/lib/googleForms/templates"; export { generateActivityNotice } from "./src/lib/googleForms/planning";', resolveDir: process.cwd(), loader: "ts" }, outfile: join(temp, "presets.mjs"), bundle: true, platform: "node", format: "esm" });
 const { draftFromTemplate, generateActivityNotice } = await import(pathToFileURL(join(temp, "presets.mjs")).href);
 await build({ entryPoints: ["scripts/fixtures/google-forms-ui.tsx"], outfile: join(temp, "ui.js"), bundle: true, platform: "browser", jsx: "automatic", define: { "process.env.NODE_ENV": '"development"' }, plugins: [{ name: "fixture-link", setup(builder) {
@@ -16,7 +17,7 @@ await build({ entryPoints: ["scripts/fixtures/google-forms-ui.tsx"], outfile: jo
 } }] });
 execFileSync("node", ["node_modules/tailwindcss/lib/cli.js", "-i", "src/app/globals.css", "-o", join(temp, "ui.css")], { stdio: "ignore" });
 let workflow;
-const form = { id: "fixture-form", club_key: "ecc", title: "ECC Gathering", status: "draft", responder_url: "https://docs.google.com/forms/d/e/test-fixture/viewform", response_count: 1, last_response_sync_at: null };
+const form = { id: "fixture-form", google_form_id: "test-fixture", club_key: "ecc", title: "ECC Gathering", status: "draft", responder_url: "https://docs.google.com/forms/d/e/test-fixture/viewform", response_count: 1, last_response_sync_at: null };
 const mirror = [{ id: "fixture-response", submitted_at: "2026-10-04T09:00:00Z", respondent_email: "person@example.test", answers_json: { Name: ["Test Participant"], Days: ["Friday", "Saturday"] } }];
 createServer(async (request, response) => {
   const url = new URL(request.url, "http://localhost");
@@ -36,4 +37,4 @@ createServer(async (request, response) => {
   }
   response.writeHead(200, { "Content-Type": "text/html" });
   response.end('<!doctype html><html lang="ko"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Google Forms UI TEST fixture</title><link rel="stylesheet" href="/ui.css"><body><div id="root"></div><script src="/ui.js"></script></body></html>');
-}).listen(3317, "127.0.0.1", () => console.log("UI fixture: http://127.0.0.1:3317 (mock only; no production access)"));
+}).listen(port, "127.0.0.1", () => console.log(`UI fixture: http://127.0.0.1:${port} (mock only; no production access)`));

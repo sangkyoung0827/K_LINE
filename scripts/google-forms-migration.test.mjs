@@ -45,3 +45,15 @@ test("Hanhwal remains outside this migration", async () => {
   const migration = await read("supabase/google_forms_application_migration.sql");
   assert.doesNotMatch(migration, /hanhwal/i);
 });
+
+test("ECC replaces only its admin fund entry with event creation and retains native routes", async () => {
+  const official = await read("src/app/ecc-official/page.tsx");
+  assert.match(official, /access\.isAdmin \? \(\s*<OfficialRow\s+href="\/admin\/google-forms"\s+icon=\{FilePlus2\}/);
+  assert.match(official, /ko="행사 만들기"/);
+  assert.doesNotMatch(official, /ECC 자금관리|href="\/our-activities\/ecc\/fund"/);
+  assert.match(official, /href="\/our-activities\/ecc\/activity"/);
+  await read("src/app/our-activities/ecc/fund/page.tsx");
+  await read("src/app/api/ecc/applications/route.ts");
+  assert.match(official, /ml-auto shrink-0/);
+  assert.doesNotMatch(official, /<ArrowRight[^>]*group-hover:translate-x/);
+});

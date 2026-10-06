@@ -7,7 +7,7 @@ import { eccEntryCookie, validEccEntry } from "@/lib/eccTemporaryEntry";
 import { withinEccLookupDeadline } from "@/lib/eccAccessRetry";
 import {
   ArrowRight,
-  Banknote,
+  FilePlus2,
   ClipboardList,
   Lock,
   MessageSquareText,
@@ -129,9 +129,9 @@ export default async function EccOfficialPage() {
             ) : null}
             {access.isAdmin ? (
               <OfficialRow
-                href="/our-activities/ecc/fund"
-                icon={Banknote}
-                title={<I18nText en="ECC Fund Management" ko="ECC 자금관리" />}
+                href="/admin/google-forms"
+                icon={FilePlus2}
+                title={<I18nText en="Create Event" ko="행사 만들기" />}
               />
             ) : null}
             {access.isAdmin ? (
@@ -234,9 +234,9 @@ function OfficialRow({
       <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-navy text-paper transition group-hover:bg-brass group-hover:text-ink">
         <Icon aria-hidden className="h-5 w-5" />
       </div>
-      <span className="text-base font-semibold text-ink sm:text-lg md:text-xl">{title}</span>
-      <span className="ml-auto text-ink/45 transition group-hover:translate-x-1 group-hover:text-ink">
-        <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
+      <span className="min-w-0 break-words text-base font-semibold text-ink sm:text-lg md:text-xl">{title}</span>
+      <span className="ml-auto shrink-0 text-ink/45 transition group-hover:translate-x-1 group-hover:text-ink motion-reduce:transform-none">
+        <ArrowRight aria-hidden className="h-4 w-4" />
       </span>
     </Link>
   );
