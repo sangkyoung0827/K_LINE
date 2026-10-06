@@ -1,6 +1,8 @@
 import type { WoohyukmonOperationTool } from "@/lib/woohyukmon/operations/types";
+import { googleFormsActionRegistry } from "@/lib/googleForms/planning";
 
 export const woohyukmonToolRegistry = {
+  ...googleFormsActionRegistry,
   find_ecc_member: { category: "MEMBERS", write: false },
   get_ecc_member: { category: "MEMBERS", write: false },
   list_ecc_members: { category: "MEMBERS", write: false },
@@ -30,5 +32,5 @@ export function isRegisteredWriteTool(
   value: string
 ): value is WoohyukmonOperationTool {
   const tool = woohyukmonToolRegistry[value as WoohyukmonRegisteredTool];
-  return Boolean(tool?.write);
+  return Boolean(tool?.write) && !Object.hasOwn(googleFormsActionRegistry, value);
 }

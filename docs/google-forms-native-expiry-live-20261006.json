@@ -1,0 +1,12 @@
+{
+  "account": "samgkyoung1004@gmail.com",
+  "startedAt": "2026-10-06T07:35:12.612Z",
+  "formId": "1Lc0YXmaEfji-VaamlrgpzSo7jeYoDecED4ApPaqv2XI",
+  "permissionId": null,
+  "expirationTime": null,
+  "nativeExpiryAccepted": false,
+  "postExpiryAccessVerified": false,
+  "cleanupVerified": true,
+  "error": "{\"httpStatus\":403,\"message\":\"Expiration dates cannot be set on this item.\",\"reasons\":[\"cannotSetExpiration\"]}",
+  "testFormTrashed": true
+}

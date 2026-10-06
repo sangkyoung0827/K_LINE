@@ -1,0 +1,31 @@
+name: Google Forms Parallel Development
+on:
+  pull_request:
+    paths:
+      - 'src/lib/googleForms/**'
+      - 'src/components/google-forms/**'
+      - 'src/app/api/google-forms/**'
+      - 'src/lib/woohyukmon/operations/**'
+      - 'scripts/google-forms*'
+      - 'scripts/fixtures/google-forms-ui.tsx'
+      - 'supabase/google_forms*'
+      - '.github/workflows/google-forms-v5.yml'
+jobs:
+  mock-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:google-forms
+      - run: node --test scripts/google-forms-ui.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: google-forms-ui-proof
+          path: artifacts/google-forms

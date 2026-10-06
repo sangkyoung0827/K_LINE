@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handleGoogleFormsOperation } from "@/lib/googleForms/gateway";
 import { isActivityReadRequest, isConversationAdvice, isMemberSummaryRequest } from "@/lib/woohyukmon/intent";
 import { isActivityPreferenceRequest } from "@/lib/activity-preferences/intent";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
@@ -894,6 +895,8 @@ async function confirmOperation(body: RequestBody) {
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as RequestBody;
+  const googleForms = await handleGoogleFormsOperation(body);
+  if (googleForms) return googleForms;
 
   if (cleanText(body.action, 40) === "confirm") {
     return confirmOperation(body);
