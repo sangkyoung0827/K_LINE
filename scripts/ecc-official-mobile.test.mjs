@@ -15,6 +15,7 @@ function load(path, mocks) {
   const module = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`)((name) => {
     if (name in mocks) return mocks[name];
+    if (name === "@/components/EccRegistrationSummary") return load("src/components/EccRegistrationSummary.tsx", mocks);
     if (name.startsWith("@/data/")) return load(`src/${name.slice(2)}.ts`, mocks);
     return require(name);
   }, module, module.exports);
@@ -30,7 +31,7 @@ function mocks({ language = "ko", admin = false, readOnly = false } = {}) {
     "@/components/ReadOnlyDeveloperNotice": { useReadOnlyDeveloper: () => readOnly },
     "@/hooks/useEccAccess": { useEccAccess: () => ({ isAdmin: admin }) },
     "next/navigation": { usePathname: () => "/ecc-official" },
-    "next/link": { default: ({ children, ...props }) => React.createElement("a", props, children) }
+    "next/link": { __esModule: true, default: ({ children, ...props }) => React.createElement("a", props, children) }
   };
 }
 
@@ -107,5 +108,65 @@ test("disclosure toggles without remounting or hiding the registration form and 
     assert.ok(form);
     assert.ok(!nodes(intro).includes(form));
     toggle.props.onClick();
+  }
+});
+
+test("submitted registration is compact only on mobile and keeps every detail mounted", () => {
+  for (const language of ["ko", "en"]) {
+    const { EccRegistrationSummary } = load("src/components/EccRegistrationSummary.tsx", mocks({ language }));
+    const html = renderToStaticMarkup(React.createElement(EccRegistrationSummary, {
+      status: language === "ko" ? "정식회원 승인 완료" : "Official member approved",
+      description: "Existing approval information", avatarUrl: "https://example.test/avatar.png"
+    }, React.createElement("dl", null, React.createElement("dd", null, "Existing member details"))));
+    assert.match(html, /aria-expanded="false"/);
+    assert.match(html, /md:hidden/);
+    assert.match(html, /hidden flex-wrap[^\"]*md:flex/);
+    assert.match(html, /class="hidden md:block"/);
+    assert.match(html, /Existing member details/);
+    assert.match(html, /Existing approval information/);
+    assert.match(html, /src="https:\/\/example.test\/avatar.png"/);
+    assert.equal((html.match(/<button /g) || []).length, 1);
+  }
+});
+
+test("registration disclosure toggles locally without changing payment or approval data", () => {
+  let expanded = false;
+  const hooks = { ...React, useId: () => "registration-details", useState: () => [expanded, setter => { expanded = setter(expanded); }] };
+  const { EccRegistrationSummary } = load("src/components/EccRegistrationSummary.tsx", { ...mocks(), react: hooks });
+  const props = { status: "회비 확인 대기 중", description: "Original status", avatarUrl: "", children: React.createElement("dd", null, "Original data") };
+  for (const state of [false, true, false]) {
+    const tree = EccRegistrationSummary(props), all = nodes(tree);
+    const button = all.find(node => node.props?.["aria-controls"] === "registration-details");
+    const details = all.find(node => node.props?.id === "registration-details");
+    assert.equal(button.props["aria-expanded"], state);
+    assert.equal(details.props.className, state ? "block" : "hidden md:block");
+    assert.equal(props.status, "회비 확인 대기 중");
+    assert.ok(nodes(details).some(node => node.type === "dd"));
+    button.props.onClick();
+  }
+  const source = readFileSync("src/components/EccRegistrationSummary.tsx", "utf8");
+  assert.doesNotMatch(source, /fetch\(|localStorage|paymentConfirmed|officialMember/);
+});
+
+test("registered member fields and original edit/official actions are preserved", () => {
+  for (const approved of [false, true]) {
+    const registration = { id: "local-test", fullName: "Local Test Member", studentId: "20260001", departmentOrMajor: "Culture", nationality: "Test", gender: "Other", kakaoDisplayName: "Local", kakaoId: "local-test", googleEmail: "very-long-test-member-address@example.test", googleName: "Local", googleAvatarUrl: "", paymentConfirmed: approved, officialMember: approved, status: approved ? "approved" : "submitted", adminNote: "Existing admin note" };
+    let cursor = 0;
+    const hooks = { ...React, useEffect: () => {}, useMemo: fn => fn(), useId: () => "test-summary", useState: initial => {
+      const index = cursor++;
+      return [index === 0 ? registration : index === 2 ? false : initial, () => { throw Error("Unexpected mutation"); }];
+    } };
+    const { EccMemberRegistrationForm } = load("src/components/EccMemberRegistrationForm.tsx", { ...mocks(), react: hooks });
+    const tree = EccMemberRegistrationForm({}), all = nodes(tree);
+    const summary = all.find(node => node.type?.name === "EccRegistrationSummary");
+    assert.ok(summary);
+    const html = renderToStaticMarkup(React.createElement("div", null, summary.props.children));
+    for (const value of [registration.fullName, registration.studentId, registration.googleEmail, registration.kakaoId, registration.adminNote]) assert.ok(html.includes(value));
+    assert.match(html, /overflow-wrap:anywhere/);
+    assert.match(html, /md:grid-cols-2/);
+    if (approved) { assert.match(html, /href="\/ecc-official"/); assert.match(html, /정식회원 승인 완료/); }
+    else { assert.match(html, /등록 정보 수정/); assert.match(html, /회비 확인 대기 중/); }
+    assert.equal(registration.paymentConfirmed, approved);
+    assert.equal(registration.officialMember, approved);
   }
 });

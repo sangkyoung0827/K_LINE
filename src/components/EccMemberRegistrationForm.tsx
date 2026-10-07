@@ -5,7 +5,6 @@ import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CheckCircle2,
   ChevronDown,
   Edit3,
   Loader2,
@@ -19,6 +18,7 @@ import {
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { useEccAccess } from "@/hooks/useEccAccess";
 import { useReadOnlyDeveloper } from "@/components/ReadOnlyDeveloperNotice";
+import { EccRegistrationSummary } from "@/components/EccRegistrationSummary";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
 
@@ -763,30 +763,12 @@ export function EccMemberRegistrationForm({ collapsibleMobileIntro = false }: { 
       ) : null}
 
       {!loading && !loginRequired && registration && !editing ? (
-        <section className="paper-panel p-5 md:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-5">
-            <div>
-              <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
-                <CheckCircle2 aria-hidden className="h-4 w-4" />
-                {statusText(registration, language)}
-              </div>
-              <h2 className="mt-5 font-serif text-3xl font-semibold text-ink">
-                <I18nText en="Registration submitted" ko="등록이 제출되었습니다" />
-              </h2>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/68">
-                {statusDescription(registration, language)}
-              </p>
-            </div>
-            {registration.googleAvatarUrl ? (
-              <img
-                src={registration.googleAvatarUrl}
-                alt=""
-                className="h-14 w-14 rounded-full border border-ink/10 object-cover"
-              />
-            ) : null}
-          </div>
-
-          <dl className="mt-8 grid gap-4 text-sm md:grid-cols-2">
+        <EccRegistrationSummary
+          status={statusText(registration, language)}
+          description={statusDescription(registration, language)}
+          avatarUrl={registration.googleAvatarUrl}
+        >
+          <dl className="mt-4 text-sm md:mt-8 md:grid md:grid-cols-2 md:gap-4">
             {[
               ["Full Name / 이름", registration.fullName],
               ["Student ID / 학번", registration.studentId],
@@ -817,9 +799,9 @@ export function EccMemberRegistrationForm({ collapsibleMobileIntro = false }: { 
                     : "Waiting for official member approval"
               ]
             ].map(([label, value]) => (
-              <div key={label} className="border border-ink/10 bg-white/45 p-4">
-                <dt className="text-xs font-semibold uppercase text-ink/45">{label}</dt>
-                <dd className="mt-2 font-semibold text-ink">{value}</dd>
+              <div key={label} className="border-b border-ink/10 py-3 md:border md:bg-white/45 md:p-4">
+                <dt className="break-words text-xs font-semibold uppercase text-ink/45">{label}</dt>
+                <dd className="mt-1 break-words font-semibold text-ink [overflow-wrap:anywhere] md:mt-2">{value}</dd>
               </div>
             ))}
           </dl>
@@ -846,7 +828,7 @@ export function EccMemberRegistrationForm({ collapsibleMobileIntro = false }: { 
               <p className="text-sm font-semibold text-brass">{registration.adminNote}</p>
             ) : null}
           </div>
-        </section>
+        </EccRegistrationSummary>
       ) : null}
 
       {!loading && !loginRequired && showForm ? (
