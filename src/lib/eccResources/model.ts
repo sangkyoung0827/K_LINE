@@ -1,5 +1,35 @@
 export const maxResourceBytes = 50 * 1024 * 1024;
 
+export const resourceCategories = [
+  { id: "class-research", ko: "수업·연구 자료", en: "Class & research" },
+  { id: "notice", ko: "공지문", en: "Notices" },
+  { id: "mt", ko: "MT 관련 자료", en: "MT materials" },
+  { id: "special-event", ko: "스페셜 이벤트 관련 자료", en: "Special events" },
+  { id: "other", ko: "기타", en: "Other" }
+] as const;
+
+export type ResourceCategory = typeof resourceCategories[number]["id"];
+
+export function isResourceCategory(value: unknown): value is ResourceCategory {
+  return resourceCategories.some((category) => category.id === value);
+}
+
+export function normalizeResourceCategory(value: unknown): ResourceCategory {
+  return isResourceCategory(value) ? value : "other";
+}
+
+export function resourceCategoryLabel(value: unknown, language: "ko" | "en") {
+  return resourceCategories.find((category) => category.id === normalizeResourceCategory(value))![language];
+}
+
+export function filterResources(resources: EccResource[], query: string, category: ResourceCategory | "all") {
+  const search = query.trim().toLocaleLowerCase();
+  return resources.filter((resource) =>
+    (category === "all" || normalizeResourceCategory(resource.category) === category) &&
+    `${resource.title} ${resource.description} ${resource.fileName}`.toLocaleLowerCase().includes(search)
+  );
+}
+
 export const resourceTypes: Record<string, string> = {
   pdf: "application/pdf",
   ppt: "application/vnd.ms-powerpoint",
@@ -30,6 +60,7 @@ export type EccResource = {
   id: string;
   title: string;
   description: string;
+  category: ResourceCategory;
   fileName: string;
   mimeType: string;
   sizeBytes: number;

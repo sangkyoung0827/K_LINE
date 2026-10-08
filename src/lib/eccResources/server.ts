@@ -5,15 +5,17 @@ import { auth } from "@/auth";
 import { getCurrentEccAccess } from "@/lib/eccAccess";
 import { isReadOnlyDeveloperEmail } from "@/lib/readOnlyDeveloper";
 import { cleanText, supabaseRequest } from "@/lib/supabaseServer";
-import { type EccResource, validateResourceFile } from "./model";
+import { type EccResource, isResourceCategory, normalizeResourceCategory, validateResourceFile } from "./model";
 
 const table = "ecc_resource_files";
-const columns = "id,title,description,file_name,mime_type,size_bytes,storage_path,uploader_email,uploader_name,status,created_at,published_at";
+// Keep legacy reads working before the additive category migration is applied.
+const columns = "*";
 
 export type ResourceRow = {
   id: string; title: string; description: string; file_name: string; mime_type: string;
   size_bytes: number; storage_path: string; uploader_email: string; uploader_name: string;
   status: "pending" | "published"; created_at: string; published_at: string | null;
+  category?: string;
 };
 
 export class ResourceInputError extends Error {}
@@ -40,6 +42,7 @@ export async function getResourceAccess() {
 export function toPublicResource(row: ResourceRow): EccResource {
   return {
     id: row.id, title: row.title, description: row.description,
+    category: normalizeResourceCategory(row.category),
     fileName: row.file_name, mimeType: row.mime_type, sizeBytes: row.size_bytes,
     uploaderName: row.uploader_name, createdAt: row.created_at,
     publishedAt: row.published_at || row.created_at
@@ -65,6 +68,8 @@ export async function getResource(id: string) {
 export async function createPendingResource(input: Record<string, unknown>, email: string) {
   const title = cleanText(input.title, 180);
   if (!title) throw new ResourceInputError("A title is required.");
+  const category = input.category === undefined ? "other" : input.category;
+  if (!isResourceCategory(category)) throw new ResourceInputError("Choose a valid resource category.");
   let file: ReturnType<typeof validateResourceFile>;
   try { file = validateResourceFile(input.fileName, input.sizeBytes, input.mimeType); }
   catch (error) { throw new ResourceInputError(error instanceof Error ? error.message : "Invalid file."); }
@@ -74,7 +79,7 @@ export async function createPendingResource(input: Record<string, unknown>, emai
   const rows = await supabaseRequest<ResourceRow[]>(`${table}?select=${columns}`, {
     method: "POST", headers: { Prefer: "return=representation" },
     body: JSON.stringify({
-      id, title, description: cleanText(input.description, 2000),
+      id, title, description: cleanText(input.description, 2000), category,
       file_name: file.fileName, mime_type: file.mimeType,
       size_bytes: file.sizeBytes, storage_path: path,
       uploader_email: email, uploader_name: cleanText(session?.user?.name, 120),
@@ -95,4 +100,13 @@ export async function publishResource(id: string) {
 
 export async function deleteResource(id: string) {
   await supabaseRequest(`${table}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function updateResourceCategory(id: string, category: unknown) {
+  if (!isResourceCategory(category)) throw new ResourceInputError("Choose a valid resource category.");
+  const rows = await supabaseRequest<ResourceRow[]>(
+    `${table}?id=eq.${encodeURIComponent(id)}&status=eq.published&select=${columns}`,
+    { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ category }) }
+  );
+  return rows[0] || null;
 }
