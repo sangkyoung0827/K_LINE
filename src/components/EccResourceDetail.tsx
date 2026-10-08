@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Download, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink, Pencil, Save, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
-import { canPreviewResource, type EccResource } from "@/lib/eccResources/model";
+import { canPreviewResource, normalizeResourceCategory, resourceCategories, resourceCategoryLabel, type EccResource, type ResourceCategory } from "@/lib/eccResources/model";
 
 const base = "/our-activities/ecc/resources";
 
@@ -15,6 +15,9 @@ export function EccResourceDetail({ id, isAdmin }: { id: string; isAdmin: boolea
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [category, setCategory] = useState<ResourceCategory>("other");
+  const [categorySaved, setCategorySaved] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -22,12 +25,27 @@ export function EccResourceDetail({ id, isAdmin }: { id: string; isAdmin: boolea
       .then(async (response) => {
         const data = await response.json() as { resource?: EccResource; error?: string };
         if (!response.ok || !data.resource) throw new Error(data.error || "File not found.");
-        if (active) setResource(data.resource);
+        if (active) { setResource(data.resource); setCategory(normalizeResourceCategory(data.resource.category)); }
       })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "File not found."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [id]);
+
+  const saveCategory = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true); setError(""); setCategorySaved(false);
+    try {
+      const response = await fetch(`/api/ecc/resources/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category })
+      });
+      const data = await response.json() as { resource?: EccResource };
+      if (!response.ok || !data.resource) throw new Error(ko ? "자료 분류를 저장하지 못했습니다. 다시 시도해 주세요." : "Category could not be saved. Please try again.");
+      setResource(data.resource); setCategory(normalizeResourceCategory(data.resource.category));
+      setEditingCategory(false); setCategorySaved(true);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Category update failed."); }
+    finally { setBusy(false); }
+  };
 
   const remove = async () => {
     if (!window.confirm(ko ? "이 자료를 삭제하시겠습니까?" : "Delete this file?")) return;
@@ -47,6 +65,16 @@ export function EccResourceDetail({ id, isAdmin }: { id: string; isAdmin: boolea
     {resource ? <article>
       <div className="mt-8 border-b border-navy/15 pb-6">
         <p className="text-xs font-bold uppercase text-brass">{resource.fileName.split(".").pop()?.toUpperCase()} · ECC</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-brass">{resourceCategoryLabel(resource.category, ko ? "ko" : "en")}</span>
+          {isAdmin && !editingCategory ? <button type="button" aria-label={ko ? "분류 변경" : "Change category"} title={ko ? "분류 변경" : "Change category"} disabled={busy} onClick={() => { setCategory(normalizeResourceCategory(resource.category)); setEditingCategory(true); setCategorySaved(false); }} className="inline-flex h-11 w-11 items-center justify-center text-navy disabled:opacity-50"><Pencil aria-hidden className="h-4 w-4" /></button> : null}
+          {categorySaved ? <span role="status" className="text-xs text-muted">{ko ? "분류 저장됨" : "Category saved"}</span> : null}
+        </div>
+        {isAdmin && editingCategory ? <form onSubmit={saveCategory} className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="grid min-w-0 flex-1 gap-1.5 text-sm font-semibold text-navy sm:max-w-sm">{ko ? "자료 분류" : "Category"}<select disabled={busy} value={category} onChange={(event) => setCategory(event.target.value as ResourceCategory)} className="form-field !rounded-md">{resourceCategories.map((item) => <option key={item.id} value={item.id}>{ko ? item.ko : item.en}</option>)}</select></label>
+          <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center gap-2 bg-navy px-3 text-sm font-semibold text-white disabled:opacity-50"><Save aria-hidden className="h-4 w-4" />{ko ? "저장" : "Save"}</button>
+          <button type="button" disabled={busy} aria-label={ko ? "분류 편집 취소" : "Cancel category edit"} title={ko ? "분류 편집 취소" : "Cancel category edit"} onClick={() => setEditingCategory(false)} className="inline-flex h-11 w-11 items-center justify-center text-navy disabled:opacity-50"><X aria-hidden className="h-4 w-4" /></button>
+        </form> : null}
         <h1 className="mt-3 font-serif text-3xl font-semibold text-navy sm:text-4xl">{resource.title}</h1>
         <p className="mt-3 text-sm text-muted">{resource.fileName} · {resource.uploaderName || "ECC"} · {new Date(resource.publishedAt).toLocaleDateString(ko ? "ko-KR" : "en-US")}</p>
         {resource.description ? <p className="mt-5 whitespace-pre-wrap text-base leading-7 text-navy">{resource.description}</p> : null}
