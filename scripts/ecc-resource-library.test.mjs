@@ -290,3 +290,12 @@ test("invalid category returns a validation error rather than a write", async ()
   const api = route("src/app/api/ecc/resources/[id]/route.ts", stubs(server));
   assert.equal((await api.PATCH(request("PATCH", `/api/ecc/resources/${id}`, { category: "invalid" }), context)).status, 400);
 });
+
+test("category release does not seed preview files or import the isolated fixture", () => {
+  for (const file of ["src/components/EccResourceLibrary.tsx", "src/components/EccResourceDetail.tsx", "src/lib/eccResources/server.ts", "src/app/api/ecc/resources/route.ts", "src/app/api/ecc/resources/[id]/route.ts"]) {
+    const source = readFileSync(file, "utf8");
+    assert.doesNotMatch(source, /ecc-resource-categories-preview|ECC 샘플|ecc-resource-category-upload-test|\[로컬 테스트\] 연구 참고자료/);
+  }
+  const sql = readFileSync("supabase/migrations/20261008175316_ecc_resource_categories.sql", "utf8");
+  assert.doesNotMatch(sql, /\b(?:insert|delete|truncate|drop|update)\b/i);
+});
