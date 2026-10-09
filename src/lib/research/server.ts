@@ -1,5 +1,8 @@
 import "server-only";
 
+import { getHanhwalRoleRow } from "@/lib/hanhwalAccess";
+import { canEditResearchItem, type ResearchAccess } from "./access";
+
 import { auth } from "@/auth";
 import { getAdminAccess, normalizeEmail } from "@/lib/admin";
 import { cleanText, supabaseRequest } from "@/lib/supabaseServer";
@@ -42,21 +45,25 @@ export function toResearchItem(row: ResearchRow): ResearchItem {
   };
 }
 
-export async function getResearchEditorAccess() {
+export async function getResearchEditorAccess(): Promise<ResearchAccess> {
   const session = await auth();
   const email = normalizeEmail(session?.user?.email);
-  if (!email) return { email: "", canEdit: false };
+  if (!email) return { email: "", canEdit: false, canManageAll: false };
   const admin = await getAdminAccess(email);
-  if (admin.isReadOnly) return { email, canEdit: false };
-  if (admin.isSuperAdmin || admin.isDeveloper) return { email, canEdit: true };
+  if (admin.isReadOnly) return { email, canEdit: false, canManageAll: false };
+  if (admin.isSuperAdmin || admin.isDeveloper) return { email, canEdit: true, canManageAll: true, canManageEditors: true };
   const editors = await supabaseRequest<Array<{ email: string }>>(
     `kline_research_editors?select=email&email=eq.${encodeURIComponent(email)}&limit=1`
   );
-  return { email, canEdit: editors.length > 0 };
+  if (editors.length > 0) return { email, canEdit: true, canManageAll: true };
+  const member = await getHanhwalRoleRow(email);
+  const canEdit = member?.official_member_status === "approved" || member?.admin_status === "approved" || member?.super_admin_status === "approved";
+  return { email, canEdit, canManageAll: false };
 }
 
-export async function listResearchItems(manage = false) {
-  const filter = manage ? "" : "&status=eq.published&visibility=eq.public&is_sample=eq.false";
+export async function listResearchItems(manage = false, editor?: ResearchAccess) {
+  if (manage && !editor?.canEdit) return [];
+  const filter = manage ? (editor?.canManageAll ? "" : `&created_by=eq.${encodeURIComponent(editor!.email)}`) : "&status=eq.published&visibility=eq.public&is_sample=eq.false";
   const rows = await supabaseRequest<ResearchRow[]>(
     `${table}?select=${columns}${filter}&order=published_at.desc.nullslast,updated_at.desc&limit=1000`,
     { cache: "no-store" }
@@ -127,3 +134,5 @@ export async function updateResearchItem(id: string, payload: Record<string, unk
 export async function deleteResearchItem(id: string) {
   await supabaseRequest(`${table}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+export { canEditResearchItem };

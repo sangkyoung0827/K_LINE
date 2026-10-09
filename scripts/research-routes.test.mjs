@@ -28,8 +28,10 @@ function route(path, stubs) {
 }
 
 const item = { id, status: "draft", visibility: "private", coverPath: "", imagePaths: [], attachmentPaths: [], publishedAt: "", isSample: false };
+const ownership = route("src/lib/research/access.ts", {}).canEditResearchItem;
 const access = (canEdit) => ({
-  getResearchEditorAccess: async () => ({ email: "editor@test", canEdit }),
+  getResearchEditorAccess: async () => ({ email: "editor@test", canEdit, canManageAll: canEdit }),
+  canEditResearchItem: ownership,
   getResearchItem: async () => item,
   isResearchId: () => true,
   sameOrigin: () => true,
@@ -53,7 +55,7 @@ test("research creation requires editor access and always starts as a private dr
   const api = route("src/app/api/research/route.ts", common(server));
   assert.equal((await api.POST(request("POST", { titleKo: "Test" }))).status, 403);
   assert.equal(writes, 0);
-  server.getResearchEditorAccess = async () => ({ email: "editor@test", canEdit: true });
+  server.getResearchEditorAccess = async () => ({ email: "editor@test", canEdit: true, canManageAll: true });
   const created = await api.POST(request("POST", { titleKo: "Test", status: "published", visibility: "public" }));
   assert.equal(created.status, 201);
   assert.equal(created.body.item.status, "draft");
@@ -71,7 +73,7 @@ test("research publishing does not require a cover; anonymous users cannot updat
   const publish = () => request("PATCH", { status: "published", visibility: "public" });
   assert.equal((await api.PATCH(publish(), context)).status, 403);
   assert.equal((await api.DELETE(request("DELETE", {}), context)).status, 403);
-  server.getResearchEditorAccess = async () => ({ email: "editor@test", canEdit: true });
+  server.getResearchEditorAccess = async () => ({ email: "editor@test", canEdit: true, canManageAll: true });
   assert.equal((await api.PATCH(publish(), context)).status, 200);
   assert.equal(writes, 1);
 });
@@ -122,7 +124,7 @@ test("document upload uses an editor-only signed ticket and verifies bytes befor
   const api = route("src/app/api/research/[id]/upload/route.ts", stubs);
   const ticket = () => request("POST", { action: "ticket", fileName: "document.hwp", size: 100 });
   assert.equal((await api.POST(ticket(), context)).status, 403);
-  server.getResearchEditorAccess = async () => ({ email: "editor@test", canEdit: true });
+  server.getResearchEditorAccess = async () => ({ email: "editor@test", canEdit: true, canManageAll: true });
   assert.equal((await api.POST(ticket(), context)).body.path, path);
   const finalize = () => request("POST", { action: "finalize", path, size: 100 });
   assert.equal((await api.POST(finalize(), context)).status, 400);
@@ -135,6 +137,8 @@ test("document upload uses an editor-only signed ticket and verifies bytes befor
 test("editor validation accepts title and body or title and verified document", () => {
   const server = route("src/lib/research/server.ts", {
     "server-only": {},
+    "@/lib/hanhwalAccess": { getHanhwalRoleRow: async () => null },
+    "./access": { canEditResearchItem: () => false },
     "@/auth": { auth: async () => null },
     "@/lib/admin": { getAdminAccess: async () => ({}), normalizeEmail: (value) => value },
     "@/lib/supabaseServer": { cleanText: (value, length) => typeof value === "string" ? value.trim().slice(0, length) : "", supabaseRequest: async () => [] },
@@ -146,4 +150,105 @@ test("editor validation accepts title and body or title and verified document", 
   assert.equal(document.body_ko, "");
   assert.equal(document.summary_ko, "");
   assert.throws(() => server.cleanResearchInput({ titleKo: "Title", status: "published", visibility: "public" }), /body or upload/);
+});
+
+
+test("HANHWAL contributors cannot read, edit, delete or upload to another author's draft", async () => {
+  let writes = 0;
+  const server = {
+    ...access(true),
+    getResearchEditorAccess: async () => ({ email: "member@test", canEdit: true, canManageAll: false }),
+    getResearchItem: async () => ({ ...item, createdBy: "another@test" }),
+    cleanResearchInput: (value) => value,
+    updateResearchItem: async () => { writes++; return item; },
+    deleteResearchItem: async () => { writes++; }
+  };
+  const api = route("src/app/api/research/[id]/route.ts", common(server));
+  assert.equal((await api.GET(null, context)).status, 404);
+  assert.equal((await api.PATCH(request("PATCH", { titleKo: "Test" }), context)).status, 403);
+  assert.equal((await api.DELETE(request("DELETE", {}), context)).status, 403);
+  const upload = route("src/app/api/research/[id]/upload/route.ts", common(server));
+  assert.equal((await upload.POST(request("POST", { action: "ticket", fileName: "test.pdf", size: 100 }), context)).status, 403);
+  assert.equal((await upload.DELETE(request("DELETE", { path: "other.pdf" }), context)).status, 403);
+  assert.equal(writes, 0);
+  server.getResearchItem = async () => ({ ...item, createdBy: "member@test" });
+  assert.equal((await api.GET(null, context)).status, 200);
+  assert.equal((await api.PATCH(request("PATCH", { titleKo: "Test" }), context)).status, 200);
+  assert.equal(writes, 1);
+});
+
+
+test("only site administrators can appoint a research editor", async () => {
+  let writes = 0;
+  const server = { ...access(true), getResearchEditorAccess: async () => ({ email: "member@test", canEdit: true, canManageAll: false }) };
+  const stubs = common(server);
+  stubs["@/lib/admin"] = { normalizeEmail: (email) => email.trim().toLowerCase() };
+  stubs["@/lib/supabaseServer"].supabaseRequest = async () => { writes++; };
+  const api = route("src/app/api/research/editors/route.ts", stubs);
+  assert.equal((await api.POST(request("POST", { email: "professor@test.edu" }))).status, 403);
+  assert.equal(writes, 0);
+  server.getResearchEditorAccess = async () => ({ email: "admin@test", canEdit: true, canManageEditors: true });
+  assert.equal((await api.POST(request("POST", { email: "invalid" }))).status, 400);
+  assert.equal((await api.POST(request("POST", { email: "professor@test.edu" }))).status, 200);
+  assert.equal(writes, 1);
+});
+
+test("approved HANHWAL roles get own-item access, while payment alone and read-only admins do not", async () => {
+  let member = { official_member_status: "approved" };
+  let admin = {};
+  const server = route("src/lib/research/server.ts", {
+    "server-only": {},
+    "@/auth": { auth: async () => ({ user: { email: "member@test" } }) },
+    "@/lib/admin": { getAdminAccess: async () => admin, normalizeEmail: (value) => value },
+    "@/lib/hanhwalAccess": { getHanhwalRoleRow: async () => member },
+    "@/lib/supabaseServer": { supabaseRequest: async () => [] },
+    "./access": { canEditResearchItem: () => false },
+    "./model": {}
+  });
+  const approved = await server.getResearchEditorAccess();
+  assert.equal(approved.canEdit, true);
+  assert.equal(approved.canManageAll, false);
+  member = { payment_confirmed: true, official_member_status: "pending" };
+  assert.equal((await server.getResearchEditorAccess()).canEdit, false);
+  member = { admin_status: "approved" };
+  assert.equal((await server.getResearchEditorAccess()).canEdit, true);
+  admin = { isDeveloper: true, isReadOnly: true };
+  assert.equal((await server.getResearchEditorAccess()).canEdit, false);
+});
+
+
+test("managed listing filters contributors by authenticated owner", async () => {
+  let path = "";
+  const server = route("src/lib/research/server.ts", {
+    "server-only": {}, "@/auth": {}, "@/lib/admin": {}, "@/lib/hanhwalAccess": {},
+    "@/lib/supabaseServer": { supabaseRequest: async (query) => { path = query; return []; } },
+    "./access": { canEditResearchItem: ownership }, "./model": {}
+  });
+  await server.listResearchItems(true, { email: "member@test", canEdit: true, canManageAll: false });
+  assert.ok(path.includes("&created_by=eq.member%40test"));
+  await server.listResearchItems(true, { email: "editor@test", canEdit: true, canManageAll: true });
+  assert.ok(!path.includes("created_by=eq."));
+  path = "";
+  await server.listResearchItems(true);
+  assert.equal(path, "");
+});
+
+test("private attachments cannot be read by another HANHWAL contributor", async () => {
+  const asset = "22222222-2222-4222-8222-222222222222.pdf";
+  let reads = 0;
+  const server = {
+    ...access(true),
+    getResearchEditorAccess: async () => ({ email: "member@test", canEdit: true, canManageAll: false }),
+    getResearchItem: async () => ({ ...item, createdBy: "other@test", attachmentPaths: [`${id}/${asset}`] })
+  };
+  const stubs = common(server);
+  stubs["@/lib/research/model"].researchDocumentType = () => ({ mimeType: "application/pdf" });
+  stubs["@/lib/research/storage"].fetchResearchFile = async () => { reads++; return new Response("file"); };
+  const api = route("src/app/api/research/media/[id]/[asset]/route.ts", stubs);
+  const mediaContext = { params: Promise.resolve({ id, asset }) };
+  assert.equal((await api.GET(null, mediaContext)).status, 404);
+  assert.equal(reads, 0);
+  server.getResearchEditorAccess = async () => ({ email: "other@test", canEdit: true, canManageAll: false });
+  assert.equal((await api.GET(null, mediaContext)).status, 200);
+  assert.equal(reads, 1);
 });

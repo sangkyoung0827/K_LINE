@@ -1,5 +1,6 @@
 "use client";
 
+import { ResearchEditors } from "./ResearchEditors";
 import Link from "next/link";
 import { BookOpen, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -12,7 +13,7 @@ function mediaUrl(item: ResearchItem) {
   return `/api/research/media/${item.id}/${item.coverPath.split("/").pop()}`;
 }
 
-export function ResearchArchive({ initialItems, canEdit, initialOrganization = "", initialTag = "" }: { initialItems: ResearchItem[]; canEdit: boolean; initialOrganization?: string; initialTag?: string }) {
+export function ResearchArchive({ initialItems, canEdit, canManageEditors = false, initialOrganization = "", initialTag = "" }: { initialItems: ResearchItem[]; canEdit: boolean; canManageEditors?: boolean; initialOrganization?: string; initialTag?: string }) {
   const { language } = useLanguage();
   const [items, setItems] = useState(initialItems);
   const [query, setQuery] = useState("");
@@ -65,7 +66,7 @@ export function ResearchArchive({ initialItems, canEdit, initialOrganization = "
           </div>
           {canEdit ? <div className="flex flex-wrap gap-2">
             <button type="button" disabled={busy} onClick={toggleManage} className="min-h-10 border border-navy/20 px-4 text-sm font-semibold text-navy">
-              {manage ? (language === "ko" ? "공개 보기" : "Public view") : (language === "ko" ? "관리 보기" : "Manage")}
+              {manage ? (language === "ko" ? "공개 보기" : "Public view") : (language === "ko" ? "내 자료 · 편집 관리" : "My materials / editing")}
             </button>
             <button type="button" disabled={busy} onClick={create} className="inline-flex min-h-10 items-center gap-2 bg-navy px-4 text-sm font-semibold text-white">
               <Plus aria-hidden className="h-4 w-4" />{language === "ko" ? "자료 만들기" : "Create research"}
@@ -73,6 +74,10 @@ export function ResearchArchive({ initialItems, canEdit, initialOrganization = "
           </div> : null}
         </div>
 
+        {canManageEditors ? <ResearchEditors /> : null}
+        <div className="mt-6 rounded-md border border-navy/10 bg-white p-4 text-sm leading-7 text-muted">
+          {language === "ko" ? "한활 승인 회원은 로그인 후 자료 만들기를 이용할 수 있습니다. 연구 노트·교육 자료·국제문화교류 결과물을 등록하고, 활동 목적·일자·참여자 역할·방법·실제 결과·출처를 본문에 기록해 주세요. 계획 중인 내용은 계획으로 표시하고, 완료된 활동과 구분해 주세요. 자료는 비공개 초안으로 시작하며 공개 등록 시 누구나 볼 수 있습니다. 공개 가능한 자료와 동의받은 사진을 사용해 주세요." : "Approved HANHWAL members can sign in to create research notes, teaching materials and intercultural exchange reports. Record the purpose, date, contributor roles, method, actual results and sources. Distinguish planned work from completed activities. New items start as private drafts; published items are public. Use materials and photos cleared for public sharing."}
+        </div>
         <div className="mt-6">
           <label className="relative block">
             <span className="sr-only">{language === "ko" ? "제목과 자료 내용 검색" : "Search titles and content"}</span>

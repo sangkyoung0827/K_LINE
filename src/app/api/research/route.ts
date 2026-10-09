@@ -15,11 +15,11 @@ function storageError(error: unknown) {
 export async function GET(request: Request) {
   try {
     const manage = new URL(request.url).searchParams.get("manage") === "1";
+    const editor = manage ? await getResearchEditorAccess() : undefined;
     if (manage) {
-      const editor = await getResearchEditorAccess();
-      if (!editor.canEdit) return NextResponse.json({ error: "Research editor access required." }, { status: 403 });
+      if (!editor?.canEdit) return NextResponse.json({ error: "Research editor access required." }, { status: 403 });
     }
-    return NextResponse.json({ items: await listResearchItems(manage) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ items: await listResearchItems(manage, editor) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return storageError(error); }
 }
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const editor = await getResearchEditorAccess();
     if (!editor.canEdit) return NextResponse.json({ error: "Research editor access required." }, { status: 403 });
     const input = cleanResearchInput(await request.json() as Record<string, unknown>);
-    const item = await insertResearchItem({ ...input, status: "draft", visibility: "private" }, editor.email);
+    const item = await insertResearchItem({ ...input, ...(!editor.canManageAll ? { author_organization: "HANHWAL", related_organization_id: "hanhwal" } : {}), status: "draft", visibility: "private" }, editor.email);
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) { return storageError(error); }
 }
