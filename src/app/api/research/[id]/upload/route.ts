@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getResearchEditorAccess, getResearchItem, isResearchId, sameOrigin, updateResearchItem } from "@/lib/research/server";
+import { canEditResearchItem, getResearchEditorAccess, getResearchItem, isResearchId, sameOrigin, updateResearchItem } from "@/lib/research/server";
 import { createResearchDocumentUpload, deleteResearchFiles, uploadResearchFile, verifyResearchDocument } from "@/lib/research/storage";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ export async function POST(request: Request, context: Context) {
     if (!isResearchId(id)) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const item = await getResearchItem(id);
     if (!item) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (!canEditResearchItem(editor, item)) return NextResponse.json({ error: "You can only manage your own research materials." }, { status: 403 });
     if (request.headers.get("content-type")?.includes("application/json")) {
       const input = await request.json() as { action?: string; fileName?: string; size?: number; path?: string };
       if (input.action === "ticket") {
@@ -97,6 +98,7 @@ export async function DELETE(request: Request, context: Context) {
     if (!isResearchId(id)) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const item = await getResearchItem(id);
     if (!item) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (!canEditResearchItem(editor, item)) return NextResponse.json({ error: "You can only manage your own research materials." }, { status: 403 });
     const { path } = await request.json() as { path?: string };
     if (!path || ![item.coverPath, ...item.imagePaths, ...item.attachmentPaths].includes(path)) {
       return NextResponse.json({ error: "File not found." }, { status: 404 });

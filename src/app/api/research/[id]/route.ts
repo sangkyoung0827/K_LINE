@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { SupabaseConfigError, SupabaseRequestError } from "@/lib/supabaseServer";
 import { isPublicResearch, toPublicResearchItem } from "@/lib/research/model";
-import { cleanResearchInput, deleteResearchItem, getResearchEditorAccess, getResearchItem, isResearchId, ResearchInputError, sameOrigin, updateResearchItem } from "@/lib/research/server";
+import { canEditResearchItem, cleanResearchInput, deleteResearchItem, getResearchEditorAccess, getResearchItem, isResearchId, ResearchInputError, sameOrigin, updateResearchItem } from "@/lib/research/server";
 import { deleteResearchFiles } from "@/lib/research/storage";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +23,8 @@ export async function GET(_request: Request, context: Context) {
     const item = await getResearchItem(id);
     if (!item) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const editor = await getResearchEditorAccess();
-    if (!isPublicResearch(item) && !editor.canEdit) return NextResponse.json({ error: "Not found." }, { status: 404 });
-    return NextResponse.json({ item: editor.canEdit ? item : toPublicResearchItem(item), canEdit: editor.canEdit }, { headers: { "Cache-Control": "private, no-store" } });
+    if (!isPublicResearch(item) && !canEditResearchItem(editor, item)) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    return NextResponse.json({ item: canEditResearchItem(editor, item) ? item : toPublicResearchItem(item), canEdit: canEditResearchItem(editor, item) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return errorResponse(error); }
 }
 
@@ -37,6 +37,7 @@ export async function PATCH(request: Request, context: Context) {
     if (!isResearchId(id)) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const existing = await getResearchItem(id);
     if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (!canEditResearchItem(editor, existing)) return NextResponse.json({ error: "You can only manage your own research materials." }, { status: 403 });
     const input = cleanResearchInput(await request.json() as Record<string, unknown>, existing.attachmentPaths.length > 0);
     if (existing.isSample && input.status === "published") {
       return NextResponse.json({ error: "Sample drafts cannot be published." }, { status: 400 });
@@ -58,6 +59,7 @@ export async function DELETE(request: Request, context: Context) {
     if (!isResearchId(id)) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const existing = await getResearchItem(id);
     if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (!canEditResearchItem(editor, existing)) return NextResponse.json({ error: "You can only manage your own research materials." }, { status: 403 });
     await deleteResearchItem(id);
     try { await deleteResearchFiles([existing.coverPath, ...existing.imagePaths, ...existing.attachmentPaths].filter(Boolean)); }
     catch (error) { console.error("Orphaned research files need cleanup", { id, error }); }

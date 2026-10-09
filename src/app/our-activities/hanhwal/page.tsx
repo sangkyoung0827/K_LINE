@@ -133,7 +133,7 @@ export default function HanhwalHomePage() {
           <div className={styles.sectionContainer}>
             <div className={styles.sectionHeading}>
               <div><p className={styles.eyebrow}>OPEN K-CULTURE RESEARCH</p><h2>Research by HANHWAL</h2></div>
-              <Link href="/open-k-culture-research?organization=HANHWAL" className={styles.outlineButton}>Explore Research →</Link>
+              <Link href="/open-k-culture-research?organization=HANHWAL" className={styles.outlineButton}>자료 보기 · 등록 / Research →</Link>
             </div>
           </div>
         </section>

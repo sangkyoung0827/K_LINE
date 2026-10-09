@@ -12,5 +12,5 @@ export const metadata: Metadata = {
 export default async function ResearchPage({ searchParams }: { searchParams: Promise<{ organization?: string; tag?: string }> }) {
   const [items, editor] = await Promise.all([listResearchItems(), getResearchEditorAccess()]);
   const filters = await searchParams;
-  return <ResearchArchive initialItems={items} canEdit={editor.canEdit} initialOrganization={filters.organization || ""} initialTag={filters.tag || ""} />;
+  return <ResearchArchive initialItems={items} canEdit={editor.canEdit} canManageEditors={editor.canManageEditors} initialOrganization={filters.organization || ""} initialTag={filters.tag || ""} />;
 }

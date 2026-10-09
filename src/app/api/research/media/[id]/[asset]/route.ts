@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isPublicResearch } from "@/lib/research/model";
 import { researchDocumentType } from "@/lib/research/model";
-import { getResearchEditorAccess, getResearchItem, isResearchId } from "@/lib/research/server";
+import { canEditResearchItem, getResearchEditorAccess, getResearchItem, isResearchId } from "@/lib/research/server";
 import { fetchResearchFile } from "@/lib/research/storage";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function GET(_request: Request, context: Context) {
     if (![item.coverPath, ...item.imagePaths, ...item.attachmentPaths].includes(path)) {
       return NextResponse.json({ error: "Not found." }, { status: 404 });
     }
-    if (!isPublicResearch(item) && !(await getResearchEditorAccess()).canEdit) {
+    if (!isPublicResearch(item) && !canEditResearchItem(await getResearchEditorAccess(), item)) {
       return NextResponse.json({ error: "Not found." }, { status: 404 });
     }
     const stored = await fetchResearchFile(path);
