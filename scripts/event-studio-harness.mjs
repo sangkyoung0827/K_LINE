@@ -8,7 +8,8 @@ import { createPreviewStore, previewOrigin } from "./event-studio-test-store.mjs
 
 export function fixturePlan(clubKey = "ecc") {
   return { clubKey, title: "[QA ONLY] Cultural exchange", descriptionKo: "함께 문화를 배우고 대화하는 체험 제안입니다.", descriptionEn: "A proposal to learn about culture and share conversations.",
-    noticeKo: "문화교류 체험 공지\n\n서로의 문화를 배우고 이야기를 나눕니다.", noticeEn: "Cultural exchange notice\n\nLearn about each other's culture and share stories.",
+    noticeKo: "문화교류 체험 공지\n서로의 문화를 배우고 이야기를 나누는 시간을 제안합니다. 자신이 소개하고 싶은 문화 이야기를 생각해보세요.\n제안 프로그램\n먼저 서로 인사하고, 작은 그룹에서 각자의 문화 이야기를 나눈 뒤 인상 깊었던 내용을 함께 돌아봅니다.\n일정 및 장소\n2026-11-07T18:00:00+09:00, QA Library, 30명\n신청 안내\n2026-11-06T18:00:00+09:00까지 이름을 작성하고 선택적으로 경험을 알려주세요.",
+    noticeEn: "Cultural exchange notice\nWe propose an opportunity to learn about one another's cultures through conversation. Think about a cultural story you would like to share.\nProposed program\nStart with introductions, share cultural stories in small groups, then reflect together on what stood out.\nSchedule and venue\n2026-11-07T18:00:00+09:00, QA Library, 30 people\nApplication\nApply by 2026-11-06T18:00:00+09:00 with your name and optionally tell us about your experience.",
     activityDate: "2026-11-07T18:00:00+09:00", applicationDeadline: "2026-11-06T18:00:00+09:00", location: "QA Library", capacity: 30,
     questions: [{ id: "name", title: "Name / 이름", type: "short_answer", required: true, options: [] },
       { id: "experience", title: "Experience / 경험", type: "multiple_choice", required: false, options: ["First time / 처음", "Experienced / 경험 있음"] }],

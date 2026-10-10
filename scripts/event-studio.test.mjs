@@ -43,6 +43,37 @@ test("verified ECC references stay activity-specific and never transfer to other
     assert.doesNotMatch(h.api.eventNoticeContext("ecc", "새로운 명상 행사"), /Groups change weekly|same-day applications/);
   } finally { await h.close(); }
 });
+
+test("known source-backed notices repair generic AI output without historical fees or invented schedules", async () => {
+  const h = await eventHarness(); try {
+    h.control.currentPlan = { ...fixturePlan(), noticeKo: "공지\n신청을 받습니다.", noticeEn: "Notice\nApplications are open." };
+    const generated = await h.api.generateEventPlan(h.access().email, "ecc", "international gathering. " + fixtureMessage);
+    assert.equal(h.control.aiCalls, 1);
+    assert.match(generated.plan.noticeKo, /조별 채팅방|조원들이/);
+    assert.match(generated.plan.noticeEn, /one day before|meeting place together/);
+    assert.match(generated.plan.noticeEn, /own activity costs|restricted/);
+    assert.doesNotMatch(generated.plan.noticeKo + generated.plan.noticeEn, /15,?000|Wednesday|Tongjip|process notice/);
+    const english = await h.api.generateEventPlan(h.access().email, "ecc", "English Class. " + fixtureMessage);
+    assert.match(english.plan.noticeKo, /English Conversation Class|그룹은 매주/);
+    assert.doesNotMatch(english.plan.noticeEn, /Thursday, after 6pm/);
+  } finally { await h.close(); }
+});
+
+test("new activity generic notices retry, proposal labels are required, and unrelated ECC rules are rejected", async () => {
+  const h = await eventHarness(); try {
+    const weak = { ...fixturePlan(), noticeKo: "문화교류 공지\n참여 신청을 받습니다.", noticeEn: "Culture notice\nApply to participate in this activity." };
+    h.control.outputs = [JSON.stringify(weak), JSON.stringify(fixturePlan())];
+    const result = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(result.metadata.retries, 1);
+    assert.match(h.control.requests[1].instructions, /EVENT_NOTICE_TOO_GENERIC/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: fixturePlan().noticeKo.replaceAll("제안", "확정") }, fixtureMessage), /PROPOSAL_LABEL/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nGroups change weekly based on applicants." }, fixtureMessage), /UNRELATED_RULES/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), location: null }, fixtureMessage), /MISSING_LOGISTICS_LABEL/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nNo prior experience is needed." }, fixtureMessage), /UNSUPPORTED_ELIGIBILITY/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nTea and postcards will be provided." }, fixtureMessage), /UNSUPPORTED_MATERIALS/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: "## " + fixturePlan().noticeKo }, fixtureMessage), /COPY_FORMAT/);
+  } finally { await h.close(); }
+});
 test("strict Responses output and durable per-call telemetry for all three clubs/languages", async () => {
   const h = await eventHarness(); try {
     for (const club of ["ecc", "hanhwal", "social_impact_union"]) {
@@ -68,7 +99,9 @@ test("config off/missing/masked/model mismatch fails without hidden fallback", a
 test("missing date, deadline, venue or capacity remains an editable draft and blocks creation", async () => {
   const h = await eventHarness(); try {
     for (const field of ["activityDate", "applicationDeadline", "location", "capacity"]) {
-      h.control.currentPlan = { ...fixturePlan(), [field]: null };
+      h.control.currentPlan = { ...fixturePlan(), [field]: null,
+        noticeKo: fixturePlan().noticeKo + "\n미확정 정보는 운영진 확인 후 안내합니다.",
+        noticeEn: fixturePlan().noticeEn + "\nPending details will be announced after organizer confirmation." };
       const r = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
       assert.ok(r.missing.includes(field)); assert.equal(r.token, null);
       await assert.rejects(h.api.studioOperation(h.access(), { action: "approve", jobId: r.job.id, token: "", confirmed: true }));
