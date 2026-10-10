@@ -6,20 +6,24 @@ import { useEffect, useMemo, useState } from "react";
 import type { GoogleFormsAccess } from "@/lib/googleForms/access";
 import type { GoogleFormTemplate } from "@/lib/googleForms/templates";
 import type { GoogleFormRegistryRow } from "@/lib/googleForms/types";
-import { WoohyukmonFormsAssistant, type WorkflowPreview } from "./WoohyukmonFormsAssistant";
+import type { WorkflowPreview } from "./WoohyukmonFormsAssistant";
+import { EventStudio } from "./EventStudio";
 import { applicantNames, googleTeamNotice } from "@/lib/googleForms/applicants";
 import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
+import { useLanguage } from "@/components/LanguageProvider";
 
-type Props = { initialAccess: GoogleFormsAccess; templates: GoogleFormTemplate[]; production?: boolean };
+type Props = { initialAccess: GoogleFormsAccess; templates: GoogleFormTemplate[]; production?: boolean; app?: boolean; draftOnly?: boolean };
 type ListResponse = { access: GoogleFormsAccess; connection: { connected: boolean; accountEmail: string }; forms: GoogleFormRegistryRow[]; error?: string };
 type MirrorResponse = { responses: Array<{ id: string; submitted_at: string; respondent_email: string | null; answers_json: Record<string, string[]> }>; error?: string };
 
-export function GoogleFormsManager({ initialAccess, templates, production = false }: Props) {
+export function GoogleFormsManager({ initialAccess, templates, production = false, app = false, draftOnly = false }: Props) {
+  const { language } = useLanguage();
+  const t = (ko: string, en: string) => language === "ko" ? ko : en;
   const [section, setSection] = useState("assistant");
   const [preview, setPreview] = useState<{ workflow: WorkflowPreview; token: string } | null>(null);
   const [data, setData] = useState<ListResponse>({ access: initialAccess, connection: { connected: false, accountEmail: "" }, forms: [] });
   const [clubKey, setClubKey] = useState(initialAccess.manageableClubs[0]);
-  const [templateId, setTemplateId] = useState(templates[0].id);
+  const [templateId, setTemplateId] = useState(templates[0]?.id || "");
   const [title, setTitle] = useState("");
   const [notice, setNotice] = useState("");
   const [applicationUrl, setApplicationUrl] = useState("");
@@ -73,25 +77,32 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
     } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); }
   }
   return <section className="bg-paper py-10 sm:py-16"><div className="mx-auto max-w-7xl px-5 md:px-8">
-    <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold underline"><ArrowLeft className="h-4 w-4" />K_LINE</Link>
-    <div className="mt-6 flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase text-brass">{production ? "ECC · Google Forms" : "Google Forms · Test"}</p><h1 className="mt-2 font-serif text-3xl font-semibold text-ink sm:text-4xl">{production ? "행사 만들기" : "Application management"}</h1></div>{initialAccess.canConnect ? <a href="/api/google-forms/oauth/start" className="inline-flex min-h-11 items-center bg-ink px-5 text-sm font-semibold text-paper">{data.connection.connected ? `Reconnect ${data.connection.accountEmail}` : "Connect test Google account"}</a> : null}</div>
-    <div role="tablist" aria-label="Forms management" className="mt-6 flex flex-wrap gap-2">{[["assistant", "우혁몬 5.0"], ["forms", "Google Forms"], ["applicants", "신청자 관리"]].map(([id, label]) => <button key={id} role="tab" aria-selected={section === id} onClick={() => setSection(id)} className={`min-h-11 px-4 text-sm font-semibold ${section === id ? "bg-ink text-paper" : "border border-ink/20"}`}>{label}</button>)}</div>
-    {section === "assistant" && !initialAccess.isReadOnly ? <WoohyukmonFormsAssistant production={production} onComplete={() => { void load().catch(error => setMessage((error as Error).message)); }} /> : null}
+    {!app && <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold underline"><ArrowLeft className="h-4 w-4" />K_LINE</Link>}
+    <div className="mt-6 flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase text-brass">{production ? "ECC · Google Forms" : "Google Forms · Test"}</p><h1 className="mt-2 font-serif text-3xl font-semibold text-ink sm:text-4xl">{production ? t("행사 만들기", "Create event") : "Application management"}</h1></div>{initialAccess.canConnect ? <a href="/api/google-forms/oauth/start" className="inline-flex min-h-11 items-center bg-ink px-5 text-sm font-semibold text-paper">{data.connection.connected ? `Reconnect ${data.connection.accountEmail}` : "Connect test Google account"}</a> : null}</div>
+    <div role="tablist" aria-label={t("행사 관리", "Event management")} className="mt-6 grid grid-cols-3 gap-2 sm:flex">{[["assistant", t("우혁몬 5.0", "WOOHYUKMON 5.0")], ["forms", "Google Forms"], ["applicants", t("신청자 관리", "Applicants")]].map(([id, label], index) => <button key={id} id={`event-tab-${id}`} role="tab" tabIndex={section === id ? 0 : -1} aria-selected={section === id} aria-controls={`event-panel-${id}`} onKeyDown={event => {
+      const ids = ["assistant", "forms", "applicants"];
+      const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : null;
+      if (next === null) return;
+      event.preventDefault(); setSection(ids[next]);
+      event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`#event-tab-${ids[next]}`)?.focus();
+    }} onClick={() => setSection(id)} className={`min-h-11 min-w-0 break-words px-2 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${section === id ? "bg-ink text-paper" : "border border-ink/20"}`}>{label}</button>)}</div>
+    {!initialAccess.isReadOnly ? <div id="event-panel-assistant" role="tabpanel" aria-labelledby="event-tab-assistant" hidden={section !== "assistant"}><EventStudio embedded initialClub={clubKey === "social_impact_union" ? clubKey : "ecc"} onComplete={() => { void load().catch(error => setMessage((error as Error).message)); }} /></div> : null}
     {message ? <p role="status" className="mt-5 border border-brass/30 bg-brass/10 p-3 text-sm font-semibold text-ink">{message}</p> : null}
     <div className="mt-8 flex gap-2 overflow-x-auto">{initialAccess.manageableClubs.map((club) => <button key={club} disabled={busy} onClick={() => { setClubKey(club); resetCreation(); }} className={`min-h-10 whitespace-nowrap px-4 text-sm font-semibold ${clubKey === club ? "bg-navy text-paper" : "border border-ink/15"}`}>{club}</button>)}</div>
-    {!initialAccess.isReadOnly && section === "forms" ? <div className="mt-6 border-t border-ink/12 pt-6">
+    {!initialAccess.isReadOnly && section === "forms" ? <div id="event-panel-forms" role="tabpanel" aria-labelledby="event-tab-forms" className="mt-6 border-t border-ink/12 pt-6">
       <h2 className="flex items-center gap-2 text-xl font-semibold"><FilePlus2 className="h-6 w-6" />Create Google Form</h2>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <Field label="Template"><select aria-label="Template" disabled={busy} value={templateId} onChange={(event) => { setTemplateId(event.target.value); resetCreation(); }} className="form-field">{templates.filter((template) => template.questions.length).map((template) => <option key={template.id} value={template.id}>{template.label}</option>)}</select></Field>
         <Field label="활동 제목"><input aria-label="활동 제목" disabled={busy} className="form-field" value={title} placeholder="활동 제목" onChange={(event) => { setTitle(event.target.value); resetCreation(); }} /></Field>
       </div>
-      <button disabled={busy || !title.trim() || !!createdForm} onClick={() => void create()} className="mt-4 inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper disabled:opacity-45"><FilePlus2 className="h-4 w-4" />{busy ? "생성 중..." : createdForm ? "생성 완료" : preview ? "생성 다시 시도" : "신청폼 · 공지 생성"}</button>
+      <button disabled={draftOnly || busy || !title.trim() || !templateId || !!createdForm} onClick={() => void create()} className="mt-4 inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper disabled:opacity-45"><FilePlus2 className="h-4 w-4" />{busy ? "생성 중..." : createdForm ? "생성 완료" : preview ? "생성 다시 시도" : "신청폼 · 공지 생성"}</button>
+      {draftOnly && <p role="status" className="mt-3 text-sm text-ink/65">{t("이 테스트 화면은 AI 초안 생성만 가능합니다. Google Form 생성은 비활성화되어 있습니다.", "This test supports AI drafts only. Google Form creation is disabled.")}</p>}
       {notice && createdForm ? <div className="mt-6 border-t border-ink/12 pt-5">
         <ActivityNoticeOutput notice={notice} applicationUrl={applicationUrl} onError={setMessage} />
         <a href={`https://docs.google.com/forms/d/${encodeURIComponent(createdForm.google_form_id)}/edit`} className="mt-3 inline-flex min-h-11 items-center gap-2 underline">구글폼 원본 보기<ExternalLink className="h-4 w-4" /></a>
       </div> : null}
     </div> : null}
-    <div className={section === "assistant" ? "hidden" : "mt-8 grid gap-4"}>{forms.map((form) => <article key={form.id} className="border border-ink/12 bg-white/60 p-4 sm:p-5">
+    <div id={section === "applicants" ? "event-panel-applicants" : undefined} role={section === "applicants" ? "tabpanel" : undefined} aria-labelledby={section === "applicants" ? "event-tab-applicants" : undefined} className={section === "assistant" ? "hidden" : "mt-8 grid gap-4"}>{forms.map((form) => <article key={form.id} className="border border-ink/12 bg-white/60 p-4 sm:p-5">
       <p className="text-xs font-bold uppercase text-brass">{form.status} · Google Forms</p>
       <h2 className="mt-1 break-words text-xl font-bold text-ink">{form.title}</h2>
       <p className="mt-2 text-sm text-ink/60">신청자 {form.response_count}명</p>

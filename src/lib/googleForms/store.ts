@@ -4,7 +4,8 @@ import { assertGoogleFormsTestEnvironment, isGoogleFormsAdminProduction } from "
 const testTables = new Set([
   "google_oauth_connections", "google_forms", "google_form_responses",
   "google_form_creation_attempts", "google_form_workflows", "google_form_operation_audit",
-  "club_board_posts", "site_members", "ecc_form_entry_leases", "ecc_form_revoker_health"
+  "club_board_posts", "site_members", "ecc_form_entry_leases", "ecc_form_revoker_health",
+  "event_studio_jobs", "event_ai_usage", "event_ai_limits"
 ]);
 
 export async function supabaseRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -21,8 +22,9 @@ export async function supabaseRequest<T>(path: string, init: RequestInit = {}): 
   headers.set("apikey", key);
   headers.set("Authorization", `Bearer ${key}`);
   headers.set("Content-Type", "application/json");
-  const rpc = /^rpc\/(ecc_form_lock|ecc_form_unlock)$/.exec(path);
-  if (production && (rpc || !match || !testTables.has(match[1]) ||
+  const rpc = /^rpc\/(ecc_form_lock|ecc_form_unlock|event_ai_reserve)$/.exec(path);
+  const productionRpc = rpc?.[1] === "event_ai_reserve";
+  if (production && !productionRpc && (rpc || !match || !testTables.has(match[1]) ||
       ["site_members", "ecc_form_entry_leases", "ecc_form_revoker_health"].includes(match[1]))) {
     throw new Error("GOOGLE_FORMS_ADMIN_TABLE_NOT_ALLOWED");
   }

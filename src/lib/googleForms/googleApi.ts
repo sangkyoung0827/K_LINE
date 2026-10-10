@@ -107,6 +107,31 @@ async function setPublication(formId: string, isPublished: boolean, isAcceptingR
   if (result.formId !== formId || !state || Boolean(state.isPublished) !== isPublished || Boolean(state.isAcceptingResponses) !== isAcceptingResponses) throw new Error("GOOGLE_PUBLICATION_STATE_NOT_CONFIRMED");
 }
 
+export async function verifyGoogleFormDraft(formId: string, draft: GoogleFormDraft) {
+  const form = await googleFetch<GoogleFormResource>(`${formsBase}/${encodeURIComponent(formId)}`);
+  const expected = draft.questions.map(questionItem);
+  const actual = (form.items || []) as Array<ReturnType<typeof questionItem>>;
+  const matches = expected.length === actual.length && expected.every((item, index) => {
+    const remote = actual[index];
+    const question = remote?.questionItem?.question;
+    const intended = item.questionItem.question;
+    if (!question || remote.itemId !== item.itemId || remote.title !== item.title || question.questionId !== intended.questionId || Boolean(question.required) !== Boolean(intended.required)) return false;
+    const normalize = (value: Record<string, unknown>) => {
+      if (value.textQuestion) return { text: Boolean((value.textQuestion as { paragraph?: boolean }).paragraph) };
+      if (value.choiceQuestion) {
+        const choice = value.choiceQuestion as { type?: string; options?: { value: string }[] };
+        return { type: choice.type, options: (choice.options || []).map(option => option.value) };
+      }
+      if (value.dateQuestion) return { date: Boolean((value.dateQuestion as { includeYear?: boolean }).includeYear), time: Boolean((value.dateQuestion as { includeTime?: boolean }).includeTime) };
+      if (value.timeQuestion) return { duration: Boolean((value.timeQuestion as { duration?: boolean }).duration) };
+      return null;
+    };
+    return JSON.stringify(normalize(question)) === JSON.stringify(normalize(intended));
+  });
+  if (form.formId !== formId || form.info?.title !== draft.title || (form.info?.description || "").trim() !== draft.description.trim() || !matches) throw new Error("GOOGLE_FORM_CONTENT_MISMATCH");
+  return actualResponderUrl(form.responderUri);
+}
+
 export async function createGoogleForm(draft: GoogleFormDraft, createdBy: string, idempotencyKey: string) {
   assertGoogleFormsTestEnvironment();
   if (!/^[a-zA-Z0-9_-]{16,120}$/.test(idempotencyKey)) throw new Error("IDEMPOTENCY_KEY_REQUIRED");
