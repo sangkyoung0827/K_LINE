@@ -280,6 +280,30 @@ test("activity notices follow bilingual rule sections and keep application URLs 
   assert.equal(planning.noticeBody("공지 본문\n신청 링크: https://docs.google.com/forms/d/e/actual/viewform"), "공지 본문");
 });
 
+test("default ECC template resolves activity titles and repairs legacy generic notices without changing saved drafts", () => {
+  const { load } = harness();
+  const { draftFromTemplate } = load("src/lib/googleForms/templates.ts");
+  const { generateActivityNotice, planActivity } = load("src/lib/googleForms/planning.ts");
+  for (const title of ["international gathering", "ECC Gathering", "인터내셔널 게더링"]) {
+    const draft = draftFromTemplate("ecc", "ecc_general", title);
+    assert.equal(draft.templateId, "ecc_gathering");
+    assert.ok(draft.questions.some(question => /Preferred food/.test(question.title)));
+    const legacy = { ...draft, templateId: "ecc_general", description: "General ECC activity application" };
+    const notice = generateActivityNotice(legacy);
+    assert.match(notice, /조별 채팅방/);
+    assert.match(notice, /own activity costs/);
+    assert.match(notice, /same-day applications/i);
+    assert.doesNotMatch(notice, /Wednesday|Thursday|15,?000|process notice reviewed/);
+    assert.equal(legacy.templateId, "ecc_general");
+  }
+  assert.equal(planActivity("English Conversation Class 폼 만들기").draft.templateId, "ecc_english_class");
+  assert.equal(draftFromTemplate("ecc", "ecc_general", "English Class").templateId, "ecc_english_class");
+  assert.equal(draftFromTemplate("ecc", "ecc_general", "MT").templateId, "ecc_mt");
+  assert.equal(draftFromTemplate("ecc", "ecc_mt", "International Gathering").templateId, "ecc_mt");
+  assert.equal(draftFromTemplate("general", "general_activity", "International Gathering").templateId, "general_activity");
+  assert.equal(draftFromTemplate("ecc", "ecc_general", "Tea tasting gathering").templateId, "ecc_general");
+});
+
 test("new activity uses structured AI questions and preserves only supplied logistics", async () => {
   const h = harness(); const { planNewActivity } = h.load("src/lib/googleForms/aiPlanning.ts");
   const message = "제주 바다 사진 산책 폼 만들어줘. 일시: 2026-10-20T14:00+09:00. 신청 마감: 2026-10-19T18:00+09:00. 장소: 함덕해수욕장.";

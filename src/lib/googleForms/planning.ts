@@ -1,7 +1,7 @@
 import type { GoogleFormDraft } from "./types";
 import { instantiateTemplate, draftFromTemplate, googleFormTemplates } from "./templates";
 import { actualResponderUrl } from "./responses";
-import { eccNoticeKnowledge, presetNoticeIntroductions } from "./noticeKnowledge";
+import { eccNoticeKnowledge, presetNoticeIntroductions, resolveNoticeTemplate } from "./noticeKnowledge";
 
 export const googleFormsActionRegistry = {
   DRAFT_GOOGLE_FORM: { write: true }, PREVIEW_GOOGLE_FORM: { write: false },
@@ -16,9 +16,8 @@ export const googleFormsActionRegistry = {
 export type GoogleFormsAction = keyof typeof googleFormsActionRegistry;
 
 export function planActivity(message: string): { draft: GoogleFormDraft; missing: string[] } {
-  const templateId = /gathering|게더링/i.test(message) ? "ecc_gathering" : /\bMT\b/i.test(message) ? "ecc_mt" :
-    /farewell|종강/i.test(message) ? "ecc_farewell" : /english class|영어.*수업/i.test(message) ? "ecc_english_class" : "ecc_general";
-  const event = /International Gathering|English Class|Farewell|Special Event|\bMT\b|\bOT\b/i.exec(message)?.[0] || "";
+  const templateId = resolveNoticeTemplate("ecc", "ecc_general", message);
+  const event = /International Gathering|ECC Gathering|English (?:Conversation )?Class|Farewell|Special Event|\bMT\b|\bOT\b|(?:인터내셔널\s*)?게더링|영어\s*(?:회화|수업)/i.exec(message)?.[0] || "";
   const isoDate = "\\d{4}-\\d{2}-\\d{2}(?:[T ]\\d{2}:\\d{2}(?::\\d{2})?(?:Z|[+-]\\d{2}:\\d{2})?)?";
   const dates = message.match(new RegExp(isoDate, "g")) || [];
   const deadline = new RegExp(`(?:신청\\s*마감|마감|deadline)\\s*[:：]?\\s*(${isoDate})`, "i").exec(message)?.[1] || dates[1] || "";
@@ -53,6 +52,11 @@ function noticeDate(value: string, locale: string) {
 }
 
 export function generateActivityNotice(draft: GoogleFormDraft) {
+  const templateId = resolveNoticeTemplate(draft.clubKey, draft.templateId, draft.activityTitle || draft.title);
+  if (templateId !== draft.templateId) {
+    const oldDescription = googleFormTemplates.find(item => item.id === draft.templateId)?.description;
+    draft = { ...draft, templateId, description: draft.description === oldDescription ? "" : draft.description };
+  }
   const englishClass = draft.clubKey === "ecc" && draft.templateId === "ecc_english_class";
   const gathering = draft.clubKey === "ecc" && draft.templateId === "ecc_gathering";
   const title = englishClass ? "English Conversation Class" : draft.activityTitle || draft.title;

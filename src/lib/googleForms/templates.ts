@@ -1,4 +1,5 @@
 import type { GoogleFormDraft, GoogleFormQuestion } from "./types";
+import { resolveNoticeTemplate } from "./noticeKnowledge";
 
 export type GoogleFormTemplate = {
   id: string;
@@ -62,6 +63,7 @@ export function instantiateTemplate(templateId: string) {
 }
 
 export function draftFromTemplate(clubKey: GoogleFormDraft["clubKey"], templateId: string, title: string): GoogleFormDraft {
+  templateId = resolveNoticeTemplate(clubKey, templateId, title);
   const template = googleFormTemplates.find((item) => item.id === templateId);
   if (!template || !template.questions.length) throw new Error("ACTIVITY_TEMPLATE_REQUIRED");
   return {
