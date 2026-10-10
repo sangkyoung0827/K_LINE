@@ -94,7 +94,7 @@ export function EventStudio({ initialClub, onComplete, embedded = false }: { ini
             {["multiple_choice", "checkbox", "dropdown"].includes(q.type) && <textarea aria-label={t("선택지", "Choices")} className="form-field min-h-24" value={q.options.join("\n")} onChange={e => edit({ questions: plan.questions.map(item => item.id === q.id ? { ...item, options: e.target.value.split("\n") } : item) })} />}
           </li>)}</ol>
           <button type="button" className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-3 text-sm" onClick={() => edit({ questions: [...plan.questions, { id: crypto.randomUUID(), title: "", type: "short_answer", required: false, options: [] }] })}><Plus className="h-4 w-4" />{t("질문 추가", "Add question")}</button>
-          {(["noticeKo", "noticeEn"] as const).map(key => <label key={key} className="grid gap-2 text-sm">{key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")}<textarea className="form-field min-h-48" value={plan[key]} onChange={e => edit({ [key]: e.target.value })} /></label>)}
+          {(["noticeKo", "noticeEn"] as const).map(key => <label key={key} className="grid gap-2 text-sm">{key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")}<textarea aria-label={key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")} className="form-field min-h-48" value={plan[key]} onChange={e => edit({ [key]: e.target.value })} /></label>)}
         </fieldset>
         {result.missing.length > 0 && <p role="status" className="text-sm">{t("확인할 정보", "Missing information")}: {result.missing.join(", ")}</p>}
         {!readOnly && <div className="flex flex-wrap gap-2">
