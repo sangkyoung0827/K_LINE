@@ -752,7 +752,9 @@ test("shared project requests can only reach prefixed test tables", async () => 
   env.SUPABASE_SERVICE_ROLE_KEY = "live-key";
   await store("google_forms?select=*&limit=1");
   assert.equal(requests.at(-1), `${env.SUPABASE_URL}/rest/v1/kline_forms_live_google_forms?select=*&limit=1`);
-  for (const path of ["ecc_roles", "site_members", "ecc_form_entry_leases", "ecc_form_revoker_health", "rpc/ecc_form_lock"]) await assert.rejects(store(path), /NOT_ALLOWED/);
+  await store("rpc/event_ai_reserve", { method: "POST", body: "{}" });
+  assert.equal(requests.at(-1), `${env.SUPABASE_URL}/rest/v1/rpc/kline_forms_live_event_ai_reserve`);
+  for (const path of ["ecc_roles", "site_members", "ecc_form_entry_leases", "ecc_form_revoker_health", "rpc/ecc_form_lock", "rpc/ecc_form_unlock", "rpc/event_ai_reserve?extra=true"]) await assert.rejects(store(path), /NOT_ALLOWED/);
 });
 
 test("production requires explicit admin opt-in and never enables member entry or publication", () => {
