@@ -88,12 +88,14 @@ export function generateActivityNotice(draft: GoogleFormDraft) {
     deadlineKo && `✅ 신청 기한\n${deadlineKo}`,
     timeKo && `✅ 활동 시간\n${timeKo}`,
     draft.location && `✅ 장소\n${draft.location}`,
+    draft.capacity && `✅ 모집 인원\n${draft.capacity}명`,
     rulesKo.join("\n"),
     `🧑‍🤝‍🧑 ${title} Notice`,
     introEn,
     deadlineEn && `✅ Application\n${deadlineEn}`,
     timeEn && `✅ Activity time\n${timeEn}`,
     draft.location && `✅ Location\n${draft.location}`,
+    draft.capacity && `✅ Participants\n${draft.capacity} people`,
     rulesEn.join("\n"),
   ].filter(Boolean).join("\n\n"));
 }

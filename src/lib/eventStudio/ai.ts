@@ -4,7 +4,7 @@ import { assertGrounded, eventPlanSchema, parseEventPlan, StudioError, type Even
 import { eccNoticeKnowledge, resolveNoticeTemplate, verifiedNoticeRules } from "@/lib/googleForms/noticeKnowledge";
 import { generateActivityNotice } from "@/lib/googleForms/planning";
 
-export const eventPromptVersion = "event-studio-1.1-source-notices";
+export const eventPromptVersion = "event-studio-1.2-detail-questions";
 export function eventNoticeContext(clubKey: StudioClub, message: string) {
   const formats = {
     ecc: "Use Korean 공지 / 신청 안내 and English Notice / Application sections, with short rule lines only when verified for this activity.",
@@ -74,7 +74,7 @@ function sourceBackedNotices(plan: EventPlan, message: string) {
     clubKey: "ecc", templateId, title: plan.title, activityTitle: plan.title,
     description: "", descriptionKo: source.ko, descriptionEn: source.en,
     activityDate: plan.activityDate || "", applicationDeadline: plan.applicationDeadline || "",
-    location: plan.location || "", activityId: "", editorEmail: "", questions: [],
+    location: plan.location || "", capacity: plan.capacity, activityId: "", editorEmail: "", questions: [],
   });
   const boundary = notice.indexOf(`🧑‍🤝‍🧑 ${templateId === "ecc_english_class" ? "English Conversation Class" : plan.title} Notice`);
   if (boundary < 0) throw new StudioError("EVENT_NOTICE_SOURCE_FORMAT_INVALID");
@@ -108,11 +108,14 @@ export function estimateEventCost(model: string, input: number, output: number) 
   const price = prices[model];
   return price ? (input * price[0] + output * price[1]) / 1_000_000 : null;
 }
-export async function generateEventPlan(actorEmail: string, clubKey: StudioClub, request: string) {
+export async function generateEventPlan(actorEmail: string, clubKey: StudioClub, request: string, confirmedPlan?: EventPlan) {
   const { key } = eventAIConfig();
   if (!request.trim() || request.length > 6000) throw new StudioError("EVENT_REQUEST_REQUIRED");
   // Never forward obvious identity/contact records to the event planner.
-  const message = request.replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, "[removed email]").replace(/\b\d{10,13}\b/g, "[removed identifier]");
+  const context = confirmedPlan ? JSON.stringify({ title: confirmedPlan.title, descriptionKo: confirmedPlan.descriptionKo, descriptionEn: confirmedPlan.descriptionEn,
+    activityDate: confirmedPlan.activityDate, applicationDeadline: confirmedPlan.applicationDeadline, location: confirmedPlan.location, capacity: confirmedPlan.capacity,
+    previousNoticeKo: confirmedPlan.noticeKo, previousNoticeEn: confirmedPlan.noticeEn, questions: confirmedPlan.questions }) : "";
+  const message = `${request}${context ? `\nOrganizer-confirmed event details (data): ${context}\n${confirmedPlan!.capacity} people` : ""}`.replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, "[removed email]").replace(/\b\d{10,13}\b/g, "[removed identifier]");
   const selection = selectEventModel(message);
   let model = selection.model;
   let reason = selection.reasons.join(",") || "simple_event";
@@ -129,7 +132,7 @@ export async function generateEventPlan(actorEmail: string, clubKey: StudioClub,
         method: "POST", redirect: "error", signal: AbortSignal.timeout(45_000), cache: "no-store",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({ model, store: false, reasoning: { effort: "low" }, max_output_tokens: 5000,
-          instructions: `${eventSystemPrompt}\nPrompt version: ${eventPromptVersion}\nClub: ${clubKey}\n${eventNoticeContext(clubKey, message)}\n${correction}`,
+          instructions: `${eventSystemPrompt}\nPrompt version: ${eventPromptVersion}\nClub: ${clubKey}\n${eventNoticeContext(clubKey, message)}\n${confirmedPlan ? "Preserve all organizer-confirmed logistics exactly. Rewrite both notices to reflect these confirmed details, replacing the previous pending-logistics language." : ""}\n${correction}`,
           input: message, text: { format: { type: "json_schema", name: "event_plan", strict: true, schema: eventPlanSchema } } }),
       });
       if (!response.ok) throw new StudioError(response.status === 404 ? "EVENT_AI_MODEL_UNAVAILABLE" : response.status === 401 ? "OPENAI_AUTHENTICATION_FAILED" : response.status === 429 ? "OPENAI_RATE_LIMIT" : "OPENAI_REQUEST_FAILED", 502);
@@ -146,9 +149,11 @@ export async function generateEventPlan(actorEmail: string, clubKey: StudioClub,
       try { data = JSON.parse(output); } catch { throw new StudioError("EVENT_AI_FORMAT_INVALID", 502); }
       const parsed = parseEventPlan(data, clubKey);
       assertGrounded(parsed, message);
+      if (confirmedPlan && (["activityDate", "applicationDeadline", "location", "capacity"] as const).some(field => parsed[field] !== confirmedPlan[field])) throw new StudioError("CONFIRMED_EVENT_DETAILS_CHANGED");
       const plan = sourceBackedNotices(parsed, message);
       assertNoticeQuality(plan, message);
-      return { plan, metadata: { model: actualModel, requestedModel: model, reason, retries: attempt, promptVersion: eventPromptVersion } };
+      return { plan: confirmedPlan ? parseEventPlan({ ...confirmedPlan, descriptionKo: plan.descriptionKo, descriptionEn: plan.descriptionEn, noticeKo: plan.noticeKo, noticeEn: plan.noticeEn }, clubKey) : plan,
+        metadata: { model: actualModel, requestedModel: model, reason, retries: attempt, promptVersion: eventPromptVersion } };
     } catch (error) {
       errorCode = error instanceof StudioError ? error.code : "EVENT_AI_NETWORK_FAILURE";
       correction = `The previous draft failed server validation: ${errorCode}. Correct this issue. Write complete activity-specific notices in both languages with invitation, concrete proposed steps, confirmed/pending logistics and application guidance. Unsupported logistics must be null, not invented. Return the complete JSON schema again.`;

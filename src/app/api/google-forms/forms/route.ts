@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { getGoogleFormsAccess, GoogleFormsAuthorizationError } from "@/lib/googleForms/access";
+import { assertClubAccess, getGoogleFormsAccess, GoogleFormsAuthorizationError } from "@/lib/googleForms/access";
 import { getGoogleConnectionStatus, registryColumns } from "@/lib/googleForms/googleApi";
 import { type GoogleFormRegistryRow } from "@/lib/googleForms/types";
 import { supabaseRequest } from "@/lib/googleForms/store";
 import { handleGoogleFormsOperation } from "@/lib/googleForms/gateway";
-import { draftFromTemplate } from "@/lib/googleForms/templates";
+import { presetWithDetails } from "@/lib/googleForms/presetDetails";
+import { EventDetailsError } from "@/lib/eventStudio/details";
 import { cleanText } from "@/lib/supabaseServer";
 import type { GoogleFormDraft } from "@/lib/googleForms/types";
 
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 function failure(error: unknown) {
   if (error instanceof GoogleFormsAuthorizationError) return NextResponse.json({ error: error.message }, { status: error.status });
+  if (error instanceof EventDetailsError) return NextResponse.json({ error: error.message }, { status: 400 });
   console.error("Google Forms registry request failed", error instanceof Error ? error.message : "unknown");
   return NextResponse.json({ error: error instanceof Error ? error.message : "Google Forms 연결에 문제가 있습니다." }, { status: 500 });
 }
@@ -29,10 +31,16 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const input = await request.json();
-    const draft = input?.presetOnly === true ? draftFromTemplate(
-      cleanText(input.clubKey, 40) as GoogleFormDraft["clubKey"],
-      cleanText(input.templateId, 80), cleanText(input.title, 200)
-    ) : input;
+    let draft = input;
+    if (input?.presetOnly === true) {
+      const access = await getGoogleFormsAccess();
+      const clubKey = cleanText(input.clubKey, 40) as GoogleFormDraft["clubKey"];
+      assertClubAccess(access, clubKey, true);
+      if (request.headers.get("origin") !== new URL(request.url).origin) return NextResponse.json({ error: "INVALID_ORIGIN" }, { status: 403 });
+      const collected = presetWithDetails(clubKey, cleanText(input.templateId, 80), cleanText(input.title, 200), input.details);
+      if (collected.missing.length) return NextResponse.json({ details: collected.details, missing: collected.missing }, { headers: { "Cache-Control": "private, no-store" } });
+      draft = collected.draft;
+    }
     return (await handleGoogleFormsOperation({ action: "DRAFT_GOOGLE_FORM", draft }))!;
   } catch (error) { return failure(error); }
 }

@@ -28,7 +28,7 @@ export function formDraft(plan: EventPlan): GoogleFormDraft {
   if (plan.clubKey === "hanhwal") throw new StudioError("CLUB_ADAPTER_NOT_READY", 409);
   return parseGoogleFormDraft({ clubKey: plan.clubKey, title: plan.title, activityTitle: plan.title,
     templateId: "blank", activityId: "", editorEmail: "", location: plan.location || "",
-    activityDate: plan.activityDate || "", applicationDeadline: plan.applicationDeadline || "",
+    activityDate: plan.activityDate || "", applicationDeadline: plan.applicationDeadline || "", capacity: plan.capacity,
     description: `${plan.descriptionKo}\n\n${plan.descriptionEn}`, questions: plan.questions });
 }
 export function parseEventPlan(value: unknown, expectedClub: StudioClub): EventPlan {

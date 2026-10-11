@@ -11,6 +11,7 @@ import { createSignedWoohyukmonPayload, verifySignedWoohyukmonPayload } from "@/
 import { generateEventPlan } from "./ai";
 import { assertStudioAccess, type StudioAccess } from "./access";
 import { club, formDraft, parseEventPlan, StudioError, type EventPlan, type StudioClub } from "./model";
+import { eventDetailOrder, parseEventDetails, EventDetailsError } from "./details";
 
 export type StudioJob = {
   id: string; club_key: StudioClub; plan: EventPlan; revision: number; state: "draft" | "running" | "failed" | "notice_saved";
@@ -123,6 +124,29 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
   const job = await loadJob(String(body.jobId || ""), access, !["get", "review"].includes(String(action)));
   if (action === "get") return result(job, access);
   if (action === "review") { assertStudioAccess(access, job.club_key); return preview(job, access); }
+  if (action === "answer") {
+    if (job.form_registry_id || job.state !== "draft") throw new StudioError("CREATED_JOB_CANNOT_BE_EDITED", 409);
+    if (body.revision !== job.revision) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);
+    const field = body.field;
+    if (!eventDetailOrder.includes(field as typeof eventDetailOrder[number]) || job.plan[field as typeof eventDetailOrder[number]] !== null) throw new StudioError("EVENT_QUESTION_CHANGED", 409);
+    let plan: EventPlan;
+    try {
+      const details = parseEventDetails({ ...job.plan, [String(field)]: body.value });
+      if (details[field as typeof eventDetailOrder[number]] === null) throw new EventDetailsError("EVENT_ANSWER_REQUIRED");
+      plan = parseEventPlan({ ...job.plan, ...details }, job.club_key);
+    }
+    catch (error) { if (error instanceof EventDetailsError) throw new StudioError(error.message); throw error; }
+    let metadata = job.ai_metadata;
+    if (!plan.missingInformation.length) {
+      const generated = await generateEventPlan(access.email, job.club_key, plan.title, plan);
+      plan = generated.plan; metadata = { ...metadata, ...generated.metadata };
+    }
+    const updated = await supabaseRequest<StudioJob[]>(`${jobQuery(job.id)}&revision=eq.${job.revision}&state=eq.draft&form_registry_id=is.null&select=*`, {
+      method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ plan, ai_metadata: metadata, revision: job.revision + 1, updated_at: new Date().toISOString() }),
+    });
+    if (!updated[0]) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);
+    return preview(updated[0], access);
+  }
   if (action === "update") {
     if (job.form_registry_id || job.state !== "draft") throw new StudioError("CREATED_JOB_CANNOT_BE_EDITED", 409);
     if (body.revision !== job.revision) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);

@@ -7,6 +7,97 @@ const deletionRequest = (body = { confirmedEnded: true }, origin = "http://127.0
   method: "DELETE", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
 });
 
+test("clarification asks only for absent values in Korean and English, without invented defaults", async () => {
+  const h = await eventHarness(); try {
+    const details = h.api.parseEventDetails({ activityDate: "2026-11-01", capacity: 30 });
+    assert.deepEqual(h.api.missingEventDetails(details), ["location", "applicationDeadline"]);
+    assert.match(h.api.eventDetailQuestion("capacity", "", true), /몇 명/);
+    assert.match(h.api.eventDetailQuestion("activityDate", "Meditation", false), /When.*Meditation/);
+    assert.equal(details.applicationDeadline, null); assert.equal(details.location, null);
+  } finally { await h.close(); }
+});
+
+test("missing event details are answered on the same saved draft, keep prior answers and require approval before creation", async () => {
+  const h = await eventHarness(); try {
+    const complete = fixturePlan();
+    h.control.currentPlan = { ...complete, activityDate: null, applicationDeadline: null, location: null, capacity: null,
+      noticeKo: complete.noticeKo + "\n일정과 장소는 미정입니다.", noticeEn: complete.noticeEn + "\nSchedule and venue await confirmation." };
+    let current = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: "문화교류 프로그램 만들기" });
+    const id = current.job.id;
+    assert.equal(current.token, null);
+    h.control.currentPlan = complete;
+    for (const field of ["activityDate", "capacity", "location", "applicationDeadline"]) {
+      const before = current;
+      current = await h.api.studioOperation(h.access(), { action: "answer", jobId: id, revision: current.job.revision, field, value: complete[field] });
+      assert.equal(current.job.id, id); assert.equal(current.job.revision, before.job.revision + 1);
+      assert.deepEqual(current.job.plan.questions, before.job.plan.questions);
+      assert.equal(current.job.plan.title, before.job.plan.title);
+      const reloaded = await h.api.studioOperation(h.access(), { action: "get", jobId: id });
+      assert.equal(reloaded.job.plan[field], complete[field]);
+      assert.equal(h.control.externalCreates, 0);
+      if (field !== "applicationDeadline") assert.equal(current.token, null);
+    }
+    assert.equal(h.control.aiCalls, 2); assert.ok(current.token); assert.deepEqual(current.missing, []);
+    assert.match(h.control.requests.at(-1).input, /Organizer-confirmed event details/);
+    const created = await h.api.studioOperation(h.access(), { action: "approve", jobId: id, token: current.token, confirmed: true });
+    assert.equal(h.control.externalCreates, 1); assert.equal(created.form.metadata.capacity, 30);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "answer", jobId: id, revision: current.job.revision, field: "capacity", value: 50 }), /CREATED_JOB_CANNOT_BE_EDITED/);
+  } finally { await h.close(); }
+});
+
+test("follow-up rejects stale, other-club, read-only and invalid answers without changing a draft", async () => {
+  const h = await eventHarness(); try {
+    h.control.currentPlan = { ...fixturePlan(), capacity: null };
+    const current = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    const answer = { action: "answer", jobId: current.job.id, revision: current.job.revision, field: "capacity", value: 30 };
+    for (const value of [-1, 0, 1.5, "30", 100001, null]) await assert.rejects(h.api.studioOperation(h.access(), { ...answer, value }), /INVALID_CAPACITY|EVENT_ANSWER_REQUIRED/);
+    await assert.rejects(h.api.studioOperation(h.access(), { ...answer, field: "noticeKo" }), /EVENT_QUESTION_CHANGED/);
+    await assert.rejects(h.api.studioOperation(h.access(), { ...answer, revision: 0 }), /JOB_CHANGED/);
+    await assert.rejects(h.api.studioOperation({ ...h.access(), readOnly: true }, answer), /READ_ONLY/);
+    await assert.rejects(h.api.studioOperation({ ...h.access(), manageableClubs: ["hanhwal"] }, answer), /JOB_NOT_FOUND/);
+    assert.equal((await h.api.studioOperation(h.access(), { action: "get", jobId: current.job.id })).job.revision, 1);
+    assert.equal(h.control.aiCalls, 1); assert.equal(h.control.externalCreates, 0);
+    assert.throws(() => h.api.parseEventDetails({ activityDate: "2026-02-30" }), /INVALID_EVENT_DATE/);
+    assert.throws(() => h.api.parseEventDetails({ activityDate: "2026-11-01", applicationDeadline: "2026-11-02" }), /DEADLINE_AFTER_ACTIVITY/);
+  } finally { await h.close(); }
+});
+
+test("failed final AI refresh retains previous answers and does not create a form; retry preserves confirmed facts", async () => {
+  const h = await eventHarness(); try {
+    h.control.currentPlan = { ...fixturePlan(), capacity: null };
+    const current = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    const answer = { action: "answer", jobId: current.job.id, revision: current.job.revision, field: "capacity", value: 30 };
+    h.control.aiStatus = 429;
+    await assert.rejects(h.api.studioOperation(h.access(), answer), /OPENAI_RATE_LIMIT/);
+    assert.equal((await h.api.studioOperation(h.access(), { action: "get", jobId: current.job.id })).job.plan.capacity, null);
+    h.control.aiStatus = 200; h.control.currentPlan = { ...fixturePlan(), capacity: 50 };
+    await assert.rejects(h.api.studioOperation(h.access(), answer), /UNSUPPORTED_EVENT_CAPACITY|CONFIRMED_EVENT_DETAILS_CHANGED/);
+    h.control.currentPlan = fixturePlan();
+    const next = await h.api.studioOperation(h.access(), answer); assert.equal(next.job.plan.capacity, 30);
+    assert.equal(h.control.externalCreates, 0);
+  } finally { await h.close(); }
+});
+
+test("preset form creation asks for missing logistics before issuing an approval token", async () => {
+  const h = await eventHarness(); try {
+    const request = (body, origin = "http://127.0.0.1:3346") => new Request("http://127.0.0.1:3346/api/google-forms/forms", { method: "POST", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const body = { presetOnly: true, clubKey: "ecc", templateId: "ecc_gathering", title: "International Gathering" };
+    const missing = await (await h.api.planPreset(request(body))).json();
+    assert.deepEqual(missing.missing, ["activityDate", "capacity", "location", "applicationDeadline"]); assert.equal(missing.token, undefined);
+    assert.equal((await h.store.db.query("select count(*)::integer as n from kline_forms_test_google_form_workflows")).rows[0].n, 0);
+    const p = fixturePlan();
+    const details = { activityDate: p.activityDate, applicationDeadline: p.applicationDeadline, location: p.location, capacity: p.capacity };
+    assert.equal((await h.api.planPreset(request({ ...body, details: { ...details, capacity: 0 } }))).status, 400);
+    assert.equal((await h.api.planPreset(request(body, "https://untrusted.example"))).status, 403);
+    const ready = await (await h.api.planPreset(request({ ...body, details }))).json();
+    assert.ok(ready.token, JSON.stringify(ready)); assert.equal(ready.workflow.draft.capacity, 30);
+    assert.match(ready.workflow.notice, /모집 인원\n30명/); assert.match(ready.workflow.notice, /Participants\n30 people/);
+    assert.match(ready.workflow.draft.description, /QA Library/);
+    assert.equal(h.control.externalCreates, 0);
+    h.control.email = ""; assert.equal((await h.api.planPreset(request(body))).status, 401);
+  } finally { await h.close(); }
+});
+
 test("ended event removal preserves original forms, responses, notices and jobs; hides both lists and is idempotent", async () => {
   const h = await eventHarness(); try {
     const planned = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
