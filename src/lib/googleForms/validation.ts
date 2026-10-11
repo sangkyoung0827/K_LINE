@@ -32,5 +32,7 @@ export function parseGoogleFormDraft(value: unknown): GoogleFormDraft {
   if (applicationDeadline && activityDate && Date.parse(applicationDeadline) > Date.parse(activityDate)) throw new Error("DEADLINE_AFTER_ACTIVITY");
   const editorEmail = cleanText(input.editorEmail, 240).toLowerCase();
   if (editorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editorEmail)) throw new Error("INVALID_EDITOR_EMAIL");
-  return { clubKey, title, description: cleanText(input.description, 5000), descriptionKo: cleanText(input.descriptionKo, 2500), descriptionEn: cleanText(input.descriptionEn, 2500), activityId: cleanText(input.activityId, 200), activityTitle: cleanText(input.activityTitle, 200), activityDate: cleanText(input.activityDate, 80), location: cleanText(input.location, 300), applicationDeadline, editorEmail, templateId, questions };
+  if (input.capacity !== undefined && input.capacity !== null && (typeof input.capacity !== "number" || !Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > 100000)) throw new Error("INVALID_CAPACITY");
+  return { clubKey, title, description: cleanText(input.description, 5000), descriptionKo: cleanText(input.descriptionKo, 2500), descriptionEn: cleanText(input.descriptionEn, 2500), activityId: cleanText(input.activityId, 200), activityTitle: cleanText(input.activityTitle, 200), activityDate: cleanText(input.activityDate, 80), location: cleanText(input.location, 300), applicationDeadline, editorEmail, templateId, questions,
+    ...(input.capacity !== undefined ? { capacity: input.capacity as number | null } : {}) };
 }

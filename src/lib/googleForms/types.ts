@@ -16,6 +16,7 @@ export type GoogleFormDraft = {
   activityId: string;
   activityTitle: string;
   applicationDeadline: string;
+  capacity?: number | null;
   clubKey: GoogleFormClubKey;
   description: string;
   descriptionKo?: string;

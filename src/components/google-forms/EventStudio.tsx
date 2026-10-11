@@ -8,6 +8,8 @@ import type { EventPlan, StudioClub } from "@/lib/eventStudio/model";
 import type { StudioJob } from "@/lib/eventStudio/service";
 import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { EventDeleteButton } from "./EventDeleteButton";
+import { EventDetailsPrompt } from "./EventDetailsPrompt";
+import type { EventDetailField } from "@/lib/eventStudio/details";
 
 type Preview = { job: StudioJob; token: string | null; creationSupported: boolean; missing: string[];
   form?: { edit_url: string; responder_url: string }; notice?: string; applicationUrl?: string; recruitmentOpen?: boolean };
@@ -31,6 +33,11 @@ const errors: Record<string, [string, string]> = {
   GOOGLE_RECONNECT_REQUIRED: ["Google 연결을 다시 승인해주세요.", "Reconnect your Google account."],
   CLUB_ADMIN_REQUIRED: ["해당 클럽의 관리자 권한이 필요합니다.", "Administrator access for this club is required."],
   EVENT_STUDIO_UNAVAILABLE: ["Event Studio 연결을 확인해주세요. 기존 신청 기능은 계속 사용할 수 있습니다.", "Check the Event Studio connection. Existing applications remain available."],
+  INVALID_EVENT_DATE: ["올바른 날짜를 선택해주세요.", "Choose a valid date."],
+  INVALID_CAPACITY: ["모집 인원은 1명에서 100,000명 사이의 정수로 입력해주세요.", "Enter a whole number between 1 and 100,000."],
+  DEADLINE_AFTER_ACTIVITY: ["신청 마감은 행사 일시보다 늦을 수 없습니다. 다시 선택해주세요.", "Applications must close no later than the event. Choose another date."],
+  EVENT_QUESTION_CHANGED: ["이 정보는 이미 저장되어 있습니다. 초안을 다시 확인해주세요.", "This detail was already saved. Reload the draft."],
+  EVENT_ANSWER_REQUIRED: ["답변을 입력해주세요.", "Please enter your answer."],
 };
 export function EventStudio({ initialClub, onComplete, embedded = false }: { initialClub?: StudioClub; onComplete?: () => void; embedded?: boolean }) {
   const { language } = useLanguage(); const ko = language === "ko";
@@ -54,6 +61,13 @@ export function EventStudio({ initialClub, onComplete, embedded = false }: { ini
       const next = await studioCommand<Preview>({ action, clubKey, message, jobId: result?.job.id, revision: result?.job.revision,
         ...(action === "update" ? { plan } : {}), ...(action === "approve" ? { confirmed: true, token: result?.token } : {}) });
       select(next); await load(); if (action === "approve") onComplete?.();
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  }
+  async function answer(field: EventDetailField, value: string | number) {
+    if (busy || !result || dirty) return; setBusy(true); setError("");
+    try {
+      select(await studioCommand<Preview>({ action: "answer", jobId: result.job.id, revision: result.job.revision, field, value }));
+      await load();
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
   const visibleJobs = config?.jobs.filter(j => j.club_key === clubKey) || [];
@@ -85,6 +99,8 @@ export function EventStudio({ initialClub, onComplete, embedded = false }: { ini
         </div>
         <ActivityNoticeOutput notice={result.notice || ""} applicationUrl={result.applicationUrl || ""} onError={setError} />
       </> : <>
+        {result.job.state === "draft" && !readOnly && result.missing.length > 0 && <EventDetailsPrompt details={plan} title={plan.title} busy={busy || dirty} onAnswer={answer} />}
+        <details open={!result.missing.length} className="space-y-4"><summary className="cursor-pointer text-sm font-semibold">{t("초안 편집", "Edit draft")}</summary>
         <fieldset disabled={readOnly || busy || result.job.state !== "draft"} className="min-w-0 space-y-4 disabled:opacity-70">
           <label className="grid gap-2 text-sm">{t("제목", "Title")}<input className="form-field" value={plan.title} onChange={e => edit({ title: e.target.value })} /></label>
           <div className="grid gap-3 sm:grid-cols-2">{(["descriptionKo", "descriptionEn"] as const).map(key => <label className="grid gap-2 text-sm" key={key}>{key === "descriptionKo" ? t("한국어 소개", "Korean introduction") : t("영어 소개", "English introduction")}<textarea className="form-field min-h-24" value={plan[key]} onChange={e => edit({ [key]: e.target.value })} /></label>)}</div>
@@ -101,12 +117,12 @@ export function EventStudio({ initialClub, onComplete, embedded = false }: { ini
           <button type="button" className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-3 text-sm" onClick={() => edit({ questions: [...plan.questions, { id: crypto.randomUUID(), title: "", type: "short_answer", required: false, options: [] }] })}><Plus className="h-4 w-4" />{t("질문 추가", "Add question")}</button>
           {(["noticeKo", "noticeEn"] as const).map(key => <label key={key} className="grid gap-2 text-sm">{key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")}<textarea aria-label={key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")} className="form-field min-h-48" value={plan[key]} onChange={e => edit({ [key]: e.target.value })} /></label>)}
         </fieldset>
-        {result.missing.length > 0 && <p role="status" className="text-sm">{t("확인할 정보", "Missing information")}: {result.missing.join(", ")}</p>}
         {!readOnly && <div className="flex flex-wrap gap-2">
           <button disabled={busy || !dirty} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run("update")}><Save className="h-4 w-4" />{t("초안 저장", "Save draft")}</button>
           <button disabled={busy || dirty || !result.creationSupported || result.missing.length > 0} className="min-h-11 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run(result.job.state === "running" ? "recover" : "review")}>{t("승인 새로 확인", "Renew approval")}</button>
           <button disabled={busy || dirty || !result.token || result.job.state === "running"} className="inline-flex min-h-11 items-center gap-2 bg-ink px-4 text-sm text-paper disabled:opacity-40" onClick={() => void run("approve")}><Check className="h-4 w-4" />{t("승인 · 비공개 폼 생성", "Approve private form creation")}</button>
         </div>}
+        </details>
       </>}
     </div>}
     {config && (!embedded || result) && <details className="border-t border-ink/15 pt-4"><summary className="cursor-pointer text-sm font-semibold">{t("AI 사용량", "AI usage")}</summary>

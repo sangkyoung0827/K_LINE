@@ -10,8 +10,11 @@ import { fixturePlan } from "./event-studio-harness.mjs";
 
 const temp = mkdtempSync(join(tmpdir(), "kline-forms-ui-"));
 const port = Number(process.env.GOOGLE_FORMS_UI_PORT || 3317);
-await build({ stdin: { contents: 'export { draftFromTemplate } from "./src/lib/googleForms/templates"; export { generateActivityNotice } from "./src/lib/googleForms/planning";', resolveDir: process.cwd(), loader: "ts" }, outfile: join(temp, "presets.mjs"), bundle: true, platform: "node", format: "esm" });
-const { draftFromTemplate, generateActivityNotice } = await import(pathToFileURL(join(temp, "presets.mjs")).href);
+await build({ stdin: { contents: 'export { presetWithDetails } from "./src/lib/googleForms/presetDetails"; export { parseEventDetails, missingEventDetails } from "./src/lib/eventStudio/details"; export { generateActivityNotice } from "./src/lib/googleForms/planning";', resolveDir: process.cwd(), loader: "ts" }, outfile: join(temp, "presets.mjs"), bundle: true, platform: "node", format: "esm", plugins: [{ name: "fixture-text-only", setup(builder) {
+  builder.onResolve({ filter: /^@\/lib\/supabaseServer$/ }, () => ({ path: "text", namespace: "fixture" }));
+  builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({ contents: "export const cleanText=(v,n=240)=>typeof v==='string'?v.trim().slice(0,n):'';" }));
+} }] });
+const { presetWithDetails, parseEventDetails, missingEventDetails, generateActivityNotice } = await import(pathToFileURL(join(temp, "presets.mjs")).href);
 await build({ entryPoints: ["scripts/fixtures/google-forms-ui.tsx"], outfile: join(temp, "ui.js"), bundle: true, platform: "browser", jsx: "automatic", define: { "process.env.NODE_ENV": '"development"' }, plugins: [{ name: "fixture-link", setup(builder) {
   builder.onResolve({ filter: /^next\/link$/ }, () => ({ path: "link", namespace: "fixture" }));
   builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({ loader: "tsx", resolveDir: process.cwd(), contents: 'import React from "react"; export default function Link({children,...props}) {return <a {...props}>{children}</a>}' }));
@@ -37,8 +40,24 @@ createServer(async (request, response) => {
     const body = JSON.parse(raw || "{}");
     if (body.action === "list") return send({ jobs: studioJob ? [studioJob] : [], access: { email: "test-admin@example.test", manageableClubs: ["ecc"], readOnly: false, canSetLimits: false }, aiEnabled: true });
     if (body.action === "plan") {
-      studioJob = { id: "fixture-studio-job", club_key: "ecc", revision: 1, state: "draft", plan: fixturePlan(), ai_metadata: { model: "gpt-6-luna" } };
-      return send({ job: studioJob, token: "fixture-only-token", creationSupported: true, missing: [] });
+      studioJob = { id: "fixture-studio-job", club_key: "ecc", revision: 1, state: "draft", plan: { ...fixturePlan(), activityDate: null, applicationDeadline: null, capacity: null, location: null }, ai_metadata: { model: "gpt-6-luna" } };
+      return send({ job: studioJob, token: null, creationSupported: true, missing: missingEventDetails(studioJob.plan) });
+    }
+    if (body.action === "review" || body.action === "get") return send({ job: studioJob, token: missingEventDetails(studioJob.plan).length ? null : "fixture-only-token", creationSupported: true, missing: missingEventDetails(studioJob.plan) });
+    if (body.action === "answer") {
+      try {
+        if (body.revision !== studioJob.revision) return send({ error: "JOB_CHANGED_REVIEW_AGAIN" }, 409);
+        const details = parseEventDetails({ ...studioJob.plan, [body.field]: body.value });
+        if (details[body.field] === null) return send({ error: "EVENT_ANSWER_REQUIRED" }, 400);
+        studioJob = { ...studioJob, revision: studioJob.revision + 1, plan: { ...studioJob.plan, ...details } };
+        if (!missingEventDetails(details).length) {
+          const original = fixturePlan();
+          for (const key of ["noticeKo", "noticeEn"]) {
+            studioJob.plan[key] = original[key].replaceAll(original.activityDate, details.activityDate).replaceAll(original.applicationDeadline, details.applicationDeadline).replaceAll(original.location, details.location).replaceAll("30", String(details.capacity));
+          }
+        }
+        return send({ job: studioJob, token: missingEventDetails(details).length ? null : "fixture-only-token", creationSupported: true, missing: missingEventDetails(details) });
+      } catch (error) { return send({ error: error.message }, 400); }
     }
     return send({ error: "FIXTURE_OPERATION_NOT_SUPPORTED" }, 400);
   }
@@ -48,7 +67,14 @@ createServer(async (request, response) => {
     if (body.action === "confirm_google_forms") { workflow.workflow_status = "notice_saved"; form.title = workflow.draft.title; return send({ workflow, form, notice: workflow.notice.replaceAll("{{GOOGLE_FORM_URL}}", form.responder_url), summary: "Private test complete" }); }
     if (body.action?.startsWith("UPDATE_")) { workflow = { ...workflow, draft: body.draft, notice: body.notice, revision: workflow.revision + 1 }; return send({ workflow, token: "fixture-preview" }); }
     if (body.message) return send({ summary: "행사명과 정확한 일시·장소·마감을 입력해주세요.", missing: ["date"] });
-    const draft = body.presetOnly ? draftFromTemplate(body.clubKey, body.templateId, body.title) : body;
+    let draft = body;
+    if (body.presetOnly) {
+      try {
+        const prepared = presetWithDetails(body.clubKey, body.templateId, body.title, body.details);
+        if (prepared.missing.length) return send({ details: prepared.details, missing: prepared.missing });
+        draft = prepared.draft;
+      } catch (error) { return send({ error: error.message }, 400); }
+    }
     workflow = { id: "fixture-workflow", draft, notice: generateActivityNotice(draft), workflow_status: "draft", revision: 1 };
     return send({ workflow, token: "fixture-preview" });
   }

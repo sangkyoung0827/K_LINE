@@ -34,6 +34,7 @@ export async function createPreviewStore() {
     const param = value => { args.push(value); return `$${args.length}`; };
     function predicate(field, value) {
       const col = identifier(field, allowed);
+      if (value === "is.null") return `${col} is null`;
       const match = /^(eq|neq|gte|in)\.(.*)$/.exec(value);
       if (!match) throw new Error("UNSAFE_PREVIEW_QUERY");
       if (match[1] === "in") {

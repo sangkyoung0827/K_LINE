@@ -9,6 +9,8 @@ import type { GoogleFormRegistryRow } from "@/lib/googleForms/types";
 import type { WorkflowPreview } from "./WoohyukmonFormsAssistant";
 import { EventStudio } from "./EventStudio";
 import { EventDeleteButton } from "./EventDeleteButton";
+import { EventDetailsPrompt } from "./EventDetailsPrompt";
+import { emptyEventDetails, missingEventDetails, type EventDetails, type EventDetailField } from "@/lib/eventStudio/details";
 import { applicantNames, googleTeamNotice } from "@/lib/googleForms/applicants";
 import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -27,6 +29,8 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
   const [clubKey, setClubKey] = useState(initialAccess.manageableClubs[0]);
   const [templateId, setTemplateId] = useState(templates[0]?.id || "");
   const [title, setTitle] = useState("");
+  const [details, setDetails] = useState<EventDetails>({ ...emptyEventDetails });
+  const [askingDetails, setAskingDetails] = useState(false);
   const [notice, setNotice] = useState("");
   const [applicationUrl, setApplicationUrl] = useState("");
   const [createdForm, setCreatedForm] = useState<GoogleFormRegistryRow | null>(null);
@@ -36,19 +40,22 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
   const forms = useMemo(() => data.forms.filter((form) => form.club_key === clubKey && form.status !== "archived"), [clubKey, data.forms]);
   async function load() { const response = await fetch("/api/google-forms/forms", { cache: "no-store" }); const next = await response.json() as ListResponse; if (!response.ok) throw new Error(next.error || "Google Forms could not load."); setData(next); }
   useEffect(() => { void load().catch((error) => setMessage((error as Error).message)); }, []);
-  function resetCreation() { setPreview(null); setNotice(""); setApplicationUrl(""); setCreatedForm(null); setMessage(""); }
-  async function create() {
+  function resetCreation() { setPreview(null); setNotice(""); setApplicationUrl(""); setCreatedForm(null); setMessage(""); setDetails({ ...emptyEventDetails }); setAskingDetails(false); }
+  async function create(prepareOnly = false, answers = details) {
     if (busy) return;
     setBusy(true); setMessage("");
     try {
       let pending = preview;
       if (!pending) {
-        const response = await fetch("/api/google-forms/forms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ presetOnly: true, clubKey, templateId, title }) });
+        const response = await fetch("/api/google-forms/forms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ presetOnly: true, clubKey, templateId, title, details: answers }) });
         const result = await response.json();
+        if (response.ok && result.missing?.length && result.details) { setDetails(result.details); setAskingDetails(true); return; }
         if (!response.ok || !result.token) throw new Error(result.error || "신청폼 초안을 만들지 못했습니다.");
         pending = result as { workflow: WorkflowPreview; token: string };
         setPreview(pending);
+        setDetails(answers); setAskingDetails(false);
       }
+      if (prepareOnly) return;
       const response = await fetch("/api/woohyukmon/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "confirm_google_forms", token: pending.token }) });
       const result = await response.json();
       if (!response.ok || !result.form?.responder_url || !result.notice) throw new Error(result.error || "Google Forms 생성 확인에 실패했습니다.");
@@ -56,8 +63,17 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
       setMessage("신청폼과 공지 초안이 생성되었습니다.");
       await load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Google Forms 연결에 문제가 있습니다.");
+      const code = error instanceof Error ? error.message : "Google Forms 연결에 문제가 있습니다.";
+      const detailErrors: Record<string, string> = {
+        INVALID_EVENT_DATE: t("올바른 날짜를 선택해주세요.", "Choose a valid date."),
+        INVALID_CAPACITY: t("모집 인원을 올바르게 입력해주세요.", "Enter a valid participant count."),
+        DEADLINE_AFTER_ACTIVITY: t("신청 마감은 행사 일시보다 늦을 수 없습니다. 다시 선택해주세요.", "Applications must close no later than the event. Choose another date."),
+      };
+      setMessage(detailErrors[code] || code);
     } finally { setBusy(false); }
+  }
+  async function answerDetail(field: EventDetailField, value: string | number) {
+    await create(true, { ...details, [field]: value });
   }
   async function responses(form: GoogleFormRegistryRow) {
     if (busy) return;
@@ -97,7 +113,9 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
         <Field label="Template"><select aria-label="Template" disabled={busy} value={templateId} onChange={(event) => { setTemplateId(event.target.value); resetCreation(); }} className="form-field">{templates.filter((template) => template.questions.length).map((template) => <option key={template.id} value={template.id}>{template.label}</option>)}</select></Field>
         <Field label="활동 제목"><input aria-label="활동 제목" disabled={busy} className="form-field" value={title} placeholder="활동 제목" onChange={(event) => { setTitle(event.target.value); resetCreation(); }} /></Field>
       </div>
-      <button disabled={draftOnly || busy || !title.trim() || !templateId || !!createdForm} onClick={() => void create()} className="mt-4 inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper disabled:opacity-45"><FilePlus2 className="h-4 w-4" />{busy ? "생성 중..." : createdForm ? "생성 완료" : preview ? "생성 다시 시도" : "신청폼 · 공지 생성"}</button>
+      {askingDetails && <div className="mt-5"><EventDetailsPrompt details={details} title={title} busy={busy} onAnswer={answerDetail} /></div>}
+      {preview && !createdForm && <div className="mt-5"><ActivityNoticeOutput notice={preview.workflow.notice} applicationUrl="" onError={setMessage} /></div>}
+      <button disabled={draftOnly || busy || !title.trim() || !templateId || !!createdForm || askingDetails && missingEventDetails(details).length > 0} onClick={() => void create()} className="mt-4 inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper disabled:opacity-45"><FilePlus2 className="h-4 w-4" />{busy ? "확인 중..." : createdForm ? "생성 완료" : preview ? "확인 · 신청폼 · 공지 생성" : "신청폼 · 공지 생성"}</button>
       {draftOnly && <p role="status" className="mt-3 text-sm text-ink/65">{t("이 테스트 화면은 AI 초안 생성만 가능합니다. Google Form 생성은 비활성화되어 있습니다.", "This test supports AI drafts only. Google Form creation is disabled.")}</p>}
       {notice && createdForm ? <div className="mt-6 border-t border-ink/12 pt-5">
         <ActivityNoticeOutput notice={notice} applicationUrl={applicationUrl} onError={setMessage} />

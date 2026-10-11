@@ -36,6 +36,7 @@ export async function eventHarness(options = {}) {
   globalThis.fetch = async (url, init = {}) => {
     url = String(url);
     if (url.startsWith(previewOrigin)) {
+      if (url === `${previewOrigin}/rest/v1/ecc_activity_statuses?activity_id=eq.gathering&select=gathering_open_days&limit=1` && (!init.method || init.method === "GET")) return Response.json([{ gathering_open_days: ["monday", "wednesday"] }]);
       if (control.failNotice && url.includes("/club_board_posts")) throw new Error("QA_NOTICE_FAILURE");
       if (control.failNotice && url.includes("kline_forms_test_club_board_posts") && init.method === "POST") return Response.json({}, { status: 503 });
       return store.fetch(url, init);
@@ -70,7 +71,7 @@ export async function eventHarness(options = {}) {
     throw new Error("QA_UNEXPECTED_EXTERNAL_REQUEST");
   };
   const dir = await mkdtemp(join(tmpdir(), "studio-qa-bundle-"));
-  await build({ stdin: { contents: `export * from './src/lib/eventStudio/model'; export * from './src/lib/eventStudio/ai'; export * from './src/lib/eventStudio/service'; export * from './src/lib/eventStudio/access'; export {POST} from './src/app/api/event-studio/route'; export {DELETE as deleteEvent} from './src/app/api/google-forms/forms/[id]/route'; export {GET as listForms} from './src/app/api/google-forms/forms/route'; export {setGoogleFormStatus} from './src/lib/googleForms/googleApi'; export {createSignedWoohyukmonPayload} from './src/lib/woohyukmon/operations/token'; export {encryptGoogleToken} from './src/lib/googleForms/crypto';`, resolveDir: process.cwd(), loader: "ts" },
+  await build({ stdin: { contents: `export * from './src/lib/eventStudio/model'; export * from './src/lib/eventStudio/details'; export * from './src/lib/eventStudio/ai'; export * from './src/lib/eventStudio/service'; export * from './src/lib/eventStudio/access'; export {POST} from './src/app/api/event-studio/route'; export {DELETE as deleteEvent} from './src/app/api/google-forms/forms/[id]/route'; export {GET as listForms,POST as planPreset} from './src/app/api/google-forms/forms/route'; export {setGoogleFormStatus} from './src/lib/googleForms/googleApi'; export {createSignedWoohyukmonPayload} from './src/lib/woohyukmon/operations/token'; export {encryptGoogleToken} from './src/lib/googleForms/crypto';`, resolveDir: process.cwd(), loader: "ts" },
     outfile: join(dir, "backend.cjs"), bundle: true, packages: "external", platform: "node", format: "cjs",
     banner: { js: `module.paths.unshift(${JSON.stringify(join(process.cwd(), "node_modules"))});` },
     plugins: [{ name: "qa-identities", setup(b) {

@@ -21,8 +21,21 @@ test("desktop and mobile forms UI: draft, edit, approve, mirror and no horizonta
     await page.getByRole("heading", { name: "Application management" }).waitFor();
     await page.getByLabel("행사 계획", { exact: true }).fill("외국인과 함께하는 명상 프로그램 만들기");
     await page.getByRole("button", { name: "행사 기획", exact: true }).click();
+    const answer = async (label, value) => {
+      await page.getByLabel(label, { exact: true }).fill(value);
+      await page.getByRole("button", { name: "답변 보내기", exact: true }).click();
+    };
+    await answer("진행 날짜", "2026-11-20");
+    await answer("모집 인원", "30");
+    await page.reload();
+    await page.getByLabel("저장된 행사", { exact: true }).selectOption("fixture-studio-job");
+    await answer("진행 장소", "Test Culture Center");
+    await answer("신청 마감", "2026-11-21");
+    await page.getByRole("alert").getByText(/신청 마감은 행사 일시보다 늦을 수 없습니다/).waitFor();
+    await answer("신청 마감", "2026-11-19");
     await page.getByLabel("제목", { exact: true }).waitFor();
     assert.match(await page.getByLabel("한국어 공지", { exact: true }).inputValue(), /문화교류/);
+    assert.match(await page.getByLabel("한국어 공지", { exact: true }).inputValue(), /Test Culture Center/);
     assert.equal(await page.getByRole("button", { name: "승인 · 비공개 폼 생성", exact: true }).isEnabled(), true);
     assert.equal(await page.getByRole("tab", { name: "우혁몬 5.0", exact: true }).getAttribute("aria-selected"), "true");
     await page.getByRole("tab", { name: "Google Forms", exact: true }).click();
@@ -31,6 +44,11 @@ test("desktop and mobile forms UI: draft, edit, approve, mirror and no horizonta
     assert.equal(await page.getByLabel("Deadline", { exact: true }).count(), 0);
     assert.equal(await page.getByLabel("Location", { exact: true }).count(), 0);
     await page.getByRole("button", { name: "신청폼 · 공지 생성", exact: true }).click();
+    await answer("진행 날짜", "2026-11-20");
+    await answer("모집 인원", "30");
+    await answer("진행 장소", "Test Culture Center");
+    await answer("신청 마감", "2026-11-19");
+    await page.getByRole("button", { name: "확인 · 신청폼 · 공지 생성", exact: true }).click();
     await page.getByRole("button", { name: "생성 완료", exact: true }).waitFor();
     const notice = await page.getByLabel("생성된 공지문").inputValue();
     assert.match(notice, /ECC Gathering UI Test/);
@@ -63,6 +81,15 @@ test("desktop and mobile forms UI: draft, edit, approve, mirror and no horizonta
     await page.screenshot({ path: "artifacts/google-forms/deleted-mobile.png", fullPage: true });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.screenshot({ path: "artifacts/google-forms/deleted-desktop.png", fullPage: true });
+    await page.getByRole("button", { name: "EN", exact: true }).click();
+    await page.getByRole("tab", { name: "WOOHYUKMON 5.0", exact: true }).click();
+    await page.getByLabel("Event request", { exact: true }).fill("Create a meditation program");
+    await page.getByRole("button", { name: "Plan event", exact: true }).click();
+    await page.getByText(/When would you like to hold/).waitFor();
+    await page.getByLabel("Event date", { exact: true }).fill("2026-11-20");
+    await page.getByRole("button", { name: "Send answer", exact: true }).click();
+    await page.getByText("How many participants would you like to recruit?", { exact: true }).waitFor();
+    await page.screenshot({ path: "artifacts/google-forms/english-question.png", fullPage: true });
     assert.deepEqual(errors, []);
   } finally {
     await browser?.close(); server.kill("SIGTERM");
