@@ -186,10 +186,12 @@ export async function createGoogleForm(draft: GoogleFormDraft, createdBy: string
 
 export async function setGoogleFormStatus(row: GoogleFormRegistryRow, status: GoogleFormStatus) {
   assertGoogleFormsTestEnvironment();
+  if (row.status === "archived") throw new Error("EVENT_ARCHIVED");
   if (status === "open" || status === "closed") assertGoogleFormsPublicationApproval();
   if (status === "open" && row.application_deadline && Date.parse(row.application_deadline) <= Date.now()) throw new Error("APPLICATION_DEADLINE_HAS_PASSED");
   await setPublication(row.google_form_id, status === "open" || status === "closed", status === "open");
-  const rows = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${encodeURIComponent(row.id)}&select=${registryColumns}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status }) });
+  const rows = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${encodeURIComponent(row.id)}&status=eq.${row.status}&updated_at=eq.${encodeURIComponent(row.updated_at)}&select=${registryColumns}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status }) });
+  if (!rows[0]) throw new Error("FORM_CHANGED_REFRESH_REQUIRED");
   return rows[0];
 }
 

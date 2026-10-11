@@ -20,7 +20,7 @@ export async function GET() {
   try {
     const access = await getGoogleFormsAccess();
     if (!access.authenticated) throw new GoogleFormsAuthorizationError("LOGIN_REQUIRED", 401);
-    const forms = access.manageableClubs.length ? await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?select=${registryColumns}&club_key=in.(${access.manageableClubs.join(",")})&order=created_at.desc`, { cache: "no-store" }) : [];
+    const forms = access.manageableClubs.length ? await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?select=${registryColumns}&club_key=in.(${access.manageableClubs.join(",")})&status=neq.archived&order=created_at.desc`, { cache: "no-store" }) : [];
     const connection = access.canConnect || access.manageableClubs.length ? await getGoogleConnectionStatus().catch(() => ({ connected: false, accountEmail: "", scopes: [] })) : { connected: false, accountEmail: "", scopes: [] };
     return NextResponse.json({ access, connection, forms });
   } catch (error) { return failure(error); }

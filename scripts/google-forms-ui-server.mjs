@@ -25,7 +25,12 @@ createServer(async (request, response) => {
   const url = new URL(request.url, "http://localhost");
   const send = (value, status = 200) => { response.writeHead(status, { "Content-Type": "application/json" }); response.end(JSON.stringify(value)); };
   if (url.pathname === "/ui.js" || url.pathname === "/ui.css") { response.writeHead(200, { "Content-Type": url.pathname.endsWith("css") ? "text/css" : "text/javascript" }); response.end(readFileSync(join(temp, url.pathname.slice(1)))); return; }
-  if (url.pathname === "/api/google-forms/forms" && request.method === "GET") return send({ access: { manageableClubs: ["ecc"] }, connection: { connected: true, accountEmail: "test@example.test" }, forms: [form] });
+  if (url.pathname === "/api/google-forms/forms" && request.method === "GET") return send({ access: { manageableClubs: ["ecc"] }, connection: { connected: true, accountEmail: "test@example.test" }, forms: form.status === "archived" ? [] : [form] });
+  if (url.pathname === `/api/google-forms/forms/${form.id}` && request.method === "DELETE") {
+    let raw = ""; for await (const chunk of request) raw += chunk;
+    if (JSON.parse(raw || "{}").confirmedEnded !== true) return send({ error: "EVENT_END_CONFIRMATION_REQUIRED" }, 400);
+    form.status = "archived"; return send({ deleted: true });
+  }
   if (url.pathname.endsWith("/responses")) return send({ responses: mirror, count: 1 });
   if (url.pathname === "/api/event-studio") {
     let raw = ""; for await (const chunk of request) raw += chunk;

@@ -49,6 +49,20 @@ test("desktop and mobile forms UI: draft, edit, approve, mirror and no horizonta
     assert.match(await page.getByLabel("조 편성 공지문").inputValue(), /Test Participant/);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.screenshot({ path: "artifacts/google-forms/mobile.png", fullPage: true });
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("button", { name: "행사 삭제", exact: true }).click();
+    assert.equal(await page.getByRole("button", { name: "삭제", exact: true }).isEnabled(), false);
+    await page.getByRole("button", { name: "취소", exact: true }).click();
+    assert.equal(await page.getByRole("heading", { name: "ECC Gathering UI Test", exact: true }).count(), 1);
+    await page.getByRole("button", { name: "행사 삭제", exact: true }).click();
+    await page.getByRole("checkbox", { name: "행사가 종료되었음을 확인했습니다.", exact: true }).check();
+    await page.getByRole("button", { name: "삭제", exact: true }).click();
+    await page.getByText("No Google Form is registered for this club.", { exact: true }).waitFor();
+    const response = await page.request.get("http://127.0.0.1:3333/api/google-forms/forms/fixture-form/responses");
+    assert.equal((await response.json()).responses.length, 1);
+    await page.screenshot({ path: "artifacts/google-forms/deleted-mobile.png", fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({ path: "artifacts/google-forms/deleted-desktop.png", fullPage: true });
     assert.deepEqual(errors, []);
   } finally {
     await browser?.close(); server.kill("SIGTERM");

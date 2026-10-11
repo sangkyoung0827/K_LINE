@@ -70,7 +70,7 @@ export async function eventHarness(options = {}) {
     throw new Error("QA_UNEXPECTED_EXTERNAL_REQUEST");
   };
   const dir = await mkdtemp(join(tmpdir(), "studio-qa-bundle-"));
-  await build({ stdin: { contents: `export * from './src/lib/eventStudio/model'; export * from './src/lib/eventStudio/ai'; export * from './src/lib/eventStudio/service'; export * from './src/lib/eventStudio/access'; export {POST} from './src/app/api/event-studio/route'; export {createSignedWoohyukmonPayload} from './src/lib/woohyukmon/operations/token'; export {encryptGoogleToken} from './src/lib/googleForms/crypto';`, resolveDir: process.cwd(), loader: "ts" },
+  await build({ stdin: { contents: `export * from './src/lib/eventStudio/model'; export * from './src/lib/eventStudio/ai'; export * from './src/lib/eventStudio/service'; export * from './src/lib/eventStudio/access'; export {POST} from './src/app/api/event-studio/route'; export {DELETE as deleteEvent} from './src/app/api/google-forms/forms/[id]/route'; export {GET as listForms} from './src/app/api/google-forms/forms/route'; export {setGoogleFormStatus} from './src/lib/googleForms/googleApi'; export {createSignedWoohyukmonPayload} from './src/lib/woohyukmon/operations/token'; export {encryptGoogleToken} from './src/lib/googleForms/crypto';`, resolveDir: process.cwd(), loader: "ts" },
     outfile: join(dir, "backend.cjs"), bundle: true, packages: "external", platform: "node", format: "cjs",
     banner: { js: `module.paths.unshift(${JSON.stringify(join(process.cwd(), "node_modules"))});` },
     plugins: [{ name: "qa-identities", setup(b) {
@@ -81,9 +81,11 @@ export async function eventHarness(options = {}) {
         "@/lib/eccAccess": "export async function getEccAccessForEmail(){return {isAdmin:globalThis.__studioQA.clubs.includes('ecc')}}; export async function getEccRoleRow(){throw Error('PRIVATE_MEMBER_READ_NOT_ALLOWED')}",
         "@/lib/eccAccessRetry": "export function isTemporaryEccLookupError(){return false}",
         "@/lib/hanhwalAccess": "export async function getHanhwalAccessForEmail(){return {isAdmin:globalThis.__studioQA.clubs.includes('hanhwal')}}",
+        "@/lib/jeju/access": "export async function getJejuAccessForEmail(){return {isAdmin:globalThis.__studioQA.clubs.includes('jeju')}}",
+        "@/lib/siu/access": "export async function getCurrentSiuAccess(){return {isAdmin:globalThis.__studioQA.clubs.includes('social_impact_union')}}",
         "@/lib/supabaseServer": "export const cleanText=(v,n=240)=>typeof v==='string'?v.trim().slice(0,n):'';export async function supabaseRequest(){return globalThis.__studioQA.clubs.includes('social_impact_union')?[{role:'admin'}]:[]}",
       };
-      b.onResolve({ filter: /^(server-only|@\/auth|@\/lib\/(admin|eccAccess|eccAccessRetry|hanhwalAccess|supabaseServer))$/ }, a => ({ path: a.path, namespace: "qa" }));
+      b.onResolve({ filter: /^(server-only|@\/auth|@\/lib\/(admin|eccAccess|eccAccessRetry|hanhwalAccess|supabaseServer|jeju\/access|siu\/access))$/ }, a => ({ path: a.path, namespace: "qa" }));
       b.onLoad({ filter: /.*/, namespace: "qa" }, a => ({ contents: sources[a.path] }));
     } }] });
   const api = createRequire(import.meta.url)(join(dir, "backend.cjs"));
