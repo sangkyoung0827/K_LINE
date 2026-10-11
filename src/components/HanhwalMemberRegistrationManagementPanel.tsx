@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Save, UserCheck } from "lucide-react";
+import { CheckCircle2, Loader2, Save, Search, UserCheck } from "lucide-react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { MobileDisclosure } from "@/components/MobileDisclosure";
+import { MemberRosterExportButton } from "@/components/MemberRosterExportButton";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
 
@@ -73,6 +74,7 @@ export function HanhwalMemberRegistrationManagementPanel() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [memberQuery, setMemberQuery] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -128,6 +130,14 @@ export function HanhwalMemberRegistrationManagementPanel() {
       active = false;
     };
   }, []);
+
+  const filteredRegistrations = useMemo(() => {
+    const words = memberQuery.trim().normalize("NFKC").toLocaleLowerCase().split(/\s+/);
+    return registrations.filter((registration) => {
+      const text = [registration.fullName, registration.studentId, registration.googleName, registration.googleEmail].join(" ").normalize("NFKC").toLocaleLowerCase();
+      return words.every((word) => text.includes(word));
+    });
+  }, [registrations, memberQuery]);
 
   const summary = useMemo(
     () => ({
@@ -254,7 +264,20 @@ export function HanhwalMemberRegistrationManagementPanel() {
 
       {registrations.length > 0 ? (
         <div className="divide-y divide-ink/10">
-          {registrations.map((registration) => {
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-5 md:p-6">
+            <label className="flex w-full max-w-md items-center gap-3 border border-ink/15 bg-white/55 px-4 text-ink transition focus-within:border-navy/45 focus-within:ring-2 focus-within:ring-navy/10 sm:flex-1">
+              <span className="sr-only"><I18nText en="Search members" ko="회원 검색" /></span>
+              <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/45" />
+              <input type="text" value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)}
+                placeholder={language === "ko" ? "이름·학번 등으로 검색" : "Search members"}
+                className="min-h-11 w-full bg-transparent py-2 text-sm font-medium text-ink outline-none placeholder:text-ink/42" />
+            </label>
+            <MemberRosterExportButton club="hanhwal" />
+          </div>
+          {filteredRegistrations.length === 0 ? (
+            <p className="p-5 text-sm text-ink/62 md:p-6"><I18nText en="No matching members." ko="검색 결과가 없습니다." /></p>
+          ) : null}
+          {filteredRegistrations.map((registration) => {
             const draft = drafts[registration.id] ?? {
               adminNote: registration.adminNote,
               paymentConfirmed: registration.paymentConfirmed

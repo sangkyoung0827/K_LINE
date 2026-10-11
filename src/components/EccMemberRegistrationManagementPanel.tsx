@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Save, Search, Trash2, UserCheck } from "lucide-react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { MobileDisclosure } from "@/components/MobileDisclosure";
+import { MemberRosterExportButton } from "@/components/MemberRosterExportButton";
 
 type RegistrationStatus = "submitted" | "payment_pending" | "approved" | "rejected";
 
@@ -409,8 +410,8 @@ export function EccMemberRegistrationManagementPanel() {
 
       {registrations.length > 0 ? (
         <div className="divide-y divide-ink/10">
-          <div className="border-b border-ink/10 p-5 md:p-6">
-            <label className="flex max-w-md items-center gap-3 border border-ink/15 bg-white/55 px-4 text-ink transition focus-within:border-navy/45 focus-within:ring-2 focus-within:ring-navy/10">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-5 md:p-6">
+            <label className="flex w-full max-w-md items-center gap-3 border border-ink/15 bg-white/55 px-4 text-ink transition focus-within:border-navy/45 focus-within:ring-2 focus-within:ring-navy/10 sm:flex-1">
               <span className="sr-only">
                 <I18nText en="Search by any registration information" ko="신청 정보 전체 검색" />
               </span>
@@ -430,6 +431,7 @@ export function EccMemberRegistrationManagementPanel() {
                 className="min-h-11 w-full bg-transparent py-2 text-sm font-medium text-ink outline-none placeholder:text-ink/42"
               />
             </label>
+            <MemberRosterExportButton club="ecc" />
           </div>
           {filteredRegistrations.map((registration) => {
             const draft = drafts[registration.id] ?? {
