@@ -1,6 +1,12 @@
 # Event Studio Archive — Implementation Contract
 
-Status: **SPEC / NOT IMPLEMENTED**. The new home card and `/event-studio` hub only link to the existing Event Studio creator and ECC resource library. Do not claim chat-to-Supabase archive ingestion works until implemented and verified.
+Status (2026-10-12): **IMPLEMENTED LOCALLY / REMOTE VALIDATION PENDING**.
+The existing home card is retained. The hub now contains AI Creator, Event Archive
+and Import Center. Original-preserving APIs, an additive migration and local
+PostgreSQL/filesystem verification are implemented. No production migration,
+deployment, real OpenAI classification, native-app integration or installed
+ChatGPT connector is claimed. See `EVENT_ARCHIVE_VALIDATION.md` for the evidence
+and remaining gates, and `EVENT_ARCHIVE_CONNECTOR.md` for explicit ingestion.
 
 ## Goal
 Unify ECC, Hanhwal and Social Impact Union activity notices, original posters, supporting materials, generated Google Forms and source-grounded WooHyukmon event drafting. Preserve original content *exactly*, including Unicode grapheme sequences and emojis.
@@ -15,7 +21,7 @@ Unify ECC, Hanhwal and Social Impact Union activity notices, original posters, s
 
 ## Archive UX
 - Keep AI event creator operational; add separate Archive tab with searchable poster/notices cards, filters by club/type/academic term/date, original-preserving viewer, file download, inferred-tag editor, original vs AI-derived text tabs, history and duplicates detection.
-- Restricted writer roles: authorized club managers and global admins; segregate read/write across organizations. Allow global owner to curate incoming records into the appropriate club after reviewing the suggested label.
+- Restricted writer roles: authorized club managers and global admins; segregate read/write across organizations. Owning scope is immutable. Suggested organization edits never transfer access. Unknown-scope records remain private pending global review; a cross-scope curator transfer UI is not implemented.
 - Link archive records to event plans, finalized notices and actual Google Forms URL only after verifiable IDs exist.
 - Archive > Reuse prompts the AI to draft a NEW event from authorized historical references. Explicitly never reuse historical dates, fees, venues, application links, eligibility or penalties as current facts.
 
@@ -39,4 +45,5 @@ Emoji and composed Unicode round-trip, CRLF/LF text attachment preservation, unu
 4. External ingest connector + end-to-end ChatGPT-origin upload verification.
 5. Staged tests, backups, owner approval, then deploy.
 
-No production deployment or data changes in this PR.
+No production deployment or production data changes were performed. Applying the
+new migration requires a verified backup, review and explicit owner approval.

@@ -10,7 +10,7 @@ import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { EventDeleteButton } from "./EventDeleteButton";
 
 type Preview = { job: StudioJob; token: string | null; creationSupported: boolean; missing: string[];
-  form?: { edit_url: string; responder_url: string }; notice?: string; applicationUrl?: string; recruitmentOpen?: boolean };
+  form?: { edit_url: string; responder_url: string }; notice?: string; applicationUrl?: string; recruitmentOpen?: boolean; archiveLinkPending?: boolean };
 type Config = { jobs: StudioJob[]; access: StudioAccess; aiEnabled: boolean };
 const clubNames: Record<StudioClub, string> = { ecc: "ECC", hanhwal: "HANHWAL", social_impact_union: "Social Impact Union" };
 export async function studioCommand<T>(body: object): Promise<T> {
@@ -32,7 +32,7 @@ const errors: Record<string, [string, string]> = {
   CLUB_ADMIN_REQUIRED: ["해당 클럽의 관리자 권한이 필요합니다.", "Administrator access for this club is required."],
   EVENT_STUDIO_UNAVAILABLE: ["Event Studio 연결을 확인해주세요. 기존 신청 기능은 계속 사용할 수 있습니다.", "Check the Event Studio connection. Existing applications remain available."],
 };
-export function EventStudio({ initialClub, onComplete, embedded = false }: { initialClub?: StudioClub; onComplete?: () => void; embedded?: boolean }) {
+export function EventStudio({ initialClub, onComplete, embedded = false, archiveIds = [] }: { initialClub?: StudioClub; onComplete?: () => void; embedded?: boolean; archiveIds?: string[] }) {
   const { language } = useLanguage(); const ko = language === "ko";
   const t = (kr: string, en: string) => ko ? kr : en;
   const [config, setConfig] = useState<Config | null>(null), [clubKey, setClub] = useState<StudioClub>(initialClub || "ecc");
@@ -51,7 +51,7 @@ export function EventStudio({ initialClub, onComplete, embedded = false }: { ini
   async function run(action: string) {
     if (busy) return; setBusy(true); setError("");
     try {
-      const next = await studioCommand<Preview>({ action, clubKey, message, jobId: result?.job.id, revision: result?.job.revision,
+      const next = await studioCommand<Preview>({ action, clubKey, message, archiveIds, jobId: result?.job.id, revision: result?.job.revision,
         ...(action === "update" ? { plan } : {}), ...(action === "approve" ? { confirmed: true, token: result?.token } : {}) });
       select(next); await load(); if (action === "approve") onComplete?.();
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
@@ -73,6 +73,7 @@ export function EventStudio({ initialClub, onComplete, embedded = false }: { ini
     {error && <p role="alert" className="break-words text-sm text-red-700">{errors[error]?.[ko ? 0 : 1] || `${t("작업을 완료하지 못했습니다", "This step could not be completed")}: ${error}`}</p>}
     {visibleJobs.length > 0 && <div className="grid gap-2"><label className="text-sm font-semibold" htmlFor="studio-drafts">{t("저장된 행사", "Saved events")}</label><select id="studio-drafts" className="form-field" value={result?.job.id || ""} disabled={busy} onChange={e => { if (e.target.value) { setBusy(true); void studioCommand<Preview>({ action: "get", jobId: e.target.value }).then(select).catch(e => setError(e.message)).finally(() => setBusy(false)); } }}><option value="">{t("선택", "Select")}</option>{visibleJobs.map(job => <option key={job.id} value={job.id}>{job.plan.title}</option>)}</select></div>}
     {result && plan && <div className="space-y-4 border-t border-ink/15 pt-5">
+      {result.archiveLinkPending && <p role="status" className="text-sm text-ink/65">{t("행사 초안은 저장되었습니다. 참고 자료 연결은 다시 확인해야 합니다.", "The event draft is saved. Its archive links need reconciliation.")}</p>}
       <p className="text-sm text-ink/60">{clubNames[plan.clubKey]} · {t("초안 버전", "Draft version")} {result.job.revision} · {result.job.ai_metadata.model as string}</p>
       {!result.creationSupported && <p role="status" className="text-sm">{t("이 클럽은 기획·공지 초안까지 지원합니다. 행사·공지 저장 연결은 준비 중이며 Google Form을 실행하지 않습니다.", "Planning and notice drafts are supported. The club storage adapter is not ready; Google Forms creation is disabled.")}</p>}
       {result.job.state === "notice_saved" && result.form ? <>
