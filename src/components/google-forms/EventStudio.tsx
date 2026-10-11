@@ -7,6 +7,7 @@ import type { StudioAccess } from "@/lib/eventStudio/access";
 import type { EventPlan, StudioClub } from "@/lib/eventStudio/model";
 import type { StudioJob } from "@/lib/eventStudio/service";
 import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
+import { EventDeleteButton } from "./EventDeleteButton";
 
 type Preview = { job: StudioJob; token: string | null; creationSupported: boolean; missing: string[];
   form?: { edit_url: string; responder_url: string }; notice?: string; applicationUrl?: string; recruitmentOpen?: boolean };
@@ -77,7 +78,11 @@ export function EventStudio({ initialClub, onComplete, embedded = false }: { ini
       {result.job.state === "notice_saved" && result.form ? <>
         <h2 className="text-xl font-semibold">{plan.title}</h2>
         <p role="status" className="text-sm">{t("폼과 공지 초안이 저장되었습니다. 모집은 아직 시작되지 않았습니다.", "The form and private notice draft are saved. Recruitment has not started.")}</p>
-        <a className="inline-flex min-h-11 items-center border border-ink/20 px-4 text-sm" href={result.form.edit_url} target="_blank" rel="noopener noreferrer">{t("구글폼 원본 보기", "Open original Google Form")}</a>
+        <div className="flex flex-wrap gap-2"><a className="inline-flex min-h-11 items-center border border-ink/20 px-4 text-sm" href={result.form.edit_url} target="_blank" rel="noopener noreferrer">{t("구글폼 원본 보기", "Open original Google Form")}</a>
+          {!readOnly && result.job.form_registry_id && <EventDeleteButton formId={result.job.form_registry_id} title={plan.title} disabled={busy} onError={setError} onDeleted={async () => {
+            setResult(null); setPlan(null); setDirty(false); await load(); onComplete?.();
+          }} />}
+        </div>
         <ActivityNoticeOutput notice={result.notice || ""} applicationUrl={result.applicationUrl || ""} onError={setError} />
       </> : <>
         <fieldset disabled={readOnly || busy || result.job.state !== "draft"} className="min-w-0 space-y-4 disabled:opacity-70">

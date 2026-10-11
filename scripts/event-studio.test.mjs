@@ -3,6 +3,66 @@ import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import { eventHarness, fixturePlan, fixtureMessage } from "./event-studio-harness.mjs";
 
+const deletionRequest = (body = { confirmedEnded: true }, origin = "http://127.0.0.1:3346") => new Request("http://127.0.0.1:3346/api/google-forms/forms/test", {
+  method: "DELETE", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
+});
+
+test("ended event removal preserves original forms, responses, notices and jobs; hides both lists and is idempotent", async () => {
+  const h = await eventHarness(); try {
+    const planned = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    const created = await h.api.studioOperation(h.access(), { action: "approve", jobId: planned.job.id, token: planned.token, confirmed: true });
+    const otherPlan = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    const other = await h.api.studioOperation(h.access(), { action: "approve", jobId: otherPlan.job.id, token: otherPlan.token, confirmed: true });
+    const context = { params: Promise.resolve({ id: created.form.id }) };
+    const remoteBefore = JSON.stringify([...h.control.remoteForms]);
+    await h.store.db.query("insert into kline_forms_test_google_form_responses(google_form_registry_id,google_response_id,submitted_at,answers_json) values($1,'qa-response',now(),'{\"Name\":[\"Participant\"]}')", [created.form.id]);
+    const response = await h.api.deleteEvent(deletionRequest(), context);
+    assert.equal(response.status, 200); assert.equal((await response.json()).deleted, true);
+    const form = (await h.store.db.query("select * from kline_forms_test_google_forms where id=$1", [created.form.id])).rows[0];
+    assert.equal(form.status, "archived"); assert.equal(form.metadata.deletedBy, h.control.email);
+    assert.equal((await h.store.db.query("select count(*)::integer as n from kline_forms_test_google_form_responses")).rows[0].n, 1);
+    assert.equal((await h.store.db.query("select count(*)::integer as n from kline_forms_test_club_board_posts")).rows[0].n, 2);
+    assert.equal((await h.store.db.query("select count(*)::integer as n from kline_forms_test_event_studio_jobs")).rows[0].n, 2);
+    assert.equal(JSON.stringify([...h.control.remoteForms]), remoteBefore);
+    assert.equal(h.control.externalCreates, 2);
+    assert.deepEqual((await (await h.api.listForms()).json()).forms.map(form => form.id), [other.form.id]);
+    assert.deepEqual((await h.api.studioOperation(h.access(), { action: "list" })).jobs.map(job => job.id), [other.job.id]);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "get", jobId: planned.job.id }), /EVENT_ARCHIVED/);
+    await assert.rejects(h.api.setGoogleFormStatus(form, "open"), /EVENT_ARCHIVED/);
+    await assert.rejects(h.api.setGoogleFormStatus(created.form, "draft"), /FORM_CHANGED_REFRESH_REQUIRED/);
+    assert.equal((await h.api.deleteEvent(deletionRequest(), context)).status, 200);
+  } finally { await h.close(); }
+});
+
+test("event deletion requires club administrator, ended confirmation and same origin", async () => {
+  const h = await eventHarness(); try {
+    const context = { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000000" }) };
+    h.control.email = ""; assert.equal((await h.api.deleteEvent(deletionRequest(), context)).status, 401);
+    h.control.email = "member@example.test"; h.control.clubs = []; assert.equal((await h.api.deleteEvent(deletionRequest(), context)).status, 403);
+    h.control.clubs = ["ecc", "hanhwal", "social_impact_union"]; h.control.readOnly = true; assert.equal((await h.api.deleteEvent(deletionRequest(), context)).status, 403);
+    h.control.readOnly = false;
+    assert.equal((await h.api.deleteEvent(deletionRequest({}), context)).status, 400);
+    assert.equal((await h.api.deleteEvent(deletionRequest(null), context)).status, 400);
+    assert.equal((await h.api.deleteEvent(deletionRequest(undefined, "https://untrusted.example"), context)).status, 403);
+    assert.equal((await h.api.deleteEvent(deletionRequest(), { params: Promise.resolve({ id: "bad-id" }) })).status, 400);
+    assert.equal((await h.api.deleteEvent(deletionRequest(), context)).status, 404);
+  } finally { await h.close(); }
+});
+
+test("cross-club and running event deletion is rejected without changing records", async () => {
+  const h = await eventHarness(); try {
+    const planned = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    const created = await h.api.studioOperation(h.access(), { action: "approve", jobId: planned.job.id, token: planned.token, confirmed: true });
+    const context = { params: Promise.resolve({ id: created.form.id }) };
+    h.control.clubs = ["social_impact_union"];
+    assert.equal((await h.api.deleteEvent(deletionRequest(), context)).status, 404);
+    h.control.clubs = ["ecc"];
+    await h.store.db.query("update kline_forms_test_event_studio_jobs set state='running' where id=$1", [planned.job.id]);
+    assert.equal((await h.api.deleteEvent(deletionRequest(), context)).status, 409);
+    assert.equal((await h.store.db.query("select status from kline_forms_test_google_forms where id=$1", [created.form.id])).rows[0].status, "draft");
+  } finally { await h.close(); }
+});
+
 test("production event key is isolated from the existing general AI credential", async () => {
   const h = await eventHarness(); try {
     process.env.EVENT_AI_OPENAI_API_KEY = "event-specific-server-key";

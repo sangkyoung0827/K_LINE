@@ -8,6 +8,7 @@ import type { GoogleFormTemplate } from "@/lib/googleForms/templates";
 import type { GoogleFormRegistryRow } from "@/lib/googleForms/types";
 import type { WorkflowPreview } from "./WoohyukmonFormsAssistant";
 import { EventStudio } from "./EventStudio";
+import { EventDeleteButton } from "./EventDeleteButton";
 import { applicantNames, googleTeamNotice } from "@/lib/googleForms/applicants";
 import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -20,6 +21,7 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
   const { language } = useLanguage();
   const t = (ko: string, en: string) => language === "ko" ? ko : en;
   const [section, setSection] = useState("assistant");
+  const [studioRefresh, setStudioRefresh] = useState(0);
   const [preview, setPreview] = useState<{ workflow: WorkflowPreview; token: string } | null>(null);
   const [data, setData] = useState<ListResponse>({ access: initialAccess, connection: { connected: false, accountEmail: "" }, forms: [] });
   const [clubKey, setClubKey] = useState(initialAccess.manageableClubs[0]);
@@ -31,7 +33,7 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
   const [busy, setBusy] = useState(false); const [message, setMessage] = useState(""); const [selected, setSelected] = useState<string | null>(null); const [mirror, setMirror] = useState<MirrorResponse | null>(null);
   const [teamSize, setTeamSize] = useState(4);
   const [teamText, setTeamText] = useState("");
-  const forms = useMemo(() => data.forms.filter((form) => form.club_key === clubKey), [clubKey, data.forms]);
+  const forms = useMemo(() => data.forms.filter((form) => form.club_key === clubKey && form.status !== "archived"), [clubKey, data.forms]);
   async function load() { const response = await fetch("/api/google-forms/forms", { cache: "no-store" }); const next = await response.json() as ListResponse; if (!response.ok) throw new Error(next.error || "Google Forms could not load."); setData(next); }
   useEffect(() => { void load().catch((error) => setMessage((error as Error).message)); }, []);
   function resetCreation() { setPreview(null); setNotice(""); setApplicationUrl(""); setCreatedForm(null); setMessage(""); }
@@ -86,7 +88,7 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
       event.preventDefault(); setSection(ids[next]);
       event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`#event-tab-${ids[next]}`)?.focus();
     }} onClick={() => setSection(id)} className={`min-h-11 min-w-0 break-words px-2 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${section === id ? "bg-ink text-paper" : "border border-ink/20"}`}>{label}</button>)}</div>
-    {!initialAccess.isReadOnly ? <div id="event-panel-assistant" role="tabpanel" aria-labelledby="event-tab-assistant" hidden={section !== "assistant"}><EventStudio embedded initialClub={clubKey === "social_impact_union" ? clubKey : "ecc"} onComplete={() => { void load().catch(error => setMessage((error as Error).message)); }} /></div> : null}
+    {!initialAccess.isReadOnly ? <div id="event-panel-assistant" role="tabpanel" aria-labelledby="event-tab-assistant" hidden={section !== "assistant"}><EventStudio key={studioRefresh} embedded initialClub={clubKey === "social_impact_union" ? clubKey : "ecc"} onComplete={() => { void load().catch(error => setMessage((error as Error).message)); }} /></div> : null}
     {message ? <p role="status" className="mt-5 border border-brass/30 bg-brass/10 p-3 text-sm font-semibold text-ink">{message}</p> : null}
     <div className="mt-8 flex gap-2 overflow-x-auto">{initialAccess.manageableClubs.map((club) => <button key={club} disabled={busy} onClick={() => { setClubKey(club); resetCreation(); }} className={`min-h-10 whitespace-nowrap px-4 text-sm font-semibold ${clubKey === club ? "bg-navy text-paper" : "border border-ink/15"}`}>{club}</button>)}</div>
     {!initialAccess.isReadOnly && section === "forms" ? <div id="event-panel-forms" role="tabpanel" aria-labelledby="event-tab-forms" className="mt-6 border-t border-ink/12 pt-6">
@@ -109,6 +111,13 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
       <div className="mt-4 flex flex-wrap gap-2">
         <a href={`https://docs.google.com/forms/d/${encodeURIComponent(form.google_form_id)}/edit`} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-3 text-sm font-semibold">구글폼 원본 보기<ExternalLink className="h-4 w-4 shrink-0" /></a>
         <button disabled={busy} onClick={() => void responses(form)} className="inline-flex min-h-11 items-center gap-2 bg-navy px-3 text-sm font-semibold text-paper disabled:opacity-45"><Users className="h-4 w-4 shrink-0" />{busy && selected === form.id ? "불러오는 중..." : "조 자동 편성 및 공지문 생성"}</button>
+        {!initialAccess.isReadOnly && <EventDeleteButton formId={form.id} title={form.title} disabled={busy} onError={setMessage} onDeleted={async () => {
+          setData(current => ({ ...current, forms: current.forms.filter(item => item.id !== form.id) }));
+          setStudioRefresh(value => value + 1);
+          if (createdForm?.id === form.id) resetCreation();
+          setMessage(t("행사를 목록에서 삭제했습니다. 원본과 응답 기록은 보존됩니다.", "Event removed. Original files and responses are preserved."));
+          await load();
+        }} />}
       </div>
     </article>)}{!forms.length ? <p className="border border-dashed border-ink/20 p-8 text-center text-sm text-ink/55">No Google Form is registered for this club.</p> : null}</div>
     {selected && mirror ? <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/55 p-4">

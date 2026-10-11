@@ -41,6 +41,7 @@ async function result(job: StudioJob, access: StudioAccess) {
   const rows = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${job.form_registry_id}&club_key=eq.${job.club_key}&select=${registryColumns}&limit=1`);
   if (!rows[0]) throw new StudioError("FORM_REGISTRY_NOT_FOUND", 409);
   const form = rows[0];
+  if (form.status === "archived") throw new StudioError("EVENT_ARCHIVED", 410);
   return { ...preview(job, access), form, notice: noticeBody(`${job.plan.noticeKo}\n\n${job.plan.noticeEn}`),
     applicationUrl: eccFormApplicationUrl(form), recruitmentOpen: form.status === "open" };
 }
@@ -95,7 +96,10 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
   const action = body.action;
   if (action === "list") {
     const rows = await supabaseRequest<StudioJob[]>(`${jobs}?club_key=in.(${access.manageableClubs.join(",")})&select=*&order=updated_at.desc&limit=50`);
-    return { jobs: rows, access, adapters: studioAdapters, aiEnabled: process.env.EVENT_AI_ENABLED === "true" };
+    const formIds = rows.map(job => job.form_registry_id).filter(Boolean);
+    const archived = formIds.length ? await supabaseRequest<{ id: string }[]>(`google_forms?id=in.(${formIds.join(",")})&club_key=in.(${access.manageableClubs.join(",")})&status=eq.archived&select=id`) : [];
+    const archivedIds = new Set(archived.map(form => form.id));
+    return { jobs: rows.filter(job => !job.form_registry_id || !archivedIds.has(job.form_registry_id)), access, adapters: studioAdapters, aiEnabled: process.env.EVENT_AI_ENABLED === "true" };
   }
   if (action === "limits") {
     if (!access.canSetLimits || access.readOnly) throw new StudioError("SUPER_ADMIN_REQUIRED", 403);
