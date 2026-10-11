@@ -74,13 +74,13 @@ test("rendered QR is the local library PNG generated from the exact owner-suppli
 });
 
 test("SIU and existing home cards share the exact responsive wrapper, with preserved destinations", () => {
-  for (const language of ["en", "ko"]) {
+  for (const language of ["en", "ko"]) for (const showEventStudio of [false, true]) {
     const { HomeTrackSections } = load("src/components/HomeTrackSections.tsx", language);
-    const html = renderToStaticMarkup(React.createElement(HomeTrackSections));
+    const html = renderToStaticMarkup(React.createElement(HomeTrackSections, { showEventStudio }));
     const cards = [...html.matchAll(/<a href="([^"]+)" class="([^"]+)"/g)];
-    assert.deepEqual(cards.map((card) => card[1]), ["/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", "/jeju", "/open-k-culture-research"]);
+    assert.deepEqual(cards.map((card) => card[1]), ["/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", "/jeju", ...(showEventStudio ? ["/event-studio"] : []), "/open-k-culture-research"]);
     assert.equal(new Set(cards.map((card) => card[2])).size, 1);
-    assert.match(html, /md:grid-cols-2 xl:grid-cols-4/);
+    assert.match(html, /md:grid-cols-2 xl:grid-cols-3/);
     assert.match(html, /grid-cols-\[44px_minmax\(0,1fr\)_20px\]/);
   }
 });
