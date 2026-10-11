@@ -22,6 +22,8 @@ export async function loadArchiveItem(access: ArchiveAccess, id: string, write =
   const item = rows[0]; if (write) assertArchiveWrite(access, item.club_key);
   item.assets = await archiveRequest<ArchiveAsset[]>(`event_archive_assets?archive_item_id=eq.${item.id}&order=uploaded_at.asc`);
   if (access.clubs.includes(item.club_key)) {
+    const jobs = await archiveRequest<ImportJob[]>(`event_archive_import_jobs?id=eq.${item.batch_id}&select=id,manifest&limit=1`);
+    item.collection = jobs[0]?.manifest.collection;
     const labels = await archiveRequest<{ labels: import("./model").ArchiveLabels }[]>(`event_archive_labels?archive_item_id=eq.${item.id}&status=eq.review_required&order=created_at.desc&limit=1`);
     item.derivedLabels = labels[0]?.labels;
     item.versions = await archiveRequest<ArchiveItem["versions"]>(`event_archive_versions?or=(original_item_id.eq.${item.id},version_item_id.eq.${item.id})&order=created_at.desc`);
@@ -154,6 +156,7 @@ export async function listArchive(access: ArchiveAccess, query: URLSearchParams)
   if (!access.email) throw new ArchiveError("LOGIN_REQUIRED", 401);
   const scope = access.clubs.length ? `or=(club_key.in.(${access.clubs.join(",")}),and(visibility.eq.public,review_status.eq.approved))` : "visibility=eq.public&review_status=eq.approved";
   const filters = new URLSearchParams();
+  const batch = query.get("batch"); if (batch) filters.set("batch_id", `eq.${uuid(batch)}`);
   const club = query.get("club"); if (club) { const { archiveClub } = await import("./model"); filters.set("club_key", `eq.${archiveClub(club)}`); }
   const type = query.get("type"); if (type) { const { archiveTypes } = await import("./model"); if (!archiveTypes.includes(type as never)) throw new ArchiveError("INVALID_FILTER"); filters.set("item_type", `eq.${type}`); }
   for (const [name, operator] of [["from", "gte"], ["to", "lte"]] as const) {
@@ -168,12 +171,14 @@ export async function listArchive(access: ArchiveAccess, query: URLSearchParams)
     filters.set("and", `(or(title_suggestion.ilike.${pattern},original_text.ilike.${pattern},summary.ilike.${pattern}))`);
   }
   const items = await archiveRequest<ArchiveItem[]>(`event_archive_items?${scope}&${filters}&order=created_at.desc&limit=40&offset=${offset}`);
+  const batchIds = [...new Set(items.filter(item => access.clubs.includes(item.club_key)).map(item => item.batch_id))];
+  const jobs = batchIds.length ? await archiveRequest<ImportJob[]>(`event_archive_import_jobs?id=in.(${batchIds.join(",")})&select=id,manifest`) : [];
+  const assets = items.length ? await archiveRequest<ArchiveAsset[]>(`event_archive_assets?archive_item_id=in.(${items.map(item => item.id).join(",")})&order=uploaded_at.asc`) : [];
   const output = [];
   for (const item of items) {
-    const assets = await archiveRequest<ArchiveAsset[]>(`event_archive_assets?archive_item_id=eq.${item.id}`);
-    output.push({ ...item, ...(access.clubs.includes(item.club_key) ? {} : {
+    output.push({ ...item, ...(access.clubs.includes(item.club_key) ? { collection: jobs.find(job => job.id === item.batch_id)?.manifest.collection } : {
       created_by: "", reviewed_by: null, source_identifier: null, batch_id: "",
-    }), assets });
+    }), assets: assets.filter(asset => asset.archive_item_id === item.id) });
   }
   return { items: output, hasMore: items.length === 40, access };
 }
@@ -185,7 +190,7 @@ export async function archiveDownload(access: ArchiveAccess, id: string, assetId
 }
 export async function saveLabels(access: ArchiveAccess, id: string, raw: unknown, origin: "human" | "ai" = "human", model: string | null = null) {
   const item = await loadArchiveItem(access, id, true);
-  const labels = parseLabels(raw, item.original_text || "", origin === "human");
+  const labels = parseLabels(raw, `${item.original_text || ""}\n${item.collection?.eventDate || ""}`, origin === "human");
   const row = await archiveRequest(`event_archive_labels`, post({ archive_item_id: item.id, labels, origin, model, status: "review_required", created_by: access.email }));
   await archiveRequest(`event_archive_items?id=eq.${item.id}`, { method: "PATCH", body: JSON.stringify({
     title_suggestion: labels.title, item_type: labels.itemType, event_type: labels.eventType, event_date: labels.eventDate,

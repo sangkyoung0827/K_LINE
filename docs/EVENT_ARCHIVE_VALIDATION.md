@@ -4,6 +4,13 @@ Date: 2026-10-12 (Asia/Seoul). Branch:
 `feat/event-studio-archive-entry-20261011`, existing review PR #67.
 No production schema write, legacy migration, deployment or real AI call.
 
+The preceding statement and the development-only evidence below describe the
+initial validation checkpoint. The subsequently approved real PALBOK import
+applied the additive archive migration and verified hosted Storage, database and
+OpenAI calls. See [the registration report](PALBOK_ARCHIVE_REGISTRATION_20261012.md)
+and [the per-original receipt](receipts/palbok-20261017-import.json).
+No website deployment or PR merge was performed at either checkpoint.
+
 ## Implementation
 
 - Existing home card retained, no duplicate card.

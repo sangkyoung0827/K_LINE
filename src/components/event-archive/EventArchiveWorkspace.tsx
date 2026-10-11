@@ -81,14 +81,14 @@ function labelsFor(item: ArchiveItem): ArchiveLabels {
   return { suggestedClub: item.club_key, itemType: item.item_type, title: item.title_suggestion, eventType: item.event_type, eventDate: item.event_date,
     language: item.language, academicTerm: item.academic_term, tags: item.suggested_tags, summary: item.summary, confidence: item.confidence ?? 0 };
 }
-function ArchiveThumbnail({ item }: { item: ArchiveItem }) {
+function ArchiveThumbnail({ item, enlarged = false }: { item: ArchiveItem; enlarged?: boolean }) {
   const asset = item.assets?.find(a => a.mime_type.startsWith("image/")); const [src, setSrc] = useState("");
   useEffect(() => {
     let live = true;
     if (asset) void archiveCommand<{ url: string }>(`?id=${item.id}&asset=${asset.id}`).then(r => { if (live) setSrc(r.url); }).catch(() => undefined);
     return () => { live = false; };
   }, [item.id, asset?.id]);
-  return <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-ink/5">
+  return <div className={`flex items-center justify-center overflow-hidden bg-ink/5 ${enlarged ? "h-[60dvh] min-h-48" : "aspect-[4/3]"}`}>
     {src ? <img src={src} alt={item.title_suggestion || asset?.original_filename || ""} onError={() => setSrc("")} className="h-full w-full object-contain" /> : asset ? <ImageIcon className="h-8 w-8 text-muted" /> : <FileText className="h-8 w-8 text-muted" />}
   </div>;
 }
@@ -98,6 +98,7 @@ export function EventArchiveWorkspace({ access, canCreate }: { access: ArchiveAc
   const [items, setItems] = useState<ArchiveItem[]>([]), [selected, setSelected] = useState<ArchiveItem | null>(null);
   const [labels, setLabels] = useState<ArchiveLabels | null>(null), [editing, setEditing] = useState(false);
   const [query, setQuery] = useState(""), [club, setClub] = useState(""), [type, setType] = useState(""), [tag, setTag] = useState(""), [from, setFrom] = useState(""), [to, setTo] = useState("");
+  const [batch, setBatch] = useState("");
   const [more, setMore] = useState(false), [references, setReferences] = useState<string[]>([]), [referenceClub, setReferenceClub] = useState<ArchiveClub>("ecc");
   const [texts, setTexts] = useState([""]), [files, setFiles] = useState<File[]>([]), [importClub, setImportClub] = useState<ArchiveClub>(access.clubs[0] || "ecc");
   const [consent, setConsent] = useState(false), [privacy, setPrivacy] = useState(false), [copyright, setCopyright] = useState(false), [source, setSource] = useState(false), [aiSearch, setAiSearch] = useState(false), [reviewAi, setReviewAi] = useState(false);
@@ -105,6 +106,7 @@ export function EventArchiveWorkspace({ access, canCreate }: { access: ArchiveAc
   const [receipt, setReceipt] = useState<Receipt | null>(null), [pending, setPending] = useState<{ key: string; batchId?: string } | null>(null);
   const [versionText, setVersionText] = useState<string | null>(null), [legacy, setLegacy] = useState<LegacyPreview | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const loadSequence = useRef(0);
   const dialogOpen = selected !== null;
   useEffect(() => {
     if (!dialogOpen) return;
@@ -126,20 +128,24 @@ export function EventArchiveWorkspace({ access, canCreate }: { access: ArchiveAc
   const mayEdit = selected && writable && access.clubs.includes(selected.club_key);
   const displayError = error ? errors[error]?.[ko ? 0 : 1] || t("작업을 완료하지 못했습니다", "The operation did not finish") + ` (${error})` : "";
   async function load(append = false) {
+    const sequence = ++loadSequence.current;
     setLoading(true); setError("");
     try {
-      const params = new URLSearchParams({ q: query, club, type, tag, from, to, offset: String(append ? items.length : 0) });
+      const params = new URLSearchParams({ q: query, club, type, tag, from, to, batch, offset: String(append ? items.length : 0) });
       const r = await archiveCommand<{ items: ArchiveItem[]; hasMore: boolean }>(`?${params}`);
+      if (sequence !== loadSequence.current) return;
       setItems(append ? [...items, ...r.items] : r.items); setMore(r.hasMore);
-    } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
+    } catch (e) { if (sequence === loadSequence.current) setError((e as Error).message); } finally { if (sequence === loadSequence.current) setLoading(false); }
   }
-  useEffect(() => { if (tab === "archive") void load(); }, [tab]);
+  useEffect(() => { if (tab === "archive") void load(); }, [tab, batch]);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("archive");
     if (id) { setTab("archive"); void openItem(id); }
+    const bundle = new URLSearchParams(window.location.search).get("batch");
+    if (bundle) { setBatch(bundle); setTab("archive"); }
   }, []);
   async function openItem(id: string) {
-    setError("");
+    setError(""); setStatus("");
     try { const r = await archiveCommand<{ item: ArchiveItem }>(`?id=${id}`); setSelected(r.item); setLabels(labelsFor(r.item)); setEditing(false); setVersionText(null); setPrivacy(false); setCopyright(false); setSource(false); setAiSearch(r.item.ai_search_allowed); setReviewAi(r.item.ai_consent); }
     catch (e) { setError((e as Error).message); }
   }
@@ -192,6 +198,7 @@ export function EventArchiveWorkspace({ access, canCreate }: { access: ArchiveAc
       <EventStudio initialClub={referenceClub === "unclassified" ? undefined : referenceClub} archiveIds={references} />
     </>}
     {tab === "archive" && <>
+      {batch && <div className="flex items-start justify-between gap-3 border-b border-ink/15 pb-4"><div><h2 className="break-words text-lg font-semibold">{items[0]?.collection?.title || t("행사 묶음", "Event collection")}</h2><p className="text-sm text-muted">{items[0]?.collection?.eventDate} · {items.length} {t("건", "materials")}</p></div><button type="button" aria-label="Clear collection filter" title={t("전체 자료 보기", "All materials")} className="flex h-11 w-11 shrink-0 items-center justify-center" onClick={() => setBatch("")}><X className="h-4 w-4" /></button></div>}
       <form onSubmit={e => { e.preventDefault(); void load(); }} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="flex items-center gap-2 sm:col-span-2"><Search className="h-5 w-5 shrink-0" /><input aria-label={t("자료 검색", "Search archive")} className="form-field min-w-0 flex-1" placeholder={t("제목·원문·내용 검색", "Search title, original and summary")} value={query} onChange={e => setQuery(e.target.value)} /></label>
         <select aria-label={t("클럽", "Club")} className="form-field" value={club} onChange={e => setClub(e.target.value)}><option value="">{t("전체 클럽", "All clubs")}</option>{archiveClubs.map(c => <option key={c} value={c}>{names[c]}</option>)}</select>
@@ -206,6 +213,7 @@ export function EventArchiveWorkspace({ access, canCreate }: { access: ArchiveAc
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{items.map(item => <button key={item.id} type="button" onClick={() => void openItem(item.id)} className="overflow-hidden rounded-lg border border-ink/15 bg-white/60 text-left transition hover:border-brass focus-visible:outline-navy">
         <ArchiveThumbnail item={item} /><div className="space-y-2 p-4"><p className="text-xs text-muted">{names[item.club_key]} · {item.item_type} · {item.visibility === "public" ? t("공개", "Public") : t("비공개", "Private")}</p>
           <h2 className="break-words font-semibold text-navy">{item.title_suggestion || item.assets?.[0]?.original_filename || t("미분류 원본", "Unclassified original")}</h2><p className="line-clamp-3 whitespace-pre-wrap break-words text-sm text-muted">{item.summary || item.original_text}</p><p className="text-xs text-muted">{item.event_date || t("날짜 미확인", "Date unconfirmed")} · {item.classification_status}</p>
+          {item.collection && <p className="break-words text-xs text-muted">{item.collection.title}</p>}
         </div></button>)}</div>
       {more && <button type="button" className="min-h-11 border border-ink/20 px-4 text-sm" disabled={loading} onClick={() => void load(true)}>{t("더 보기", "Load more")}</button>}
     </>}
@@ -232,13 +240,16 @@ export function EventArchiveWorkspace({ access, canCreate }: { access: ArchiveAc
       <section className="flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-paper shadow-xl">
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-ink/15 p-4"><div className="min-w-0"><p className="text-xs text-muted">{names[selected.club_key]} · {selected.visibility} · {selected.review_status}</p><h2 className="mt-1 break-words font-semibold text-navy">{selected.title_suggestion || t("자료 원본", "Original material")}</h2></div><button type="button" aria-label="Close original" title={t("닫기", "Close")} className="flex h-11 w-11 shrink-0 items-center justify-center" onClick={() => setSelected(null)}><X className="h-5 w-5" /></button></header>
         <div className="space-y-5 overflow-y-auto p-4 sm:p-6">
+          {selected.assets?.some(asset => asset.mime_type.startsWith("image/")) && <ArchiveThumbnail item={selected} enlarged />}
           {displayError && <p role="alert" className="border-l-2 border-red-600 pl-3 text-sm text-red-700">{displayError}</p>}
           {status && <p role="status" className="text-sm text-muted">{status}</p>}
           {selected.original_text !== null && <section><div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-semibold">{t("원문", "Original text")}</h3><button type="button" aria-label="Copy original" title={t("원문 복사", "Copy original")} className="flex h-11 w-11 items-center justify-center" onClick={() => void task(async () => { await navigator.clipboard.writeText(selected.original_text!); setStatus(t("원문을 복사했습니다.", "Original copied.")); })}><Copy className="h-4 w-4" /></button></div><pre className="whitespace-pre-wrap break-words border-y border-ink/15 py-4 font-sans text-sm leading-7">{selected.original_text}</pre><p className="mt-2 break-all text-xs text-muted">SHA-256: {selected.original_text_sha256}</p></section>}
           {selected.assets?.map(asset => <div key={asset.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/15 pb-3"><div className="min-w-0"><p className="break-all text-sm">{asset.original_filename}</p><p className="break-all text-xs text-muted">SHA-256: {asset.sha256}</p></div><button type="button" disabled={busy} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-3 text-sm" onClick={() => void task(async () => { const r = await archiveCommand<{ url: string }>(`?id=${selected.id}&asset=${asset.id}`); const a = document.createElement("a"); a.href = r.url; a.rel = "noopener noreferrer"; a.click(); })}><Download className="h-4 w-4" />{t("원본 다운로드", "Download original")}</button></div>)}
           {selected.versions && selected.versions.length > 0 && <section><h3 className="text-sm font-semibold">{t("연결된 버전", "Linked versions")}</h3><ul className="mt-2 space-y-2">{selected.versions.map(v => { const id = v.original_item_id === selected.id ? v.version_item_id : v.original_item_id; return <li key={id}><button type="button" className="break-all text-sm underline" onClick={() => void openItem(id)}>{id}</button></li>; })}</ul></section>}
           <section className="space-y-3"><div className="flex items-center justify-between"><h3 className="text-sm font-semibold">{t("분류 · 파생 메타데이터", "Labels · Derived metadata")}</h3>{mayEdit && <button type="button" title={t("분류 편집", "Edit labels")} aria-label="Edit labels" className="flex h-11 w-11 items-center justify-center" onClick={() => setEditing(!editing)}><Pencil className="h-4 w-4" /></button>}</div>
-            {!editing ? <><p className="text-sm">{selected.summary || t("요약 없음", "No summary")}</p><p className="text-xs text-muted">{selected.suggested_tags.join(" / ")}</p></> : labels && <form className="grid gap-3 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); void task(async () => { await archiveCommand("", { action: "labels", id: selected.id, labels }); await openItem(selected.id); }); }}>
+            {!editing ? <><p className="text-sm">{labels?.organizerName} {labels?.eventName && `· ${labels.eventName}`}</p><p className="text-sm">{selected.summary || t("요약 없음", "No summary")}</p><p className="text-xs text-muted">{selected.suggested_tags.join(" / ")}</p></> : labels && <form className="grid gap-3 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); void task(async () => { await archiveCommand("", { action: "labels", id: selected.id, labels }); await openItem(selected.id); }); }}>
+              <label className="grid gap-1 text-sm">{t("주최 단체", "Organizer")}<input className="form-field" value={labels.organizerName || ""} onChange={e => setLabels({ ...labels, organizerName: e.target.value || null })} /></label>
+              <label className="grid gap-1 text-sm">{t("행사명", "Event name")}<input className="form-field" value={labels.eventName || ""} onChange={e => setLabels({ ...labels, eventName: e.target.value || null })} /></label>
               <label className="grid gap-1 text-sm">{t("제목", "Title")}<input className="form-field" value={labels.title || ""} onChange={e => setLabels({ ...labels, title: e.target.value || null })} /></label>
               <label className="grid gap-1 text-sm">{t("추정 단체", "Suggested organization")}<select className="form-field" value={labels.suggestedClub} onChange={e => setLabels({ ...labels, suggestedClub: e.target.value as ArchiveLabels["suggestedClub"] })}>{[...archiveClubs, "other"].map(c => <option key={c} value={c}>{c}</option>)}</select></label>
               <label className="grid gap-1 text-sm">{t("유형", "Type")}<select className="form-field" value={labels.itemType} onChange={e => setLabels({ ...labels, itemType: e.target.value as ArchiveLabels["itemType"] })}>{archiveTypes.map(c => <option key={c}>{c}</option>)}</select></label>

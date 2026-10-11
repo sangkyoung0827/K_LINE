@@ -10,16 +10,19 @@ export const fileTypes: Record<string, string> = {
 export const maxFileBytes = 25 * 1024 * 1024;
 export type ArchiveAccess = { email: string; clubs: ArchiveClub[]; superAdmin: boolean; readOnly: boolean };
 export type ArchiveLabels = {
+  organizerName?: string | null; eventName?: string | null;
   suggestedClub: ArchiveClub | "other"; itemType: typeof archiveTypes[number]; title: string | null;
   eventType: string | null; eventDate: string | null; language: string | null;
   academicTerm: string | null; tags: string[]; summary: string | null; confidence: number;
 };
 export type ArchiveFile = { name: string; mimeType: string; size: number; sha256: string };
+export type ArchiveCollection = { id: string; title: string; eventDate: string | null; organizerNames: string[] };
 export type IngestManifest = {
   clubKey: ArchiveClub; idempotencyKey: string; texts: string[]; files: ArchiveFile[];
   sourceKind: "paste" | "upload" | "connector" | "legacy" | "local_export";
   sourceIdentifier: string | null; upstreamFormatting: "unknown" | "received_verbatim";
   aiConsent: boolean;
+  collection?: ArchiveCollection;
 };
 export type ArchiveItem = {
   id: string; club_key: ArchiveClub; batch_id: string; content_key: string;
@@ -33,6 +36,7 @@ export type ArchiveItem = {
   ai_consent: boolean; ai_search_allowed: boolean; reviewed_by: string | null;
   created_by: string; created_at: string; updated_at: string;
   assets?: ArchiveAsset[];
+  collection?: ArchiveCollection;
   derivedLabels?: ArchiveLabels;
   versions?: { original_item_id: string; version_item_id: string; created_at: string }[];
 };
@@ -93,7 +97,17 @@ export function parseManifest(raw: unknown): IngestManifest {
   const sourceKind = r.sourceKind ?? "paste";
   if (!["paste", "upload", "connector", "legacy", "local_export"].includes(String(sourceKind))) throw new ArchiveError("INVALID_SOURCE");
   if (r.sourceIdentifier != null && (typeof r.sourceIdentifier !== "string" || r.sourceIdentifier.length > 500)) throw new ArchiveError("INVALID_SOURCE");
-  return { clubKey: archiveClub(r.clubKey), idempotencyKey: r.idempotencyKey, texts, files,
+  let collection: ArchiveCollection | undefined;
+  if (r.collection != null) {
+    const c = r.collection as ArchiveCollection;
+    if (!c || typeof c !== "object" || typeof c.id !== "string" || !/^[\w-]{1,100}$/.test(c.id) ||
+      typeof c.title !== "string" || !c.title.trim() || c.title.length > 200 ||
+      !Array.isArray(c.organizerNames) || c.organizerNames.length > 10 || c.organizerNames.some(n => typeof n !== "string" || n.length > 200) ||
+      c.eventDate !== null && (typeof c.eventDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(c.eventDate) ||
+        !Number.isFinite(Date.parse(c.eventDate)) || new Date(c.eventDate).toISOString().slice(0, 10) !== c.eventDate)) throw new ArchiveError("INVALID_COLLECTION");
+    collection = { id: c.id, title: c.title, eventDate: c.eventDate, organizerNames: c.organizerNames };
+  }
+  return { clubKey: archiveClub(r.clubKey), idempotencyKey: r.idempotencyKey, texts, files, ...(collection ? { collection } : {}),
     sourceKind: sourceKind as IngestManifest["sourceKind"], sourceIdentifier: r.sourceIdentifier as string | null ?? null,
     upstreamFormatting: r.upstreamFormatting === "received_verbatim" ? "received_verbatim" : "unknown", aiConsent: r.aiConsent === true };
 }
@@ -113,6 +127,7 @@ export function parseLabels(value: unknown, evidence = "", humanReviewedDate = f
   // Only verbatim ISO dates are auto-confirmable. Other date formats and vision suggestions need review.
   if (date && !humanReviewedDate && !evidence.includes(date)) date = null;
   return { suggestedClub: r.suggestedClub as ArchiveLabels["suggestedClub"], itemType: r.itemType as ArchiveLabels["itemType"],
+    organizerName: r.organizerName == null ? null : nullable("organizerName", 200), eventName: r.eventName == null ? null : nullable("eventName", 200),
     title: nullable("title", 200), eventType: nullable("eventType", 100), eventDate: date,
     language: nullable("language", 50), academicTerm: nullable("academicTerm", 50), tags: r.tags as string[],
     summary: nullable("summary", 1500), confidence: r.confidence };
@@ -121,7 +136,7 @@ const nullableString = { type: ["string", "null"] };
 export const archiveLabelSchema = {
   type: "object", additionalProperties: false,
   properties: { suggestedClub: { type: "string", enum: [...archiveClubs, "other"] }, itemType: { type: "string", enum: [...archiveTypes] },
-    title: nullableString, eventType: nullableString, eventDate: nullableString, language: nullableString, academicTerm: nullableString,
+    title: nullableString, organizerName: nullableString, eventName: nullableString, eventType: nullableString, eventDate: nullableString, language: nullableString, academicTerm: nullableString,
     tags: { type: "array", items: { type: "string" } }, summary: nullableString, confidence: { type: "number" } },
-  required: ["suggestedClub", "itemType", "title", "eventType", "eventDate", "language", "academicTerm", "tags", "summary", "confidence"],
+  required: ["suggestedClub", "itemType", "title", "organizerName", "eventName", "eventType", "eventDate", "language", "academicTerm", "tags", "summary", "confidence"],
 };

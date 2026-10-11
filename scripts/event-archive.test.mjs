@@ -56,6 +56,28 @@ test("Event Archive: actual local PostgreSQL + filesystem round-trip, not remote
       const text="\uFEFF공지 e\u0301\r\n  Typo!  \n",bytes=Buffer.from(text),p=await api.prepareImport(h.access(),manifest([],[descriptor("raw.txt",bytes,"text/plain")]));
       await h.upload(p,[bytes]);const r=await api.finalizeImport(h.access(),p.batch_id);assert.equal(r.status,"saved",JSON.stringify(r));const item=await api.loadArchiveItem(h.access(),r.results[0].archiveId);assert.equal(item.original_text,text);assert.equal(item.original_text_sha256,api.sha256(text));
     });
+    await t.test("source-provided collection groups originals without widening scope or replacing source bytes", async () => {
+      const collection = { id: "one-private-festival", title: "Private festival", eventDate: "2026-10-17", organizerNames: ["Festival organizers"] };
+      const input = { ...manifest(["Collection notice"], [], "unclassified"), collection, aiConsent: true };
+      const prepared = await api.prepareImport(h.access(), input), saved = await api.finalizeImport(h.access(), prepared.batch_id);
+      const id = saved.results[0].archiveId, loaded = await api.loadArchiveItem(h.access(), id);
+      assert.deepEqual(loaded.collection, collection); assert.equal(loaded.original_text, "Collection notice");
+      const previous = control.aiLabels;
+      try {
+        control.aiLabels = { ...previous, suggestedClub: "other", eventDate: "2026-10-17", organizerName: "Festival organizers", eventName: "Private festival" };
+        const classified = await api.classifyArchive(h.access(), id);
+        assert.equal(classified.item.event_date.slice(0, 10), "2026-10-17"); assert.equal(classified.item.club_key, "unclassified");
+        assert.equal(classified.item.derivedLabels.organizerName, "Festival organizers");
+      } finally { control.aiLabels = previous; }
+      const list = await api.listArchive(h.access(), new URLSearchParams({ batch: prepared.batch_id }));
+      assert.equal(list.items.length, 1); assert.deepEqual(list.items[0].collection, collection);
+      assert.equal((await api.listArchive({email:"member@example.test",clubs:[],superAdmin:false,readOnly:true},new URLSearchParams({batch:prepared.batch_id}))).items.length, 0);
+      await assert.rejects(api.listArchive(h.access(), new URLSearchParams({batch:"invalid"})), /INVALID_ARCHIVE_ID/);
+      assert.throws(() => api.parseManifest({...input, collection:{...collection,eventDate:"2026-02-30"}}), /INVALID_COLLECTION/);
+      assert.throws(() => api.parseManifest({...input, collection:{...collection,organizerNames:"injected"}}), /INVALID_COLLECTION/);
+      const replay = await api.prepareImport(h.access(), input); assert.equal(replay.batch_id,prepared.batch_id);
+      await assert.rejects(api.prepareImport(h.access(), {...input,collection:{...collection,title:"Changed provenance"}}), /IDEMPOTENCY_CONFLICT/);
+    });
     await t.test("mixed batch keeps original input order and resumes after interruption", async () => {
       const m=manifest(["첫 번째", "second"],[descriptor("retry.png",png,"image/png")]),p=await api.prepareImport(h.access(),m);
       const partial=await api.finalizeImport(h.access(),p.batch_id);assert.equal(partial.status,"partial");assert.equal(partial.results[2].error,"UPLOAD_NOT_RECEIVED");
