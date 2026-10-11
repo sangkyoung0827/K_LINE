@@ -3,6 +3,9 @@ import { EventArchiveWorkspace } from "@/components/event-archive/EventArchiveWo
 import { getArchiveAccess } from "@/lib/eventArchive/access";
 import { getStudioAccess } from "@/lib/eventStudio/access";
 import { createNoIndexMetadata } from "@/lib/seo";
+import { auth } from "@/auth";
+import { isDeveloperEmail } from "@/lib/admin";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const metadata = createNoIndexMetadata({
@@ -12,6 +15,8 @@ export const metadata = createNoIndexMetadata({
 });
 
 export default async function EventStudioHubPage() {
+  const session = await auth();
+  if (!isDeveloperEmail(session?.user?.email)) notFound();
   try {
     const access = await getArchiveAccess();
     if (!access.email) {
@@ -30,6 +35,6 @@ export default async function EventStudioHubPage() {
       </main>
     );
   } catch {
-    return <main className="mx-auto max-w-5xl px-5 py-16"><h1 className="font-serif text-4xl font-semibold">Event Studio</h1><p className="mt-5 text-muted">로그인과 클럽 운영진 권한을 확인해주세요. / Sign in with an authorized club administrator account.</p></main>;
+    return <main className="mx-auto max-w-5xl px-5 py-16"><h1 className="font-serif text-4xl font-semibold">Event Studio</h1><p className="mt-5 text-muted">개발자 계정 권한을 확인해주세요. / Check your developer account.</p></main>;
   }
 }

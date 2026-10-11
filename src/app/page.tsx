@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { HeroSection } from "@/components/HeroSection";
 import { HomeTrackSections } from "@/components/HomeTrackSections";
 import { seoKeywords, siteConfig } from "@/lib/seo";
+import { auth } from "@/auth";
+import { isDeveloperEmail } from "@/lib/admin";
 
 export const metadata: Metadata = {
   title: {
@@ -43,11 +45,12 @@ export const metadata: Metadata = {
   }
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await auth();
   return (
     <>
       <HeroSection />
-      <HomeTrackSections />
+      <HomeTrackSections showEventStudio={isDeveloperEmail(session?.user?.email)} />
     </>
   );
 }

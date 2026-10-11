@@ -78,10 +78,10 @@ test("archive desktop/mobile bilingual UI with local DB/files, review, exact cop
     assert.equal(returned.item.assets[0].sha256,createHash("sha256").update(png).digest("hex"));
     const member=await browser.newContext({viewport:{width:390,height:844}});
     const memberPage=await member.newPage();await memberPage.goto(origin+"?role=member");
-    await memberPage.getByRole("heading",{name:"ECC archive reviewed notice",exact:true}).waitFor();
+    await memberPage.getByRole("alert").filter({hasText:"DEVELOPER_REQUIRED"}).waitFor();
+    assert.equal(await memberPage.getByRole("heading",{name:"ECC archive reviewed notice",exact:true}).count(),0);
     assert.equal(await memberPage.getByRole("button",{name:"Import Center",exact:true}).count(),0);
-    assert.equal((await memberPage.request.get(origin+`/api/event-archive?id=${imageItem.id}`)).status(),404);
-    await memberPage.getByRole("heading",{name:"ECC archive reviewed notice",exact:true}).click();
+    assert.equal((await memberPage.request.get(origin+`/api/event-archive?id=${imageItem.id}`)).status(),403);
     assert.equal(await memberPage.getByRole("button",{name:"Edit labels",exact:true}).count(),0);
     const readOnly=await browser.newContext();const ro=await readOnly.newPage();await ro.goto(origin+"?role=readonly");
     await ro.getByRole("heading",{name:"ECC archive reviewed notice",exact:true}).waitFor();

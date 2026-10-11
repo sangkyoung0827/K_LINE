@@ -1,9 +1,6 @@
 import "server-only";
 import { auth } from "@/auth";
 import { getAdminAccess, normalizeEmail } from "@/lib/admin";
-import { getEccAccessForEmail } from "@/lib/eccAccess";
-import { getHanhwalAccessForEmail } from "@/lib/hanhwalAccess";
-import { supabaseRequest } from "@/lib/supabaseServer";
 import { createSignedWoohyukmonPayload, verifySignedWoohyukmonPayload } from "@/lib/woohyukmon/operations/token";
 import { archiveClubs, ArchiveError, type ArchiveAccess, type ArchiveClub } from "./model";
 
@@ -11,13 +8,8 @@ export async function getArchiveAccess(verifiedEmail?: string): Promise<ArchiveA
   const email = normalizeEmail(verifiedEmail ?? (await auth())?.user?.email);
   if (!email) return { email: "", clubs: [], superAdmin: false, readOnly: true };
   const global = await getAdminAccess(email);
-  if (global.isSuperAdmin) return { email, clubs: [...archiveClubs], superAdmin: true, readOnly: Boolean(global.isReadOnly) };
-  const clubs: ArchiveClub[] = [];
-  if ((await getEccAccessForEmail(email)).isAdmin) clubs.push("ecc");
-  if ((await getHanhwalAccessForEmail(email)).isAdmin) clubs.push("hanhwal");
-  const rows = await supabaseRequest<{ role: string }[]>(`siu_roles?select=role&email=eq.${encodeURIComponent(email)}&limit=1`, { cache: "no-store" });
-  if (["admin", "super_admin", "developer"].includes(rows[0]?.role)) clubs.push("social_impact_union");
-  return { email, clubs, superAdmin: false, readOnly: Boolean(global.isReadOnly) };
+  if (!global.isDeveloper) throw new ArchiveError("DEVELOPER_REQUIRED", 403);
+  return { email, clubs: [...archiveClubs], superAdmin: true, readOnly: Boolean(global.isReadOnly) };
 }
 type ConnectorToken = { namespace: string; actor: string; club: ArchiveClub; expires: number };
 export function archiveConnectorToken(access: ArchiveAccess, club: ArchiveClub) {

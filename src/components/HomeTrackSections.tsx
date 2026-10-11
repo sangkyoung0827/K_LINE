@@ -78,12 +78,12 @@ const homeCards: HomeCard[] = [
   }
 ];
 
-export function HomeTrackSections() {
+export function HomeTrackSections({ showEventStudio = false }: { showEventStudio?: boolean }) {
   return (
     <section className="bg-paper px-4 pb-10 sm:px-5 sm:pb-14 md:px-8 md:pb-20">
       <div className="mx-auto max-w-7xl">
         <div className="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 md:gap-7">
-          {homeCards.map((card) => (
+          {homeCards.filter(card => card.accent !== "studio" || showEventStudio).map((card) => (
             <HomePortalCard key={card.href} card={card} />
           ))}
         </div>

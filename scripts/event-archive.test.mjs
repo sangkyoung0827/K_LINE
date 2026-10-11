@@ -202,6 +202,28 @@ test("Event Archive: actual local PostgreSQL + filesystem round-trip, not remote
       control.email="";assert.equal((await api.archiveGET(new Request("https://kline.test/api/event-archive"))).status,401);
       control.email="qa-admin@example.test";control.clubs=["ecc","hanhwal","social_impact_union","unclassified"];
     });
+    await t.test("developer-only release denies members and club admins at every archive entry point", async () => {
+      const before = control.clubs;
+      try {
+        for (const clubs of [[],["ecc"],["hanhwal"],["social_impact_union"]]) {
+          control.clubs = clubs;
+          const response = await api.archiveGET(new Request("https://kline.test/api/event-archive"));
+          assert.equal(response.status,403); assert.equal((await response.json()).error,"DEVELOPER_REQUIRED");
+          await assert.rejects(api.getArchiveAccess(),/DEVELOPER_REQUIRED/);
+        }
+        control.clubs = before;
+        assert.equal((await api.archiveGET(new Request("https://kline.test/api/event-archive"))).status,200);
+        control.readOnly = true;
+        const access = await api.getArchiveAccess(); assert.equal(access.readOnly,true);
+        await assert.rejects(api.prepareImport(access,manifest(["read only"])),/READ_ONLY_ACCOUNT/);
+        const home = await readFile(new URL("../src/components/HomeTrackSections.tsx",import.meta.url),"utf8");
+        const page = await readFile(new URL("../src/app/page.tsx",import.meta.url),"utf8");
+        const hub = await readFile(new URL("../src/app/event-studio/page.tsx",import.meta.url),"utf8");
+        assert.match(home,/showEventStudio = false/); assert.match(home,/card\.accent !== "studio" \|\| showEventStudio/);
+        assert.match(page,/showEventStudio=\{isDeveloperEmail\(session\?\.user\?\.email\)\}/);
+        assert.match(hub,/if \(!isDeveloperEmail\(session\?\.user\?\.email\)\) notFound\(\)/);
+      } finally { control.clubs = before; control.readOnly = false; }
+    });
     await t.test("test settings cannot point to production and archive store cannot touch legacy tables", async () => {
       const old=process.env.EVENT_ARCHIVE_TEST_SUPABASE_URL;process.env.EVENT_ARCHIVE_TEST_SUPABASE_URL="https://okcabiimxuhhhokqajjg.supabase.co";assert.throws(()=>api.archiveConfig(),/ISOLATED_ARCHIVE_DATABASE_REQUIRED/);process.env.EVENT_ARCHIVE_TEST_SUPABASE_URL=old;
       await assert.rejects(api.archiveRequest("ecc_roles",{method:"DELETE"}),/ARCHIVE_TABLE_NOT_ALLOWED/);
