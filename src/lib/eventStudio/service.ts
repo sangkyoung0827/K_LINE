@@ -116,9 +116,24 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
   if (action === "plan") {
     const key = club(body.clubKey); assertStudioAccess(access, key);
     if (typeof body.message !== "string") throw new StudioError("EVENT_REQUEST_REQUIRED");
-    const generated = await generateEventPlan(access.email, key, body.message);
-    const rows = await supabaseRequest<StudioJob[]>(`${jobs}?select=*`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ id: randomUUID(), club_key: key, plan: generated.plan, ai_metadata: generated.metadata, created_by: access.email }) });
-    return preview(rows[0], access);
+    let references: { archiveId: string; historicalOnly: boolean; title: string | null; text: string }[] = [];
+    if (Array.isArray(body.archiveIds) && body.archiveIds.length) {
+      const { getArchiveAccess } = await import("@/lib/eventArchive/access");
+      const { historicalReferences } = await import("@/lib/eventArchive/service");
+      references = await historicalReferences(await getArchiveAccess(access.email), body.archiveIds, key);
+    }
+    const generated = await generateEventPlan(access.email, key, body.message, references);
+    const rows = await supabaseRequest<StudioJob[]>(`${jobs}?select=*`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ id: randomUUID(), club_key: key, plan: generated.plan, ai_metadata: { ...generated.metadata, ...(references.length ? { archiveIds: references.map(r => r.archiveId) } : {}) }, created_by: access.email }) });
+    let archiveLinkPending = false;
+    if (references.length) {
+      const { linkArchiveReferences } = await import("@/lib/eventArchive/service");
+      const { getArchiveAccess } = await import("@/lib/eventArchive/access");
+      // The job is already durable; do not fail creation and provoke a duplicate
+      // generation when only the secondary archive link is unavailable.
+      try { await linkArchiveReferences(await getArchiveAccess(access.email), references.map(r => r.archiveId), rows[0].id); }
+      catch { archiveLinkPending = true; }
+    }
+    return { ...await preview(rows[0], access), archiveLinkPending };
   }
   const job = await loadJob(String(body.jobId || ""), access, !["get", "review"].includes(String(action)));
   if (action === "get") return result(job, access);

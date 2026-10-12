@@ -28,8 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Chromium for browser verification
+        run: npx playwright install --with-deps chromium
+
       - name: Typecheck and browser metadata safety
         run: npm test
+
+      - name: Event Archive desktop and mobile verification
+        run: npm run test:event-archive-ui
 
       - name: Production build
         run: npm run build

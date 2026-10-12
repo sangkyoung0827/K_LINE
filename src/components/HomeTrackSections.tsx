@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpen, LibraryBig } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarRange, LibraryBig } from "lucide-react";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { SocialImpactUnionMark } from "@/components/social-impact-union/SocialImpactUnionMark";
@@ -12,7 +12,7 @@ type HomeCard = {
   title: { en: string; ko: string };
   description: { en: string; ko: string };
   badge: { en: string; ko: string };
-  accent: "ecc" | "hanhwal" | "jeju" | "siu" | "research";
+  accent: "ecc" | "hanhwal" | "jeju" | "siu" | "research" | "studio";
 };
 
 const homeCards: HomeCard[] = [
@@ -57,6 +57,16 @@ const homeCards: HomeCard[] = [
     accent: "jeju"
   },
   {
+    href: "/event-studio",
+    title: { en: "Event Studio", ko: "Event Studio" },
+    description: {
+      en: "Create activities with WooHyukmon, review notices and forms, and open the existing event resource library.",
+      ko: "우혁몬으로 행사를 기획하고 공지·신청폼을 검토하며 행사 자료실로 이동합니다."
+    },
+    badge: { en: "Organizer Tools", ko: "운영진 도구" },
+    accent: "studio"
+  },
+  {
     href: "/open-k-culture-research",
     title: { en: "Open K-Culture Research", ko: "Open K-Culture Research" },
     description: {
@@ -68,12 +78,12 @@ const homeCards: HomeCard[] = [
   }
 ];
 
-export function HomeTrackSections() {
+export function HomeTrackSections({ showEventStudio = false }: { showEventStudio?: boolean }) {
   return (
     <section className="bg-paper px-4 pb-10 sm:px-5 sm:pb-14 md:px-8 md:pb-20">
       <div className="mx-auto max-w-7xl">
-        <div className="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-4 md:gap-7">
-          {homeCards.map((card) => (
+        <div className="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 md:gap-7">
+          {homeCards.filter(card => card.accent !== "studio" || showEventStudio).map((card) => (
             <HomePortalCard key={card.href} card={card} />
           ))}
         </div>
@@ -94,6 +104,10 @@ function HomePortalCard({ card }: { card: HomeCard }) {
         {card.accent === "jeju" ? (
           <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dcefe8] text-[#0d5962] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
             <BookOpen aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
+          </span>
+        ) : card.accent === "studio" ? (
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dfeaf3] text-[#184b54] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
+            <CalendarRange aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
           </span>
         ) : card.accent === "research" ? (
           <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#e9e2d1] text-[#184b54] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
@@ -119,7 +133,7 @@ function HomePortalCard({ card }: { card: HomeCard }) {
           {pick(card.title)}
         </h2>
         <p className="mt-1 text-xs leading-5 text-muted sm:hidden">
-          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : card.accent === "siu" ? <I18nText en="People, ideas & local impact" ko="사람 · 아이디어 · 지역의 변화" /> : card.accent === "research" ? <I18nText en="Culture, tradition & experience" ko="문화 · 전통 · 체험 연구" /> : <I18nText en="Places, memories & WooHyukmon" ko="지도 · 여행 기록 · 우혁몬" />}
+          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : card.accent === "siu" ? <I18nText en="People, ideas & local impact" ko="사람 · 아이디어 · 지역의 변화" /> : card.accent === "research" ? <I18nText en="Culture, tradition & experience" ko="문화 · 전통 · 체험 연구" /> : card.accent === "studio" ? <I18nText en="Event plans, notices & forms" ko="행사 기획 · 공지 · 신청폼" /> : <I18nText en="Places, memories & WooHyukmon" ko="지도 · 여행 기록 · 우혁몬" />}
         </p>
         <p className="mt-2 hidden text-sm font-medium leading-6 text-muted sm:mt-4 sm:block sm:leading-7 md:mt-6 md:min-h-[4.5rem]">
           {pick(card.description)}
