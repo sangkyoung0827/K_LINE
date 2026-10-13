@@ -30,6 +30,7 @@ export type WoohyukmonOperationResponse =
       rows?: WoohyukmonTableRow[];
       contextTargetId?: string;
       contextTargetIds?: string[];
+      files?: Array<{ name: string; url: string }>;
     }
   | {
       handled: true;
@@ -44,7 +45,7 @@ export type WoohyukmonOperationResponse =
       title: string;
       summary: string;
       token: string;
-      tool: WoohyukmonOperationTool;
+      tool: WoohyukmonOperationTool | "club_operation";
       targetCount: number;
       rows?: WoohyukmonTableRow[];
     }

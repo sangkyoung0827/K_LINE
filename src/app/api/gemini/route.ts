@@ -572,6 +572,7 @@ async function streamGeminiAnswer({
     }
   });
   const text = sanitizeModelText(result.answer);
+  controller.enqueue(ndjson({ type: "status", status: "model_verified", label: `OpenAI · ${result.model}`, providers: ["openai"] }));
   controller.enqueue(ndjson({ type: "text", text }));
   return text;
 }
@@ -754,7 +755,7 @@ export async function POST(request: Request) {
           && shouldRetrieveKnowledge(query)
           && !businessCollectionRequest
           && !eccAnnouncementRequest
-          && (developerAccess.isDeveloper || isPublicV4)
+          && developerAccess.isDeveloper
           ? await searchKnowledge({ limit: 8, query }).catch((error) => {
               console.error("WooHyukmon private knowledge retrieval failed", error);
               return [];

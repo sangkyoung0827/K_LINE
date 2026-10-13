@@ -3,114 +3,84 @@ import { test } from "node:test";
 import { createAnswerGenerator, hasGenerationProvider } from "./generation";
 import { conversationHistory } from "./conversation";
 
-const env = { GEMINI_API_KEY: "test-gemini", NVIDIA_API_KEY: "test-nvidia", OPENAI_API_KEY: "test-openai" };
-const input = { system: "Keep the ECC notice style.", history: [{ role: "user" as const, content: "Remember the autumn registration." }, { role: "assistant" as const, content: "We are preparing it." }], message: "Write the notice.", context: "Uploaded training source: ECC autumn notice." };
-const openaiAnswer = (answer = "Complete notice") => Response.json({ choices: [{ finish_reason: "stop", message: { content: answer } }] });
-const geminiAnswer = () => Response.json({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: "Gemini answer" }] } }] });
+const env = { GEMINI_API_KEY: "test-gemini", NVIDIA_API_KEY: "test-nvidia", EVENT_AI_OPENAI_API_KEY: "test-event-openai", OPENAI_API_KEY: "test-legacy-openai" };
+const input = { system: "Keep the ECC notice style.", history: [{ role: "user" as const, content: "Autumn notice" }, { role: "assistant" as const, content: "Preparing it" }], message: "Write the notice.", context: "Verified ECC autumn notice." };
+const answer = (text = "Complete notice") => Response.json({ status: "completed", model: "gpt-6-luna", output: [{ content: [{ type: "output_text", text }] }] });
 
-test("Gemini 429 moves to NVIDIA with identical history and training evidence", async () => {
-  const calls: Array<{ url: string; body: any }> = [];
-  const statuses: boolean[] = [];
-  const generate = createAnswerGenerator({ env, fetch: async (url, init) => {
-    calls.push({ url: String(url), body: JSON.parse(String(init?.body)) });
-    return calls.length === 1 ? new Response("", { status: 429 }) : openaiAnswer();
-  } });
-  const result = await generate({ ...input, onProvider: (_, fallback) => statuses.push(fallback) });
-  assert.equal(result.provider, "nvidia");
-  assert.deepEqual(statuses, [false, true]);
-  assert.match(calls[1].body.messages.at(-1).content, /Uploaded training source/);
-  assert.deepEqual(calls[1].body.messages.slice(1, 3), input.history);
-  assert.equal(calls[1].body.messages[0].content, input.system);
-  assert.equal(calls[0].body.contents[0].parts[0].text, input.history[0].content);
-  assert.equal(calls[0].body.systemInstruction.parts[0].text, input.system);
-});
-
-test("auth errors, malformed responses and empty answers advance to OpenAI", async () => {
-  for (const failure of [() => new Response("", { status: 401 }), () => new Response("invalid JSON"), () => Response.json({}), () => Response.json({ candidates: [{ finishReason: "MAX_TOKENS", content: { parts: [{ text: "partial" }] } }] })]) {
-    let count = 0;
-    const generate = createAnswerGenerator({ env, fetch: async () => ++count <= 2 ? failure() : openaiAnswer() });
-    assert.deepEqual(await generate(input), { answer: "Complete notice", provider: "openai" });
-  }
-});
-
-test("upstream network failure advances without repeated retries", async () => {
-  let count = 0;
-  const generate = createAnswerGenerator({ env, fetch: async () => { if (++count === 1) throw new TypeError("connection closed"); return openaiAnswer(); } });
-  assert.equal((await generate(input)).provider, "nvidia");
-  assert.equal(count, 2);
-});
-
-test("DeepSeek uses NVIDIA's thinking option while Nemotron keeps enable_thinking", async () => {
-  for (const [model, expected] of [
-    ["deepseek-ai/deepseek-v4-pro-0813", { thinking: false }],
-    ["nvidia/nemotron-3.5-lightning-30b-a3b", { enable_thinking: false }]
-  ] as const) {
-    const generate = createAnswerGenerator({
-      env: { NVIDIA_API_KEY: "test-nvidia", WOOHYUKMON_NVIDIA_MODEL: model },
-      fetch: async (_, init) => {
-        const body = JSON.parse(String(init?.body));
-        assert.equal(body.model, model);
-        assert.deepEqual(body.chat_template_kwargs, expected);
-        return openaiAnswer();
-      }
-    });
-    assert.equal((await generate(input)).provider, "nvidia");
-  }
-});
-
-test("provider deadline aborts stalled request and moves to the next provider", async () => {
-  // Keep the event loop alive while AbortSignal.timeout uses an unref'd timer.
-  const keepAlive = setInterval(() => {}, 100);
-  let count = 0;
-  const generate = createAnswerGenerator({ env, timeoutMs: 15, fetch: async (_, init) => {
-    if (++count > 1) return openaiAnswer();
-    return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true }));
-  } });
-  try { assert.equal((await generate(input)).provider, "nvidia"); }
-  finally { clearInterval(keepAlive); }
-});
-
-test("cooldown honors Retry-After and recovers; Gemini RPM protection also falls back", async () => {
-  let time = 0;
-  let geminiCalls = 0;
-  const generate = createAnswerGenerator({ env: { ...env, GEMINI_RPM_LIMIT: "1" }, now: () => time, fetch: async (url) => {
-    if (!String(url).includes("googleapis")) return openaiAnswer();
-    return ++geminiCalls === 1 ? new Response("", { status: 429, headers: { "Retry-After": "120" } }) : geminiAnswer();
-  } });
-  await generate(input);
-  time = 80_000;
-  assert.equal((await generate(input)).provider, "nvidia");
-  assert.equal(geminiCalls, 1);
-  time = 121_000;
-  assert.equal((await generate(input)).provider, "gemini");
-  assert.equal((await generate(input)).provider, "nvidia");
-});
-
-test("user cancellation stops the chain instead of invoking another provider", async () => {
-  const cancellation = new AbortController();
+test("all chat uses OpenAI Responses, event-scoped key, preserved history and actual model metadata", async () => {
   let calls = 0;
-  const generate = createAnswerGenerator({ env, fetch: async () => {
+  const generate = createAnswerGenerator({ env, fetch: async (url, init) => {
     calls++;
-    cancellation.abort();
-    throw new Error("aborted");
+    assert.equal(url, "https://api.openai.com/v1/responses");
+    assert.equal(init?.headers && (init.headers as Record<string,string>).Authorization, "Bearer test-event-openai");
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.model, "gpt-6-luna");
+    assert.equal(body.store, false);
+    assert.equal(body.instructions, input.system);
+    assert.deepEqual(body.input.slice(0, 2), input.history);
+    assert.match(body.input.at(-1).content, /Verified ECC/);
+    assert.equal(body.temperature, undefined);
+    assert.equal(body.max_tokens, undefined);
+    assert.equal(init?.redirect, "error");
+    return answer();
   } });
-  await assert.rejects(generate({ ...input, signal: cancellation.signal }));
+  assert.deepEqual(await generate(input), { answer: "Complete notice", provider: "openai", model: "gpt-6-luna" });
   assert.equal(calls, 1);
 });
 
-test("a safety block is returned without bypassing it through another model", async () => {
+test("legacy provider order cannot route general chat to Gemini or NVIDIA", async () => {
+  const generate = createAnswerGenerator({ env: { ...env, WOOHYUKMON_PROVIDER_ORDER: "gemini,nvidia" }, fetch: async url => { assert.match(String(url), /^https:\/\/api.openai.com\//); return answer(); } });
+  assert.equal((await generate(input)).provider, "openai");
+  assert.equal(hasGenerationProvider({ GEMINI_API_KEY: "test", NVIDIA_API_KEY: "test" }), false);
+});
+
+test("401, missing scopes, rate errors and unavailable models fail closed with no hidden fallback", async () => {
+  for (const status of [401, 403, 404, 429, 500]) {
+    let calls = 0;
+    const generate = createAnswerGenerator({ env, fetch: async () => { calls++; return new Response("", { status }); } });
+    await assert.rejects(generate(input), /OpenAI/);
+    assert.equal(calls, 1);
+  }
+});
+
+test("malformed and incomplete answers are not reported as completion", async () => {
+  for (const response of [() => Response.json({}), () => Response.json({ status: "incomplete", output: [{ content: [{ type: "output_text", text: "partial" }] }] }), () => new Response("invalid JSON")]) {
+    const generate = createAnswerGenerator({ env, fetch: async () => response() });
+    await assert.rejects(generate(input));
+  }
+});
+
+test("refusals are never routed around to a different model", async () => {
   let calls = 0;
-  const generate = createAnswerGenerator({ env, fetch: async () => { calls++; return Response.json({ candidates: [{ finishReason: "SAFETY" }] }); } });
+  const generate = createAnswerGenerator({ env, fetch: async () => { calls++; return Response.json({ model: "gpt-6-luna", output: [{ content: [{ type: "refusal" }] }] }); } });
   assert.match((await generate(input)).answer, /cannot answer/);
   assert.equal(calls, 1);
 });
 
-test("missing Gemini still permits configured fallback; redacted keys are not credentials", async () => {
-  assert.equal(hasGenerationProvider({ GEMINI_API_KEY: "[REDACTED]" }), false);
-  const generate = createAnswerGenerator({ env: { OPENAI_API_KEY: "test" }, fetch: async () => openaiAnswer() });
-  assert.equal((await generate(input)).provider, "openai");
-  const unavailable = createAnswerGenerator({ env, fetch: async () => new Response("", { status: 503 }) });
-  await assert.rejects(unavailable(input), /All configured/);
+test("caller abort and provider deadline stop the request", async () => {
+  const controller = new AbortController(); controller.abort();
+  const generate = createAnswerGenerator({ env, fetch: async () => { throw Error("Must not call"); } });
+  await assert.rejects(generate({ ...input, signal: controller.signal }));
+  const keepAlive = setInterval(() => {}, 100);
+  try {
+    const stalled = createAnswerGenerator({ env, timeoutMs: 10, fetch: async (_, init) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))) });
+    await assert.rejects(stalled(input));
+  } finally { clearInterval(keepAlive); }
+});
+
+test("structured action planning uses strict schema and allows explicit OpenAI model config", async () => {
+  const schema = { type: "object", additionalProperties: false, properties: { answer: { type: "string" } }, required: ["answer"] };
+  const generate = createAnswerGenerator({ env: { ...env, WOOHYUKMON_OPENAI_MODEL: "gpt-6.1-sol", WOOHYUKMON_OPENAI_API_KEY: "dedicated" }, fetch: async (_, init) => {
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.model, "gpt-6.1-sol"); assert.equal(body.text.format.strict, true); assert.deepEqual(body.text.format.schema, schema);
+    return Response.json({ status: "completed", model: "gpt-6.1-sol", output: [{ content: [{ type: "output_text", text: '{"answer":"ok"}' }] }] });
+  } });
+  assert.equal((await generate({ ...input, outputSchema: schema })).model, "gpt-6.1-sol");
+});
+
+test("redacted or missing OpenAI credentials are never used", async () => {
+  for (const key of ["", "[Sensitive]", "masked", "[REDACTED]"]) assert.equal(hasGenerationProvider({ OPENAI_API_KEY: key }), false);
+  assert.equal(hasGenerationProvider({ EVENT_AI_OPENAI_API_KEY: "event-key" }), true);
 });
 
 test("history retains long exchanges, rejects injected system roles and stays bounded", () => {

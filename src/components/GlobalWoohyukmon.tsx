@@ -6,6 +6,8 @@ import { useSavedConversation } from "@/hooks/useSavedConversation";
 import { useLanguage } from "@/components/LanguageProvider";
 
 import { Check, Loader2, Send, X } from "lucide-react";
+import { AssistantDocumentDownload } from "@/components/AssistantDocumentDownload";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import type {
@@ -115,8 +117,8 @@ function CompactTable({ rows }: { rows: WoohyukmonTableRow[] }) {
   );
 }
 
-export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false, readOnly = false }: {
-  actorRole: string; actorEmail: string; activityGuide?: boolean; readOnly?: boolean;
+export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false, readOnly = false, scopes = [] }: {
+  actorRole: string; actorEmail: string; activityGuide?: boolean; readOnly?: boolean; scopes?: string[];
 }) {
   const { pick } = useLanguage();
   const memory = useConversationMemory(actorEmail);
@@ -126,6 +128,15 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [busy, setBusy] = useState(false);
+  const [settledTokens, setSettledTokens] = useState<string[]>([]);
+  const pathname = usePathname();
+  const [scope, setScope] = useState("");
+  const scopeLabels: Record<string, string> = { ecc: "ECC", hanhwal: "HANHWAL", social_impact_union: "Social Impact Union", jeju: "Jeju", research: "Open Research", event_archive: "Event Archive" };
+  useEffect(() => {
+    const current = /hanhwal|han-hwal/.test(pathname) ? "hanhwal" : /social-impact-union/.test(pathname) ? "social_impact_union" : /jeju/.test(pathname) ? "jeju" : /open-k-culture-research/.test(pathname) ? "research" : /ecc|google-forms/.test(pathname) ? "ecc" : "";
+    setScope(scopes.includes(current) ? current : scopes.length === 1 ? scopes[0] : "");
+    setMessages([]); setContextTargetId(""); setContextTargetIds([]);
+  }, [pathname, scopes.join(",")]);
   const [contextTargetId, setContextTargetId] = useState("");
   const [contextTargetIds, setContextTargetIds] = useState<string[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
@@ -169,14 +180,15 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
     selectedTargetId = ""
   ) => {
     if (readOnly || activityGuide) return { handled: false } as const;
-    const response = await fetch("/api/woohyukmon/operations", {
+    const response = await fetch("/api/woohyukmon/club-assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: requestText,
         selectedTargetId,
         contextTargetId,
-        contextTargetIds
+        contextTargetIds,
+        scope, history: conversationHistory(messages), expectedUserId: actorEmail
       })
     });
 
@@ -417,10 +429,12 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
     >
   ) => {
     if (busy || readOnly || activityGuide) return;
+    if (settledTokens.includes(response.token)) return;
+    setSettledTokens(current => [...current, response.token]);
     setBusy(true);
 
     try {
-      const request = await fetch("/api/woohyukmon/operations", {
+      const request = await fetch(response.tool === "club_operation" ? "/api/woohyukmon/club-assistant" : "/api/woohyukmon/operations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -453,7 +467,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
           content:
             error instanceof Error
               ? error.message
-              : "저장에 실패했습니다. 기존 상태는 변경되지 않았습니다."
+              : "처리 결과를 확인하지 못했습니다. 다시 실행하기 전에 기존 페이지에서 상태를 확인해 주세요."
         }
       ]);
     } finally {
@@ -461,7 +475,8 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
     }
   };
 
-  const cancel = () => {
+  const cancel = (token: string) => {
+    setSettledTokens(current => [...current, token]);
     setMessages((current) => [
       ...current,
       {
@@ -503,6 +518,10 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
               <X className="h-4 w-4" />
             </button>
           </header>
+          {!activityGuide && scopes.length > 1 ? <select aria-label={pick({ ko: "운영 단체", en: "Managed organization" })} value={scope} onChange={event => { setScope(event.target.value); setMessages([]); setContextTargetId(""); setContextTargetIds([]); }} className="mx-4 my-2 min-h-10 rounded-lg border border-ink/15 bg-white px-3 text-sm">
+            <option value="">{pick({ ko: "단체 선택", en: "Select organization" })}</option>
+            {scopes.map(key => <option key={key} value={key}>{scopeLabels[key] || key}</option>)}
+          </select> : null}
 
           <div className="flex-1 overflow-y-auto px-4 py-4">
             {messages.length === 0 ? (
@@ -538,6 +557,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
                   Array.isArray(message.operation.rows) ? (
                     <CompactTable rows={message.operation.rows} />
                   ) : null}
+                  {message.operation?.kind === "answer" && message.operation.files?.map(file => <AssistantDocumentDownload key={file.url} file={file} />)}
 
                   {message.operation?.kind === "candidates" ? (
                     <div className="mt-3 grid gap-2">
@@ -564,7 +584,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
                     </div>
                   ) : null}
 
-                  {!readOnly && !activityGuide && message.operation?.kind === "confirmation" ? (
+                  {!readOnly && !activityGuide && message.operation?.kind === "confirmation" && !settledTokens.includes(message.operation.token) ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -583,7 +603,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={cancel}
+                        onClick={() => cancel((message.operation as { token: string }).token)}
                         className="min-h-9 rounded-lg border border-ink/15 bg-white px-4 text-xs font-semibold text-ink disabled:opacity-50"
                       >
                         취소
