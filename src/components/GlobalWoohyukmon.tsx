@@ -5,7 +5,8 @@ import { useConversationMemory } from "@/hooks/useConversationMemory";
 import { useSavedConversation } from "@/hooks/useSavedConversation";
 import { useLanguage } from "@/components/LanguageProvider";
 
-import { Check, Download, Loader2, Send, X } from "lucide-react";
+import { Check, Loader2, Send, X } from "lucide-react";
+import { AssistantDocumentDownload } from "@/components/AssistantDocumentDownload";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
@@ -556,7 +557,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
                   Array.isArray(message.operation.rows) ? (
                     <CompactTable rows={message.operation.rows} />
                   ) : null}
-                  {message.operation?.kind === "answer" && message.operation.files?.map(file => <a key={file.url} href={file.url} rel="noreferrer" referrerPolicy="no-referrer" className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-ink/15 px-3 text-sm"><Download className="h-4 w-4" />{file.name}</a>)}
+                  {message.operation?.kind === "answer" && message.operation.files?.map(file => <AssistantDocumentDownload key={file.url} file={file} />)}
 
                   {message.operation?.kind === "candidates" ? (
                     <div className="mt-3 grid gap-2">

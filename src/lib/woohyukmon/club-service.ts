@@ -37,6 +37,8 @@ export function assertCapability(access: ClubAssistantAccess, call: Call) {
   if (capability.path.includes(":id") && !/^[a-zA-Z0-9_-]{1,120}$/.test(call.query.id || "")) throw new ClubAssistantError("올바른 자료 ID가 필요합니다.");
   if (Object.keys(call.query).some(key => !["id", "type", "mode", "manage", "q", "category", "status", "limit", "offset", "page", "activityId", "clubKey", "club", "batch", "tag", "from", "to", "payment", "membership", "nationality", "gender"].includes(key))) throw new ClubAssistantError("지원하지 않는 검색 조건입니다.");
   if (["forms", "event_plan"].includes(call.capability) && call.body.clubKey && call.body.clubKey !== "ecc") throw new ClubAssistantError("현재 행사 제작 연결은 ECC 범위입니다.", 403);
+  if (call.query.payment && !["paid", "unpaid"].includes(call.query.payment)) throw new ClubAssistantError("회비 검색 조건은 paid 또는 unpaid입니다.");
+  if (call.query.membership && !["official", "pending"].includes(call.query.membership)) throw new ClubAssistantError("회원 검색 조건은 official 또는 pending입니다.");
   if (call.capability === "event_plan" && !["plan", "list", "usage", "get", "review", "update"].includes(String(call.body.action))) throw new ClubAssistantError("폼 생성은 행사 화면에서 별도의 최종 승인이 필요합니다.", 403);
   return capability;
 }
@@ -54,6 +56,24 @@ export async function invokeClubCapability(access: ClubAssistantAccess, call: Ca
   const response = await handler(internal, { params: Promise.resolve({ id: call.query.id || "" }) });
   const data = await response.json();
   if (!response.ok) throw new ClubAssistantError(typeof data.error === "string" ? data.error : "기존 기능에서 요청을 거절했습니다.", response.status);
+  if (call.method === "GET") {
+    let page = data, offset = Number(call.query.offset || 0);
+    const collection = Object.keys(data).find(key => Array.isArray(data[key]));
+    const seen = new Set<number>();
+    while (collection && (typeof page.nextOffset === "number" || page.hasMore === true)) {
+      const next = typeof page.nextOffset === "number" ? page.nextOffset : offset + page[collection].length;
+      if (!Number.isInteger(next) || next <= offset || seen.has(next)) throw new ClubAssistantError("자료 목록의 다음 페이지를 확인하지 못했습니다.", 503);
+      seen.add(next); offset = next;
+      url.searchParams.set("offset", String(offset));
+      const more = await handler(new Request(url, { headers }), { params: Promise.resolve({ id: call.query.id || "" }) });
+      page = await more.json();
+      if (!more.ok || !Array.isArray(page[collection])) throw new ClubAssistantError("전체 자료를 조회하지 못했습니다. 부분 파일을 만들지 않습니다.", 503);
+      data[collection].push(...page[collection]);
+      if (data[collection].length > 20000) throw new ClubAssistantError("자료 범위를 나누어 요청해 주세요.", 413);
+    }
+    if (Object.hasOwn(data, "nextOffset")) data.nextOffset = null;
+    if (Object.hasOwn(data, "hasMore")) data.hasMore = false;
+  }
   if (call.method === "GET" && ["ecc_members", "hanhwal_members"].includes(call.capability)) data.registrations = await loadClubMembers(call.capability === "ecc_members" ? "ecc" : "hanhwal", call.query);
   return data;
 }
@@ -76,6 +96,26 @@ function modelProjection(value: unknown): unknown {
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new ClubAssistantError("올바른 입력 객체가 필요합니다.");
   return value as Record<string, unknown>;
+}
+
+function preserveFields(current: Record<string, unknown>, changes: Record<string, unknown>): Record<string, unknown> {
+  const merged = { ...current };
+  for (const [key, value] of Object.entries(changes)) {
+    if (["__proto__", "constructor", "prototype"].includes(key)) throw new ClubAssistantError("지원하지 않는 입력 필드입니다.");
+    merged[key] = value && typeof value === "object" && !Array.isArray(value) && current[key] && typeof current[key] === "object" && !Array.isArray(current[key])
+      ? preserveFields(current[key] as Record<string, unknown>, value as Record<string, unknown>) : value;
+  }
+  return merged;
+}
+
+function preservePatch(call: Call, current: Record<string, unknown> | null) {
+  if (call.method !== "PATCH" || !current || /members|roles|applicants|submissions/.test(call.capability)) return;
+  const record = ["fund", "settings", "content", "resource", "item", "place", "activity", "program", "notice"].map(key => current[key]).find(value => value && typeof value === "object" && !Array.isArray(value)) as Record<string, unknown> | undefined;
+  if (!record) return;
+  if (call.capability === "siu_activity" && call.body.action === "save") {
+    call.body.activity = preserveFields(record, object(call.body.activity));
+    if (call.body.updated_at === undefined) call.body.updated_at = record.updated_at;
+  } else call.body = preserveFields(record, call.body);
 }
 export function verifyClubApproval(token: string, access: ClubAssistantAccess, kind: Approval["kind"]) {
   const data = object(verifySignedWoohyukmonPayload(token)) as unknown as Approval;
@@ -133,7 +173,7 @@ export async function clubAssistantReply(access: ClubAssistantAccess, request: R
   const results: unknown[] = [];
   const conversation = conversationHistory(Array.isArray(body.history) ? body.history : []).slice(-12);
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(130_000)]);
-  const queryRules = "Allowed query keys ONLY: id,type,mode,manage,q,category,status,limit,offset,page,activityId,clubKey,club,batch,tag,from,to,payment,membership,nationality,gender. Do not add sort,order,fields,format or download query keys. For a Word export format=docx, queryJson={} unless filtering. Once a read succeeds, answer using that result; do not repeat the same read. If a tool reports a validation error, correct its parameters without claiming success. The answer field is a natural reply to the user, not an instruction to a third party.";
+  const queryRules = "Allowed query keys ONLY: id,type,mode,manage,q,category,status,limit,offset,page,activityId,clubKey,club,batch,tag,from,to,payment,membership,nationality,gender. Do not add sort,order,fields,format or download query keys. For a Word export format=docx, queryJson={} unless filtering. Once a read succeeds, answer using that result; do not repeat the same read. If a tool reports a validation error, correct its parameters without claiming success. The answer field is a natural reply to the user, not an instruction to a third party. PATCH body must include ONLY the user's requested changed fields and required identifiers/action; the server preserves omitted fields. Never copy truncated old text into a replacement field. If duplicate names match, ask for a student ID or email to disambiguate before preparing a write.";
   let lastRows: DocumentRow[] = [];
   const seenReads = new Set<string>();
   const finishRead = async () => {
@@ -172,6 +212,7 @@ export async function clubAssistantReply(access: ClubAssistantAccess, request: R
       if (call.method === "GET") throw new ClubAssistantError("변경 작업의 실행 방식이 올바르지 않습니다.");
       const read = readCall(call, capability);
       const current = read ? await invokeClubCapability(access, read, request) : null;
+      preservePatch(call, current);
       if (["ecc_members", "hanhwal_members"].includes(call.capability)) {
         const updates = call.body.registrations;
         const registrations = current?.registrations;
@@ -194,7 +235,8 @@ export async function clubAssistantReply(access: ClubAssistantAccess, request: R
     const data = await invokeClubCapability(access, call, request);
     lastRows = documentRows(data);
     const registrations = Array.isArray(data.registrations) ? data.registrations : [];
-    const stats = ["ecc_members", "hanhwal_members"].includes(call.capability) ? { total: registrations.length, paid: registrations.filter((row: { paymentConfirmed: boolean }) => row.paymentConfirmed).length, unpaid: registrations.filter((row: { paymentConfirmed: boolean }) => !row.paymentConfirmed).length, official: registrations.filter((row: { officialMember: boolean }) => row.officialMember).length } : null;
+    const countBy = (field: string) => registrations.reduce((counts: Record<string, number>, row: Record<string, unknown>) => { const label = String(row[field] || "Unknown"); counts[label] = (counts[label] || 0) + 1; return counts; }, {});
+    const stats = ["ecc_members", "hanhwal_members"].includes(call.capability) ? { total: registrations.length, paid: registrations.filter((row: { paymentConfirmed: boolean }) => row.paymentConfirmed).length, unpaid: registrations.filter((row: { paymentConfirmed: boolean }) => !row.paymentConfirmed).length, official: registrations.filter((row: { officialMember: boolean }) => row.officialMember).length, byNationality: countBy("nationality"), byGender: countBy("gender") } : null;
     const collectionCounts = Object.fromEntries(Object.entries(data).filter(([, value]) => Array.isArray(value)).map(([key, value]) => [key, (value as unknown[]).length]));
     results.push({ capability: call.capability, records: modelProjection(data), collectionCounts, completeMemberStatistics: stats });
   }

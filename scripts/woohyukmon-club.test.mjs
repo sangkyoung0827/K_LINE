@@ -100,6 +100,21 @@ test("missing payment state cannot accidentally revoke a paid member while editi
   } finally { await h.close(); }
 });
 
+test("partial financial/about edits preserve all unrelated original fields server-side", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.scopes = ["hanhwal"];
+    h.state.data = { fund: { accountNumber: "original-private-number", bankName: "Original Bank", accountHolder: "Original Holder", displayedBalance: 5000, totalDonationKrw: 8000 } };
+    h.state.decisions.push(decision("write", "hanhwal_fund", "PATCH", { displayedBalance: 6000 }));
+    const access = await h.api.getClubAssistantAccess();
+    const preview = await h.api.clubAssistantReply(access, qaRequest({}), { message: "한활 표시 잔액만 6000으로 수정" });
+    const payload = h.api.verifySignedWoohyukmonPayload(preview.token);
+    assert.equal(payload.call.body.accountNumber, "original-private-number"); assert.equal(payload.call.body.bankName, "Original Bank");
+    assert.equal(payload.call.body.totalDonationKrw, 8000); assert.equal(payload.call.body.displayedBalance, 6000);
+    assert.ok(h.state.calls.every(c => c.method === "GET"));
+  } finally { await h.close(); }
+});
+
 test("expired/tampered/wrong-actor/revoked permissions/stale-data approvals cannot execute", async () => {
   const h = await clubHarness();
   try {
