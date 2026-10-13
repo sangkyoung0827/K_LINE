@@ -70,11 +70,11 @@ function harness(envOverrides = {}) {
       assert.equal(init.headers.Cookie, undefined);
       assert.equal(init.redirect, "error");
       if (control.failExistingAi) return Response.json({ error: "unavailable" }, { status: 500 });
-      return Response.json({ answer: JSON.stringify(control.aiDraft), provider: "nvidia" });
+      return Response.json({ answer: JSON.stringify(control.aiDraft), provider: "openai" });
     }
-    if (url === "https://integrate.api.nvidia.com/v1/chat/completions") {
+    if (url === "https://api.openai.com/v1/responses") {
       control.aiCalls = (control.aiCalls || 0) + 1;
-      return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(control.aiDraft) } }] });
+      return Response.json({ status: "completed", model: "gpt-6-luna", output: [{ content: [{ type: "output_text", text: JSON.stringify(control.aiDraft) }] }] });
     }
     if (url.startsWith("https://test-db.example.test/rest/v1/ecc_activity_statuses?")) {
       assert.equal(init.method, undefined);
@@ -574,7 +574,7 @@ test("unknown activity fails closed without AI configuration and performs no ext
 });
 
 test("new activity AI gateway preserves approval and checks permission before inference", async () => {
-  const h = harness({ GOOGLE_FORMS_AI_PLANNING_ENABLED: "true", NVIDIA_API_KEY: "test-only-ai-key" });
+  const h = harness({ GOOGLE_FORMS_AI_PLANNING_ENABLED: "true", EVENT_AI_OPENAI_API_KEY: "test-only-ai-key" });
   h.control.aiDraft = { title: "사진 산책", descriptionKo: "해변을 걸으며 사진을 찍습니다.", descriptionEn: "Walk along the beach and take photos.", questions: [
     { title: "카카오톡 이름", type: "short_answer", required: true, options: [] },
     { title: "촬영 장비", type: "multiple_choice", required: true, options: ["스마트폰", "카메라"] }] };

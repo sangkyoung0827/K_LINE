@@ -10,6 +10,9 @@ type AccessResponse = {
   isAdmin?: boolean;
   isLoggedIn?: boolean;
   role?: string;
+  scopes?: string[];
+  roles?: Record<string, string>;
+  readOnly?: boolean;
 };
 
 type AgentProps = {
@@ -17,6 +20,7 @@ type AgentProps = {
   actorEmail: string;
   activityGuide: boolean;
   readOnly: boolean;
+  scopes?: string[];
 };
 
 export function GlobalWoohyukmonGate() {
@@ -35,16 +39,17 @@ export function GlobalWoohyukmonGate() {
     setAccess({});
     if (status !== "authenticated") return () => controller.abort();
 
-    fetch("/api/ecc/me", {
+    fetch("/api/woohyukmon/club-assistant", {
       cache: "no-store",
       signal: controller.signal
     })
       .then(async (response) => {
         if (!response.ok) return null;
-        return (await response.json()) as AccessResponse;
+        const result = (await response.json()) as AccessResponse;
+        return { ...result, isAdmin: !result.readOnly && Boolean(result.scopes?.length), isLoggedIn: Boolean(result.email), role: Object.values(result.roles || {})[0] || "member" };
       })
       .then(async (access) => {
-        if (!access || !activityGuideAccess(activityPath, access).visible || controller.signal.aborted) return;
+        if (!access || access.readOnly || !activityGuideAccess(activityPath, access).visible || controller.signal.aborted) return;
         if (access.email?.toLowerCase() !== sessionEmail.toLowerCase()) return;
 
         const module = await import("@/components/GlobalWoohyukmon");
@@ -67,5 +72,5 @@ export function GlobalWoohyukmonGate() {
     return null;
   }
 
-  return <Agent key={`${actorEmail}:${guide.activityGuide}:${guide.readOnly}`} actorRole={actorRole} actorEmail={actorEmail} activityGuide={guide.activityGuide} readOnly={guide.readOnly} />;
+  return <Agent key={`${actorEmail}:${guide.activityGuide}:${guide.readOnly}`} actorRole={actorRole} actorEmail={actorEmail} activityGuide={guide.activityGuide} readOnly={guide.readOnly} scopes={access.scopes} />;
 }

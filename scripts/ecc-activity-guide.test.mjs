@@ -82,6 +82,7 @@ function widget(language, activityGuide, readOnly = true) {
     "@/components/LanguageProvider": { useLanguage: () => ({ pick: (copy) => copy[language] }) },
     "@/hooks/useConversationMemory": { useConversationMemory: () => ({ enabled: false }) },
     "@/hooks/useSavedConversation": { useSavedConversation: () => ({ save: async () => {} }) }
+    ,"next/navigation": { usePathname: () => "/our-activities/ecc/activity" }
   }).GlobalWoohyukmon;
 }
 
@@ -132,9 +133,10 @@ test("real send handler routes fee questions to answers for both member and admi
       "@/components/LanguageProvider": { useLanguage: () => ({ pick: (copy) => copy.ko }) },
       "@/hooks/useConversationMemory": { useConversationMemory: () => ({ enabled: false }) },
       "@/hooks/useSavedConversation": { useSavedConversation: () => ({ clearWarning: () => {}, save: async (_, role) => { if (role === "assistant") finished(); } }) },
+      "next/navigation": { usePathname: () => "/our-activities/ecc/activity" },
       fetch: async (path, init) => {
         calls.push({ path, body: JSON.parse(init.body) });
-        if (path.endsWith("operations")) return Response.json({ handled: false });
+        if (path.endsWith("club-assistant")) return Response.json({ handled: false });
         return new Response(JSON.stringify({ type: "text", text: "별도입니다." }) + "\n" + JSON.stringify({ type: "done" }) + "\n");
       }
     });
@@ -151,7 +153,7 @@ test("real send handler routes fee questions to answers for both member and admi
     let timeout;
     try { await Promise.race([saved, new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("Send did not finish")), 1000); })]); }
     finally { clearTimeout(timeout); }
-    assert.deepEqual(calls.map((call) => call.path), readOnly || activityGuide ? ["/api/gemini"] : ["/api/woohyukmon/operations", "/api/gemini"]);
+    assert.deepEqual(calls.map((call) => call.path), readOnly || activityGuide ? ["/api/gemini"] : ["/api/woohyukmon/club-assistant", "/api/gemini"]);
     assert.equal(calls.at(-1).body.message, question);
     assert.equal(calls.at(-1).body.activityGuide, activityGuide ? "ecc" : undefined);
   }
