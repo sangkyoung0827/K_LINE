@@ -29,10 +29,12 @@ One additive server-only table: woohyukmon_club_action_receipts. It stores actor
 ## Verification
 
 - New isolated PostgreSQL/route/authorization/export tests and OpenAI-only generation tests.
+- Fifteen isolated club tests pass, including unlisted member-reset rejection and preserving original Alumni notice text during partial edits.
 - Fresh real OpenAI planning with isolated business fixtures: eight cases, no production writes and no Google Forms created.
 - Existing regression suite attempted locally; its Chromium-dependent test cannot launch under the desktop filesystem/process sandbox. Browser Safety CI must pass before merge.
 - Production build, type checking and V4 bundle isolation are checked separately.
 - Browser QA uses a clearly labelled loopback-only fixture server; it never connects to production DB. Browser download completion is not used as evidence when the browser runtime cannot return it.
+- Dependency audit is not clean: the existing dependency tree and ExcelJS transitive dependencies have reported advisories. No forced dependency upgrades or unrelated overrides were applied in this release.
 
 ## Reproduction
 

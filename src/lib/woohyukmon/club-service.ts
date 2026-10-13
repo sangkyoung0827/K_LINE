@@ -39,6 +39,7 @@ export function assertCapability(access: ClubAssistantAccess, call: Call) {
   if (["forms", "event_plan"].includes(call.capability) && call.body.clubKey && call.body.clubKey !== "ecc") throw new ClubAssistantError("현재 행사 제작 연결은 ECC 범위입니다.", 403);
   if (call.query.payment && !["paid", "unpaid"].includes(call.query.payment)) throw new ClubAssistantError("회비 검색 조건은 paid 또는 unpaid입니다.");
   if (call.query.membership && !["official", "pending"].includes(call.query.membership)) throw new ClubAssistantError("회원 검색 조건은 official 또는 pending입니다.");
+  if (["ecc_roles", "hanhwal_roles"].includes(call.capability) && call.method === "PATCH" && !["approve_official_member", "revoke_official_member", "approve_admin", "revoke_admin", "approve_super_admin", "revoke_super_admin"].includes(String(call.body.action))) throw new ClubAssistantError("권한 승인·해제만 지원합니다. 회원 데이터 초기화는 기존 관리 화면에서 진행해 주세요.", 403);
   if (call.capability === "event_plan" && !["plan", "list", "usage", "get", "review", "update"].includes(String(call.body.action))) throw new ClubAssistantError("폼 생성은 행사 화면에서 별도의 최종 승인이 필요합니다.", 403);
   return capability;
 }
@@ -110,7 +111,9 @@ function preserveFields(current: Record<string, unknown>, changes: Record<string
 
 function preservePatch(call: Call, current: Record<string, unknown> | null) {
   if (call.method !== "PATCH" || !current || /members|roles|applicants|submissions/.test(call.capability)) return;
-  const record = ["fund", "settings", "content", "resource", "item", "place", "activity", "program", "notice"].map(key => current[key]).find(value => value && typeof value === "object" && !Array.isArray(value)) as Record<string, unknown> | undefined;
+  const single = ["fund", "settings", "content", "resource", "item", "place", "activity", "program", "notice"].map(key => current[key]).find(value => value && typeof value === "object" && !Array.isArray(value)) as Record<string, unknown> | undefined;
+  const id = call.body.id ?? call.query.id;
+  const record = single ?? (id ? Object.values(current).filter(Array.isArray).flat().find(value => value && typeof value === "object" && value.id === id) as Record<string, unknown> | undefined : undefined);
   if (!record) return;
   if (call.capability === "siu_activity" && call.body.action === "save") {
     call.body.activity = preserveFields(record, object(call.body.activity));

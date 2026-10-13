@@ -100,6 +100,28 @@ test("missing payment state cannot accidentally revoke a paid member while editi
   } finally { await h.close(); }
 });
 
+test("unlisted member reset cannot be requested through an allowed role endpoint", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.decisions.push(decision("write", "ecc_roles", "PATCH", { action: "reset_ecc_member_data", email: "qa@test" }));
+    await assert.rejects(h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 권한 작업" }), /초기화/);
+    assert.equal(h.state.calls.length, 0);
+  } finally { await h.close(); }
+});
+
+test("editing one Alumni notice preserves its existing body and visibility", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.data = { notices: [{ id: "qa-notice", title: "Original", content: "Original full text", visibility: "members", is_pinned: true }] };
+    h.state.decisions.push(decision("write", "ecc_alumni_notices", "PATCH", { id: "qa-notice", title: "New title" }));
+    const preview = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 공지 제목만 변경" });
+    const payload = h.api.verifySignedWoohyukmonPayload(preview.token);
+    assert.equal(payload.call.body.content, "Original full text");
+    assert.equal(payload.call.body.visibility, "members");
+    assert.equal(payload.call.body.title, "New title");
+  } finally { await h.close(); }
+});
+
 test("partial financial/about edits preserve all unrelated original fields server-side", async () => {
   const h = await clubHarness();
   try {
