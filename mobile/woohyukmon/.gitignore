@@ -1,0 +1,16 @@
+.expo/
+node_modules/
+dist/
+ios/
+android/
+.env*
+!.env.example
+credentials.json
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+apk-badging.txt
+apk-permissions.txt
+apk-verification.json
+INSTALLATION.md
