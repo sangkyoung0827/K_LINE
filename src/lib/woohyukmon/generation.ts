@@ -2,7 +2,7 @@ import type { ConversationMessage } from "./conversation";
 
 type Env = Record<string, string | undefined>;
 export class OpenAIGenerationError extends Error {
-  constructor(message: string, readonly code: "OPENAI_RESPONSE_INCOMPLETE" | "OPENAI_PLAN_FORMAT_INVALID", readonly model: string) { super(message); }
+  constructor(message: string, readonly code: "OPENAI_RESPONSE_INCOMPLETE" | "OPENAI_PLAN_FORMAT_INVALID" | "OPENAI_NOT_CONFIGURED" | "OPENAI_AUTH_FAILED" | "OPENAI_RATE_LIMITED" | "OPENAI_UNAVAILABLE", readonly model: string) { super(message); }
 }
 export type GenerationInput = {
   system: string;
@@ -29,7 +29,7 @@ export function hasGenerationProvider(env: Env = process.env) {
 export function createAnswerGenerator(options: { env?: Env; fetch?: typeof fetch; now?: () => number; timeoutMs?: number } = {}) {
   return async (input: GenerationInput) => {
     const { key, model } = openAIConfiguration(options.env || process.env);
-    if (!key) throw new Error("OpenAI server connection is not configured.");
+    if (!key) throw new OpenAIGenerationError("OpenAI server connection is not configured.", "OPENAI_NOT_CONFIGURED", model);
     input.signal?.throwIfAborted();
     const deadline = AbortSignal.timeout(options.timeoutMs ?? 90_000);
     const signal = input.signal ? AbortSignal.any([input.signal, deadline]) : deadline;
@@ -47,9 +47,9 @@ export function createAnswerGenerator(options: { env?: Env; fetch?: typeof fetch
     });
     if (!response.ok) {
       await response.body?.cancel();
-      throw new Error(response.status === 429 ? "OpenAI 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요."
+      throw new OpenAIGenerationError(response.status === 429 ? "OpenAI 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요."
         : response.status === 401 || response.status === 403 ? "OpenAI 서버 키의 인증 또는 권한을 확인해야 합니다."
-        : `OpenAI 응답을 받지 못했습니다 (${response.status}). 다시 시도해 주세요.`);
+        : `OpenAI 응답을 받지 못했습니다 (${response.status}). 다시 시도해 주세요.`, response.status === 429 ? "OPENAI_RATE_LIMITED" : response.status === 401 || response.status === 403 ? "OPENAI_AUTH_FAILED" : "OPENAI_UNAVAILABLE", model);
     }
     const payload = await response.json();
     type Output = { type?: string; phase?: string; content?: { type: string; text?: string }[] };

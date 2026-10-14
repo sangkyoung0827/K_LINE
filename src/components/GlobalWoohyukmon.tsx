@@ -157,6 +157,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
   const rememberContext = (
     response: Exclude<WoohyukmonOperationResponse, { handled: false }>
   ) => {
+    if ("scope" in response && response.scope && scopes.includes(response.scope)) setScope(response.scope);
     if (
       (response.kind === "answer" || response.kind === "result") &&
       response.contextTargetId

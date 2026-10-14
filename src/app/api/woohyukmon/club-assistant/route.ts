@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   try {
     if (request.headers.get("origin") !== new URL(request.url).origin) throw new ClubAssistantError("Invalid origin.", 403);
     const raw = await request.text();
-    if (raw.length > 60000) throw new ClubAssistantError("Request too large.", 413);
+    if (raw.length > 120000) throw new ClubAssistantError("Request too large.", 413);
     const body = JSON.parse(raw);
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new ClubAssistantError("Invalid request.");
     return Response.json(await clubAssistantReply(await getClubAssistantAccess(), request, body), { headers });

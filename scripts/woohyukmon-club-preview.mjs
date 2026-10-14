@@ -11,7 +11,7 @@ const dir = await mkdtemp(join(tmpdir(), "club-ui-qa-"));
 const css = join(dir, "style.css");
 const compile = spawnSync("./node_modules/.bin/tailwindcss", ["-i", "src/app/globals.css", "-o", css, "--minify"], { encoding: "utf8" });
 if (compile.status) throw Error(compile.stderr);
-await build({ stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {GlobalWoohyukmon} from './src/components/GlobalWoohyukmon';const q=new URLSearchParams(location.search);const role=q.get('role')||'ecc';const scope=role==='member'||role==='anonymous'||role==='readonly'?'':role;createRoot(document.getElementById('app')).render(role==='anonymous'||role==='readonly'?<p>조회 전용 화면 / View only</p>:<GlobalWoohyukmon actorEmail="qa-manager@example.test" actorRole={role} readOnly={role==='member'} activityGuide={role==='member'} scopes={scope?[scope]:[]}/>);`, resolveDir: process.cwd(), loader: "tsx" },
+await build({ stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {GlobalWoohyukmon} from './src/components/GlobalWoohyukmon';const q=new URLSearchParams(location.search);const role=q.get('role')||'ecc';const scope=role==='member'||role==='anonymous'||role==='readonly'?'':role;createRoot(document.getElementById('app')).render(role==='anonymous'||role==='readonly'?<p>조회 전용 화면 / View only</p>:<GlobalWoohyukmon actorEmail="qa-manager@example.test" actorRole={role} readOnly={role==='member'} activityGuide={role==='member'} scopes={role==='multi'?['ecc','hanhwal']:scope?[scope]:[]}/>);`, resolveDir: process.cwd(), loader: "tsx" },
   bundle: true, jsx: "automatic", format: "iife", platform: "browser", outfile: join(dir, "app.js"),
   plugins: [{ name: "preview-only-hooks", setup(b) {
     const mocks = {
@@ -38,7 +38,7 @@ const server = createServer(async (req,res) => {
     if (url.pathname.startsWith("/images/")) { const path=url.pathname.replaceAll("..","");res.setHeader("Content-Type","image/png");res.end(await readFile(join("public",path)));return; }
     const role = /qa-role=([^;]+)/.exec(req.headers.cookie || "")?.[1] || "anonymous";
     h.state.email = role === "anonymous" ? "" : "qa-manager@example.test";
-    h.state.scopes = scopes.includes(role) ? [role] : [];
+    h.state.scopes = role === "multi" ? ["ecc", "hanhwal"] : scopes.includes(role) ? [role] : [];
     h.state.developer = role === "event_archive"; h.state.readOnly = role === "readonly";
     const chunks=[];for await (const chunk of req) chunks.push(chunk);
     const raw=Buffer.concat(chunks).toString();
@@ -50,7 +50,8 @@ const server = createServer(async (req,res) => {
     else {
       const body=JSON.parse(raw);
       if(body.action !== 'confirm') {
-        const cap=role==='hanhwal'?'hanhwal_members':role==='social_impact_union'?'siu_activities':role==='jeju'?'jeju_overview':role==='research'?'research_items':role==='event_archive'?'event_archive':'ecc_members';
+        const active=/\becc\b/i.test(body.message)?'ecc':/한활|hanhwal/i.test(body.message)?'hanhwal':body.scope||role;
+        const cap=active==='hanhwal'?'hanhwal_members':active==='social_impact_union'?'siu_activities':active==='jeju'?'jeju_overview':active==='research'?'research_items':active==='event_archive'?'event_archive':'ecc_members';
         if(/엑셀|xlsx/i.test(body.message))h.state.decisions.push(decision('export',cap,'GET',{}, {},'xlsx'));
         else if(/워드|docx/i.test(body.message))h.state.decisions.push(decision('export',cap,'GET',{}, {},'docx'));
         else if(/미납.*처리/.test(body.message))h.state.decisions.push(decision('write',cap,'PATCH',{registrations:[{id:'qa-member',paymentConfirmed:false}]}));

@@ -21,7 +21,10 @@ export async function clubHarness({ liveAI = false } = {}) {
     if (liveAI) return originalFetch(url, init);
     const body = JSON.parse(init.body);
     state.lastPrompt = body;
+    const queued = state.aiResponses?.shift();
+    if (queued) return queued.errorStatus ? new Response("", { status: queued.errorStatus }) : Response.json(queued);
     if (state.aiResponse) return Response.json(state.aiResponse);
+    if (!body.text?.format) return Response.json({ model: body.model, status: "completed", output: [{ content: [{ type: "output_text", text: state.naturalAnswer || "현재 확인 가능한 자료만 안내하겠습니다. 어떤 항목을 이어서 확인할까요?" }] }] });
     const decision = state.decisions.shift() || { action: "answer", capability: "", method: "GET", queryJson: "{}", bodyJson: "{}", format: "", answer: "조회한 자료를 확인했습니다." };
     return Response.json({ model: body.model, status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(decision) }] }] });
   };
@@ -55,7 +58,7 @@ export async function clubHarness({ liveAI = false } = {}) {
       b.onResolve({ filter: /^server-only$|^@\/(auth|lib\/)/ }, a => Object.hasOwn(mocks, a.path) ? { path: a.path, namespace: "mock" } : undefined);
       b.onLoad({ filter: /.*/, namespace: "mock" }, a => ({ contents: mocks[a.path] }));
       b.onResolve({ filter: /^@\/app\/api\// }, a => a.path.includes("woohyukmon/club-assistant") ? undefined : { path: a.path, namespace: "route" });
-      b.onLoad({ filter: /.*/, namespace: "route" }, a => ({ contents: `const resource=${JSON.stringify(a.path)};async function run(r){const s=globalThis.__clubQA;s.calls.push({resource,method:r.method,body:r.method==='GET'?null:await r.json(),url:r.url});return Response.json(s.data)};export const GET=run,POST=run,PATCH=run,DELETE=run;` }));
+      b.onLoad({ filter: /.*/, namespace: "route" }, a => ({ contents: `const resource=${JSON.stringify(a.path)};async function run(r){const s=globalThis.__clubQA;s.calls.push({resource,method:r.method,body:r.method==='GET'?null:await r.json(),url:r.url});return Response.json(s.resourceData?.[resource]||s.data,{status:s.routeStatus||200})};export const GET=run,POST=run,PATCH=run,DELETE=run;` }));
     } }] });
   const api = createRequire(import.meta.url)(join(dir, "api.cjs"));
   return { api, state, db, async close() { globalThis.fetch = originalFetch; for (const key of Object.keys(process.env)) if (!(key in original)) delete process.env[key]; Object.assign(process.env, original); delete globalThis.__clubQA; await db.close(); } };
