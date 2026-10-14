@@ -25,11 +25,11 @@ Only allowlisted content fields are returned. No member names, contacts, persona
 
 Counts are **returned application rows**, not unique people, historical attendance, satisfaction or a preference survey. Listing caps, displayed groups/records, pagination limits, source outages and denied access are explicit. Public SIU listing excludes past events by native design; an empty public list does not establish absence of historical records. Public static references are labelled as references, not verified research outcomes/participation evidence.
 
-Reads are bounded by eight pages and an overall 20-second source deadline. Source texts remain untrusted. Mutation previews/confirmation, HMAC tokens, stale-source checks, receipt replay protection and existing DB/RLS are unchanged.
+Reads are bounded by eight pages and an overall 20-second source deadline. The context budget trims text/groups with explicit displayed counts while retaining source availability and complete returned-row totals. Source texts remain untrusted. Mutation previews/confirmation, HMAC tokens, stale-source checks, receipt replay protection and existing DB/RLS are unchanged.
 
 ## Verification
 
-- Club assistant tests: 30 passing (24 existing + six source tests).
+- Club assistant tests: 31 passing (24 existing + seven source tests).
 - General OpenAI/conversation tests: 31 passing.
 - Research regressions: 16 passing.
 - SIU platform regressions: 12 passing.

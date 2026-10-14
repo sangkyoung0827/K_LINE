@@ -111,11 +111,22 @@ export async function loadSiteEvidence(access: ClubAssistantAccess, request: Req
       ...(reader.id === "siu_public_events" ? { limitation: "Public listing shows upcoming published events with an open deadline, not all previous SIU events." } : {}),
       ...(reader.search ? { limitation: "Returned search matches only. No matches does not establish absence; the legacy retriever can return an empty list when a search backend fails." } : {}) });
   }
-  return {
+  const evidence = {
     asOf: new Date().toISOString(), sources: sources.sort((a, b) => Number(Boolean(b.applicationStatistics)) - Number(Boolean(a.applicationStatistics))),
     publishedSiteReferences: rankRecords(publicActivities.map(item => ({ title: item.title, description: item.content, tags: item.tags, href: `/our-activities/${item.slug}`, evidenceType: "site reference, NOT verified attendance or preference" })), query),
     limitations: ["Application counts measure returned registrations, NOT unique participants, verified attendance, satisfaction or a preference survey. Use completeServerTotals for all-activity totals, and applicationStatistics for a specific activity. Never substitute one activity's count for the total.", "Foreign nationality counts come from self-reported nationality; missing/unknown values are separate.", "No personal memory books, individual preference profiles, raw Google Form answers, private files or member contact data are included.", "A failed or unauthorized source is NOT evidence that the club has no records.", "Recommend useful proposed programs from available evidence; distinguish observed signals from hypotheses, cite source paths and scope. Never claim all foreigners prefer one event."]
   };
+  // Keep source availability and exact totals intact before trimming text excerpts.
+  while (JSON.stringify(evidence).length > 32000) {
+    const candidates = evidence.sources.flatMap(source => ["records", "applicationStatistics"].flatMap(key => Array.isArray(source[key]) && (source[key] as Row[]).length ? [{ source, key, rows: source[key] as Row[] }] : []))
+      .sort((a, b) => JSON.stringify(b.rows).length - JSON.stringify(a.rows).length);
+    if (!candidates.length) break;
+    const { source, key, rows } = candidates[0];
+    rows.pop();
+    source[key === "records" ? "displayedRecords" : "displayedGroups"] = rows.length;
+    source.contextTruncated = true;
+  }
+  return evidence;
 }
 
 async function boundedRead<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {

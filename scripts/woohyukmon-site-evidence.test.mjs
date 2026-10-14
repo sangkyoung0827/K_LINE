@@ -118,3 +118,23 @@ test("preloaded site evidence is reused even if the model requests a different s
     assert.ok(h.state.calls.every(call => call.method === "GET"));
   } finally { await h.close(); }
 });
+
+test("large multi-club context trims excerpts, never source status or complete server totals", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.scopes = ["ecc", "hanhwal", "social_impact_union", "jeju"]; h.state.developer = true;
+    const rows = Array.from({ length: 100 }, (_, i) => ({ id: `qa-${i}`, title: `공개 ${i} ` + "x".repeat(170), description: "y".repeat(1000), tags: Array(6).fill("z".repeat(40)), status: "published", visibility: "public", isSample: false }));
+    h.state.resourceData = Object.fromEntries(Object.entries(siteFixtures()).map(([path, data]) => [path, path.endsWith("applications/route") ? { applications: rows.map(row => ({ type: row.id, activityTitle: row.title, nationality: "France" })) } : path.endsWith("introduction/route") ? data : Object.fromEntries(Object.keys(data).filter(key => Array.isArray(data[key])).map(key => [key, rows]))]));
+    const result = await h.api.loadSiteEvidence(await h.api.getClubAssistantAccess(), qaRequest({}), "활동 비교 추천");
+    assert.ok(JSON.stringify(result).length <= 32000);
+    assert.equal(result.sources.length, 13);
+    assert.ok(result.sources.some(source => source.contextTruncated));
+    for (const id of ["ecc_applications", "hanhwal_applications"]) {
+      const source = result.sources.find(source => source.source === id);
+      assert.equal(source.completeServerTotals.returnedApplications, 100);
+      assert.equal(source.completeServerTotals.foreignApplications, 100);
+      assert.equal(source.activityGroups, 100);
+      assert.ok(source.displayedGroups < source.activityGroups);
+    }
+  } finally { await h.close(); }
+});
