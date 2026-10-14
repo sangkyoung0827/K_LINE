@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JejuProfileForm } from "@/components/jeju/JejuProfileForm";
+import { redirect } from "next/navigation";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
@@ -9,5 +9,5 @@ export const metadata: Metadata = createNoIndexMetadata({
 });
 
 export default function JejuProfilePage() {
-  return <JejuProfileForm />;
+  redirect("/jeju");
 }

@@ -44,6 +44,8 @@ const protectedPagePrefixes = [
 
 function isPublicPath(pathname: string) {
   return (
+    ["/jeju", "/jeju/profile", "/jeju/memories", "/jeju/map", "/jeju/ai", "/jeju/discover", "/jeju/program"].includes(pathname) ||
+    /^\/jeju\/place\/[^/]+$/.test(pathname) ||
     pathname === "/login" ||
     pathname.startsWith("/ecc-alumni") ||
     pathname.startsWith("/_next/") ||

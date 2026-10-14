@@ -19,7 +19,8 @@ try {
     await page.goto(base);
     const nav = page.locator(".mobile-bottom-nav");
     assert.equal(await nav.isVisible(), width < 768);
-    assert.equal(await nav.getByRole("link").count(), 2);
+    assert.equal(await nav.getByRole("link").count(), 1);
+    assert.equal(await nav.getByRole("button", { name: /Woohyukmon|우혁몬/ }).count(), 1);
     assert.equal(await nav.getByRole("button", { name: "My clubs" }).count(), 1);
     assert.equal(await nav.locator('[aria-current="page"]').getAttribute("href"), "/");
     if (width < 768) {
@@ -28,7 +29,8 @@ try {
       await page.locator('#kline-mobile-navigation button').filter({ hasText: "EN" }).click();
       assert.equal(await nav.isVisible(), false);
       const mobileMenu = page.locator('#kline-mobile-navigation');
-      assert.equal(await mobileMenu.getByRole("link", { name: "My Journey profile", exact: true }).getAttribute("href"), "/jeju/profile");
+      assert.equal(await mobileMenu.getByRole("button", { name: "Woohyukmon", exact: true }).count(), 1);
+      assert.equal(await mobileMenu.locator('a[href^="/jeju"]').count(), 0);
       assert.equal(await mobileMenu.locator("summary").count(), 2);
       const eccMenu = mobileMenu.locator('[data-club-menu="ecc"]');
       assert.equal(await eccMenu.getByRole("link", { name: "ECC home", exact: true }).isVisible(), false);
@@ -40,18 +42,49 @@ try {
       assert.equal(await menu.getAttribute("aria-expanded"), "false");
       assert.equal(await menu.evaluate((element) => element === document.activeElement), true);
       assert.equal(await nav.isVisible(), true);
-      const cards = await page.locator('main a[href="/our-activities/ecc"], main a[href="/our-activities/hanhwal"], main a[href="/jeju"]').all();
+      const cards = await page.locator('main a[href="/our-activities/ecc"], main a[href="/our-activities/hanhwal"], main [data-home-woohyukmon]').all();
       for (const card of cards) {
         const box = await card.boundingBox();
         assert.ok(box && box.height >= 44 && box.height <= 140);
       }
+      await menu.click();
+      await page.locator('#kline-mobile-navigation').getByRole("button", { name: "Woohyukmon", exact: true }).click();
+      const menuDialog = page.getByRole("dialog", { name: "Woohyukmon", exact: true });
+      await menuDialog.waitFor({ state: "visible" });
+      assert.equal(await page.locator('#kline-mobile-navigation').count(), 0);
+      await menuDialog.getByRole("button", { name: "Close Woohyukmon", exact: true }).press("Escape");
+      await menuDialog.waitFor({ state: "hidden" });
+      assert.equal(await menu.evaluate(element => element === document.activeElement), true);
+      assert.equal(await page.evaluate(() => document.body.style.overflow), "");
     }
     const geometry = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }));
     assert.ok(geometry.document <= geometry.viewport + 1, `Horizontal overflow at ${width}px`);
     assert.deepEqual(errors, []);
     await page.screenshot({ path: join(output, `home-${width}.png`), fullPage: true });
+    const launcher = width < 768 ? nav.getByRole("button", { name: /Woohyukmon|우혁몬/ }) : width >= 1024 ? page.locator('header [aria-controls="global-woohyukmon"]') : page.locator('[data-home-woohyukmon]');
+    await launcher.click();
+    const dialog = page.getByRole("dialog", { name: "Woohyukmon", exact: true });
+    await dialog.waitFor({ state: "visible" });
+    const close = dialog.getByRole("button", { name: "Close Woohyukmon", exact: true });
+    assert.equal(await close.evaluate(element => element === document.activeElement), true);
+    const bounds = await dialog.boundingBox();
+    assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= width + 1 && bounds.y + bounds.height <= 901);
+    if (width < 768) {
+      assert.equal(await nav.isVisible(), false);
+      assert.equal(await page.evaluate(() => document.body.style.overflow), "hidden");
+    }
+    await dialog.getByRole("textbox").fill("한국 문화 행사 / K_LINE activities\n".repeat(25));
+    const send = await dialog.getByRole("button", { name: "Send", exact: true }).boundingBox();
+    assert.ok(send && send.width >= 44 && send.height >= 44 && send.y + send.height <= 901);
+    await page.screenshot({ path: join(output, `woohyukmon-${width}.png`), fullPage: false });
+    await close.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+    assert.equal(await launcher.evaluate(element => element === document.activeElement), true);
+    await page.goto(`${base}/jeju/profile`);
+    await page.getByRole("heading", { name: /Memory Book in Woohyukmon|추억록은 우혁몬 앱에서/ }).waitFor();
+    assert.equal(await page.getByRole("textbox").count(), 0);
     await page.close();
-    console.log(`PASS home, navigation and overflow: ${width}px`);
+    console.log(`PASS home, navigation, dialog, app notice and overflow: ${width}px`);
   }
 } finally {
   await browser.close();

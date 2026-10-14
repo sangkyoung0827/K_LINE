@@ -15,6 +15,8 @@ const module = { exports: {} };
 vm.runInNewContext(`(function(require,module,exports){${code}\n})`)((name) => {
   if (name === "next/link") return { default: ({ children, ...props }) => React.createElement("a", props, children) };
   if (name === "@/components/ClubMark") return { ClubMark: () => React.createElement("span", { "aria-hidden": true }) };
+  if (name === "@/components/WoohyukmonGlassesIcon") return { WoohyukmonGlassesIcon: () => React.createElement("span", { "aria-hidden": true }) };
+  if (name === "@/components/WoohyukmonLauncher") return { WoohyukmonLauncher: ({ children, ...props }) => React.createElement("button", { type: "button", "aria-haspopup": "dialog", ...props }, children) };
   if (name === "@/data/socialImpactUnion") return { socialImpactUnion: { path: "/social-impact-union" } };
   return require(name);
 }, module, module.exports);
@@ -27,15 +29,17 @@ const render = (eccAccess = guest, hanhwalAccess = guest, language = "en") => re
 );
 const hrefs = (html) => [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
 
-test("mobile menu contains Journey profile and two initially collapsed club groups", () => {
+test("mobile menu replaces Journey profile with Woohyukmon and keeps two initially collapsed club groups", () => {
   const html = render();
   assert.equal((html.match(/<details /g) ?? []).length, 2);
   assert.equal((html.match(/<summary /g) ?? []).length, 2);
   assert.doesNotMatch(html, /<details[^>]*\bopen=/);
-  assert.deepEqual(hrefs(html), ["/jeju/profile", "/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union"]);
+  assert.deepEqual(hrefs(html), ["/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union"]);
   assert.match(html, /Social Impact Union/);
   assert.ok(html.lastIndexOf("</details>") < html.indexOf('href="/social-impact-union"'));
-  assert.match(html, /My Journey profile/);
+  assert.match(html, /aria-haspopup="dialog"/);
+  assert.match(html, /Woohyukmon/);
+  assert.doesNotMatch(html, /\/jeju/);
   assert.doesNotMatch(html, /International Student Club|Login \/ Profile|\/cart|\/developer/);
 });
 
@@ -68,8 +72,8 @@ test("club administrative access remains separate and preserves existing fund vi
   assert.ok(hrefs(render(member, { ...admin, isSuperAdmin: true })).includes("/our-activities/hanhwal/fund"));
 });
 
-test("Korean labels use the same routes and expose a clear Journey profile destination", () => {
+test("Korean labels use the same routes and expose Woohyukmon for guests and members", () => {
   assert.deepEqual(hrefs(render(member, member, "ko")), hrefs(render(member, member)));
-  assert.match(render(member, member, "ko"), /추억록 프로필 설정/);
+  for (const role of [guest, member, admin]) assert.match(render(role, role, "ko"), /우혁몬/);
   assert.match(render(member, member, "ko"), /활동 신청/);
 });

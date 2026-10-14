@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Home, UsersRound } from "lucide-react";
+import { Home, UsersRound } from "lucide-react";
+import { WoohyukmonLauncher } from "@/components/WoohyukmonLauncher";
+import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { MyClubsSheet } from "@/components/MyClubsSheet";
@@ -29,8 +31,7 @@ export function MobileBottomNav() {
     pathname.startsWith("/hanhwal-");
 
   const items = [
-    { href: "/", label: language === "ko" ? "홈" : "Home", active: pathname === "/", icon: <Home aria-hidden className="h-5 w-5" /> },
-    { href: "/jeju", label: "My journey", active: pathname.startsWith("/jeju"), icon: <BookOpen aria-hidden className="h-5 w-5" /> }
+    { href: "/", label: language === "ko" ? "홈" : "Home", active: pathname === "/", icon: <Home aria-hidden className="h-5 w-5" /> }
   ];
 
   return (
@@ -46,6 +47,10 @@ export function MobileBottomNav() {
           <span>{item.label}</span>
         </Link>
       ))}
+      <WoohyukmonLauncher className="flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold leading-4 text-muted">
+        <span className="flex h-8 w-12 items-center justify-center"><WoohyukmonGlassesIcon alt="" className="h-6 w-9" /></span>
+        <span>{language === "ko" ? "우혁몬" : "Woohyukmon"}</span>
+      </WoohyukmonLauncher>
     </nav>
     {clubsOpen ? <MyClubsSheet key={`${ownerEmail}:${status}`} ownerEmail={ownerEmail} sessionStatus={status} returnTo={pathname} onClose={closeClubs} /> : null}
     </>

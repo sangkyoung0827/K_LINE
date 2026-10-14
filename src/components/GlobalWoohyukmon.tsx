@@ -117,8 +117,8 @@ function CompactTable({ rows }: { rows: WoohyukmonTableRow[] }) {
   );
 }
 
-export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false, readOnly = false, scopes = [] }: {
-  actorRole: string; actorEmail: string; activityGuide?: boolean; readOnly?: boolean; scopes?: string[];
+export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false, readOnly = false, scopes = [], launchRequest = 0 }: {
+  actorRole: string; actorEmail: string; activityGuide?: boolean; readOnly?: boolean; scopes?: string[]; launchRequest?: number;
 }) {
   const { pick } = useLanguage();
   const memory = useConversationMemory(actorEmail);
@@ -140,6 +140,60 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
   const [contextTargetId, setContextTargetId] = useState("");
   const [contextTargetIds, setContextTargetIds] = useState<string[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  const openChat = () => {
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
+    setOpen(true);
+  };
+  useEffect(() => { if (launchRequest) openChat(); }, [launchRequest]);
+  useEffect(() => {
+    if (!open) return;
+    const previousFocus = returnFocusRef.current || document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    const mobile = window.matchMedia("(max-width: 767px)");
+    const viewport = window.visualViewport;
+    const lock = () => {
+      document.body.style.overflow = mobile.matches ? "hidden" : previousOverflow;
+      const panel = panelRef.current;
+      if (!panel) return;
+      if (mobile.matches && viewport) {
+        panel.style.height = `${Math.min(viewport.height * 0.85, 760)}px`;
+        panel.style.setProperty("--woohyukmon-viewport-height", `${viewport.height}px`);
+        panel.style.bottom = `${Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)}px`;
+      } else {
+        panel.style.removeProperty("height");
+        panel.style.removeProperty("bottom");
+        panel.style.removeProperty("--woohyukmon-viewport-height");
+      }
+    };
+    lock();
+    closeRef.current?.focus({ preventScroll: true });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); setOpen(false); }
+      if (event.key !== "Tab") return;
+      const controls = panelRef.current?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), summary');
+      const first = controls?.[0], last = controls?.[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    mobile.addEventListener("change", lock);
+    viewport?.addEventListener("resize", lock);
+    viewport?.addEventListener("scroll", lock);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      mobile.removeEventListener("change", lock);
+      viewport?.removeEventListener("resize", lock);
+      viewport?.removeEventListener("scroll", lock);
+      const returnTo = previousFocus?.isConnected && previousFocus !== document.body && previousFocus !== document.documentElement
+        ? previousFocus : document.querySelector<HTMLElement>('[aria-controls="kline-mobile-navigation"]');
+      returnTo?.focus({ preventScroll: true });
+    };
+  }, [open]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -492,28 +546,29 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
     <>
       {open ? (
         <div
-          className="fixed inset-0 z-[79] bg-black/20 md:hidden"
+          className="fixed inset-0 z-[79] bg-black/20 md:bg-transparent"
           onClick={() => setOpen(false)}
           aria-hidden
         />
       ) : null}
 
       {open ? (
-        <aside className="fixed inset-x-0 bottom-0 z-[80] flex max-h-[80dvh] flex-col overflow-hidden rounded-t-2xl border border-ink/10 bg-paper shadow-2xl md:inset-x-auto md:bottom-20 md:right-5 md:h-[min(72vh,720px)] md:w-[390px] md:rounded-2xl">
-          <header className="flex items-center gap-3 border-b border-ink/10 bg-white/75 px-4 py-3">
+        <aside ref={panelRef} id="global-woohyukmon" role="dialog" aria-modal="true" aria-labelledby="global-woohyukmon-title" className="woohyukmon-dialog fixed inset-x-0 bottom-0 z-[80] flex h-[min(85dvh,760px)] max-h-[calc(100dvh-env(safe-area-inset-top))] min-h-0 flex-col overflow-hidden rounded-t-2xl border border-ink/10 bg-paper shadow-2xl md:inset-x-auto md:bottom-20 md:right-5 md:h-[min(72dvh,720px)] md:w-[390px] md:rounded-2xl">
+          <header className="flex shrink-0 items-center gap-3 border-b border-ink/10 bg-white/75 px-4 py-3">
             <span className={`flex h-8 w-12 items-center justify-center ${busy ? "animate-spin" : ""}`}>
               <WoohyukmonGlassesIcon className="h-full w-full" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-ink">Woohyukmon</p>
+              <p id="global-woohyukmon-title" className="font-semibold text-ink">Woohyukmon</p>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brass">
-                {activityGuide ? pick({ ko: "ECC 활동 안내", en: "ECC Activity Guide" }) : `K_LINE Operations · ${actorRole}`}
+                {activityGuide ? pick({ ko: "ECC 활동 안내", en: "ECC Activity Guide" }) : readOnly ? "K_LINE" : `K_LINE Operations · ${actorRole}`}
               </p>
             </div>
             <button
               type="button"
+              ref={closeRef}
               onClick={() => setOpen(false)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/10 bg-white text-ink"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-white text-ink"
               aria-label="Close Woohyukmon"
             >
               <X className="h-4 w-4" />
@@ -524,7 +579,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
             {scopes.map(key => <option key={key} value={key}>{scopeLabels[key] || key}</option>)}
           </select> : null}
 
-          <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
             {messages.length === 0 ? (
               <div className="grid min-h-44 place-items-center text-center">
                 <div>
@@ -534,9 +589,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
                   <h2 className="mt-3 font-serif text-2xl font-semibold text-ink">
                     {pick({ ko: "무엇을 도와드릴까요?", en: "How can I help?" })}
                   </h2>
-                  <p className="mt-2 text-sm leading-6 text-ink/58">
-                    {activityGuide ? pick({ ko: "어떤 활동이 궁금하세요?", en: "Which activity would you like to know about?" }) : "회원 현황 조회부터 회비·정회원 승인, 활동 신청 관리까지 한 문장으로 요청하세요."}
-                  </p>
+                  {activityGuide ? <p className="mt-2 text-sm leading-6 text-ink/58">{pick({ ko: "어떤 활동이 궁금하세요?", en: "Which activity would you like to know about?" })}</p> : null}
                 </div>
               </div>
             ) : null}
@@ -652,10 +705,10 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
           </div>
 
           {savedConversation.warning ? <p role="status" className="px-3 py-1 text-xs text-red-700">{savedConversation.warning}</p> : null}
-          <label className="flex items-center gap-2 border-t border-ink/10 bg-white/85 px-3 py-2 text-xs text-ink/70" title="내 계정의 저장된 대화만 참고합니다. 끄더라도 기록 저장은 계속됩니다.">
+          {actorEmail ? <label className="flex min-h-11 shrink-0 items-center gap-2 border-t border-ink/10 bg-white/85 px-3 py-2 text-xs text-ink/70" title="내 계정의 저장된 대화만 참고합니다. 끄더라도 기록 저장은 계속됩니다.">
             <input type="checkbox" checked={memory.enabled} onChange={(event) => memory.setEnabled(event.target.checked)} />
-            이전 대화 참고
-          </label>
+            {pick({ ko: "이전 대화 참고", en: "Use saved conversations" })}
+          </label> : null}
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -667,9 +720,9 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
               value={input}
               onChange={(event) => setInput(event.target.value)}
               disabled={busy}
-              placeholder={activityGuide ? pick({ ko: "활동에 대해 질문해 주세요", en: "Ask about an activity" }) : "자연어로 업무를 입력하세요"}
-              aria-label={activityGuide ? pick({ ko: "우혁몬에게 보낼 활동 질문", en: "Activity question for Woohyukmon" }) : "우혁몬에게 보낼 업무 메시지"}
-              className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/12 bg-white px-3 py-2 text-sm leading-6 text-ink outline-none focus:border-brass"
+              placeholder={pick({ ko: "우혁몬에게 물어보세요", en: "Ask Woohyukmon" })}
+              aria-label={pick({ ko: "우혁몬 메시지", en: "Message for Woohyukmon" })}
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/12 bg-white px-3 py-2 text-base leading-6 text-ink outline-none focus:border-brass md:text-sm"
             />
             <button
               type="submit"
@@ -684,9 +737,9 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
       ) : null}
 
       {!open ? (
-        <div className={`fixed right-4 z-[81] flex max-w-[calc(100vw-2rem)] items-center gap-2 md:right-5 ${activityGuide ? "bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-5" : "bottom-5"}`}>
+        <div className={`fixed right-4 z-[81] hidden max-w-[calc(100vw-2rem)] items-center gap-2 md:flex md:right-5 ${activityGuide ? "bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-5" : "bottom-5"}`}>
         {activityGuide ? (
-          <button type="button" onClick={() => setOpen(true)}
+          <button type="button" onClick={openChat}
             className="relative min-w-0 max-w-[210px] break-keep rounded-lg border border-ink/15 bg-white px-3 py-2 text-left text-xs leading-5 text-ink shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-brass"
           >
             {pick({ ko: "활동에 관련된 질문을 무엇이든 물어보세요", en: "Ask me anything about activities." })}
@@ -695,7 +748,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
         ) : null}
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openChat}
           className="flex h-14 w-16 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-white/95 shadow-xl transition hover:-translate-y-0.5 hover:border-brass"
           aria-label="Open Global Woohyukmon"
           title={activityGuide ? pick({ ko: "ECC 활동 질문", en: "Ask about ECC activities" }) : "K_LINE Operations"}

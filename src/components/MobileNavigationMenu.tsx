@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, UserRound, UsersRound } from "lucide-react";
+import { ChevronDown, UsersRound } from "lucide-react";
+import { WoohyukmonLauncher } from "@/components/WoohyukmonLauncher";
+import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import type { ReactNode } from "react";
 import { ClubMark } from "@/components/ClubMark";
 import { socialImpactUnion } from "@/data/socialImpactUnion";
@@ -23,10 +25,10 @@ type Props = {
 export function MobileNavigationMenu({ language, eccAccess, hanhwalAccess, onNavigate }: Props) {
   return (
     <div className="grid gap-1">
-      <MenuLink href="/jeju/profile" onClick={onNavigate}>
-        <UserRound aria-hidden className="h-6 w-6 shrink-0" />
-        {language === "ko" ? "추억록 프로필 설정" : "My Journey profile"}
-      </MenuLink>
+      <WoohyukmonLauncher onClick={onNavigate} className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold text-ink/76 transition hover:bg-white/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">
+        <WoohyukmonGlassesIcon alt="" className="h-6 w-6 shrink-0" />
+        {language === "ko" ? "우혁몬" : "Woohyukmon"}
+      </WoohyukmonLauncher>
       <ClubMenu club="ecc" access={eccAccess} language={language} onNavigate={onNavigate} />
       <ClubMenu club="hanhwal" access={hanhwalAccess} language={language} onNavigate={onNavigate} />
       <MenuLink href={socialImpactUnion.path} onClick={onNavigate}>

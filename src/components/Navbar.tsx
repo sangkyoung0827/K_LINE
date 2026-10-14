@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronDown, Code2, Menu, ShoppingBag, X } from "lucide-react";
+import { ChevronDown, Code2, Menu, ShoppingBag, X } from "lucide-react";
+import { WoohyukmonLauncher } from "@/components/WoohyukmonLauncher";
+import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import { useEffect, useRef, useState } from "react";
 import { activityBoards } from "@/data/activityBoards";
 import { AuthStatus } from "@/components/AuthStatus";
@@ -108,12 +110,9 @@ export function Navbar() {
             </div>
           </div>
 
-          <DesktopNavLink href="/jeju" active={pathname.startsWith("/jeju")}>
-            <span className="inline-flex items-center gap-1.5">
-              <BookOpen aria-hidden className="h-3.5 w-3.5" />
-              {language === "ko" ? "추억록" : "Memory Book"}
-            </span>
-          </DesktopNavLink>
+          <WoohyukmonLauncher aria-label={pick({ ko: "우혁몬 열기", en: "Open Woohyukmon" })} className="inline-flex h-11 w-14 items-center justify-center rounded-lg text-ink/70 transition hover:bg-white/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">
+            <WoohyukmonGlassesIcon alt="" className="h-7 w-10" />
+          </WoohyukmonLauncher>
 
           {isDeveloper ? (
             <Link

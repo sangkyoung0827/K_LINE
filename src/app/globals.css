@@ -282,6 +282,19 @@ main > section.bg-navy:first-child {
     padding-bottom: env(safe-area-inset-bottom);
     overscroll-behavior: contain;
   }
+
+  .woohyukmon-dialog[role="dialog"] {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .woohyukmon-dialog textarea {
+    max-height: min(180px, calc(var(--woohyukmon-viewport-height, 100dvh) * 0.25)) !important;
+  }
+
+  body:has(.woohyukmon-dialog) :is(.mobile-bottom-nav, .mobile-member-save) {
+    display: none;
+  }
 }
 
 @media (min-width: 640px) {
