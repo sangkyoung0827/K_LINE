@@ -21,6 +21,7 @@ export async function clubHarness({ liveAI = false } = {}) {
     if (liveAI) return originalFetch(url, init);
     const body = JSON.parse(init.body);
     state.lastPrompt = body;
+    if (state.aiResponse) return Response.json(state.aiResponse);
     const decision = state.decisions.shift() || { action: "answer", capability: "", method: "GET", queryJson: "{}", bodyJson: "{}", format: "", answer: "조회한 자료를 확인했습니다." };
     return Response.json({ model: body.model, status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(decision) }] }] });
   };

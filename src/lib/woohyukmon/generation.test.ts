@@ -78,6 +78,31 @@ test("structured action planning uses strict schema and allows explicit OpenAI m
   assert.equal((await generate({ ...input, outputSchema: schema })).model, "gpt-6.1-sol");
 });
 
+test("structured plans use the final answer, not an intermediate commentary message", async () => {
+  const generate = createAnswerGenerator({ env, fetch: async () => Response.json({
+    status: "completed", model: "gpt-6-luna", output: [
+      { type: "message", phase: "commentary", content: [{ type: "output_text", text: "신청 기록을 확인하겠습니다." }] },
+      { type: "message", phase: "final_answer", content: [{ type: "output_text", text: '{"answer":"ok"}' }] }
+    ]
+  }) });
+  assert.deepEqual(JSON.parse((await generate({ ...input, outputSchema: { type: "object" } })).answer), { answer: "ok" });
+});
+
+test("structured refusal is an explicit outcome, never a JSON plan", async () => {
+  const generate = createAnswerGenerator({ env, fetch: async () => Response.json({ status: "completed", output: [{ type: "message", content: [{ type: "refusal", refusal: "Declined" }] }] }) });
+  const result = await generate({ ...input, outputSchema: { type: "object" } });
+  assert.ok("refused" in result && result.refused === true);
+});
+
+test("structured commentary-only output is incomplete, and safety refusal cannot be ignored by phase", async () => {
+  for (const phase of ["commentary", "final_answer"]) {
+    const generate = createAnswerGenerator({ env, fetch: async () => Response.json({ status: "completed", output: [{ type: "message", phase, content: [{ type: "refusal" }] }] }) });
+    assert.ok("refused" in await generate({ ...input, outputSchema: { type: "object" } }));
+  }
+  const commentaryOnly = createAnswerGenerator({ env, fetch: async () => Response.json({ status: "completed", output: [{ type: "message", phase: "commentary", content: [{ type: "output_text", text: "Working" }] }] }) });
+  await assert.rejects(commentaryOnly({ ...input, outputSchema: { type: "object" } }), (error: unknown) => error instanceof Error && "code" in error && error.code === "OPENAI_RESPONSE_INCOMPLETE");
+});
+
 test("redacted or missing OpenAI credentials are never used", async () => {
   for (const key of ["", "[Sensitive]", "masked", "[REDACTED]"]) assert.equal(hasGenerationProvider({ OPENAI_API_KEY: key }), false);
   assert.equal(hasGenerationProvider({ EVENT_AI_OPENAI_API_KEY: "event-key" }), true);

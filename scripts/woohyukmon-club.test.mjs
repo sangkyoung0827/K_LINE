@@ -75,6 +75,42 @@ test("model cannot invent routes, select another club or execute a GET as a muta
   } finally { await h.close(); }
 });
 
+test("a provider refusal is shown explicitly without parsing it as an execution plan", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.aiResponse = { status: "completed", model: "gpt-6-luna", output: [{ type: "message", content: [{ type: "refusal", refusal: "Declined" }] }] };
+    const response = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 누적 참여자 몇명인가요" });
+    assert.equal(response.kind, "answer"); assert.equal(response.refused, true);
+    assert.match(response.summary, /거절/); assert.doesNotMatch(response.summary, /구체적으로/);
+    assert.equal(h.state.calls.length, 0);
+  } finally { await h.close(); }
+});
+
+test("a commentary followed by a valid final plan does not cause the reported JSON error", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.aiResponse = { status: "completed", model: "gpt-6-luna", output: [
+      { type: "message", phase: "commentary", content: [{ type: "output_text", text: "확인하겠습니다." }] },
+      { type: "message", phase: "final_answer", content: [{ type: "output_text", text: JSON.stringify(decision("answer", "ecc_applicants")) }] }
+    ] };
+    const response = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 누적 참여자 몇명인가요" });
+    assert.equal(response.kind, "answer"); assert.equal(h.state.calls.length, 0);
+  } finally { await h.close(); }
+});
+
+test("invalid plan errors expose a diagnostic code but no prompt or response data", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.aiResponse = { status: "completed", model: "gpt-6-luna", output: [{ type: "message", phase: "final_answer", content: [{ type: "output_text", text: "private-invalid-model-content" }] }] };
+    const response = await h.api.POST(qaRequest({ message: "ECC confidential-user-prompt" }));
+    assert.equal(response.status, 502);
+    const body = await response.json();
+    assert.equal(body.diagnosticCode, "OPENAI_PLAN_FORMAT_INVALID");
+    assert.doesNotMatch(JSON.stringify(body), /private-invalid|confidential-user|구체적으로/);
+    assert.equal(h.state.calls.length, 0);
+  } finally { await h.close(); }
+});
+
 test("write prepares an exact preview; signed confirm executes once with preserved notes", async () => {
   const h = await clubHarness();
   try {
