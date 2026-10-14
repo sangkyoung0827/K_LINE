@@ -5,7 +5,9 @@ import { useConversationMemory } from "@/hooks/useConversationMemory";
 import { useSavedConversation } from "@/hooks/useSavedConversation";
 import { useLanguage } from "@/components/LanguageProvider";
 
-import { Check, Loader2, Send, X } from "lucide-react";
+import { Check, Send, X } from "lucide-react";
+import { AssistantProgress } from "@/components/AssistantProgress";
+import { visibleProgressStage } from "@/lib/woohyukmon/progress";
 import { AssistantDocumentDownload } from "@/components/AssistantDocumentDownload";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -139,6 +141,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
   }, [pathname, scopes.join(",")]);
   const [contextTargetId, setContextTargetId] = useState("");
   const [contextTargetIds, setContextTargetIds] = useState<string[]>([]);
+  const [progressStage, setProgressStage] = useState("request_started");
   const endRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -263,6 +266,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
   };
 
   const runGeminiFallback = async (requestText: string) => {
+    setProgressStage("answer_stream_started");
     const assistantId = `assistant-${Date.now()}`;
     let snapshot = "";
 
@@ -319,6 +323,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
         }
 
         if (event.type === "status") {
+          setProgressStage(current => visibleProgressStage(current, event.status));
           updateAssistant(assistantId, (message) => ({
             ...message,
             status: event.label || event.status || message.status,
@@ -363,6 +368,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
         }
 
         if (event.type === "text" && event.text) {
+          setProgressStage("writing");
           snapshot += event.text.replace(/\*\*/g, "");
           updateAssistant(assistantId, (message) => ({
             ...message,
@@ -444,10 +450,12 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
     }
 
     setBusy(true);
+    setProgressStage("request_started");
 
     try {
       savedConversation.clearWarning();
       await saveLog(trimmed, "user");
+      if (!readOnly && !activityGuide) setProgressStage("operation_started");
       const operationResponse = await callOperations(
         trimmed,
         options?.selectedTargetId || ""
@@ -455,9 +463,11 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
 
       if (operationResponse.handled) {
         handleOperationResponse(operationResponse, trimmed);
+        if (actorEmail) setProgressStage("saving_conversation");
         await saveLog(operationText(operationResponse), "assistant");
       } else {
         const answer = await runGeminiFallback(trimmed);
+        if (actorEmail) setProgressStage("saving_conversation");
         await saveLog(answer, "assistant");
       }
     } catch (error) {
@@ -487,6 +497,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
     if (settledTokens.includes(response.token)) return;
     setSettledTokens(current => [...current, response.token]);
     setBusy(true);
+    setProgressStage("operation_confirmed");
 
     try {
       const request = await fetch(response.tool === "club_operation" ? "/api/woohyukmon/club-assistant" : "/api/woohyukmon/operations", {
@@ -555,7 +566,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
       {open ? (
         <aside ref={panelRef} id="global-woohyukmon" role="dialog" aria-modal="true" aria-labelledby="global-woohyukmon-title" className="woohyukmon-dialog fixed inset-x-0 bottom-0 z-[80] flex h-[min(85dvh,760px)] max-h-[calc(100dvh-env(safe-area-inset-top))] min-h-0 flex-col overflow-hidden rounded-t-2xl border border-ink/10 bg-paper shadow-2xl md:inset-x-auto md:bottom-20 md:right-5 md:h-[min(72dvh,720px)] md:w-[390px] md:rounded-2xl">
           <header className="flex shrink-0 items-center gap-3 border-b border-ink/10 bg-white/75 px-4 py-3">
-            <span className={`flex h-8 w-12 items-center justify-center ${busy ? "animate-spin" : ""}`}>
+            <span className="flex h-8 w-12 items-center justify-center">
               <WoohyukmonGlassesIcon className="h-full w-full" />
             </span>
             <div className="min-w-0 flex-1">
@@ -595,7 +606,7 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
             ) : null}
 
             <div className="grid gap-3">
-              {messages.map((message) => (
+              {messages.filter(message => message.role === "user" || message.content || message.operation).map((message) => (
                 <div
                   key={message.id}
                   className={
@@ -686,20 +697,10 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
                     </details>
                   ) : null}
 
-                  {message.status ? (
-                    <p className="mt-2 text-[11px] font-medium text-ink/45">
-                      {message.status}
-                    </p>
-                  ) : null}
                 </div>
               ))}
 
-              {busy ? (
-                <div className="mr-12 inline-flex items-center gap-2 rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 text-xs font-semibold text-ink/55">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  처리 중
-                </div>
-              ) : null}
+              <AssistantProgress active={busy} stage={progressStage} />
               <div ref={endRef} />
             </div>
           </div>

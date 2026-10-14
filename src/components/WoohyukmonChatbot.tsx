@@ -2,6 +2,8 @@
 import { WoohyukmonPromptInput } from "@/components/WoohyukmonPromptInput";
 import { useConversationMemory } from "@/hooks/useConversationMemory";
 import { conversationHistory } from "@/lib/woohyukmon/conversation";
+import { AssistantProgress } from "@/components/AssistantProgress";
+import { visibleProgressStage } from "@/lib/woohyukmon/progress";
 
 import {
   BarChart3,
@@ -45,6 +47,7 @@ type ChatMessage = {
   content: string;
   sources?: GroundingSource[];
   status?: string;
+  progressStage?: string;
   providers?: string[];
   sourceCount?: number;
   analytics?: TraditionalLiquorAnalyticsResponse;
@@ -156,10 +159,10 @@ function readLocalBoardPostsForAssistant(): LocalBoardPostForAssistant[] {
   });
 }
 
-function WoohyukmonAvatar({ spinning = false }: { spinning?: boolean }) {
+function WoohyukmonAvatar() {
   return (
     <span
-      className={`flex h-8 w-14 shrink-0 items-center justify-center ${spinning ? "animate-spin" : ""}`}
+      className="flex h-8 w-14 shrink-0 items-center justify-center"
       aria-hidden
     >
       <WoohyukmonGlassesIcon className="h-full w-full" />
@@ -226,21 +229,6 @@ function fallbackStatusLabel(status: string | undefined, language: "en" | "ko") 
   if (status === "external_search_no_results") return "검색 결과 부족";
   if (status === "answer_stream_started") return "우혁몬이 답변을 정리하는 중";
   return "처리 중";
-}
-
-function buildCompactStatus(message: ChatMessage, language: "en" | "ko") {
-  const providers = message.providers?.length ? message.providers.join(" · ") : "";
-  const sourceCount = message.sourceCount ?? message.sources?.length ?? 0;
-
-  if (message.status) return message.status;
-
-  if (providers && sourceCount > 0) {
-    return language === "ko"
-      ? `${providers} 검색 완료 · ${sourceCount}개 자료 참고`
-      : `${providers} search complete · ${sourceCount} sources checked`;
-  }
-
-  return language === "ko" ? "우혁몬 준비 완료" : "Woohyukmon ready";
 }
 
 function cleanVisibleAnswer(value: string) {
@@ -312,6 +300,7 @@ function reduceAssistantMessage(
     return {
       ...message,
       status: event.label ?? fallbackStatusLabel(event.status, language),
+      progressStage: visibleProgressStage(message.progressStage || "request_started", event.status),
       providers: mergeProviders(message.providers, event.providers),
       sourceCount: typeof event.sourceCount === "number" ? event.sourceCount : message.sourceCount
     };
@@ -321,6 +310,7 @@ function reduceAssistantMessage(
     return {
       ...message,
       content: `${message.content}${cleanVisibleAnswer(event.text)}`,
+      progressStage: "writing",
       status:
         message.sourceCount && message.sourceCount > 0
           ? message.status
@@ -855,6 +845,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
       content: "",
       sources: [],
       status: language === "ko" ? "검색 준비 중" : "Preparing search",
+      progressStage: "request_started",
       providers: [],
       sourceCount: 0
     };
@@ -951,6 +942,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
         };
       }
 
+      if (access.isLoggedIn) assistantSnapshot = { ...assistantSnapshot, progressStage: "saving_conversation" };
       updateAssistantMessage(assistantId, () => assistantSnapshot);
       await saveMessage(chatId, assistantSnapshot);
     } catch (requestError) {
@@ -1368,7 +1360,7 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
                     key={message.id}
                     className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    {message.role === "assistant" ? <WoohyukmonAvatar spinning={isActiveAssistant} /> : null}
+                    {message.role === "assistant" ? <WoohyukmonAvatar /> : null}
                     <div
                       className={`${message.analytics ? "min-w-0 w-[calc(100%-4rem)] max-w-[calc(100%-4rem)] rounded-xl p-2 sm:p-3" : "max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-7"} ${
                         message.role === "user"
@@ -1376,29 +1368,14 @@ export function WoohyukmonChatbot({ edition = "4" }: { edition?: "3" | "4" }) {
                           : "border border-navy/10 bg-white/84 text-ink"
                       }`}
                     >
-                      {message.role === "assistant" ? (
-                        <div className="mb-3 flex items-center gap-2 rounded-full border border-brass/35 bg-brass/10 px-3 py-1.5 text-[11px] font-bold text-navy">
-                          <span
-                            className={`h-2 w-2 rounded-full ${
-                              isActiveAssistant ? "animate-pulse bg-brass" : "bg-navy/45"
-                            }`}
-                            aria-hidden
-                          />
-                          <span className="truncate">{buildCompactStatus(message, language)}</span>
-                        </div>
-                      ) : null}
+                      <AssistantProgress active={isActiveAssistant} stage={message.progressStage} />
 
                       {message.analytics ? (
                         <div className="min-w-0 overflow-hidden rounded-lg">
                           <TraditionalLiquorAnalyticsShell initialState={message.analytics} />
                         </div>
                       ) : <div className="whitespace-pre-wrap">
-                        {message.content ||
-                          (isActiveAssistant
-                            ? language === "ko"
-                              ? "검색하고 답변을 준비하고 있어요."
-                              : "Searching and preparing an answer."
-                            : "")}
+                        {message.content}
                       </div>}
                       {message.action?.type === "publish_board_post" ? (
                         <div className="mt-4 border-t border-navy/10 pt-3">
