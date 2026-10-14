@@ -28,7 +28,7 @@ test("all role pages get only their existing granted scopes; ordinary/anonymous/
       for (const cap of Object.values(h.api.clubCapabilities)) {
         const key = Object.keys(h.api.clubCapabilities).find(key => h.api.clubCapabilities[key] === cap);
         const call = { capability: key, method: cap.methods[0], query: { id: "qa-id" }, body: key === "event_plan" ? { action: "plan", clubKey: "ecc", message: "QA" } : {} };
-        if (scopes.includes(cap.scope)) assert.doesNotThrow(() => h.api.assertCapability(access, call));
+        if (cap.publicRead || scopes.includes(cap.scope)) assert.doesNotThrow(() => h.api.assertCapability(access, call));
         else assert.throws(() => h.api.assertCapability(access, call), /권한/);
       }
     }

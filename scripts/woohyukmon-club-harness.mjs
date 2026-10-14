@@ -39,7 +39,7 @@ export async function clubHarness({ liveAI = false } = {}) {
     throw Error("UNEXPECTED_STORE_ACCESS");
   };
   const dir = await mkdtemp(join(tmpdir(), "club-qa-"));
-  await build({ stdin: { contents: `export * from './src/lib/woohyukmon/club-access'; export * from './src/lib/woohyukmon/club-service'; export * from './src/lib/woohyukmon/club-catalog'; export * from './src/lib/woohyukmon/club-documents'; export * from './src/lib/woohyukmon/operations/token'; export {GET,POST} from './src/app/api/woohyukmon/club-assistant/route'; export {GET as exportDocument} from './src/app/api/woohyukmon/club-assistant/export/route';`, resolveDir: process.cwd(), loader: "ts" },
+  await build({ stdin: { contents: `export * from './src/lib/woohyukmon/club-access'; export * from './src/lib/woohyukmon/club-service'; export * from './src/lib/woohyukmon/club-catalog'; export * from './src/lib/woohyukmon/site-evidence'; export * from './src/lib/woohyukmon/club-documents'; export * from './src/lib/woohyukmon/operations/token'; export {GET,POST} from './src/app/api/woohyukmon/club-assistant/route'; export {GET as siteData} from './src/app/api/woohyukmon/site-data/route'; export {GET as exportDocument} from './src/app/api/woohyukmon/club-assistant/export/route';`, resolveDir: process.cwd(), loader: "ts" },
     bundle: true, platform: "node", format: "cjs", packages: "external", outfile: join(dir, "api.cjs"),
     banner: { js: `module.paths.unshift(${JSON.stringify(join(process.cwd(), "node_modules"))});` },
     plugins: [{ name: "isolated-identities-and-routes", setup(b) {
@@ -57,8 +57,8 @@ export async function clubHarness({ liveAI = false } = {}) {
       };
       b.onResolve({ filter: /^server-only$|^@\/(auth|lib\/)/ }, a => Object.hasOwn(mocks, a.path) ? { path: a.path, namespace: "mock" } : undefined);
       b.onLoad({ filter: /.*/, namespace: "mock" }, a => ({ contents: mocks[a.path] }));
-      b.onResolve({ filter: /^@\/app\/api\// }, a => a.path.includes("woohyukmon/club-assistant") ? undefined : { path: a.path, namespace: "route" });
-      b.onLoad({ filter: /.*/, namespace: "route" }, a => ({ contents: `const resource=${JSON.stringify(a.path)};async function run(r){const s=globalThis.__clubQA;s.calls.push({resource,method:r.method,body:r.method==='GET'?null:await r.json(),url:r.url});return Response.json(s.resourceData?.[resource]||s.data,{status:s.routeStatus||200})};export const GET=run,POST=run,PATCH=run,DELETE=run;` }));
+      b.onResolve({ filter: /^@\/app\/api\// }, a => /woohyukmon\/(club-assistant|site-data)/.test(a.path) ? undefined : { path: a.path, namespace: "route" });
+      b.onLoad({ filter: /.*/, namespace: "route" }, a => ({ contents: `const resource=${JSON.stringify(a.path)};async function run(r){const s=globalThis.__clubQA;s.calls.push({resource,method:r.method,body:r.method==='GET'?null:await r.json(),url:r.url});const pages=s.resourcePages?.[resource];const offset=Number(new URL(r.url).searchParams.get('offset')||0);return Response.json(pages?.[offset]||s.resourceData?.[resource]||s.data,{status:s.resourceStatus?.[resource]||s.routeStatus||200})};export const GET=run,POST=run,PATCH=run,DELETE=run;` }));
     } }] });
   const api = createRequire(import.meta.url)(join(dir, "api.cjs"));
   return { api, state, db, async close() { globalThis.fetch = originalFetch; for (const key of Object.keys(process.env)) if (!(key in original)) delete process.env[key]; Object.assign(process.env, original); delete globalThis.__clubQA; await db.close(); } };

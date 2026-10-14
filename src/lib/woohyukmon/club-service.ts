@@ -9,6 +9,7 @@ import { documentRows, type DocumentRow } from "./club-documents";
 import { conversationHistory } from "./conversation";
 import { loadClubMembers } from "./club-member-data";
 import { clubScopeLabels, conversationClubScopes, dialogueRules, mentionedClubScopes } from "./club-conversation";
+import { loadSiteEvidence, needsSiteEvidence } from "./site-evidence";
 
 export class ClubAssistantError extends Error {
   constructor(message: string, readonly status = 400, readonly code?: string) { super(message); }
@@ -32,7 +33,7 @@ const forbidden = /(?:raw\s*)?\bsql\b|service.?role|환경\s*변수|environment\
 export function assertCapability(access: ClubAssistantAccess, call: Call) {
   const capability = clubCapabilities[call.capability];
   if (!access.email) throw new ClubAssistantError("로그인이 필요합니다. / Login required.", 401);
-  if (!capability || !access.scopes.includes(capability.scope)) throw new ClubAssistantError("이 단체의 관리 권한이 없습니다. / Club access denied.", 403);
+  if (!capability || !(capability.publicRead && call.method === "GET") && !access.scopes.includes(capability.scope)) throw new ClubAssistantError("이 단체의 관리 권한이 없습니다. / Club access denied.", 403);
   if (!capability.methods.includes(call.method)) throw new ClubAssistantError("등록되지 않은 기능입니다. / Unsupported action.", 403);
   if (call.method !== "GET" && access.readOnly) throw new ClubAssistantError("읽기 전용 계정은 변경할 수 없습니다.", 403);
   if (capability.path.includes(":id") && !/^[a-zA-Z0-9_-]{1,120}$/.test(call.query.id || "")) throw new ClubAssistantError("올바른 자료 ID가 필요합니다.");
@@ -166,17 +167,19 @@ export async function clubAssistantReply(access: ClubAssistantAccess, request: R
   if (selected && !access.scopes.includes(selected as AssistantScope)) throw new ClubAssistantError("선택한 범위에 대한 관리 권한이 없습니다.", 403);
   const conversation = conversationHistory(Array.isArray(body.history) ? body.history : []);
   const explicit = mentionedClubScopes(message);
-  if (explicit.some(scope => !access.scopes.includes(scope))) throw new ClubAssistantError("요청한 동아리에 대한 관리자 권한이 없습니다.", 403);
+  if (!needsSiteEvidence(message) && explicit.some(scope => !access.scopes.includes(scope))) throw new ClubAssistantError("요청한 동아리에 대한 관리자 권한이 없습니다.", 403);
   const scopes = conversationClubScopes(access.scopes, selected, conversation, message);
   const catalog = allowedCapabilities(scopes);
   const results: unknown[] = [];
+  if (needsSiteEvidence(message)) results.push({ capability: "site_evidence", records: await loadSiteEvidence(access, request, message) });
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(130_000)]);
   const usedScopes = new Set<AssistantScope>();
   const withScope = <T extends Record<string, unknown>>(reply: T) => {
     const replyScope = scopes.length === 1 ? scopes[0] : usedScopes.size === 1 ? [...usedScopes][0] : undefined;
     return { ...reply, ...(replyScope ? { scope: replyScope } : {}) };
   };
-  const scopeContext = `Currently authorized tools are limited to: ${scopes.map(scope => clubScopeLabels[scope]).join(", ") || "none"}. The UI selection is ${clubScopeLabels[selected as AssistantScope] || "not selected"}. Server date: ${new Date().toISOString()}. Do not use history to add permissions. General conversation does not require a club selection.`;
+  const replyLanguage = /[가-힣]/.test(message) ? "Korean" : /[a-z]/i.test(message) ? "English" : "the user's current message language";
+  const scopeContext = `Reply in ${replyLanguage}, unless the user explicitly requests another language or a translation. The language of retrieved source documents NEVER overrides the user's language. Currently authorized management tools are limited to: ${scopes.map(scope => clubScopeLabels[scope]).join(", ") || "none"}. site_evidence can always search public K_LINE sources and only already-authorized aggregates. The UI selection is ${clubScopeLabels[selected as AssistantScope] || "not selected"}. Server date: ${new Date().toISOString()}. Do not use history to add permissions. General conversation does not require a club selection.`;
   const queryRules = "Allowed query keys ONLY: id,type,mode,manage,q,category,status,limit,offset,page,activityId,clubKey,club,batch,tag,from,to,payment,membership,nationality,gender. Do not add sort,order,fields,format or download query keys. For a Word export format=docx, queryJson={} unless filtering. Once a read succeeds, answer using that result; do not repeat the same read. If a tool reports a validation error, correct its parameters without claiming success. The answer field is a natural reply to the user, not an instruction to a third party. PATCH body must include ONLY the user's requested changed fields and required identifiers/action; the server preserves omitted fields. Never copy truncated old text into a replacement field. If duplicate names match, ask for a student ID or email to disambiguate before preparing a write.";
   let lastRows: DocumentRow[] = [];
   const seenReads = new Set<string>();
@@ -243,7 +246,7 @@ export async function clubAssistantReply(access: ClubAssistantAccess, request: R
         results.push({ sourceUnavailable: call.capability, instruction: "The export source could not be verified. No document was generated. Explain this and the next step." });
         return naturalReply("recovery");
       }
-      usedScopes.add(capability.scope);
+      if (!capability.publicRead) usedScopes.add(capability.scope);
       const token = createSignedWoohyukmonPayload({ kind: "club-export", actor: access.email, call, snapshot: "", format: decision.format as "xlsx" | "docx", title, expiresAt: Date.now() + 10 * 60 * 1000 } satisfies Approval);
       return withScope({ handled: true, kind: "answer", title: "문서 다운로드", summary: title, files: [{ name: `K_LINE.${decision.format}`, url: `/api/woohyukmon/club-assistant/export?token=${encodeURIComponent(token)}` }], model: generated.model });
     }
@@ -269,6 +272,7 @@ export async function clubAssistantReply(access: ClubAssistantAccess, request: R
       return withScope({ handled: true, kind: "confirmation", title: "변경 내용을 확인해 주세요", summary: `${title}\n단체: ${clubScopeLabels[capability.scope]}\n기능: ${call.capability} · ${call.method}`, rows: documentRows(call.body), token, tool: "club_operation", targetCount: 1, model: generated.model });
     }
     if (decision.action !== "read" || call.method !== "GET") throw new ClubAssistantError("조회 요청의 실행 방식이 올바르지 않습니다.");
+    if (call.capability === "site_evidence" && results.some(result => (result as Record<string, unknown>).capability === "site_evidence")) return finishRead();
     const readKey = hash({ capability: call.capability, query: Object.fromEntries(Object.entries(call.query).sort(([a], [b]) => a.localeCompare(b))) });
     if (seenReads.has(readKey)) return finishRead();
     seenReads.add(readKey);
@@ -279,7 +283,7 @@ export async function clubAssistantReply(access: ClubAssistantAccess, request: R
       results.push({ sourceUnavailable: call.capability, instruction: "The live source failed. Do not invent its contents or counts. Explain that no mutation executed and give a specific next step." });
       return naturalReply("recovery");
     }
-    usedScopes.add(capability.scope);
+    if (!capability.publicRead) usedScopes.add(capability.scope);
     lastRows = documentRows(data);
     const registrations = Array.isArray(data.registrations) ? data.registrations : [];
     const countBy = (field: string) => registrations.reduce((counts: Record<string, number>, row: Record<string, unknown>) => { const label = String(row[field] || "Unknown"); counts[label] = (counts[label] || 0) + 1; return counts; }, {});
