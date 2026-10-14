@@ -20,9 +20,9 @@ try {
     await page.locator('header a[href^="/login?"]').waitFor({ state: "attached" });
     const nav = page.locator(".mobile-bottom-nav");
     assert.equal(await nav.isVisible(), width < 768);
-    assert.equal(await nav.getByRole("link").count(), 1);
-    assert.equal(await nav.getByRole("button", { name: /Woohyukmon|우혁몬/ }).count(), 1);
-    assert.equal(await nav.getByRole("button", { name: "My clubs" }).count(), 1);
+    assert.equal(await nav.locator("a").count(), 1);
+    assert.equal(await nav.locator('button[aria-controls="global-woohyukmon"]').count(), 1);
+    assert.equal(await nav.locator('button[aria-controls="mobile-my-clubs"]').count(), 1);
     assert.equal(await nav.locator('[aria-current="page"]').getAttribute("href"), "/");
     if (width < 768) {
       const menu = page.locator('[aria-controls="kline-mobile-navigation"]');
