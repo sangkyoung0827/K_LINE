@@ -17,6 +17,7 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(base);
+    await page.locator('header a[href^="/login?"]').waitFor({ state: "visible" });
     const nav = page.locator(".mobile-bottom-nav");
     assert.equal(await nav.isVisible(), width < 768);
     assert.equal(await nav.getByRole("link").count(), 1);
