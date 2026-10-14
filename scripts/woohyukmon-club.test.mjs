@@ -28,7 +28,7 @@ test("all role pages get only their existing granted scopes; ordinary/anonymous/
       for (const cap of Object.values(h.api.clubCapabilities)) {
         const key = Object.keys(h.api.clubCapabilities).find(key => h.api.clubCapabilities[key] === cap);
         const call = { capability: key, method: cap.methods[0], query: { id: "qa-id" }, body: key === "event_plan" ? { action: "plan", clubKey: "ecc", message: "QA" } : {} };
-        if (scopes.includes(cap.scope)) assert.doesNotThrow(() => h.api.assertCapability(access, call));
+        if (cap.publicRead || scopes.includes(cap.scope)) assert.doesNotThrow(() => h.api.assertCapability(access, call));
         else assert.throws(() => h.api.assertCapability(access, call), /권한/);
       }
     }
@@ -72,6 +72,125 @@ test("model cannot invent routes, select another club or execute a GET as a muta
       await assert.rejects(h.api.clubAssistantReply(access, qaRequest({}), { message: "회원 작업", scope: "ecc" }));
     }
     assert.equal(h.state.calls.length, 0);
+  } finally { await h.close(); }
+});
+
+test("a provider refusal is shown explicitly without parsing it as an execution plan", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.aiResponse = { status: "completed", model: "gpt-6-luna", output: [{ type: "message", content: [{ type: "refusal", refusal: "Declined" }] }] };
+    const response = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 누적 참여자 몇명인가요" });
+    assert.equal(response.kind, "answer"); assert.equal(response.refused, true);
+    assert.match(response.summary, /거절/); assert.doesNotMatch(response.summary, /구체적으로/);
+    assert.equal(h.state.calls.length, 0);
+  } finally { await h.close(); }
+});
+
+test("a commentary followed by a valid final plan does not cause the reported JSON error", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.aiResponse = { status: "completed", model: "gpt-6-luna", output: [
+      { type: "message", phase: "commentary", content: [{ type: "output_text", text: "확인하겠습니다." }] },
+      { type: "message", phase: "final_answer", content: [{ type: "output_text", text: JSON.stringify(decision("answer", "ecc_applicants")) }] }
+    ] };
+    const response = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 누적 참여자 몇명인가요" });
+    assert.equal(response.kind, "answer"); assert.equal(h.state.calls.length, 0);
+  } finally { await h.close(); }
+});
+
+test("repeated invalid plans recover with a natural read-only reply without leaking the bad output", async () => {
+  const h = await clubHarness();
+  try {
+    const invalid = { status: "completed", model: "gpt-6-luna", output: [{ type: "message", phase: "final_answer", content: [{ type: "output_text", text: "private-invalid-model-content" }] }] };
+    h.state.aiResponses = [invalid, invalid];
+    h.state.naturalAnswer = "현재 신청 기록을 확인하지 못했습니다. 현재 신청자 수와 과거 참석 인원 중 무엇을 확인할까요?";
+    const response = await h.api.POST(qaRequest({ message: "ECC confidential-user-prompt" }));
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.kind, "answer"); assert.match(body.summary, /신청 기록/);
+    assert.doesNotMatch(JSON.stringify(body), /private-invalid|confidential-user|구체적으로/);
+    assert.equal(h.state.calls.length, 0);
+    assert.equal(h.state.aiCalls, 3);
+  } finally { await h.close(); }
+});
+
+test("an informal conversation or translation is not forced into club selection and is not truncated", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.scopes = ["ecc", "hanhwal"];
+    h.state.decisions.push(decision("conversation", ""));
+    h.state.naturalAnswer = "번역문 ".repeat(700);
+    const response = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "이 문장들 자연스럽게 영어로 바꿔줘", history: [{ role: "user", content: "번역할 원문" }] });
+    assert.equal(response.summary, h.state.naturalAnswer.trim()); assert.ok(response.summary.length > 2000);
+    assert.equal(h.state.calls.length, 0); assert.equal(h.state.lastPrompt.text, undefined);
+    assert.match(h.state.lastPrompt.instructions, /General conversation does not require a club selection/);
+  } finally { await h.close(); }
+});
+
+test("a contextual Excel follow-up keeps the prior authorized club, not another page's default", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.scopes = ["ecc", "hanhwal"];
+    h.state.decisions.push(decision("export", "ecc_members", "GET", {}, {}, "xlsx"));
+    const history = [{ role: "user", content: "ECC 회원 명부를 보여줘" }, { role: "assistant", content: "회원 현황을 확인했습니다." }];
+    const response = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "그거 엑셀로", scope: "hanhwal", history });
+    assert.equal(response.scope, "ecc"); assert.ok(response.files?.length);
+    assert.ok(h.state.calls.every(call => call.method === "GET" && call.resource.includes("ecc/")));
+  } finally { await h.close(); }
+});
+
+test("ambiguous cross-club management asks one relevant question without a read or write", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.scopes = ["ecc", "hanhwal"];
+    h.state.decisions.push({ ...decision("clarify", ""), answer: "ECC와 한활 중 어느 회원 현황을 확인할까요?" });
+    const response = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "회원들 어때?" });
+    assert.match(response.summary, /ECC와 한활/); assert.equal(response.scope, undefined);
+    assert.equal(h.state.calls.length, 0);
+  } finally { await h.close(); }
+});
+
+test("prior conversation beyond twelve messages is retained without granting extra permissions", async () => {
+  const h = await clubHarness();
+  try {
+    const history = [{ role: "user", content: "EARLIER-ECC-CONTEXT ECC 이름 순으로" }, ...Array.from({ length: 15 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: "이전 대화 " + i }))];
+    h.state.decisions.push(decision("conversation", ""));
+    await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "그거 정리해줘", history });
+    assert.ok(h.state.lastPrompt.input.some(item => item.content.includes("EARLIER-ECC-CONTEXT")));
+    assert.equal(h.state.calls.length, 0);
+    assert.match(h.state.lastPrompt.instructions, /NEVER proof of permissions/);
+  } finally { await h.close(); }
+});
+
+test("a malformed plan is repaired once before any source call, but refusal is never retried", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.aiResponses = [{ status: "completed", output: [{ content: [{ type: "output_text", text: "not-json" }] }] }];
+    h.state.decisions.push(decision("read", "ecc_members"));
+    const response = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 회원들 좀 봐줘" });
+    assert.equal(response.kind, "answer"); assert.equal(h.state.aiCalls, 3);
+    assert.ok(h.state.calls.every(call => call.method === "GET"));
+    h.state.aiResponses = [{ status: "completed", output: [{ content: [{ type: "refusal" }] }] }];
+    const before = h.state.aiCalls;
+    const refused = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 회원 조회" });
+    assert.equal(refused.refused, true); assert.equal(h.state.aiCalls, before + 1);
+  } finally { await h.close(); }
+});
+
+test("quota failures and source outages give honest next steps without mutations or fabricated files", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.aiResponses = [{ errorStatus: 429 }];
+    const limited = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 회원 조회" });
+    assert.match(limited.summary, /사용량 한도/); assert.equal(h.state.aiCalls, 1); assert.equal(h.state.calls.length, 0);
+    h.state.routeStatus = 503;
+    h.state.decisions.push(decision("export", "ecc_members", "GET", {}, {}, "xlsx"));
+    h.state.naturalAnswer = "회원 명부 저장소에 연결하지 못해 엑셀은 만들지 않았습니다. 잠시 후 다시 확인할 수 있습니다.";
+    const failed = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 회원 명부 엑셀로" });
+    assert.equal(failed.files, undefined); assert.match(failed.summary, /만들지 않았/);
+    assert.ok(h.state.calls.every(call => call.method === "GET"));
+    h.state.routeStatus = 403; h.state.decisions.push(decision("read", "ecc_members"));
+    await assert.rejects(h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "ECC 조회" }), error => error.status === 403);
   } finally { await h.close(); }
 });
 
@@ -189,6 +308,7 @@ test("cross-origin POST, oversized requests and code/deployment requests cannot 
   try {
     const foreign = new Request("http://127.0.0.1:3358/api/woohyukmon/club-assistant", { method: "POST", headers: { Origin: "https://evil.test" }, body: "{}" });
     assert.equal((await h.api.POST(foreign)).status, 403);
+    assert.equal((await h.api.POST(qaRequest({ message: "x".repeat(120001) }))).status, 413);
     const blocked = await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), { message: "사이트 코드 수정하고 재배포" });
     assert.match(blocked.summary, /접근하지 않습니다/); assert.equal(h.state.aiCalls, 0); assert.equal(h.state.calls.length, 0);
   } finally { await h.close(); }

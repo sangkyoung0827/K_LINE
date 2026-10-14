@@ -2,10 +2,11 @@ import "server-only";
 import type { AssistantScope } from "./club-access";
 
 type Module = Record<string, unknown>;
-export type Capability = { scope: AssistantScope; path: string; methods: string[]; description: string; load: () => Promise<Module>; defaults?: Record<string, string>; readMethod?: string };
+export type Capability = { scope: AssistantScope; path: string; methods: string[]; description: string; load: () => Promise<Module>; defaults?: Record<string, string>; readMethod?: string; publicRead?: boolean };
 
 // Closed registry: no user/model-provided URLs, imports, SQL, filesystem or shell.
 export const clubCapabilities: Record<string, Capability> = {
+  site_evidence: { scope: "research", publicRead: true, path: "/api/woohyukmon/site-data", methods: ["GET"], description: 'KLINE 전체 공개 활동·ECC 자료실·공개 연구 검색 및 이미 관리 권한을 받은 동아리의 익명 신청 집계. GET {q:질문}. 선택된 동아리와 관계없이 전체 자료를 비교한다. 조회 실패/비공개는 자료 없음이 아니다. 신청수와 실제 선호·출석을 구분하고 source/path/coverage를 근거로 추천한다. 임의 URL·SQL·개인 추억록·원본 응답·비밀키 불가.', load: () => import("@/app/api/woohyukmon/site-data/route") },
   ecc_members: { scope: "ecc", path: "/api/ecc/member-registrations", methods: ["GET", "PATCH"], description: '전체 가입자·회비·정식회원. GET query {q, payment:paid/unpaid, membership:official/pending, nationality,gender} 문자열 조건. PATCH {registrations:[{id,paymentConfirmed,adminNote}]} 기존 승인 로직을 유지한다.', load: () => import("@/app/api/ecc/member-registrations/route") },
   ecc_roles: { scope: "ecc", path: "/api/ecc/roles", methods: ["GET", "PATCH"], description: '권한. PATCH {action,email}. action=approve_official_member/revoke_official_member/approve_admin/revoke_admin/approve_super_admin/revoke_super_admin. 상위 권한은 원래 API가 재검사한다.', load: () => import("@/app/api/ecc/roles/route") },
   ecc_activities: { scope: "ecc", path: "/api/ecc/activity-catalog", methods: ["GET", "POST", "PATCH", "DELETE"], description: '활동 CRUD. POST/PATCH {id,titleKo,titleEn,descriptionKo,descriptionEn}. DELETE query id. 새 활동은 닫힌 상태.', load: () => import("@/app/api/ecc/activity-catalog/route") },
@@ -49,5 +50,5 @@ export const clubCapabilities: Record<string, Capability> = {
 };
 
 export function allowedCapabilities(scopes: readonly AssistantScope[]) {
-  return Object.fromEntries(Object.entries(clubCapabilities).filter(([, capability]) => scopes.includes(capability.scope)));
+  return Object.fromEntries(Object.entries(clubCapabilities).filter(([, capability]) => capability.publicRead || scopes.includes(capability.scope)));
 }

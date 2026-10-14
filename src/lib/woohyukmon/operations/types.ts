@@ -31,6 +31,7 @@ export type WoohyukmonOperationResponse =
       contextTargetId?: string;
       contextTargetIds?: string[];
       files?: Array<{ name: string; url: string }>;
+      scope?: string;
     }
   | {
       handled: true;
@@ -48,6 +49,7 @@ export type WoohyukmonOperationResponse =
       tool: WoohyukmonOperationTool | "club_operation";
       targetCount: number;
       rows?: WoohyukmonTableRow[];
+      scope?: string;
     }
   | {
       handled: true;
