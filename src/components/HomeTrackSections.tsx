@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpen, CalendarRange, LibraryBig } from "lucide-react";
+import { ArrowRight, CalendarRange, LibraryBig } from "lucide-react";
+import { WoohyukmonLauncher } from "@/components/WoohyukmonLauncher";
+import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
 import { ClubMark } from "@/components/ClubMark";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { SocialImpactUnionMark } from "@/components/social-impact-union/SocialImpactUnionMark";
@@ -12,7 +14,7 @@ type HomeCard = {
   title: { en: string; ko: string };
   description: { en: string; ko: string };
   badge: { en: string; ko: string };
-  accent: "ecc" | "hanhwal" | "jeju" | "siu" | "research" | "studio";
+  accent: "ecc" | "hanhwal" | "woohyukmon" | "siu" | "research" | "studio";
 };
 
 const homeCards: HomeCard[] = [
@@ -47,14 +49,14 @@ const homeCards: HomeCard[] = [
     accent: "siu"
   },
   {
-    href: "/jeju",
-    title: { en: "Memory Book", ko: "추억록" },
+    href: "woohyukmon",
+    title: { en: "Woohyukmon", ko: "우혁몬" },
     description: {
-      en: "Make your own Korea Memory Book with places, ratings, photos, and your journey.",
-      ko: "대한민국 곳곳의 장소, 별점, 사진과 여행 기록으로 자신만의 한국 추억록을 만드세요."
+      en: "Your K_LINE assistant.",
+      ko: "K_LINE과 함께하는 우혁몬"
     },
-    badge: { en: "Memory Book", ko: "추억록" },
-    accent: "jeju"
+    badge: { en: "Woohyukmon", ko: "우혁몬" },
+    accent: "woohyukmon"
   },
   {
     href: "/event-studio",
@@ -94,16 +96,12 @@ export function HomeTrackSections({ showEventStudio = false }: { showEventStudio
 
 function HomePortalCard({ card }: { card: HomeCard }) {
   const { pick } = useLanguage();
-
-  return (
-    <Link
-      href={card.href}
-      className="group relative grid min-h-24 grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-3 rounded-lg border border-navy/10 bg-white/58 p-4 text-left transition duration-200 hover:border-brass/70 hover:bg-white/78 sm:flex sm:flex-col sm:items-stretch sm:gap-0 sm:rounded-xl sm:p-5 sm:shadow-[0_18px_45px_rgba(31,42,68,0.06)] md:min-h-[292px] md:rounded-2xl md:p-8"
-    >
+  const className = "group relative grid min-h-24 grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-3 rounded-lg border border-navy/10 bg-white/58 p-4 text-left transition duration-200 hover:border-brass/70 hover:bg-white/78 sm:flex sm:flex-col sm:items-stretch sm:gap-0 sm:rounded-xl sm:p-5 sm:shadow-[0_18px_45px_rgba(31,42,68,0.06)] md:min-h-[292px] md:rounded-2xl md:p-8";
+  const content = <>
       <div className="flex items-start justify-between gap-4">
-        {card.accent === "jeju" ? (
+        {card.accent === "woohyukmon" ? (
           <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dcefe8] text-[#0d5962] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
-            <BookOpen aria-hidden className="h-6 w-6 sm:h-8 sm:w-8" />
+            <WoohyukmonGlassesIcon alt="" className="h-6 w-8 sm:h-8 sm:w-12" />
           </span>
         ) : card.accent === "studio" ? (
           <span className="flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-[#dfeaf3] text-[#184b54] shadow-[0_14px_28px_rgba(31,42,68,0.12)] sm:h-16 sm:w-16">
@@ -133,7 +131,7 @@ function HomePortalCard({ card }: { card: HomeCard }) {
           {pick(card.title)}
         </h2>
         <p className="mt-1 text-xs leading-5 text-muted sm:hidden">
-          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : card.accent === "siu" ? <I18nText en="People, ideas & local impact" ko="사람 · 아이디어 · 지역의 변화" /> : card.accent === "research" ? <I18nText en="Culture, tradition & experience" ko="문화 · 전통 · 체험 연구" /> : card.accent === "studio" ? <I18nText en="Event plans, notices & forms" ko="행사 기획 · 공지 · 신청폼" /> : <I18nText en="Places, memories & WooHyukmon" ko="지도 · 여행 기록 · 우혁몬" />}
+          {card.accent === "ecc" ? <I18nText en="Membership & activities" ko="회원 등록 · 활동 신청" /> : card.accent === "hanhwal" ? <I18nText en="Traditional archery club" ko="전통 국궁 동아리" /> : card.accent === "siu" ? <I18nText en="People, ideas & local impact" ko="사람 · 아이디어 · 지역의 변화" /> : card.accent === "research" ? <I18nText en="Culture, tradition & experience" ko="문화 · 전통 · 체험 연구" /> : card.accent === "studio" ? <I18nText en="Event plans, notices & forms" ko="행사 기획 · 공지 · 신청폼" /> : "K_LINE"}
         </p>
         <p className="mt-2 hidden text-sm font-medium leading-6 text-muted sm:mt-4 sm:block sm:leading-7 md:mt-6 md:min-h-[4.5rem]">
           {pick(card.description)}
@@ -141,9 +139,11 @@ function HomePortalCard({ card }: { card: HomeCard }) {
       </div>
 
       <span className="inline-flex items-center gap-2 text-sm font-bold text-navy sm:mt-6 md:mt-7">
-        <span className="hidden sm:inline"><I18nText en="View Details" ko="자세히 보기" /></span>
+        <span className="hidden sm:inline">{card.accent === "woohyukmon" ? <I18nText en="Open Woohyukmon" ko="우혁몬 열기" /> : <I18nText en="View Details" ko="자세히 보기" />}</span>
         <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-1" />
       </span>
-    </Link>
-  );
+    </>;
+  return card.accent === "woohyukmon"
+    ? <WoohyukmonLauncher data-home-woohyukmon className={className}>{content}</WoohyukmonLauncher>
+    : <Link href={card.href} className={className}>{content}</Link>;
 }

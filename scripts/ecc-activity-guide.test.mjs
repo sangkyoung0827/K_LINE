@@ -109,7 +109,8 @@ test("member guide bypasses operations, guards confirmation, and keeps server au
   assert.match(widget, /!readOnly && !activityGuide && message.operation\?\.kind === "confirmation"/);
   assert.match(widget, /activityGuide: activityGuide \? "ecc" : undefined/);
   const gate = readFileSync("src/components/GlobalWoohyukmonGate.tsx", "utf8");
-  assert.match(gate, /actorEmail.toLowerCase\(\) !== sessionEmail.toLowerCase\(\)/);
+  assert.match(gate, /actorEmail.toLowerCase\(\) === sessionEmail.toLowerCase\(\)/);
+  assert.match(gate, /const management = verified && !access.readOnly && Boolean\(access.scopes\?\.length\)/);
   assert.match(gate, /const activityPath = pathname === "\/our-activities\/ecc\/activity" \? pathname : ""/);
   assert.match(gate, /\[activityPath, sessionEmail, status\]/);
   const operations = readFileSync("src/app/api/woohyukmon/operations/route.ts", "utf8");

@@ -40,5 +40,19 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Mobile navigation and Woohyukmon handoff verification
+        env:
+          AUTH_SECRET: isolated-browser-safety-not-a-production-secret
+          AUTH_TRUST_HOST: "true"
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3301 > /tmp/kline-mobile-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:3301/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/mobile-layout.smoke.mjs
+
       - name: V4 isolation safety
         run: npm run check:v4-isolation

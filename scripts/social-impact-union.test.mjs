@@ -78,7 +78,10 @@ test("SIU and existing home cards share the exact responsive wrapper, with prese
     const { HomeTrackSections } = load("src/components/HomeTrackSections.tsx", language);
     const html = renderToStaticMarkup(React.createElement(HomeTrackSections, { showEventStudio }));
     const cards = [...html.matchAll(/<a href="([^"]+)" class="([^"]+)"/g)];
-    assert.deepEqual(cards.map((card) => card[1]), ["/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", "/jeju", ...(showEventStudio ? ["/event-studio"] : []), "/open-k-culture-research"]);
+    assert.deepEqual(cards.map((card) => card[1]), ["/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", ...(showEventStudio ? ["/event-studio"] : []), "/open-k-culture-research"]);
+    const assistantCard = html.match(/<button\b[^>]*data-home-woohyukmon="true"[^>]*class="([^"]+)"/);
+    assert.ok(assistantCard);
+    assert.equal(assistantCard[1], cards[0][2]);
     assert.equal(new Set(cards.map((card) => card[2])).size, 1);
     assert.match(html, /md:grid-cols-2 xl:grid-cols-3/);
     assert.match(html, /grid-cols-\[44px_minmax\(0,1fr\)_20px\]/);
@@ -121,7 +124,10 @@ test("anonymous SIU access does not open any existing protected page or a future
   for (const path of ["/social-impact-union/activities", "/social-impact-union/activities/00000000-0000-0000-0000-000000000001"]) {
     assert.equal((await middleware(new NextRequest("https://kline.test" + path))).status, 200);
   }
-  for (const path of ["/ecc-join", "/ecc-official", "/hanhwal-join", "/hanhwal-official", "/developer", "/jeju", "/v4", "/social-impact-union/admin", "/social-impact-union/my", "/social-impact-union/activities/create"]) {
+  for (const path of ["/jeju", "/jeju/profile", "/jeju/map", "/jeju/memories", "/jeju/program", "/jeju/discover", "/jeju/ai", "/jeju/place/example"]) {
+    assert.equal((await middleware(new NextRequest("https://kline.test" + path))).status, 200);
+  }
+  for (const path of ["/ecc-join", "/ecc-official", "/hanhwal-join", "/hanhwal-official", "/developer", "/jeju/admin", "/v4", "/social-impact-union/admin", "/social-impact-union/my", "/social-impact-union/activities/create"]) {
     const result = await middleware(new NextRequest(`https://kline.test${path}`));
     assert.equal(result.status, 307, path);
     assert.equal(new URL(result.headers.get("location")).pathname, "/login", path);
@@ -136,7 +142,9 @@ test("desktop navigation excludes SIU while preserving other destinations and co
       assert.match(html, /hidden min-w-0 flex-wrap items-center justify-center/);
       assert.match(html, /flex min-w-0 shrink-0 items-center gap-1/);
       const links = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
-      for (const path of ["/", "/our-activities", "/our-activities/ecc", "/our-activities/hanhwal", "/jeju"]) assert.ok(links.includes(path));
+      for (const path of ["/", "/our-activities", "/our-activities/ecc", "/our-activities/hanhwal"]) assert.ok(links.includes(path));
+      assert.ok(!links.includes("/jeju"));
+      assert.match(html, /aria-controls="global-woohyukmon"/);
       assert.equal(links.includes("/developer"), developer);
       assert.equal(links.includes("/cart"), developer);
       assert.equal(links.filter((path) => path === "/social-impact-union").length, 0);

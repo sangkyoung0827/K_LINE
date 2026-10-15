@@ -4,6 +4,7 @@ import { useEffect, useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { activityGuideAccess } from "@/lib/woohyukmon/activity-guide-access";
+import { openWoohyukmonEvent } from "@/components/WoohyukmonLauncher";
 
 type AccessResponse = {
   email?: string;
@@ -16,6 +17,7 @@ type AccessResponse = {
 };
 
 type AgentProps = {
+  launchRequest: number;
   actorRole: string;
   actorEmail: string;
   activityGuide: boolean;
@@ -28,11 +30,18 @@ export function GlobalWoohyukmonGate() {
   const [actorRole, setActorRole] = useState("");
   const [actorEmail, setActorEmail] = useState("");
   const [access, setAccess] = useState<AccessResponse>({});
+  const [launchRequest, setLaunchRequest] = useState(0);
   const pathname = usePathname();
   const activityPath = pathname === "/our-activities/ecc/activity" ? pathname : "";
   const { data: session, status } = useSession();
   const sessionEmail = session?.user?.email ?? "";
   const guide = activityGuideAccess(pathname, access);
+
+  useEffect(() => {
+    const open = () => setLaunchRequest(value => value + 1);
+    window.addEventListener(openWoohyukmonEvent, open);
+    return () => window.removeEventListener(openWoohyukmonEvent, open);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -49,17 +58,12 @@ export function GlobalWoohyukmonGate() {
         return { ...result, isAdmin: !result.readOnly && Boolean(result.scopes?.length), isLoggedIn: Boolean(result.email), role: Object.values(result.roles || {})[0] || "member" };
       })
       .then(async (access) => {
-        if (!access || access.readOnly || !activityGuideAccess(activityPath, access).visible || controller.signal.aborted) return;
+        if (!access || controller.signal.aborted) return;
         if (access.email?.toLowerCase() !== sessionEmail.toLowerCase()) return;
-
-        const module = await import("@/components/GlobalWoohyukmon");
-
-        if (controller.signal.aborted) return;
 
         setActorRole(access.role || (access.isAdmin ? "admin" : "member"));
         setActorEmail(access.email || "");
         setAccess(access);
-        setAgent(() => module.GlobalWoohyukmon);
       })
       .catch(() => undefined);
 
@@ -68,9 +72,20 @@ export function GlobalWoohyukmonGate() {
     };
   }, [activityPath, sessionEmail, status]);
 
-  if (!Agent || !guide.visible || status !== "authenticated" || actorEmail.toLowerCase() !== sessionEmail.toLowerCase()) {
+  useEffect(() => {
+    if ((!launchRequest && !guide.visible) || status === "loading") return;
+    let cancelled = false;
+    import("@/components/GlobalWoohyukmon").then(module => {
+      if (!cancelled) setAgent(() => module.GlobalWoohyukmon);
+    });
+    return () => { cancelled = true; };
+  }, [launchRequest, guide.visible, status]);
+
+  if (!Agent || status === "loading" || (!launchRequest && !guide.visible)) {
     return null;
   }
 
-  return <Agent key={`${actorEmail}:${guide.activityGuide}:${guide.readOnly}`} actorRole={actorRole} actorEmail={actorEmail} activityGuide={guide.activityGuide} readOnly={guide.readOnly} scopes={access.scopes} />;
+  const verified = status === "authenticated" && actorEmail.toLowerCase() === sessionEmail.toLowerCase() && Boolean(sessionEmail);
+  const management = verified && !access.readOnly && Boolean(access.scopes?.length);
+  return <Agent key={`${sessionEmail}:${management}:${guide.activityGuide}`} actorRole={verified ? actorRole : "visitor"} actorEmail={sessionEmail} activityGuide={guide.activityGuide} readOnly={!management} scopes={management ? access.scopes : []} launchRequest={launchRequest} />;
 }

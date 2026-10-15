@@ -5,7 +5,7 @@ Local-only follow-up to the My clubs bottom navigation. Not deployed or pushed.
 ## Scope
 
 - Mobile hamburger menu: My Journey profile, ECC, Hanhwal.
-- The profile entry links to the existing `/jeju/profile` page.
+- The first entry opens Woohyukmon. Web Memory Book entry points were replaced; old `/jeju` addresses now show the app handoff notice. Memory APIs and the app embed remain separate and unchanged.
 - Club groups use native keyboard-accessible, initially collapsed disclosures.
 - Existing club home, registration and official links are grouped under their club.
 - Official members get shortcuts to existing activity and board pages.

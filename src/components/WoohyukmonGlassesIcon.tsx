@@ -4,8 +4,8 @@ type WoohyukmonGlassesIconProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>
 
 export function WoohyukmonGlassesIcon({
   className,
-  title = "Woohyukmon glasses icon",
   alt,
+  title = alt === "" ? undefined : "Woohyukmon glasses icon",
   draggable = false,
   ...props
 }: WoohyukmonGlassesIconProps) {
