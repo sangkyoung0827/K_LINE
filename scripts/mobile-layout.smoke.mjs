@@ -11,6 +11,76 @@ const output = process.env.MOBILE_SCREENSHOT_DIR || join(tmpdir(), "kline-mobile
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 
+async function checkWideAnswer(width) {
+  const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
+  const email = "layout-test@example.invalid";
+  const summary = "신청 건수와 실제 참석 기록을 구분한 격리된 화면 검증용 답변입니다. ".repeat(8)
+    + " A-long-unbroken-reference-" + "x".repeat(200);
+  const requests = [];
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  // All API requests are fixtures: no real login, model calls or conversation writes.
+  await page.route("**/api/**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    const method = route.request().method();
+    requests.push(`${method} ${path}`);
+    let json = {};
+    if (path === "/api/auth/session") json = { user: { email, name: "Layout Test" }, expires: "2099-01-01T00:00:00.000Z" };
+    else if (path === "/api/woohyukmon/club-assistant" && method === "GET") json = { email, scopes: ["ecc", "hanhwal"], roles: { ecc: "admin" }, readOnly: false };
+    else if (path === "/api/woohyukmon/club-assistant" && method === "POST") json = {
+      handled: true, kind: "answer", title: "ECC layout test", summary,
+      rows: [Object.fromEntries(Array.from({ length: 28 }, (_, index) => [`evidence_column_${index}`, `isolated-value-${index}`]))]
+    };
+    else if (path === "/api/woohyukmon/chats") json = { chat: { id: "isolated-layout-chat" } };
+    await route.fulfill({ status: 200, json });
+  });
+  try {
+    await page.goto(base);
+    const launcher = width < 768 ? page.locator('.mobile-bottom-nav [aria-controls="global-woohyukmon"]')
+      : width >= 1024 ? page.locator('header [aria-controls="global-woohyukmon"]')
+        : page.locator('[data-home-woohyukmon]');
+    await launcher.click();
+    const dialog = page.getByRole("dialog", { name: "Woohyukmon", exact: true });
+    await dialog.getByRole("combobox").selectOption("ecc");
+    await dialog.getByRole("textbox").fill("ECC 신청 건수와 실제 참석 기록을 구분해 조회만 해주세요. ".repeat(6));
+    await dialog.getByRole("button", { name: "Send", exact: true }).click();
+    const table = dialog.locator("[data-woohyukmon-table]");
+    await table.waitFor();
+    await page.waitForFunction(() => !document.querySelector('[role="dialog"] [role="status"]'));
+    const geometry = await dialog.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      return {
+        messages: [...element.querySelectorAll("[data-woohyukmon-message]")].map(message => {
+          const box = message.getBoundingClientRect();
+          const text = message.firstElementChild;
+          return { withinDialog: box.left >= bounds.left && box.right <= bounds.right,
+            overflow: message.scrollWidth > message.clientWidth + 1,
+            textOverflow: text.scrollWidth > text.clientWidth + 1,
+            textHeight: text.getBoundingClientRect().height,
+            lineHeight: Number.parseFloat(getComputedStyle(text).lineHeight) };
+        }),
+        tableScrollable: element.querySelector("[data-woohyukmon-table]").scrollWidth
+          > element.querySelector("[data-woohyukmon-table]").clientWidth + 1
+      };
+    });
+    assert.equal(geometry.messages.length, 2);
+    for (const message of geometry.messages) {
+      assert.ok(message.withinDialog && !message.overflow && !message.textOverflow, `Clipped message at ${width}px: ${JSON.stringify(message)}`);
+      assert.ok(message.textHeight > message.lineHeight * 2, `Text did not wrap at ${width}px`);
+    }
+    assert.ok(geometry.tableScrollable, `Wide evidence table must scroll independently at ${width}px`);
+    await table.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+    assert.ok(await table.evaluate(element => element.scrollLeft > 0));
+    assert.ok(requests.includes("POST /api/woohyukmon/club-assistant"));
+    assert.ok(!requests.includes("POST /api/gemini"));
+    assert.deepEqual(errors, []);
+    await page.screenshot({ path: join(output, `woohyukmon-wide-answer-${width}.png`) });
+    console.log(`PASS wrapped messages and independently scrolling evidence table: ${width}px`);
+  } finally {
+    await page.close();
+  }
+}
+
 try {
   for (const width of [320, 390, 430, 768, 1440]) {
     const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
@@ -86,6 +156,7 @@ try {
     assert.equal(await page.getByRole("textbox").count(), 0);
     await page.close();
     console.log(`PASS home, navigation, dialog, app notice and overflow: ${width}px`);
+    await checkWideAnswer(width);
   }
 } finally {
   await browser.close();
