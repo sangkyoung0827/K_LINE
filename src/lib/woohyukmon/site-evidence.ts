@@ -25,8 +25,8 @@ const readers: Reader[] = [
 ];
 
 export function needsSiteEvidence(message: string) {
-  return /k[_\s-]?line|케이라인|활동|행사|프로그램|자료|공지|activity|event|program|library|research/i.test(message)
-    && /추천|선호|좋아|인기|비교|기반|검색|찾아|찾아줘|조회|recommend|prefer|popular|compar|search|find|based\s+on/i.test(message);
+  return /k[_\s-]?line|케이라인|활동|행사|이벤트|프로그램|자료|공지|activity|event|program|library|research/i.test(message)
+    && /추천|선호|좋아|인기|비교|기반|검색|찾아|찾아줘|조회|기획|recommend|prefer|popular|compar|search|find|plan|based\s+on/i.test(message);
 }
 
 const text = (value: unknown, limit = 600) => typeof value === "string" ? value.slice(0, limit) : "";
@@ -114,7 +114,7 @@ export async function loadSiteEvidence(access: ClubAssistantAccess, request: Req
   const evidence = {
     asOf: new Date().toISOString(), sources: sources.sort((a, b) => Number(Boolean(b.applicationStatistics)) - Number(Boolean(a.applicationStatistics))),
     publishedSiteReferences: rankRecords(publicActivities.map(item => ({ title: item.title, description: item.content, tags: item.tags, href: `/our-activities/${item.slug}`, evidenceType: "site reference, NOT verified attendance or preference" })), query),
-    limitations: ["Application counts measure returned registrations, NOT unique participants, verified attendance, satisfaction or a preference survey. Use completeServerTotals for all-activity totals, and applicationStatistics for a specific activity. Never substitute one activity's count for the total.", "Foreign nationality counts come from self-reported nationality; missing/unknown values are separate.", "No personal memory books, individual preference profiles, raw Google Form answers, private files or member contact data are included.", "A failed or unauthorized source is NOT evidence that the club has no records.", "Recommend useful proposed programs from available evidence; distinguish observed signals from hypotheses, cite source paths and scope. Never claim all foreigners prefer one event."]
+    limitations: ["Application counts measure returned registrations, NOT unique participants, verified attendance, satisfaction or a preference survey. Use completeServerTotals for all-activity totals, and applicationStatistics for a specific activity. Never substitute one activity's count for the total.", "Foreign nationality counts come from self-reported nationality; missing/unknown values are separate.", "A lesson file or notice only proves that material exists. It does NOT establish popularity, positive feedback, attendance or success. Do not describe a topic as well-received without explicit outcome evidence.", "No personal memory books, individual preference profiles, raw Google Form answers, private files or member contact data are included.", "A failed or unauthorized source is NOT evidence that the club has no records.", "Recommend useful proposed programs from available evidence; distinguish observed signals from hypotheses, cite source paths and scope. Never claim all foreigners prefer one event."]
   };
   // Keep source availability and exact totals intact before trimming text excerpts.
   while (JSON.stringify(evidence).length > 32000) {

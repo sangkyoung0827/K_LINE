@@ -25,6 +25,36 @@ export function siteFixtures() {
   };
 }
 
+test("natural club and event wording triggers evidence retrieval, not generic conversation", async () => {
+  const h = await clubHarness();
+  try {
+    for (const message of [
+      "우혁몬, ECC 관련 데이터를 기반으로 다음 이벤트를 기획해줘.",
+      "ECC 데이터로 다음 이벤트 추천해줘",
+      "한활 데이터를 기반으로 다음 이벤트를 기획해줘",
+      "Plan the next ECC event based on our data"
+    ]) assert.equal(h.api.needsSiteEvidence(message), true, message);
+    for (const message of ["안녕하세요", "오늘 저녁 메뉴 추천해줘", "Help me plan my day", "ECC 회원 명부 조회"])
+      assert.equal(h.api.needsSiteEvidence(message), false, message);
+  } finally { await h.close(); }
+});
+
+test("the reported ECC event prompt preloads actual authorized sources before planning", async () => {
+  const h = await clubHarness();
+  try {
+    h.state.resourceData = siteFixtures();
+    h.state.decisions.push({ ...decision("answer", ""), answer: "조회 자료와 제안을 구분합니다." });
+    await h.api.clubAssistantReply(await h.api.getClubAssistantAccess(), qaRequest({}), {
+      scope: "ecc", message: "우혁몬, ECC 관련 데이터를 기반으로 다음 이벤트를 기획해줘."
+    });
+    assert.match(h.state.lastPrompt.instructions, /foreignApplications\\?":2/);
+    assert.match(h.state.lastPrompt.instructions, /Do not describe a topic as well-received/);
+    assert.ok(h.state.calls.some(call => call.resource.includes("ecc/applications")));
+    assert.ok(h.state.calls.every(call => call.method === "GET"));
+    assert.doesNotMatch(h.state.lastPrompt.instructions, /PRIVATE_/);
+  } finally { await h.close(); }
+});
+
 test("public discovery is available without management grants, but never touches private sources", async () => {
   const h = await clubHarness();
   try {
