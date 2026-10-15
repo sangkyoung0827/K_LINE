@@ -84,7 +84,7 @@ function CompactTable({ rows }: { rows: WoohyukmonTableRow[] }) {
   if (visibleRows.length === 0 || columns.length === 0) return null;
 
   return (
-    <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-ink/10 bg-white">
+    <div data-woohyukmon-table className="mt-3 min-w-0 max-w-full max-h-56 overflow-auto rounded-lg border border-ink/10 bg-white">
       <table className="w-full min-w-[320px] border-collapse text-left text-xs">
         <thead className="sticky top-0 bg-hanji">
           <tr>
@@ -605,14 +605,15 @@ export function GlobalWoohyukmon({ actorRole, actorEmail, activityGuide = false,
               </div>
             ) : null}
 
-            <div className="grid gap-3">
+            <div className="grid min-w-0 grid-cols-1 gap-3">
               {messages.filter(message => message.role === "user" || message.content || message.operation).map((message) => (
                 <div
                   key={message.id}
+                  data-woohyukmon-message={message.role}
                   className={
                     message.role === "user"
-                      ? "ml-10 rounded-2xl rounded-br-md bg-navy px-4 py-3 text-sm leading-6 text-paper"
-                      : "mr-2 rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 text-sm leading-6 text-ink"
+                      ? "ml-10 min-w-0 max-w-full rounded-2xl rounded-br-md bg-navy px-4 py-3 text-sm leading-6 text-paper"
+                      : "mr-2 min-w-0 max-w-full rounded-2xl rounded-bl-md border border-ink/10 bg-white px-4 py-3 text-sm leading-6 text-ink"
                   }
                 >
                   <div className="whitespace-pre-line break-words [overflow-wrap:anywhere]">{message.content}</div>
