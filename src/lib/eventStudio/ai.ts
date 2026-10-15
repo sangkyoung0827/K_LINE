@@ -31,6 +31,7 @@ If a proposed step needs materials, phrase it conditionally ("if tea and postcar
 Never invent dates, deadlines, locations, price, capacity, benefits, equipment, transport, staffing, eligibility or links.
 Unknown operational fields are null and listed as missingInformation; distinguish suggestions from confirmed arrangements.
 Copy supplied ISO dates exactly. Do not infer a timezone, time or year. Preserve venue names verbatim in both languages.
+Explicit Korean year/month/day expressions may be normalized to ISO. Use +09:00 only when Korea time or KST is explicitly stated; without a timezone leave a timed date unknown and request clarification. Do not add a time to a date-only expression.
 Use verified official rules only for their own club/activity, never ECC penalties for unrelated activities.
 Include exactly one required short_answer Name / 이름 question. Use optional experience/preferences only when relevant.
 Do not request email, phone, address, IDs, religion, sexual orientation, health, emergency contacts or post-event reflections.

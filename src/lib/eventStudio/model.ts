@@ -72,10 +72,32 @@ export function parseEventPlan(value: unknown, expectedClub: StudioClub): EventP
 }
 export function assertGrounded(plan: EventPlan, message: string) {
   for (const value of [plan.activityDate, plan.applicationDeadline]) {
-    if (value && !message.includes(value)) throw new StudioError("UNSUPPORTED_EVENT_DATE");
+    if (value && !supportsEventDate(value, message)) throw new StudioError("UNSUPPORTED_EVENT_DATE");
   }
   if (plan.location && !message.includes(plan.location)) throw new StudioError("UNSUPPORTED_EVENT_LOCATION");
   if (plan.capacity !== null && !new RegExp(`(?:^|\\D)${plan.capacity}\\s*(?:명|(?:people|participants|persons)\\b)|(?:정원|capacity)\\s*[:=]?\\s*${plan.capacity}(?:\\D|$)`, "i").test(message)) throw new StudioError("UNSUPPORTED_EVENT_CAPACITY");
+}
+
+// Accept explicit Korean calendar expressions without relaxing the ban on invented dates,
+// years, times, or timezones. Timed Korean expressions require an explicit Korea/KST marker.
+export function supportsEventDate(value: string, message: string) {
+  if (message.includes(value)) return true;
+  const koreaTime = /한국\s*시간|한국\s*표준시|KST|Asia\/Seoul/i.test(message);
+  const expressions = message.matchAll(/(?<!\d)(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?)?/g);
+  for (const match of expressions) {
+    const [, year, month, day, period, hour, minute] = match;
+    const date = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    const dateValue = Date.parse(`${date}T00:00:00Z`);
+    if (!Number.isFinite(dateValue) || new Date(dateValue).toISOString().slice(0, 10) !== date) continue;
+    if (hour === undefined) { if (value === date) return true; continue; }
+    if (!koreaTime || value.length === 10) continue;
+    let h = Number(hour);
+    if (period && (h < 1 || h > 12) || !period && h > 23 || Number(minute || 0) > 59) continue;
+    if (period) h = h % 12 + (period === "오후" ? 12 : 0);
+    const iso = `${date}T${String(h).padStart(2, "0")}:${(minute || "0").padStart(2, "0")}:00+09:00`;
+    if (Date.parse(value) === Date.parse(iso)) return true;
+  }
+  return false;
 }
 
 const nullableString = { anyOf: [{ type: "string" }, { type: "null" }] };
