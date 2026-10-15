@@ -27,7 +27,7 @@ export async function getGoogleFormsAccess(): Promise<GoogleFormsAccess> {
     return {
       email,
       authenticated: true,
-      canConnect: !global.isReadOnly && !isGoogleFormsAdminProduction(),
+      canConnect: !global.isReadOnly,
       isReadOnly: Boolean(global.isReadOnly),
       manageableClubs: isGoogleFormsAdminProduction() ? ["ecc"] : ["ecc", "social_impact_union", "jeju", "general"]
     };

@@ -22,7 +22,10 @@ function harness(envOverrides = {}) {
       throw new Error("Unknown RPC");
     }
     const [table, query = ""] = path.split("?");
-    if (table === "google_oauth_connections") return [{ account_email: "test@example.test", encrypted_refresh_token: "encrypted", scopes: [] }];
+    if (table === "google_oauth_connections") {
+      if (init.method === "POST") { control.savedConnection = JSON.parse(init.body); return []; }
+      return control.noConnection ? [] : [{ account_email: "test@example.test", encrypted_refresh_token: "encrypted", scopes: [] }];
+    }
     if (table === "site_members") return [];
     const params = new URLSearchParams(query);
     const rows = tables[table];
@@ -46,7 +49,7 @@ function harness(envOverrides = {}) {
     "@/lib/eccAccess": { getEccRoleRow: async (email, strict) => { assert.equal(strict, true); if (control.memberLookupError) throw control.memberLookupError; return control.memberRole || null; } },
     "@/lib/eccAccessRetry": { isTemporaryEccLookupError: error => error?.message === "transient" },
     "server-only": {}, "@/lib/googleForms/store": { supabaseRequest: store },
-    "@/lib/googleForms/crypto": { decryptGoogleToken: () => "test-refresh" },
+    "@/lib/googleForms/crypto": { decryptGoogleToken: () => "test-refresh", encryptGoogleToken: () => "encrypted-new-refresh" },
     "@/lib/googleForms/safety": { isGoogleFormsAdminProduction: () => envOverrides.GOOGLE_FORMS_ENVIRONMENT === "admin-production" && envOverrides.GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED === "true", assertGoogleFormsTestEnvironment: () => {}, assertGoogleFormsPublicationApproval: () => {}, assertGoogleFormsNoticePublicationApproval: () => { throw new Error("PUBLIC_NOTICE_PUBLICATION_REQUIRES_SEPARATE_APPROVAL"); } },
     "@/lib/googleForms/access": {
       GoogleFormsAuthorizationError: class extends Error { constructor(message, status) { super(message); this.status = status; } },
@@ -80,7 +83,13 @@ function harness(envOverrides = {}) {
       assert.equal(init.method, undefined);
       return Response.json([{ gathering_open_days: control.gatheringDays ?? ["wednesday"] }]);
     }
-    if (url.includes("oauth2.googleapis.com/token")) return Response.json({ access_token: "test-access" });
+    if (url.includes("oauth2.googleapis.com/token")) {
+      const params = new URLSearchParams(init.body);
+      if (params.get("grant_type") === "authorization_code") return Response.json({ access_token: "test-access", refresh_token: "test-new-refresh", scope: control.grantedScopes ?? "https://www.googleapis.com/auth/forms.body https://www.googleapis.com/auth/forms.responses.readonly https://www.googleapis.com/auth/drive.file" });
+      if (control.refreshFailed) return Response.json({}, { status: 400 });
+      return Response.json({ access_token: "test-access" });
+    }
+    if (url === "https://openidconnect.googleapis.com/v1/userinfo") return Response.json({ email: control.googleEmail || "test@example.test", email_verified: true });
     if (url.startsWith("https://www.googleapis.com/drive/v3/files/")) {
       control.permissionCalls = (control.permissionCalls || 0) + 1;
       const permissions = control.permissions ||= [];
@@ -834,4 +843,28 @@ test("shared-project migration preserves native data and denies browser roles", 
     assert.equal(rows.length, 8);
     assert.ok(rows.every((row) => row.relrowsecurity && !row.anon_read && !row.member_read));
   } finally { await db.close(); }
+});
+
+
+test("production reconnect repairs only the existing identity after scopes and offline refresh succeed", async () => {
+  const env = { GOOGLE_FORMS_ENVIRONMENT: "admin-production", GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED: "true", GOOGLE_FORMS_ORIGIN: "https://kline-nine-wheat.vercel.app" };
+  const h = harness(env); const api = h.load("src/lib/googleForms/googleApi.ts");
+  const url = new URL(api.googleAuthorizationUrl("test-state"));
+  assert.equal(url.searchParams.get("redirect_uri"), env.GOOGLE_FORMS_ORIGIN + "/api/google-forms/oauth/callback");
+  assert.equal(url.searchParams.get("access_type"), "offline");
+  h.control.googleEmail = "wrong@example.test";
+  await assert.rejects(api.connectGoogleOperationsAccount("code", "admin@example.test"), /ACCOUNT_MISMATCH/);
+  assert.equal(h.control.savedConnection, undefined);
+  h.control.googleEmail = "test@example.test"; h.control.refreshFailed = true;
+  await assert.rejects(api.connectGoogleOperationsAccount("code", "admin@example.test"), /token exchange failed/);
+  assert.equal(h.control.savedConnection, undefined);
+  h.control.refreshFailed = false; h.control.grantedScopes = "https://www.googleapis.com/auth/forms.body";
+  await assert.rejects(api.connectGoogleOperationsAccount("code", "admin@example.test"), /SCOPES_NOT_GRANTED/);
+  assert.equal(h.control.savedConnection, undefined);
+  delete h.control.grantedScopes;
+  await api.connectGoogleOperationsAccount("code", "admin@example.test");
+  assert.equal(h.control.savedConnection.account_email, "test@example.test");
+  assert.equal(h.control.savedConnection.encrypted_refresh_token, "encrypted-new-refresh");
+  const missing = harness(env); missing.control.noConnection = true;
+  await assert.rejects(missing.load("src/lib/googleForms/googleApi.ts").connectGoogleOperationsAccount("code", "admin@example.test"), /ACCOUNT_NOT_CONFIGURED/);
 });

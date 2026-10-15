@@ -327,3 +327,42 @@ test("remote question edits cannot pass as the approved form or save a notice", 
     assert.equal((await h.store.db.query("select count(*)::int as n from kline_forms_test_club_board_posts")).rows[0].n, 0);
   } finally { await h.close(); }
 });
+
+
+test("explicit Korean dates preserve year, clock precision and timezone grounding", async () => {
+  const h = await eventHarness(); try {
+    const message = "행사 2026년 10월 20일 오후 7시(한국시간), 마감 2026년 10월 19일 오후 6시(한국시간)";
+    assert.equal(h.api.supportsEventDate("2026-10-20T19:00:00+09:00", message), true);
+    assert.equal(h.api.supportsEventDate("2026-10-19T18:00:00+09:00", message), true);
+    assert.equal(h.api.supportsEventDate("2026-10-20T20:00:00+09:00", message), false);
+    assert.equal(h.api.supportsEventDate("2026-10-20T19:00:01+09:00", message), false);
+    assert.equal(h.api.supportsEventDate("2026-10-20T19:00:00Z", message), false);
+    assert.equal(h.api.supportsEventDate("2026-10-20T19:00:00+09:00", "2026년 10월 20일 오후 7시"), false);
+    assert.equal(h.api.supportsEventDate("2026-10-20T19:00:00+09:00", "10월 20일 오후 7시 한국시간"), false);
+    assert.equal(h.api.supportsEventDate("2026-10-20T19:00:00+09:00", "2026년 10월 20일 한국시간"), false);
+    assert.equal(h.api.supportsEventDate("2026-10-20", "2026년 10월 20일"), true);
+    assert.equal(h.api.supportsEventDate("2026-10-20", "2026년 13월 20일"), false);
+    assert.equal(h.api.supportsEventDate("2026-03-02", "2026년 2월 30일"), false);
+    assert.equal(h.api.supportsEventDate("2026-10-20T00:00:00+09:00", "2026년 10월 20일 오전 12시 KST"), true);
+    assert.equal(h.api.supportsEventDate("2026-10-20T12:30:00+09:00", "2026년 10월 20일 오후 12시 30분 KST"), true);
+    const p = { ...fixturePlan(), activityDate: "2026-10-20T19:00:00+09:00", applicationDeadline: "2026-10-19T18:00:00+09:00" };
+    h.control.currentPlan = p;
+    const generated = await h.api.generateEventPlan(h.access().email, "ecc", message + ", 장소 QA Library, 30명");
+    assert.equal(generated.plan.activityDate, p.activityDate);
+    assert.equal(h.control.aiCalls, 1);
+  } finally { await h.close(); }
+});
+
+test("only writable superadmins can reconnect production Forms; club admins stay restricted", async () => {
+  const h = await eventHarness(); try {
+    process.env.GOOGLE_FORMS_ENVIRONMENT = "admin-production";
+    process.env.GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED = "true";
+    assert.equal((await h.api.getGoogleFormsAccess()).canConnect, true);
+    h.control.readOnly = true;
+    assert.equal((await h.api.getGoogleFormsAccess()).canConnect, false);
+    h.control.readOnly = false; h.control.clubs = ["ecc"];
+    assert.equal((await h.api.getGoogleFormsAccess()).canConnect, false);
+    h.control.email = "";
+    assert.equal((await h.api.getGoogleFormsAccess()).canConnect, false);
+  } finally { await h.close(); }
+});
