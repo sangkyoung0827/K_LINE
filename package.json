@@ -24,7 +24,7 @@
     "test:my-clubs": "tsx --test src/lib/myClubs.test.ts",
     "test:ecc-gathering-days": "node --test scripts/ecc-gathering-days.test.mjs",
     "test:ecc-approval-retry": "node --test scripts/ecc-approval-retry.test.mjs scripts/ecc-outage-entry.test.mjs scripts/read-only-developer.test.mjs",
-    "test:woohyukmon": "tsx --test src/lib/woohyukmon/*.test.ts",
+    "test:woohyukmon": "tsx --test src/lib/woohyukmon/*.test.ts && node --test scripts/woohyukmon-progress.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
