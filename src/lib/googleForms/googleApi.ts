@@ -190,10 +190,10 @@ export async function createGoogleForm(draft: GoogleFormDraft, createdBy: string
   }
 }
 
-export async function setGoogleFormStatus(row: GoogleFormRegistryRow, status: GoogleFormStatus) {
+export async function setGoogleFormStatus(row: GoogleFormRegistryRow, status: GoogleFormStatus, internalTestApproved = false) {
   assertGoogleFormsTestEnvironment();
   if (row.status === "archived") throw new Error("EVENT_ARCHIVED");
-  if (status === "open" || status === "closed") assertGoogleFormsPublicationApproval();
+  if (status === "open" || status === "closed") assertGoogleFormsPublicationApproval(row, status, internalTestApproved);
   if (status === "open" && row.application_deadline && Date.parse(row.application_deadline) <= Date.now()) throw new Error("APPLICATION_DEADLINE_HAS_PASSED");
   await setPublication(row.google_form_id, status === "open" || status === "closed", status === "open");
   const rows = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${encodeURIComponent(row.id)}&status=eq.${row.status}&updated_at=eq.${encodeURIComponent(row.updated_at)}&select=${registryColumns}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status }) });

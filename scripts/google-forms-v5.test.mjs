@@ -53,7 +53,7 @@ function harness(envOverrides = {}) {
     "@/lib/googleForms/safety": { isGoogleFormsAdminProduction: () => envOverrides.GOOGLE_FORMS_ENVIRONMENT === "admin-production" && envOverrides.GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED === "true", assertGoogleFormsTestEnvironment: () => {}, assertGoogleFormsPublicationApproval: () => {}, assertGoogleFormsNoticePublicationApproval: () => { throw new Error("PUBLIC_NOTICE_PUBLICATION_REQUIRES_SEPARATE_APPROVAL"); } },
     "@/lib/googleForms/access": {
       GoogleFormsAuthorizationError: class extends Error { constructor(message, status) { super(message); this.status = status; } },
-      getGoogleFormsAccess: async () => ({ email: "admin@example.test", authenticated: control.authenticated, manageableClubs: control.manageableClubs ?? ["ecc"], isReadOnly: !control.canWrite }),
+      getGoogleFormsAccess: async () => ({ email: "admin@example.test", authenticated: control.authenticated, canConnect: control.canConnect === true, manageableClubs: control.manageableClubs ?? ["ecc"], isReadOnly: !control.canWrite }),
       assertClubAccess: (access, club, write) => {
         const ErrorType = stubs["@/lib/googleForms/access"].GoogleFormsAuthorizationError;
         if (!access.authenticated) throw new ErrorType("LOGIN_REQUIRED", 401);
@@ -117,7 +117,7 @@ function harness(envOverrides = {}) {
       }
       return Response.json({});
     }
-    if (url.endsWith(":setPublishSettings")) return Response.json({ formId: control.form.formId, publishSettings: JSON.parse(init.body).publishSettings });
+    if (url.endsWith(":setPublishSettings")) { control.publications = (control.publications || 0) + 1; return Response.json({ formId: control.form.formId, publishSettings: JSON.parse(init.body).publishSettings }); }
     if (url.includes("forms.googleapis.com/v1/forms/")) return Response.json({ ...control.form, responderUri: control.missingUrl ? undefined : control.form.responderUri });
     throw new Error(`Unexpected external request ${url}`);
   };
@@ -130,6 +130,7 @@ function harness(envOverrides = {}) {
     vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { process: { env: { AUTH_SECRET: "test-only-approval-secret", GOOGLE_FORMS_AUTOMATION_ENABLED: "true", GOOGLE_FORMS_ENVIRONMENT: "test", GOOGLE_FORMS_TEST_SUPABASE_URL: "https://test-db.example.test", GOOGLE_FORMS_TEST_SUPABASE_SERVICE_ROLE_KEY: "test-only", GOOGLE_FORMS_CLIENT_ID: "test", GOOGLE_FORMS_CLIENT_SECRET: "test", GOOGLE_FORMS_TEST_ORIGIN: "http://localhost:3300", ...envOverrides } }, fetch, Response, Request, Headers, AbortSignal, URL, URLSearchParams, Buffer, crypto: webcrypto, console, Date, Map, Set })(
       (id) => {
         const normalized = id.startsWith(".") ? "@/" + resolve(dirname(full), id).split("/src/")[1] : id;
+        if (normalized === "@/lib/googleForms/safety" && control.realSafety) return load("src/lib/googleForms/safety.ts");
         if (stubs[normalized]) return stubs[normalized];
         if (normalized.startsWith("@/")) return load(`src/${normalized.slice(2)}.ts`);
         return require(id);
@@ -800,6 +801,41 @@ test("production requires explicit admin opt-in and never enables member entry o
   assert.equal(entry.eccFormApplicationUrl({ club_key: "ecc", responder_url: "https://docs.google.com/forms/d/e/public-form/viewform" }), "https://docs.google.com/forms/d/e/public-form/viewform");
   const disabled = harness({ GOOGLE_FORMS_ENVIRONMENT: "admin-production", GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED: "false", GOOGLE_FORMS_AUTOMATION_ENABLED: "true", VERCEL_ENV: "production" });
   assert.throws(() => disabled.load("src/lib/googleForms/safety.ts").assertGoogleFormsTestEnvironment(), /TEST_ENVIRONMENT/);
+});
+
+test("production internal validation needs a pinned grant plus explicit privileged approval; default publication stays blocked", () => {
+  const now = Date.now();
+  const row = { id: "internal-a", google_form_id: "google-internal-a", club_key: "ecc", title: "ECC internal test", status: "draft" };
+  const grant = { registryId: row.id, googleFormId: row.google_form_id, issuedAt: new Date(now - 1000).toISOString(), expiresAt: new Date(now + 3600000).toISOString() };
+  const h = harness({ GOOGLE_FORMS_ENVIRONMENT: "admin-production", GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED: "true", GOOGLE_FORMS_AUTOMATION_ENABLED: "true", GOOGLE_FORMS_INTERNAL_TEST_FORMS: JSON.stringify([grant]) });
+  const safety = h.load("src/lib/googleForms/safety.ts");
+  assert.throws(() => safety.assertGoogleFormsPublicationApproval(row, "open"), /PUBLICATION_NOT_ENABLED/);
+  assert.throws(() => safety.assertGoogleFormsPublicationApproval({ ...row, google_form_id: "other" }, "open", true), /PUBLICATION_NOT_ENABLED/);
+  assert.doesNotThrow(() => safety.assertGoogleFormsPublicationApproval(row, "open", true));
+  assert.throws(() => safety.assertGoogleFormsPublicationApproval(), /PUBLICATION_NOT_ENABLED/);
+  assert.throws(() => safety.assertGoogleFormsNoticePublicationApproval(), /PUBLICATION_NOT_ENABLED/);
+  assert.throws(() => safety.assertGoogleFormsPublicationApproval(row, "closed", true), /PUBLICATION_NOT_ENABLED/);
+  assert.doesNotThrow(() => safety.assertGoogleFormsPublicationApproval({ ...row, status: "open" }, "closed", true));
+});
+
+test("internal status route requires superadmin confirmation, same origin and write access before Google requests", async () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  for (const scenario of [
+    { authenticated: false, expected: 401 }, { manageableClubs: [], expected: 403 },
+    { canWrite: false, expected: 403 }, { manageableClubs: ["jeju"], expected: 403 },
+    { origin: "https://other.test", expected: 403 }, { canConnect: false, expected: 500 },
+    { confirmed: false, expected: 500 }, { expected: 200 }
+  ]) {
+    const grant = { registryId: id, googleFormId: "remote123", issuedAt: new Date(Date.now() - 1000).toISOString(), expiresAt: new Date(Date.now() + 3600000).toISOString() };
+    const h = harness({ GOOGLE_FORMS_ENVIRONMENT: "admin-production", GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED: "true", GOOGLE_FORMS_ORIGIN: "http://localhost", GOOGLE_FORMS_INTERNAL_TEST_FORMS: JSON.stringify([grant]) });
+    Object.assign(h.control, { realSafety: true, canConnect: true }, scenario);
+    h.tables.google_forms.push({ id, google_form_id: "remote123", club_key: "ecc", title: "ECC internal test", status: "draft", updated_at: "original" });
+    const route = h.load("src/app/api/google-forms/forms/[id]/route.ts");
+    const response = await route.PATCH(new Request(`http://localhost/api/google-forms/forms/${id}`, { method: "PATCH", headers: { origin: scenario.origin || "http://localhost" }, body: JSON.stringify({ status: "open", confirmedInternalTest: scenario.confirmed !== false }) }), { params: Promise.resolve({ id }) });
+    assert.equal(response.status, scenario.expected, JSON.stringify(await response.clone().json()));
+    assert.equal(h.control.publications || 0, scenario.expected === 200 ? 1 : 0);
+    assert.equal(h.tables.google_forms[0].status, scenario.expected === 200 ? "open" : "draft");
+  }
 });
 
 test("all presets omit email and preserve supplied date-only logistics without inventing a time", () => {
