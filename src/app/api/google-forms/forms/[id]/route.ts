@@ -41,14 +41,19 @@ export async function DELETE(request: Request, context: Context) {
 
 export async function PATCH(request: Request, context: Context) {
   try {
+    const access = await getGoogleFormsAccess();
+    if (!access.authenticated) throw new GoogleFormsAuthorizationError("LOGIN_REQUIRED", 401);
+    if (!access.manageableClubs.length || access.isReadOnly) throw new GoogleFormsAuthorizationError("FORBIDDEN", 403);
+    if (request.headers.get("origin") !== new URL(request.url).origin) return NextResponse.json({ error: "INVALID_ORIGIN" }, { status: 403 });
     const { id } = await context.params;
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
     const rows = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?select=${registryColumns}&id=eq.${encodeURIComponent(id)}&limit=1`, { cache: "no-store" });
     if (!rows[0]) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-    const access = await getGoogleFormsAccess();
     assertClubAccess(access, rows[0].club_key, true);
-    const status = (await request.json() as { status?: GoogleFormStatus }).status;
+    const body = await request.json() as { status?: GoogleFormStatus; confirmedInternalTest?: boolean };
+    const status = body.status;
     if (!status || !["open", "closed", "archived"].includes(status)) return NextResponse.json({ error: "INVALID_STATUS" }, { status: 400 });
-    return NextResponse.json({ form: await setGoogleFormStatus(rows[0], status) });
+    return NextResponse.json({ form: await setGoogleFormStatus(rows[0], status, access.canConnect && body.confirmedInternalTest === true) });
   } catch (error) {
     if (error instanceof GoogleFormsAuthorizationError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Google Form status update failed", error instanceof Error ? error.message : "unknown");

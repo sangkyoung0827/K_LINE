@@ -14,7 +14,7 @@ import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { useLanguage } from "@/components/LanguageProvider";
 
 type Props = { initialAccess: GoogleFormsAccess; templates: GoogleFormTemplate[]; production?: boolean; app?: boolean; draftOnly?: boolean };
-type ListResponse = { access: GoogleFormsAccess; connection: { connected: boolean; accountEmail: string }; forms: GoogleFormRegistryRow[]; error?: string };
+type ListResponse = { access: GoogleFormsAccess; connection: { connected: boolean; accountEmail: string }; forms: GoogleFormRegistryRow[]; internalTests?: Record<string, { canOpen: boolean; canClose: boolean }>; error?: string };
 type MirrorResponse = { responses: Array<{ id: string; submitted_at: string; respondent_email: string | null; answers_json: Record<string, string[]> }>; error?: string };
 
 export function GoogleFormsManager({ initialAccess, templates, production = false, app = false, draftOnly = false }: Props) {
@@ -37,6 +37,16 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
   async function load() { const response = await fetch("/api/google-forms/forms", { cache: "no-store" }); const next = await response.json() as ListResponse; if (!response.ok) throw new Error(next.error || "Google Forms could not load."); setData(next); }
   useEffect(() => { void load().catch((error) => setMessage((error as Error).message)); }, []);
   function resetCreation() { setPreview(null); setNotice(""); setApplicationUrl(""); setCreatedForm(null); setMessage(""); }
+  async function testStatus(form: GoogleFormRegistryRow, status: "open" | "closed") {
+    if (busy || !window.confirm(t(`${form.title}: 내부 테스트 접수를 ${status === "open" ? "열까요?" : "마감할까요?"}`, `${form.title}: ${status === "open" ? "open" : "close"} internal test responses?`))) return;
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch(`/api/google-forms/forms/${form.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, confirmedInternalTest: true }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "TEST_STATUS_UPDATE_FAILED");
+      await load(); setMessage(t("Google 테스트 접수 상태를 확인했습니다.", "Google test response status verified."));
+    } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); }
+  }
   async function create() {
     if (busy) return;
     setBusy(true); setMessage("");
@@ -109,6 +119,10 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
       <h2 className="mt-1 break-words text-xl font-bold text-ink">{form.title}</h2>
       <p className="mt-2 text-sm text-ink/60">신청자 {form.response_count}명</p>
       <div className="mt-4 flex flex-wrap gap-2">
+        {initialAccess.canConnect && !initialAccess.isReadOnly && (data.internalTests?.[form.id]?.canOpen || data.internalTests?.[form.id]?.canClose) && <>
+          {form.status !== "open" && data.internalTests?.[form.id]?.canOpen && <button disabled={busy} onClick={() => void testStatus(form, "open")} className="min-h-11 border border-ink/20 px-3 text-sm">{t("테스트 접수 열기", "Open test responses")}</button>}
+          {data.internalTests?.[form.id]?.canClose && <button disabled={busy} onClick={() => void testStatus(form, "closed")} className="min-h-11 border border-ink/20 px-3 text-sm">{t("테스트 접수 마감", "Close test responses")}</button>}
+        </>}
         <a href={`https://docs.google.com/forms/d/${encodeURIComponent(form.google_form_id)}/edit`} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-3 text-sm font-semibold">구글폼 원본 보기<ExternalLink className="h-4 w-4 shrink-0" /></a>
         <button disabled={busy} onClick={() => void responses(form)} className="inline-flex min-h-11 items-center gap-2 bg-navy px-3 text-sm font-semibold text-paper disabled:opacity-45"><Users className="h-4 w-4 shrink-0" />{busy && selected === form.id ? "불러오는 중..." : "조 자동 편성 및 공지문 생성"}</button>
         {!initialAccess.isReadOnly && <EventDeleteButton formId={form.id} title={form.title} disabled={busy} onError={setMessage} onDeleted={async () => {

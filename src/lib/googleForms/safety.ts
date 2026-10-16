@@ -1,4 +1,6 @@
 import "server-only";
+import { internalTestControls } from "./internalTest";
+import type { GoogleFormRegistryRow } from "./types";
 
 export function isGoogleFormsAdminProduction() {
   return process.env.GOOGLE_FORMS_ENVIRONMENT === "admin-production" &&
@@ -13,8 +15,12 @@ export function assertGoogleFormsTestEnvironment() {
   }
 }
 
-export function assertGoogleFormsPublicationApproval() {
+export function assertGoogleFormsPublicationApproval(row?: GoogleFormRegistryRow, status?: string, internalTestApproved = false) {
   assertGoogleFormsTestEnvironment();
+  if (isGoogleFormsAdminProduction() && row && internalTestApproved) {
+    const controls = internalTestControls(row, process.env.GOOGLE_FORMS_INTERNAL_TEST_FORMS || "");
+    if (status === "open" && controls.canOpen || status === "closed" && controls.canClose) return;
+  }
   if (isGoogleFormsAdminProduction()) throw new Error("GOOGLE_FORMS_PUBLICATION_NOT_ENABLED");
   if (process.env.GOOGLE_FORMS_TEST_PUBLICATION_APPROVED !== "true") {
     throw new Error("TEST_PUBLICATION_REQUIRES_SEPARATE_APPROVAL");
