@@ -155,6 +155,21 @@ test("one transport interruption retries without upgrading or creating forms; pe
   } finally { await h.close(); }
 });
 
+test("AI requests respect a shared deadline and timeout failures stop without creating a form", async () => {
+  const h = await eventHarness(); try {
+    assert.equal(h.api.eventAIRequestTimeout(145000, 0), 65000);
+    assert.equal(h.api.eventAIRequestTimeout(145000, 130000), 15000);
+    assert.throws(() => h.api.eventAIRequestTimeout(145000, 145000), /EVENT_AI_TIMEOUT/);
+    h.control.aiTimeoutFailures = 1;
+    const generated = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(generated.metadata.retries, 1); assert.equal(h.control.aiCalls, 2);
+    h.control.aiTimeoutFailures = 3;
+    await assert.rejects(h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage), /EVENT_AI_TIMEOUT/);
+    assert.equal(h.control.aiCalls, 4); assert.equal(h.control.externalCreates, 0);
+    assert.ok(h.control.requests.every(request => request.model === "gpt-6-luna"));
+  } finally { await h.close(); }
+});
+
 test("production permits ECC managers only and preserves read-only restrictions", async () => {
   const h = await eventHarness(); try {
     process.env.GOOGLE_FORMS_ENVIRONMENT = "admin-production";

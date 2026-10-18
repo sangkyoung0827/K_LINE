@@ -19,7 +19,7 @@ export const fixtureMessage = "문화교류 체험. 행사 2026-11-07T18:00:00+0
 export async function eventHarness(options = {}) {
   const control = { email: "qa-admin@example.test", clubs: ["ecc", "hanhwal", "social_impact_union"], readOnly: false,
     aiCalls: 0, externalCreates: 0, failNotice: false, failGoogle: false, failOAuth: false, missingUrl: false,
-    aiStatus: 200, aiNetworkFailures: 0, outputs: [], currentPlan: fixturePlan(), remoteForms: new Map(), requests: [], liveAIOutputs: [] };
+    aiStatus: 200, aiNetworkFailures: 0, aiTimeoutFailures: 0, outputs: [], currentPlan: fixturePlan(), remoteForms: new Map(), requests: [], liveAIOutputs: [] };
   globalThis.__studioQA = control;
   const originalFetch = globalThis.fetch;
   const originalEnv = { ...process.env };
@@ -54,6 +54,7 @@ export async function eventHarness(options = {}) {
     if (url === "https://api.openai.com/v1/responses") {
       control.aiCalls++; const input = JSON.parse(init.body); control.requests.push(input);
       if (control.aiNetworkFailures > 0) { control.aiNetworkFailures--; throw Error("QA_TRANSPORT_INTERRUPTED"); }
+      if (control.aiTimeoutFailures > 0) { control.aiTimeoutFailures--; throw new DOMException("QA_REQUEST_TIMEOUT", "TimeoutError"); }
       if (liveOpenAI) {
         const response = await originalFetch(url, init);
         control.liveAIOutputs.push(await response.clone().json().catch(() => ({ status: "unparsed", httpStatus: response.status })));
