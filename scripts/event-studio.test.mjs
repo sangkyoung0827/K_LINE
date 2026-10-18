@@ -7,6 +7,33 @@ const deletionRequest = (body = { confirmedEnded: true }, origin = "http://127.0
   method: "DELETE", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
 });
 
+test("new studio jobs include bilingual logistics and capacity in the verified Google original; legacy drafts retain identical content", async () => {
+  const h = await eventHarness(); try {
+    const plan = fixturePlan();
+    const current = h.api.formDraft(plan);
+    assert.match(current.description, /07\/11\/2026, 18:00.*KST/);
+    assert.match(current.description, /06\/11\/2026, 18:00.*KST/);
+    assert.match(current.description, /Venue: QA Library/);
+    assert.match(current.description, /Capacity: 30/);
+    assert.equal(current.capacity, 30); assert.equal(current.automationVersion, 1);
+    const legacy = h.api.formDraft(plan, 1);
+    assert.equal(legacy.description, `${plan.descriptionKo}\n\n${plan.descriptionEn}`);
+    assert.equal(legacy.capacity, undefined); assert.equal(legacy.automationVersion, undefined);
+    const dateOnly = h.api.formDraft({ ...plan, activityDate: "2026-11-07", applicationDeadline: "2026-11-06" });
+    assert.match(dateOnly.description, /Date: 2026-11-07\n/);
+    assert.ok(!dateOnly.description.includes("00:00"));
+    h.control.currentPlan = { ...plan, applicationDeadline: "2026-11-06" };
+    const incomplete = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage + " 2026-11-06" });
+    assert.ok(incomplete.missing.includes("applicationDeadlineTime")); assert.equal(incomplete.token, null);
+    h.control.currentPlan = plan;
+    const job = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    assert.equal(job.job.ai_metadata.formDraftVersion, 2);
+    const result = await h.api.studioOperation(h.access(), { action: "approve", jobId: job.job.id, token: job.token, confirmed: true });
+    assert.equal(h.control.remoteForms.get(result.form.google_form_id).info.description, current.description);
+    assert.deepEqual(result.form.metadata.automation, { version: 1, capacity: 30 });
+  } finally { await h.close(); }
+});
+
 test("ended event removal preserves original forms, responses, notices and jobs; hides both lists and is idempotent", async () => {
   const h = await eventHarness(); try {
     const planned = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });

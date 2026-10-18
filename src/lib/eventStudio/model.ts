@@ -24,12 +24,26 @@ export function missingFields(plan: EventPlan) {
   return [!plan.activityDate && "activityDate", !plan.applicationDeadline && "applicationDeadline",
     !plan.location && "location", plan.capacity === null && "capacity"].filter(Boolean) as string[];
 }
-export function formDraft(plan: EventPlan): GoogleFormDraft {
+export function formDraft(plan: EventPlan, version = 2): GoogleFormDraft {
   if (plan.clubKey === "hanhwal") throw new StudioError("CLUB_ADAPTER_NOT_READY", 409);
+  const logistics = version >= 2 ? [
+    plan.activityDate && `일시 / Date: ${displayEventDate(plan.activityDate)}`,
+    plan.applicationDeadline && `신청 마감 / Deadline: ${displayEventDate(plan.applicationDeadline)}`,
+    plan.location && `장소 / Venue: ${plan.location}`,
+    plan.capacity !== null && `모집 인원 / Capacity: ${plan.capacity}`,
+    plan.capacity !== null && "정원 초과 응답은 대기자로 분류됩니다. / Responses beyond capacity will be waitlisted.",
+  ].filter(Boolean).join("\n") : "";
+  const description = [logistics, plan.descriptionKo, plan.descriptionEn].filter(Boolean).join("\n\n");
+  if (version >= 2 && description.length > 5000) throw new StudioError("FORM_DESCRIPTION_TOO_LONG");
   return parseGoogleFormDraft({ clubKey: plan.clubKey, title: plan.title, activityTitle: plan.title,
+    ...(version >= 2 && plan.capacity !== null ? { capacity: plan.capacity, automationVersion: 1 } : {}),
     templateId: "blank", activityId: "", editorEmail: "", location: plan.location || "",
     activityDate: plan.activityDate || "", applicationDeadline: plan.applicationDeadline || "",
-    description: `${plan.descriptionKo}\n\n${plan.descriptionEn}`, questions: plan.questions });
+    description, questions: plan.questions });
+}
+function displayEventDate(value: string) {
+  if (value.length === 10) return value;
+  return `${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value))} (KST, UTC+09:00)`;
 }
 export function parseEventPlan(value: unknown, expectedClub: StudioClub): EventPlan {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new StudioError("INVALID_EVENT_PLAN");

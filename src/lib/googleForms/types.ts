@@ -12,6 +12,8 @@ export type GoogleFormQuestion = {
 };
 
 export type GoogleFormDraft = {
+  capacity?: number;
+  automationVersion?: 1;
   activityDate: string;
   activityId: string;
   activityTitle: string;

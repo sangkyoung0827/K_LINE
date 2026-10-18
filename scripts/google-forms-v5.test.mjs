@@ -16,6 +16,14 @@ function harness(envOverrides = {}) {
   async function store(path, init = {}) {
     if (path.startsWith("rpc/")) {
       const input = JSON.parse(init.body);
+      if (path === "rpc/google_forms_claim_maintenance") return json(control.claimedForms || []);
+      if (path === "rpc/google_forms_finish_maintenance") { (control.finishedForms ||= []).push(input); return true; }
+      if (path === "rpc/google_forms_commit_snapshot") {
+        (control.snapshots ||= []).push(input);
+        const form = tables.google_forms.find(row => row.id === input.p_form);
+        Object.assign(form, { response_count: input.p_responses.length, last_response_sync_at: input.p_started_at });
+        return input.p_responses.length;
+      }
       control.formLocks ||= new Set();
       if (path === "rpc/ecc_form_lock") { if (control.formLocks.has(input.p_form_id)) return null; control.formLocks.add(input.p_form_id); return "lock-token"; }
       if (path === "rpc/ecc_form_unlock") { control.formLocks.delete(input.p_form_id); return true; }
@@ -41,7 +49,7 @@ function harness(envOverrides = {}) {
       const row = { id: webcrypto.randomUUID(), revision: 1, workflow_status: "draft", form_registry_id: null, notice_id: null, remote_form_id: null, ...body };
       rows.push(row); return json([row]);
     }
-    return json(selected);
+    return json(selected.slice(Number(params.get("offset") || 0), Number(params.get("offset") || 0) + Number(params.get("limit") || selected.length)));
   }
   const stubs = {
     "@/auth": { auth: async () => control.memberLoggedOut ? null : ({ user: { email: "member@example.test" } }) },
@@ -86,7 +94,7 @@ function harness(envOverrides = {}) {
     if (url.includes("oauth2.googleapis.com/token")) {
       const params = new URLSearchParams(init.body);
       if (params.get("grant_type") === "authorization_code") return Response.json({ access_token: "test-access", refresh_token: "test-new-refresh", scope: control.grantedScopes ?? "https://www.googleapis.com/auth/forms.body https://www.googleapis.com/auth/forms.responses.readonly https://www.googleapis.com/auth/drive.file" });
-      if (control.refreshFailed) return Response.json({}, { status: 400 });
+      if (control.refreshFailed) return Response.json({ error: control.tokenError || "temporarily_unavailable" }, { status: 400 });
       return Response.json({ access_token: "test-access" });
     }
     if (url === "https://openidconnect.googleapis.com/v1/userinfo") return Response.json({ email: control.googleEmail || "test@example.test", email_verified: true });
@@ -117,7 +125,7 @@ function harness(envOverrides = {}) {
       }
       return Response.json({});
     }
-    if (url.endsWith(":setPublishSettings")) { control.publications = (control.publications || 0) + 1; return Response.json({ formId: control.form.formId, publishSettings: JSON.parse(init.body).publishSettings }); }
+    if (url.endsWith(":setPublishSettings")) { control.publications = (control.publications || 0) + 1; (control.publicationStates ||= []).push(JSON.parse(init.body).publishSettings.publishState); return Response.json({ formId: control.form.formId, publishSettings: JSON.parse(init.body).publishSettings }); }
     if (url.includes("forms.googleapis.com/v1/forms/")) return Response.json({ ...control.form, responderUri: control.missingUrl ? undefined : control.form.responderUri });
     throw new Error(`Unexpected external request ${url}`);
   };
@@ -127,7 +135,7 @@ function harness(envOverrides = {}) {
     if (modules.has(full)) return modules.get(full).exports;
     const module = { exports: {} }; modules.set(full, module);
     const code = ts.transpileModule(readFileSync(full, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { process: { env: { AUTH_SECRET: "test-only-approval-secret", GOOGLE_FORMS_AUTOMATION_ENABLED: "true", GOOGLE_FORMS_ENVIRONMENT: "test", GOOGLE_FORMS_TEST_SUPABASE_URL: "https://test-db.example.test", GOOGLE_FORMS_TEST_SUPABASE_SERVICE_ROLE_KEY: "test-only", GOOGLE_FORMS_CLIENT_ID: "test", GOOGLE_FORMS_CLIENT_SECRET: "test", GOOGLE_FORMS_TEST_ORIGIN: "http://localhost:3300", ...envOverrides } }, fetch, Response, Request, Headers, AbortSignal, URL, URLSearchParams, Buffer, crypto: webcrypto, console, Date, Map, Set })(
+    vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { process: { env: { AUTH_SECRET: "test-only-approval-secret", GOOGLE_FORMS_AUTOMATION_ENABLED: "true", GOOGLE_FORMS_ENVIRONMENT: "test", GOOGLE_FORMS_TEST_SUPABASE_URL: "https://test-db.example.test", GOOGLE_FORMS_TEST_SUPABASE_SERVICE_ROLE_KEY: "test-only", GOOGLE_FORMS_CLIENT_ID: "test", GOOGLE_FORMS_CLIENT_SECRET: "test", GOOGLE_FORMS_TEST_ORIGIN: "http://localhost:3300", ...envOverrides } }, fetch, Response, Request, Headers, AbortSignal, URL, URLSearchParams, Buffer, crypto: webcrypto, console, Date, Map, Set, Error })(
       (id) => {
         const normalized = id.startsWith(".") ? "@/" + resolve(dirname(full), id).split("/src/")[1] : id;
         if (normalized === "@/lib/googleForms/safety" && control.realSafety) return load("src/lib/googleForms/safety.ts");
@@ -139,6 +147,140 @@ function harness(envOverrides = {}) {
   }
   return { tables, control, load };
 }
+
+test("automation is opt-in, orders ties deterministically, and keeps excess and late responses out of teams", () => {
+  const h = harness(), policy = h.load("src/lib/googleForms/automationPolicy.ts");
+  const form = { metadata: { automation: { version: 1, capacity: 2 } }, status: "open", response_count: 3, application_deadline: "2026-10-18T12:00:00Z" };
+  const rows = ["c", "b", "a"].map(id => ({ id, google_response_id: id, submitted_at: "2026-10-18T11:00:00Z" }));
+  rows.push({ id: "late", google_response_id: "late", submitted_at: "2026-10-18T12:00:01Z" });
+  const result = policy.responseAdmission(form, rows);
+  assert.deepEqual(json(result.accepted.map(r => r.id)), ["a", "b"]);
+  assert.deepEqual(json(result.waiting.map(r => r.id)), ["c"]);
+  assert.deepEqual(json(result.late.map(r => r.id)), ["late"]);
+  assert.equal(rows[0].id, "c");
+  assert.equal(policy.automaticClosureReason(form, Date.parse("2026-10-18T11:00:00Z")), "capacity");
+  assert.equal(policy.automaticClosureReason(form, Date.parse("2026-10-18T12:00:00Z")), "deadline");
+  for (const metadata of [{}, { automation: { version: 1, capacity: -1 } }, { automation: { version: 1, capacity: "2" } }]) {
+    assert.equal(policy.automaticClosureReason({ ...form, metadata }), null);
+    assert.equal(policy.responseAdmission({ ...form, metadata }, rows).accepted.length, 4);
+  }
+  assert.equal(policy.automaticClosureReason({ ...form, status: "draft" }), null);
+});
+
+test("automatic close reduces access without granting production publication or touching legacy forms", async () => {
+  const h = harness({ GOOGLE_FORMS_ENVIRONMENT: "admin-production", GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED: "true", GOOGLE_FORMS_ORIGIN: "http://localhost" });
+  h.control.realSafety = true;
+  h.control.form.publishSettings = { publishState: { isPublished: false, isAcceptingResponses: false } };
+  h.tables.google_forms.push({ id: "auto", google_form_id: "remote123", status: "open", updated_at: "original", response_count: 2, metadata: { automation: { version: 1, capacity: 2 } } });
+  const api = h.load("src/lib/googleForms/googleApi.ts");
+  assert.equal(await api.closeGoogleFormIfNeeded("auto"), "capacity");
+  assert.equal(h.tables.google_forms[0].status, "closed");
+  assert.equal(await api.closeGoogleFormIfNeeded("auto"), null);
+  h.tables.google_forms.push({ id: "legacy", status: "open", response_count: 999, metadata: {} });
+  assert.equal(await api.closeGoogleFormIfNeeded("legacy"), null);
+  assert.equal(h.control.publications, 1);
+  assert.deepEqual(json(h.control.publicationStates), [{ isPublished: false, isAcceptingResponses: false }]);
+  assert.throws(() => h.load("src/lib/googleForms/safety.ts").assertGoogleFormsPublicationApproval(), /PUBLICATION_NOT_ENABLED/);
+});
+
+test("connection health distinguishes revoked tokens from transient Google outages without disclosing credentials", async () => {
+  const h = harness(), api = h.load("src/lib/googleForms/googleApi.ts");
+  assert.equal((await api.getGoogleConnectionStatus()).health, "healthy");
+  h.control.refreshFailed = true;
+  assert.equal((await api.getGoogleConnectionStatus()).health, "unavailable");
+  h.control.tokenError = "invalid_grant";
+  const status = await api.getGoogleConnectionStatus();
+  assert.equal(status.health, "reconnect_required"); assert.equal(status.connected, false);
+  assert.ok(!JSON.stringify(status).includes("encrypted"));
+});
+
+test("automated snapshots commit only once after all pages, and full forms cannot reopen", async () => {
+  const h = harness(), api = h.load("src/lib/googleForms/googleApi.ts");
+  const form = { id: "auto", google_form_id: "remote123", status: "closed", metadata: { automation: { version: 1, capacity: 1 } }, response_count: 0, updated_at: "original" };
+  h.tables.google_forms.push(form);
+  const response = { responseId: "response1", createTime: "2026-10-18T10:00:00Z", answers: {} };
+  h.control.pages = [{ responses: [response], nextPageToken: "last" }, { responses: [] }];
+  assert.equal(await api.syncGoogleFormResponses(form), 1);
+  assert.equal(h.control.snapshots.length, 1);
+  assert.equal(h.tables.google_form_responses.length, 0);
+  h.control.pages = [{ responses: [response] }];
+  await assert.rejects(api.setGoogleFormStatus(form, "open"), /CAPACITY_REACHED/);
+  assert.equal(h.control.publications || 0, 0);
+  h.control.pages = [{ responses: [response], nextPageToken: "loop" }, { nextPageToken: "loop" }];
+  await assert.rejects(api.syncGoogleFormResponses(form), /REPEATED_GOOGLE_PAGE_TOKEN/);
+  assert.equal(h.control.snapshots.length, 2);
+});
+
+test("roster pagination includes every current response but excludes earlier snapshots and excess from grouping", async () => {
+  const h = harness(), stamp = "2026-10-18T10:00:00Z";
+  h.tables.google_forms.push({ id: "auto", metadata: { automation: { version: 1, capacity: 2 } }, club_key: "ecc", last_response_sync_at: stamp, response_count: 502 });
+  for (let i = 0; i < 502; i++) h.tables.google_form_responses.push({ id: String(i), google_form_registry_id: "auto", google_response_id: String(i).padStart(4,"0"), submitted_at: stamp, synced_at: stamp, answers_json: { Name: [`Applicant ${i}`] }, respondent_email: null });
+  h.tables.google_form_responses.push({ id: "old", google_form_registry_id: "auto", google_response_id: "old", submitted_at: stamp, synced_at: "2026-10-17T10:00:00Z", answers_json: { Name: ["Old snapshot"] } });
+  const route = h.load("src/app/api/google-forms/forms/[id]/responses/route.ts");
+  const result = await route.GET(new Request("http://localhost/responses"), { params: Promise.resolve({ id: "auto" }) });
+  const body = await result.json();
+  assert.equal(body.responses.length, 2); assert.equal(body.waiting.length, 500);
+  assert.ok(!JSON.stringify(body.responses).includes("Old snapshot"));
+});
+
+test("maintenance needs a secret, leases work, and returns failures rather than a false success", async () => {
+  const secret = "test-only-maintenance-secret-0123456789";
+  const h = harness({ GOOGLE_FORMS_CRON_SECRET: secret });
+  const route = h.load("src/app/api/google-forms/maintenance/route.ts");
+  assert.equal((await route.GET(new Request("http://localhost/cron"))).status, 401);
+  h.tables.google_forms.push({ id: "legacy", google_form_id: "remote123", metadata: {}, status: "closed" });
+  h.control.claimedForms = [h.tables.google_forms[0]];
+  const request = () => new Request("http://localhost/cron", { headers: { Authorization: `Bearer ${secret}` } });
+  assert.equal((await route.GET(request())).status, 200);
+  assert.equal(h.control.finishedForms[0].p_success, true);
+  h.control.refreshFailed = true; h.control.tokenError = "invalid_grant";
+  const failed = await route.GET(request());
+  assert.equal(failed.status, 503);
+  assert.equal((await failed.json()).results[0].error, "GOOGLE_RECONNECT_REQUIRED");
+  assert.equal(h.control.finishedForms[1].p_success, false);
+});
+
+test("expired OAuth before the create request is safely retryable without reconciling or duplicating a form", async () => {
+  const h = harness(), api = h.load("src/lib/googleForms/googleApi.ts");
+  h.control.refreshFailed = true; h.control.tokenError = "invalid_grant";
+  await assert.rejects(api.createGoogleForm(draft, "admin@example.test", "oauth_retry_request_1234"), /GOOGLE_RECONNECT_REQUIRED/);
+  assert.equal(h.control.externalCreates, 0);
+  assert.equal(h.tables.google_form_creation_attempts[0].status, "configuring");
+  h.control.refreshFailed = false;
+  const created = await api.createGoogleForm(draft, "admin@example.test", "oauth_retry_request_1234");
+  assert.equal(created.google_form_id, "remote123"); assert.equal(h.control.externalCreates, 1);
+});
+
+test("maintenance SQL excludes legacy and draft forms, leases are exclusive, stale owners cannot finish, and RLS denies clients", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec("create role anon; create role authenticated; create role service_role; create table kline_forms_live_google_forms(id uuid primary key, metadata jsonb not null, status text, application_deadline timestamptz, created_at timestamptz default now(), response_count integer not null default 0, last_response_sync_at timestamptz); create table kline_forms_live_google_form_responses(google_form_registry_id uuid, google_response_id text, submitted_at timestamptz, respondent_email text, matched_user_email text, answers_json jsonb, raw_answers_json jsonb, synced_at timestamptz, unique(google_form_registry_id,google_response_id));");
+    const sql = readFileSync("supabase/migrations/20261018090607_google_forms_maintenance.sql", "utf8");
+    await db.exec(sql); await db.exec(sql);
+    const ids = Array.from({ length: 5 }, () => webcrypto.randomUUID());
+    for (let i = 0; i < ids.length; i++) await db.query("insert into kline_forms_live_google_forms(id,metadata,status) values($1,$2,$3)", [ids[i], i === 4 ? {} : { automation: { version: 1, capacity: 2 } }, i === 3 ? "draft" : "open"]);
+    const lease = webcrypto.randomUUID(), other = webcrypto.randomUUID();
+    const claimed = await db.query("select * from kline_forms_live_google_forms_claim_maintenance($1)", [lease]);
+    assert.equal(claimed.rows.length, 3);
+    assert.equal((await db.query("select * from kline_forms_live_google_forms_claim_maintenance($1)", [other])).rows.length, 0);
+    assert.equal((await db.query("select kline_forms_live_google_forms_finish_maintenance($1,$2,true,null) as done", [ids[0], other])).rows[0].done, false);
+    assert.equal((await db.query("select kline_forms_live_google_forms_finish_maintenance($1,$2,true,null) as done", [ids[0], lease])).rows[0].done, true);
+    await db.exec("update kline_forms_live_google_form_maintenance set lease_expires_at = now() - interval '1 second', next_attempt_at = now() - interval '1 second'");
+    assert.equal((await db.query("select * from kline_forms_live_google_forms_claim_maintenance($1)", [other])).rows.length, 3);
+    const snapshot = ["one", "two"].map(id => ({ google_response_id: id, submitted_at: "2026-10-18T10:00:00Z", answers_json: { Name: [id] }, raw_answers_json: {} }));
+    const oldTime = new Date(Date.now() - 120000).toISOString(), newTime = new Date(Date.now() - 60000).toISOString();
+    assert.equal((await db.query("select kline_forms_live_google_forms_commit_snapshot($1,$2,$3) as n", [ids[0], oldTime, JSON.stringify(snapshot)])).rows[0].n, 2);
+    assert.equal((await db.query("select kline_forms_live_google_forms_commit_snapshot($1,$2,'[]') as n", [ids[0], newTime])).rows[0].n, 0);
+    assert.equal((await db.query("select kline_forms_live_google_forms_commit_snapshot($1,$2,$3) as n", [ids[0], oldTime, JSON.stringify(snapshot)])).rows[0].n, 0);
+    assert.equal((await db.query("select count(*)::integer as n from kline_forms_live_google_form_responses")).rows[0].n, 2);
+    await assert.rejects(db.query("select kline_forms_live_google_forms_commit_snapshot($1,now(),null)", [ids[0]]), /INVALID_SNAPSHOT/);
+    await assert.rejects(db.query("select kline_forms_live_google_forms_commit_snapshot($1,now(),$2)", [ids[0], JSON.stringify([snapshot[0], snapshot[0]])]), /cannot affect row a second time/);
+    assert.equal((await db.query("select response_count from kline_forms_live_google_forms where id=$1", [ids[0]])).rows[0].response_count, 0);
+    await db.exec("set role anon");
+    await assert.rejects(db.query("select * from kline_forms_live_google_form_maintenance"), /permission denied/);
+    await assert.rejects(db.query("select * from kline_forms_live_google_forms_claim_maintenance($1)", [other]), /permission denied/);
+  } finally { await db.close(); }
+});
 
 test("response routes reject anonymous, ordinary members and other-club admins", async () => {
   for (const scenario of [

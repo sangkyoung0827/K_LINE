@@ -14,8 +14,9 @@ import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { useLanguage } from "@/components/LanguageProvider";
 
 type Props = { initialAccess: GoogleFormsAccess; templates: GoogleFormTemplate[]; production?: boolean; app?: boolean; draftOnly?: boolean };
-type ListResponse = { access: GoogleFormsAccess; connection: { connected: boolean; accountEmail: string }; forms: GoogleFormRegistryRow[]; internalTests?: Record<string, { canOpen: boolean; canClose: boolean }>; error?: string };
-type MirrorResponse = { responses: Array<{ id: string; submitted_at: string; respondent_email: string | null; answers_json: Record<string, string[]> }>; error?: string };
+type ListResponse = { access: GoogleFormsAccess; connection: { connected: boolean; accountEmail: string; health?: string }; forms: GoogleFormRegistryRow[]; internalTests?: Record<string, { canOpen: boolean; canClose: boolean }>; error?: string };
+type Applicant = { id: string; submitted_at: string; respondent_email: string | null; answers_json: Record<string, string[]> };
+type MirrorResponse = { responses: Applicant[]; waiting?: Applicant[]; late?: Applicant[]; error?: string };
 
 export function GoogleFormsManager({ initialAccess, templates, production = false, app = false, draftOnly = false }: Props) {
   const { language } = useLanguage();
@@ -100,6 +101,8 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
     }} onClick={() => setSection(id)} className={`min-h-11 min-w-0 break-words px-2 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${section === id ? "bg-ink text-paper" : "border border-ink/20"}`}>{label}</button>)}</div>
     {!initialAccess.isReadOnly ? <div id="event-panel-assistant" role="tabpanel" aria-labelledby="event-tab-assistant" hidden={section !== "assistant"}><EventStudio key={studioRefresh} embedded initialClub={clubKey === "social_impact_union" ? clubKey : "ecc"} onComplete={() => { void load().catch(error => setMessage((error as Error).message)); }} /></div> : null}
     {message ? <p role="status" className="mt-5 border border-brass/30 bg-brass/10 p-3 text-sm font-semibold text-ink">{message}</p> : null}
+    {data.connection.health === "reconnect_required" && <p role="alert" className="mt-4 text-sm text-red-700">{t("Google 연결이 만료되었습니다. 운영 계정을 다시 연결해 주세요.", "Google access expired. Reconnect the operations account.")}</p>}
+    {data.connection.health === "unavailable" && <p role="status" className="mt-4 text-sm text-ink/65">{t("Google 연결 상태를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.", "Google connection check is temporarily unavailable.")}</p>}
     <div className="mt-8 flex gap-2 overflow-x-auto">{initialAccess.manageableClubs.map((club) => <button key={club} disabled={busy} onClick={() => { setClubKey(club); resetCreation(); }} className={`min-h-10 whitespace-nowrap px-4 text-sm font-semibold ${clubKey === club ? "bg-navy text-paper" : "border border-ink/15"}`}>{club}</button>)}</div>
     {!initialAccess.isReadOnly && section === "forms" ? <div id="event-panel-forms" role="tabpanel" aria-labelledby="event-tab-forms" className="mt-6 border-t border-ink/12 pt-6">
       <h2 className="flex items-center gap-2 text-xl font-semibold"><FilePlus2 className="h-6 w-6" />Create Google Form</h2>
@@ -153,6 +156,8 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
           {applicantNames(mirror.responses).map((name, index) => <li key={mirror.responses[index].id} className="break-words py-3 text-sm font-semibold">{name}</li>)}
         </ul>
         {!mirror.responses.length ? <p className="py-8 text-center text-sm text-ink/55">신청자가 없습니다.</p> : null}
+        {!!mirror.waiting?.length && <div className="mt-5 border-t border-ink/10 pt-4"><h3 className="text-sm font-semibold">{t("대기자", "Waitlist")} · {mirror.waiting.length}</h3><ul>{applicantNames(mirror.waiting).map((name, i) => <li className="break-words py-2 text-sm" key={mirror.waiting![i].id}>{name}</li>)}</ul></div>}
+        {!!mirror.late?.length && <div className="mt-5 border-t border-ink/10 pt-4"><h3 className="text-sm font-semibold">{t("마감 후 응답", "Late responses")} · {mirror.late.length}</h3><ul>{applicantNames(mirror.late).map((name, i) => <li className="break-words py-2 text-sm" key={mirror.late![i].id}>{name}</li>)}</ul></div>}
       </div>
     </div> : null}
   </div></section>;

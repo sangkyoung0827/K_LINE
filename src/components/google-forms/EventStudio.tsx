@@ -29,6 +29,8 @@ const errors: Record<string, [string, string]> = {
   JOB_CHANGED_REVIEW_AGAIN: ["다른 화면에서 초안이 변경되었습니다. 다시 불러와주세요.", "The draft changed elsewhere. Reload it."],
   FORM_CREATION_UNCERTAIN_RECONCILIATION_REQUIRED: ["Google 생성 결과 확인이 필요합니다. 새 폼을 만들지 않고 복구를 기다립니다.", "Google's result is uncertain. Reconcile it before creating another form."],
   GOOGLE_RECONNECT_REQUIRED: ["Google 연결을 다시 승인해주세요.", "Reconnect your Google account."],
+  GOOGLE_AUTH_UNAVAILABLE: ["Google 인증 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.", "Google authentication is temporarily unavailable. Try again shortly."],
+  EVENT_DEADLINE_TIME_REQUIRED: ["신청 마감은 몇 시인가요? 시간과 시간대를 확인해 주세요.", "What time do applications close? Specify the time and timezone."],
   CLUB_ADMIN_REQUIRED: ["해당 클럽의 관리자 권한이 필요합니다.", "Administrator access for this club is required."],
   EVENT_STUDIO_UNAVAILABLE: ["Event Studio 연결을 확인해주세요. 기존 신청 기능은 계속 사용할 수 있습니다.", "Check the Event Studio connection. Existing applications remain available."],
 };
@@ -102,7 +104,7 @@ export function EventStudio({ initialClub, onComplete, embedded = false, archive
           <button type="button" className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-3 text-sm" onClick={() => edit({ questions: [...plan.questions, { id: crypto.randomUUID(), title: "", type: "short_answer", required: false, options: [] }] })}><Plus className="h-4 w-4" />{t("질문 추가", "Add question")}</button>
           {(["noticeKo", "noticeEn"] as const).map(key => <label key={key} className="grid gap-2 text-sm">{key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")}<textarea aria-label={key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")} className="form-field min-h-48" value={plan[key]} onChange={e => edit({ [key]: e.target.value })} /></label>)}
         </fieldset>
-        {result.missing.length > 0 && <p role="status" className="text-sm">{t("확인할 정보", "Missing information")}: {result.missing.join(", ")}</p>}
+        {result.missing.length > 0 && <p role="status" className="text-sm">{result.missing.includes("applicationDeadlineTime") ? t("신청 마감은 몇 시인가요? 시간과 시간대를 알려주세요.", "What time do applications close? Specify the time and timezone.") : `${t("확인할 정보", "Missing information")}: ${result.missing.join(", ")}`}</p>}
         {!readOnly && <div className="flex flex-wrap gap-2">
           <button disabled={busy || !dirty} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run("update")}><Save className="h-4 w-4" />{t("초안 저장", "Save draft")}</button>
           <button disabled={busy || dirty || !result.creationSupported || result.missing.length > 0} className="min-h-11 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run(result.job.state === "running" ? "recover" : "review")}>{t("승인 새로 확인", "Renew approval")}</button>
