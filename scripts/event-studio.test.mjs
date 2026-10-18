@@ -7,6 +7,50 @@ const deletionRequest = (body = { confirmedEnded: true }, origin = "http://127.0
   method: "DELETE", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
 });
 
+test("follow-up answers regenerate the same draft from saved user facts, with natural questions and no premature Google create", async () => {
+  const h = await eventHarness(); try {
+    h.control.currentPlan = { ...fixturePlan(), activityDate: null, applicationDeadline: null, location: null, capacity: null,
+      noticeKo: fixturePlan().noticeKo + "\n일정과 장소는 미정으로 운영진 확인이 필요합니다.", noticeEn: fixturePlan().noticeEn + "\nThe schedule and venue are pending confirmation." };
+    const initial = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: "ECC MT 신청폼과 공지를 만들어 주세요." });
+    assert.equal(initial.token, null); assert.equal(h.control.externalCreates, 0);
+    assert.match(initial.clarification.ko, /언제 시작|몇 명/); assert.doesNotMatch(initial.clarification.ko, /activityDate|capacity/);
+    const calls = h.control.aiCalls;
+    await assert.rejects(h.api.studioOperation({ ...h.access(), readOnly: true }, { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage }), /READ_ONLY/);
+    await assert.rejects(h.api.studioOperation({ ...h.access(), manageableClubs: ["hanhwal"] }, { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage }), /JOB_NOT_FOUND/);
+    assert.equal(h.control.aiCalls, calls);
+    h.control.currentPlan = fixturePlan();
+    const refined = await h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage });
+    assert.equal(refined.job.id, initial.job.id); assert.equal(refined.job.revision, 2);
+    assert.deepEqual(refined.missing, []); assert.ok(refined.token);
+    assert.match(h.control.requests.at(-1).input, /ECC MT/); assert.match(h.control.requests.at(-1).input, /QA Library/);
+    assert.equal((await h.store.db.query("select count(*)::int as n from kline_forms_test_event_studio_jobs")).rows[0].n, 1);
+    assert.equal(h.control.externalCreates, 0);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage }), /JOB_CHANGED/);
+    const approved = await h.api.studioOperation(h.access(), { action: "approve", jobId: refined.job.id, token: refined.token, confirmed: true });
+    assert.equal(approved.job.state, "notice_saved"); assert.equal(h.control.externalCreates, 1);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 2, message: fixtureMessage }), /CREATED_JOB/);
+  } finally { await h.close(); }
+});
+
+test("internal draft commentary triggers a complete AI retry, never output editing; invalid refinement preserves its draft", async () => {
+  const h = await eventHarness(); try {
+    const bad = { ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nThis draft does not create a Google Form." };
+    h.control.outputs = [JSON.stringify(bad), JSON.stringify(fixturePlan())];
+    const generated = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(h.control.aiCalls, 2); assert.equal(generated.metadata.retries, 1);
+    assert.match(h.control.requests[1].instructions, /EVENT_NOTICE_INTERNAL_COMMENTARY/);
+    assert.deepEqual(generated.plan, fixturePlan());
+    const initial = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    h.control.currentPlan = bad;
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: "같은 조건입니다." }), /EVENT_NOTICE_INTERNAL_COMMENTARY/);
+    const unchanged = await h.api.studioOperation(h.access(), { action: "get", jobId: initial.job.id });
+    assert.equal(unchanged.job.revision, 1); assert.deepEqual(unchanged.job.plan, initial.job.plan);
+    assert.equal(h.control.externalCreates, 0);
+    await h.store.db.query("update kline_forms_test_event_studio_jobs set ai_metadata='{}' where id=$1", [initial.job.id]);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage }), /EVENT_RESTART_REQUIRED/);
+  } finally { await h.close(); }
+});
+
 test("new studio jobs include bilingual logistics and capacity in the verified Google original; legacy drafts retain identical content", async () => {
   const h = await eventHarness(); try {
     const plan = fixturePlan();
