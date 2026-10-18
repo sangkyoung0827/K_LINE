@@ -5,7 +5,7 @@ const testTables = new Set([
   "google_oauth_connections", "google_forms", "google_form_responses",
   "google_form_creation_attempts", "google_form_workflows", "google_form_operation_audit",
   "club_board_posts", "site_members", "ecc_form_entry_leases", "ecc_form_revoker_health",
-  "event_studio_jobs", "event_ai_usage", "event_ai_limits"
+  "event_studio_jobs", "event_ai_usage", "event_ai_limits", "google_form_maintenance"
 ]);
 
 export async function supabaseRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -22,8 +22,8 @@ export async function supabaseRequest<T>(path: string, init: RequestInit = {}): 
   headers.set("apikey", key);
   headers.set("Authorization", `Bearer ${key}`);
   headers.set("Content-Type", "application/json");
-  const rpc = /^rpc\/(ecc_form_lock|ecc_form_unlock|event_ai_reserve)$/.exec(path);
-  const productionRpc = rpc?.[1] === "event_ai_reserve";
+  const rpc = /^rpc\/(ecc_form_lock|ecc_form_unlock|event_ai_reserve|google_forms_claim_maintenance|google_forms_finish_maintenance|google_forms_commit_snapshot)$/.exec(path);
+  const productionRpc = rpc && ["event_ai_reserve", "google_forms_claim_maintenance", "google_forms_finish_maintenance", "google_forms_commit_snapshot"].includes(rpc[1]);
   if (production && !productionRpc && (rpc || !match || !testTables.has(match[1]) ||
       ["site_members", "ecc_form_entry_leases", "ecc_form_revoker_health"].includes(match[1]))) {
     throw new Error("GOOGLE_FORMS_ADMIN_TABLE_NOT_ALLOWED");

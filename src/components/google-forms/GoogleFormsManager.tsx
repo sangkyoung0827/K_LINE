@@ -6,37 +6,33 @@ import { useEffect, useMemo, useState } from "react";
 import type { GoogleFormsAccess } from "@/lib/googleForms/access";
 import type { GoogleFormTemplate } from "@/lib/googleForms/templates";
 import type { GoogleFormRegistryRow } from "@/lib/googleForms/types";
-import type { WorkflowPreview } from "./WoohyukmonFormsAssistant";
-import { EventStudio } from "./EventStudio";
+import { EventStudio, studioCommand, type StudioPreview } from "./EventStudio";
 import { EventDeleteButton } from "./EventDeleteButton";
 import { applicantNames, googleTeamNotice } from "@/lib/googleForms/applicants";
-import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { useLanguage } from "@/components/LanguageProvider";
 
 type Props = { initialAccess: GoogleFormsAccess; templates: GoogleFormTemplate[]; production?: boolean; app?: boolean; draftOnly?: boolean };
-type ListResponse = { access: GoogleFormsAccess; connection: { connected: boolean; accountEmail: string }; forms: GoogleFormRegistryRow[]; internalTests?: Record<string, { canOpen: boolean; canClose: boolean }>; error?: string };
-type MirrorResponse = { responses: Array<{ id: string; submitted_at: string; respondent_email: string | null; answers_json: Record<string, string[]> }>; error?: string };
+type ListResponse = { access: GoogleFormsAccess; connection: { connected: boolean; accountEmail: string; health?: string }; forms: GoogleFormRegistryRow[]; internalTests?: Record<string, { canOpen: boolean; canClose: boolean }>; error?: string };
+type Applicant = { id: string; submitted_at: string; respondent_email: string | null; answers_json: Record<string, string[]> };
+type MirrorResponse = { responses: Applicant[]; waiting?: Applicant[]; late?: Applicant[]; error?: string };
 
 export function GoogleFormsManager({ initialAccess, templates, production = false, app = false, draftOnly = false }: Props) {
   const { language } = useLanguage();
   const t = (ko: string, en: string) => language === "ko" ? ko : en;
   const [section, setSection] = useState("assistant");
   const [studioRefresh, setStudioRefresh] = useState(0);
-  const [preview, setPreview] = useState<{ workflow: WorkflowPreview; token: string } | null>(null);
+  const [preview, setPreview] = useState<StudioPreview | null>(null);
   const [data, setData] = useState<ListResponse>({ access: initialAccess, connection: { connected: false, accountEmail: "" }, forms: [] });
   const [clubKey, setClubKey] = useState(initialAccess.manageableClubs[0]);
   const [templateId, setTemplateId] = useState(templates[0]?.id || "");
   const [title, setTitle] = useState("");
-  const [notice, setNotice] = useState("");
-  const [applicationUrl, setApplicationUrl] = useState("");
-  const [createdForm, setCreatedForm] = useState<GoogleFormRegistryRow | null>(null);
   const [busy, setBusy] = useState(false); const [message, setMessage] = useState(""); const [selected, setSelected] = useState<string | null>(null); const [mirror, setMirror] = useState<MirrorResponse | null>(null);
   const [teamSize, setTeamSize] = useState(4);
   const [teamText, setTeamText] = useState("");
   const forms = useMemo(() => data.forms.filter((form) => form.club_key === clubKey && form.status !== "archived"), [clubKey, data.forms]);
   async function load() { const response = await fetch("/api/google-forms/forms", { cache: "no-store" }); const next = await response.json() as ListResponse; if (!response.ok) throw new Error(next.error || "Google Forms could not load."); setData(next); }
   useEffect(() => { void load().catch((error) => setMessage((error as Error).message)); }, []);
-  function resetCreation() { setPreview(null); setNotice(""); setApplicationUrl(""); setCreatedForm(null); setMessage(""); }
+  function resetCreation() { setPreview(null); setMessage(""); }
   async function testStatus(form: GoogleFormRegistryRow, status: "open" | "closed") {
     if (busy || !window.confirm(t(`${form.title}: 내부 테스트 접수를 ${status === "open" ? "열까요?" : "마감할까요?"}`, `${form.title}: ${status === "open" ? "open" : "close"} internal test responses?`))) return;
     setBusy(true); setMessage("");
@@ -51,20 +47,10 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
     if (busy) return;
     setBusy(true); setMessage("");
     try {
-      let pending = preview;
-      if (!pending) {
-        const response = await fetch("/api/google-forms/forms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ presetOnly: true, clubKey, templateId, title }) });
-        const result = await response.json();
-        if (!response.ok || !result.token) throw new Error(result.error || "신청폼 초안을 만들지 못했습니다.");
-        pending = result as { workflow: WorkflowPreview; token: string };
-        setPreview(pending);
-      }
-      const response = await fetch("/api/woohyukmon/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "confirm_google_forms", token: pending.token }) });
-      const result = await response.json();
-      if (!response.ok || !result.form?.responder_url || !result.notice) throw new Error(result.error || "Google Forms 생성 확인에 실패했습니다.");
-      setCreatedForm(result.form); setNotice(result.notice); setApplicationUrl(result.applicationUrl || result.form.responder_url);
-      setMessage("신청폼과 공지 초안이 생성되었습니다.");
-      await load();
+      const template = templates.find(item => item.id === templateId);
+      const next = await studioCommand<StudioPreview>({ action: "plan", clubKey,
+        message: `활동 제목: ${title.trim()}\n활동 유형: ${template?.label || templateId}\n이 행사의 신청폼과 한국어·영어 공지를 기획해 주세요. 부족한 현재 행사 정보는 먼저 질문하고, 과거 일정이나 참가비를 임의로 사용하지 마세요.` });
+      setPreview(next); setStudioRefresh(value => value + 1); setSection("assistant");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Google Forms 연결에 문제가 있습니다.");
     } finally { setBusy(false); }
@@ -98,8 +84,10 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
       event.preventDefault(); setSection(ids[next]);
       event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`#event-tab-${ids[next]}`)?.focus();
     }} onClick={() => setSection(id)} className={`min-h-11 min-w-0 break-words px-2 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${section === id ? "bg-ink text-paper" : "border border-ink/20"}`}>{label}</button>)}</div>
-    {!initialAccess.isReadOnly ? <div id="event-panel-assistant" role="tabpanel" aria-labelledby="event-tab-assistant" hidden={section !== "assistant"}><EventStudio key={studioRefresh} embedded initialClub={clubKey === "social_impact_union" ? clubKey : "ecc"} onComplete={() => { void load().catch(error => setMessage((error as Error).message)); }} /></div> : null}
+    {!initialAccess.isReadOnly ? <div id="event-panel-assistant" role="tabpanel" aria-labelledby="event-tab-assistant" hidden={section !== "assistant"}><EventStudio key={studioRefresh} embedded initialPreview={preview} initialClub={clubKey === "social_impact_union" ? clubKey : "ecc"} onComplete={() => { setPreview(null); void load().catch(error => setMessage((error as Error).message)); }} /></div> : null}
     {message ? <p role="status" className="mt-5 border border-brass/30 bg-brass/10 p-3 text-sm font-semibold text-ink">{message}</p> : null}
+    {data.connection.health === "reconnect_required" && <p role="alert" className="mt-4 text-sm text-red-700">{t("Google 연결이 만료되었습니다. 운영 계정을 다시 연결해 주세요.", "Google access expired. Reconnect the operations account.")}</p>}
+    {data.connection.health === "unavailable" && <p role="status" className="mt-4 text-sm text-ink/65">{t("Google 연결 상태를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.", "Google connection check is temporarily unavailable.")}</p>}
     <div className="mt-8 flex gap-2 overflow-x-auto">{initialAccess.manageableClubs.map((club) => <button key={club} disabled={busy} onClick={() => { setClubKey(club); resetCreation(); }} className={`min-h-10 whitespace-nowrap px-4 text-sm font-semibold ${clubKey === club ? "bg-navy text-paper" : "border border-ink/15"}`}>{club}</button>)}</div>
     {!initialAccess.isReadOnly && section === "forms" ? <div id="event-panel-forms" role="tabpanel" aria-labelledby="event-tab-forms" className="mt-6 border-t border-ink/12 pt-6">
       <h2 className="flex items-center gap-2 text-xl font-semibold"><FilePlus2 className="h-6 w-6" />Create Google Form</h2>
@@ -107,12 +95,8 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
         <Field label="Template"><select aria-label="Template" disabled={busy} value={templateId} onChange={(event) => { setTemplateId(event.target.value); resetCreation(); }} className="form-field">{templates.filter((template) => template.questions.length).map((template) => <option key={template.id} value={template.id}>{template.label}</option>)}</select></Field>
         <Field label="활동 제목"><input aria-label="활동 제목" disabled={busy} className="form-field" value={title} placeholder="활동 제목" onChange={(event) => { setTitle(event.target.value); resetCreation(); }} /></Field>
       </div>
-      <button disabled={draftOnly || busy || !title.trim() || !templateId || !!createdForm} onClick={() => void create()} className="mt-4 inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper disabled:opacity-45"><FilePlus2 className="h-4 w-4" />{busy ? "생성 중..." : createdForm ? "생성 완료" : preview ? "생성 다시 시도" : "신청폼 · 공지 생성"}</button>
+      <button disabled={draftOnly || busy || !title.trim() || !templateId} onClick={() => void create()} className="mt-4 inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper disabled:opacity-45"><FilePlus2 className="h-4 w-4" />{busy ? t("기획 중...", "Planning...") : t("신청폼 · 공지 생성", "Create form and notice")}</button>
       {draftOnly && <p role="status" className="mt-3 text-sm text-ink/65">{t("이 테스트 화면은 AI 초안 생성만 가능합니다. Google Form 생성은 비활성화되어 있습니다.", "This test supports AI drafts only. Google Form creation is disabled.")}</p>}
-      {notice && createdForm ? <div className="mt-6 border-t border-ink/12 pt-5">
-        <ActivityNoticeOutput notice={notice} applicationUrl={applicationUrl} onError={setMessage} />
-        <a href={`https://docs.google.com/forms/d/${encodeURIComponent(createdForm.google_form_id)}/edit`} className="mt-3 inline-flex min-h-11 items-center gap-2 underline">구글폼 원본 보기<ExternalLink className="h-4 w-4" /></a>
-      </div> : null}
     </div> : null}
     <div id={section === "applicants" ? "event-panel-applicants" : undefined} role={section === "applicants" ? "tabpanel" : undefined} aria-labelledby={section === "applicants" ? "event-tab-applicants" : undefined} className={section === "assistant" ? "hidden" : "mt-8 grid gap-4"}>{forms.map((form) => <article key={form.id} className="border border-ink/12 bg-white/60 p-4 sm:p-5">
       <p className="text-xs font-bold uppercase text-brass">{form.status} · Google Forms</p>
@@ -128,7 +112,7 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
         {!initialAccess.isReadOnly && <EventDeleteButton formId={form.id} title={form.title} disabled={busy} onError={setMessage} onDeleted={async () => {
           setData(current => ({ ...current, forms: current.forms.filter(item => item.id !== form.id) }));
           setStudioRefresh(value => value + 1);
-          if (createdForm?.id === form.id) resetCreation();
+          if (preview?.job.form_registry_id === form.id) resetCreation();
           setMessage(t("행사를 목록에서 삭제했습니다. 원본과 응답 기록은 보존됩니다.", "Event removed. Original files and responses are preserved."));
           await load();
         }} />}
@@ -153,6 +137,8 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
           {applicantNames(mirror.responses).map((name, index) => <li key={mirror.responses[index].id} className="break-words py-3 text-sm font-semibold">{name}</li>)}
         </ul>
         {!mirror.responses.length ? <p className="py-8 text-center text-sm text-ink/55">신청자가 없습니다.</p> : null}
+        {!!mirror.waiting?.length && <div className="mt-5 border-t border-ink/10 pt-4"><h3 className="text-sm font-semibold">{t("대기자", "Waitlist")} · {mirror.waiting.length}</h3><ul>{applicantNames(mirror.waiting).map((name, i) => <li className="break-words py-2 text-sm" key={mirror.waiting![i].id}>{name}</li>)}</ul></div>}
+        {!!mirror.late?.length && <div className="mt-5 border-t border-ink/10 pt-4"><h3 className="text-sm font-semibold">{t("마감 후 응답", "Late responses")} · {mirror.late.length}</h3><ul>{applicantNames(mirror.late).map((name, i) => <li className="break-words py-2 text-sm" key={mirror.late![i].id}>{name}</li>)}</ul></div>}
       </div>
     </div> : null}
   </div></section>;

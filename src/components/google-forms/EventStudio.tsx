@@ -6,10 +6,11 @@ import { useLanguage } from "@/components/LanguageProvider";
 import type { StudioAccess } from "@/lib/eventStudio/access";
 import type { EventPlan, StudioClub } from "@/lib/eventStudio/model";
 import type { StudioJob } from "@/lib/eventStudio/service";
+import { eventClarification } from "@/lib/eventStudio/clarification";
 import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { EventDeleteButton } from "./EventDeleteButton";
 
-type Preview = { job: StudioJob; token: string | null; creationSupported: boolean; missing: string[];
+export type StudioPreview = { job: StudioJob; token: string | null; creationSupported: boolean; missing: string[]; clarification?: { ko: string; en: string };
   form?: { edit_url: string; responder_url: string }; notice?: string; applicationUrl?: string; recruitmentOpen?: boolean; archiveLinkPending?: boolean };
 type Config = { jobs: StudioJob[]; access: StudioAccess; aiEnabled: boolean };
 const clubNames: Record<StudioClub, string> = { ecc: "ECC", hanhwal: "HANHWAL", social_impact_union: "Social Impact Union" };
@@ -29,14 +30,22 @@ const errors: Record<string, [string, string]> = {
   JOB_CHANGED_REVIEW_AGAIN: ["다른 화면에서 초안이 변경되었습니다. 다시 불러와주세요.", "The draft changed elsewhere. Reload it."],
   FORM_CREATION_UNCERTAIN_RECONCILIATION_REQUIRED: ["Google 생성 결과 확인이 필요합니다. 새 폼을 만들지 않고 복구를 기다립니다.", "Google's result is uncertain. Reconcile it before creating another form."],
   GOOGLE_RECONNECT_REQUIRED: ["Google 연결을 다시 승인해주세요.", "Reconnect your Google account."],
+  GOOGLE_AUTH_UNAVAILABLE: ["Google 인증 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.", "Google authentication is temporarily unavailable. Try again shortly."],
+  EVENT_DEADLINE_TIME_REQUIRED: ["신청 마감은 몇 시인가요? 시간과 시간대를 확인해 주세요.", "What time do applications close? Specify the time and timezone."],
+  EVENT_RESTART_REQUIRED: ["이전 버전의 초안입니다. 위 입력창에서 처음부터 다시 기획해 주세요.", "This draft predates conversational planning. Start a new request above."],
+  EVENT_CONVERSATION_LIMIT: ["대화가 길어졌습니다. 확정된 행사 정보를 모아 새 요청으로 입력해 주세요.", "Please consolidate the confirmed details into a new request."],
+  EVENT_NOTICE_INTERNAL_COMMENTARY: ["공지 품질 검수를 통과하지 못했습니다. 다시 기획해 주세요.", "The notice did not pass quality review. Try planning again."],
+  EVENT_AI_NETWORK_FAILURE: ["AI 연결이 일시적으로 끊겼습니다. 다시 기획해 주세요. 폼은 생성되지 않았습니다.", "The AI connection was interrupted. Try planning again; no form was created."],
+  EVENT_AI_TIMEOUT: ["AI 응답 대기 시간이 초과되었습니다. 입력한 내용은 유지됩니다. 잠시 후 다시 시도해 주세요. 폼은 생성되지 않았습니다.", "The AI response timed out. Your input is preserved. Try again shortly; no form was created."],
   CLUB_ADMIN_REQUIRED: ["해당 클럽의 관리자 권한이 필요합니다.", "Administrator access for this club is required."],
   EVENT_STUDIO_UNAVAILABLE: ["Event Studio 연결을 확인해주세요. 기존 신청 기능은 계속 사용할 수 있습니다.", "Check the Event Studio connection. Existing applications remain available."],
 };
-export function EventStudio({ initialClub, onComplete, embedded = false, archiveIds = [] }: { initialClub?: StudioClub; onComplete?: () => void; embedded?: boolean; archiveIds?: string[] }) {
+export function EventStudio({ initialClub, initialPreview, onComplete, embedded = false, archiveIds = [] }: { initialClub?: StudioClub; initialPreview?: StudioPreview | null; onComplete?: () => void; embedded?: boolean; archiveIds?: string[] }) {
   const { language } = useLanguage(); const ko = language === "ko";
   const t = (kr: string, en: string) => ko ? kr : en;
   const [config, setConfig] = useState<Config | null>(null), [clubKey, setClub] = useState<StudioClub>(initialClub || "ecc");
-  const [message, setMessage] = useState(""), [result, setResult] = useState<Preview | null>(null), [plan, setPlan] = useState<EventPlan | null>(null);
+  const [message, setMessage] = useState(""), [result, setResult] = useState<StudioPreview | null>(null), [plan, setPlan] = useState<EventPlan | null>(null);
+  const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false), [error, setError] = useState("");
   const [usage, setUsage] = useState<{ usage: { id: string; actual_model: string; duration_ms: number; estimated_cost_usd: number | null; error_code: string | null }[] } | null>(null);
   const [userCap, setUserCap] = useState(10), [clubCap, setClubCap] = useState(50);
@@ -46,12 +55,13 @@ export function EventStudio({ initialClub, onComplete, embedded = false, archive
   }
   useEffect(() => { void load().catch(e => setError(e.message)); }, []);
   useEffect(() => { if (initialClub) { setClub(initialClub); setResult(null); setPlan(null); setUsage(null); } }, [initialClub]);
-  function select(next: Preview) { setResult(next); setPlan(next.job.plan); setDirty(false); }
+  useEffect(() => { if (initialPreview) select(initialPreview); }, [initialPreview]);
+  function select(next: StudioPreview) { setResult(next); setPlan(next.job.plan); setDirty(false); setAnswer(""); }
   function edit(update: Partial<EventPlan>) { if (plan) { setPlan({ ...plan, ...update }); setDirty(true); } }
   async function run(action: string) {
     if (busy) return; setBusy(true); setError("");
     try {
-      const next = await studioCommand<Preview>({ action, clubKey, message, archiveIds, jobId: result?.job.id, revision: result?.job.revision,
+      const next = await studioCommand<StudioPreview>({ action, clubKey, message: action === "refine" ? answer : message, archiveIds, jobId: result?.job.id, revision: result?.job.revision,
         ...(action === "update" ? { plan } : {}), ...(action === "approve" ? { confirmed: true, token: result?.token } : {}) });
       select(next); await load(); if (action === "approve") onComplete?.();
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
@@ -71,7 +81,7 @@ export function EventStudio({ initialClub, onComplete, embedded = false, archive
     </form>}
     {busy && <p role="status" className="text-sm">{t("작업을 확인하고 있습니다. 잠시 기다려주세요.", "Checking this step. Please wait.")}</p>}
     {error && <p role="alert" className="break-words text-sm text-red-700">{errors[error]?.[ko ? 0 : 1] || `${t("작업을 완료하지 못했습니다", "This step could not be completed")}: ${error}`}</p>}
-    {visibleJobs.length > 0 && <div className="grid gap-2"><label className="text-sm font-semibold" htmlFor="studio-drafts">{t("저장된 행사", "Saved events")}</label><select id="studio-drafts" className="form-field" value={result?.job.id || ""} disabled={busy} onChange={e => { if (e.target.value) { setBusy(true); void studioCommand<Preview>({ action: "get", jobId: e.target.value }).then(select).catch(e => setError(e.message)).finally(() => setBusy(false)); } }}><option value="">{t("선택", "Select")}</option>{visibleJobs.map(job => <option key={job.id} value={job.id}>{job.plan.title}</option>)}</select></div>}
+    {visibleJobs.length > 0 && <div className="grid gap-2"><label className="text-sm font-semibold" htmlFor="studio-drafts">{t("저장된 행사", "Saved events")}</label><select id="studio-drafts" className="form-field" value={result?.job.id || ""} disabled={busy} onChange={e => { if (e.target.value) { setBusy(true); void studioCommand<StudioPreview>({ action: "get", jobId: e.target.value }).then(select).catch(e => setError(e.message)).finally(() => setBusy(false)); } }}><option value="">{t("선택", "Select")}</option>{visibleJobs.map(job => <option key={job.id} value={job.id}>{job.plan.title}</option>)}</select></div>}
     {result && plan && <div className="space-y-4 border-t border-ink/15 pt-5">
       {result.archiveLinkPending && <p role="status" className="text-sm text-ink/65">{t("행사 초안은 저장되었습니다. 참고 자료 연결은 다시 확인해야 합니다.", "The event draft is saved. Its archive links need reconciliation.")}</p>}
       <p className="text-sm text-ink/60">{clubNames[plan.clubKey]} · {t("초안 버전", "Draft version")} {result.job.revision} · {result.job.ai_metadata.model as string}</p>
@@ -86,6 +96,15 @@ export function EventStudio({ initialClub, onComplete, embedded = false, archive
         </div>
         <ActivityNoticeOutput notice={result.notice || ""} applicationUrl={result.applicationUrl || ""} onError={setError} />
       </> : <>
+        <div className="space-y-3">
+          {result.missing.length > 0 && <p role="status" className="whitespace-pre-line text-sm leading-relaxed">{(result.clarification || eventClarification(result.missing, plan.title))[ko ? "ko" : "en"]}</p>}
+          {!readOnly && result.job.state === "draft" && <form className="flex items-end gap-2" onSubmit={event => { event.preventDefault(); void run("refine"); }}>
+            <textarea aria-label={t("추가 답변", "Additional details")} className="form-field min-h-24 min-w-0 flex-1" disabled={busy || dirty} value={answer} onChange={event => setAnswer(event.target.value)} />
+            <button aria-label={t("답변 반영", "Apply details")} title={t("답변 반영", "Apply details")} className="flex h-11 w-11 shrink-0 items-center justify-center bg-ink text-paper disabled:opacity-40" disabled={busy || dirty || !answer.trim()}><Send className="h-5 w-5" /></button>
+          </form>}
+        </div>
+        <details open={!result.missing.length}>
+        <summary className="mb-4 cursor-pointer text-sm font-semibold">{t("신청폼 · 공지 검토", "Review form and notice")}</summary>
         <fieldset disabled={readOnly || busy || result.job.state !== "draft"} className="min-w-0 space-y-4 disabled:opacity-70">
           <label className="grid gap-2 text-sm">{t("제목", "Title")}<input className="form-field" value={plan.title} onChange={e => edit({ title: e.target.value })} /></label>
           <div className="grid gap-3 sm:grid-cols-2">{(["descriptionKo", "descriptionEn"] as const).map(key => <label className="grid gap-2 text-sm" key={key}>{key === "descriptionKo" ? t("한국어 소개", "Korean introduction") : t("영어 소개", "English introduction")}<textarea className="form-field min-h-24" value={plan[key]} onChange={e => edit({ [key]: e.target.value })} /></label>)}</div>
@@ -102,7 +121,7 @@ export function EventStudio({ initialClub, onComplete, embedded = false, archive
           <button type="button" className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-3 text-sm" onClick={() => edit({ questions: [...plan.questions, { id: crypto.randomUUID(), title: "", type: "short_answer", required: false, options: [] }] })}><Plus className="h-4 w-4" />{t("질문 추가", "Add question")}</button>
           {(["noticeKo", "noticeEn"] as const).map(key => <label key={key} className="grid gap-2 text-sm">{key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")}<textarea aria-label={key === "noticeKo" ? t("한국어 공지", "Korean notice") : t("영어 공지", "English notice")} className="form-field min-h-48" value={plan[key]} onChange={e => edit({ [key]: e.target.value })} /></label>)}
         </fieldset>
-        {result.missing.length > 0 && <p role="status" className="text-sm">{t("확인할 정보", "Missing information")}: {result.missing.join(", ")}</p>}
+        </details>
         {!readOnly && <div className="flex flex-wrap gap-2">
           <button disabled={busy || !dirty} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run("update")}><Save className="h-4 w-4" />{t("초안 저장", "Save draft")}</button>
           <button disabled={busy || dirty || !result.creationSupported || result.missing.length > 0} className="min-h-11 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run(result.job.state === "running" ? "recover" : "review")}>{t("승인 새로 확인", "Renew approval")}</button>

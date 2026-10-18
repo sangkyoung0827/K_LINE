@@ -37,9 +37,14 @@ createServer(async (request, response) => {
     const body = JSON.parse(raw || "{}");
     if (body.action === "list") return send({ jobs: studioJob ? [studioJob] : [], access: { email: "test-admin@example.test", manageableClubs: ["ecc"], readOnly: false, canSetLimits: false }, aiEnabled: true });
     if (body.action === "plan") {
-      studioJob = { id: "fixture-studio-job", club_key: "ecc", revision: 1, state: "draft", plan: fixturePlan(), ai_metadata: { model: "gpt-6-luna" } };
-      return send({ job: studioJob, token: "fixture-only-token", creationSupported: true, missing: [] });
+      const missing = body.message.includes("활동 제목:") ? ["activityDate", "applicationDeadline", "location", "capacity"] : [];
+      const plan = fixturePlan();
+      if (missing.length) Object.assign(plan, { title: "ECC MT UI Test", activityDate: null, applicationDeadline: null, location: null, capacity: null });
+      studioJob = { id: "fixture-studio-job", club_key: "ecc", revision: 1, state: "draft", plan, ai_metadata: { model: "gpt-6-luna", requestTurns: [body.message] } };
+      return send({ job: studioJob, token: missing.length ? null : "fixture-only-token", creationSupported: true, missing });
     }
+    if (body.action === "refine") { studioJob.plan = { ...fixturePlan(), title: studioJob.plan.title }; studioJob.revision++; return send({ job: studioJob, token: "fixture-only-token", creationSupported: true, missing: [] }); }
+    if (body.action === "approve") { studioJob.state = "notice_saved"; studioJob.form_registry_id = form.id; form.title = studioJob.plan.title; return send({ job: studioJob, token: null, creationSupported: true, missing: [], form: { ...form, edit_url: "https://docs.google.com/forms/d/test-fixture/edit" }, notice: studioJob.plan.noticeKo + "\n\n" + studioJob.plan.noticeEn, applicationUrl: form.responder_url }); }
     return send({ error: "FIXTURE_OPERATION_NOT_SUPPORTED" }, 400);
   }
   if (url.pathname.startsWith("/api/")) {

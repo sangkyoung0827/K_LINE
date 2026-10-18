@@ -15,6 +15,8 @@ export async function createPreviewStore() {
   for (const filename of ["20261005092720_google_forms_shared_project_test.sql", "20261010172743_event_studio.sql"]) {
     await db.exec((await readFile(new URL("../supabase/migrations/" + filename, import.meta.url), "utf8")).replace("create extension if not exists pgcrypto;", ""));
   }
+  // Exercise the production snapshot transaction against local, test-prefixed tables.
+  await db.exec((await readFile(new URL("../supabase/migrations/20261018090607_google_forms_maintenance.sql", import.meta.url), "utf8")).replaceAll("kline_forms_live_", "kline_forms_test_"));
   const localTables = new Set(["event_studio_jobs", "event_ai_usage", "event_ai_limits", "google_oauth_connections", "google_forms", "google_form_creation_attempts", "google_form_responses", "google_form_workflows", "google_form_operation_audit", "site_members", "club_board_posts"].map(n => "kline_forms_test_" + n));
   const columns = new Map(), columnTypes = new Map();
   await db.exec("set role service_role;");
@@ -28,6 +30,7 @@ export async function createPreviewStore() {
     if (resource.startsWith("rpc/")) {
       if (init.method !== "POST") throw new Error("UNSAFE_PREVIEW_QUERY");
       if (resource === "rpc/kline_forms_test_event_ai_reserve") return json((await db.query("select public.kline_forms_test_event_ai_reserve($1,$2,$3,$4,$5) as result", [body.p_actor, body.p_club, body.p_model, body.p_reason, body.p_attempt])).rows[0].result);
+      if (resource === "rpc/kline_forms_test_google_forms_commit_snapshot") return json((await db.query("select public.kline_forms_test_google_forms_commit_snapshot($1,$2,$3::jsonb) as result", [body.p_form, body.p_started_at, JSON.stringify(body.p_responses)])).rows[0].result);
       throw new Error("UNSAFE_PREVIEW_QUERY");
     }
     const table = identifier(resource, localTables), allowed = columns.get(resource), args = [];

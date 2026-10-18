@@ -7,6 +7,9 @@ const questionTypes = new Set<GoogleQuestionType>(["short_answer", "paragraph", 
 export function parseGoogleFormDraft(value: unknown): GoogleFormDraft {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("INVALID_FORM_DRAFT");
   const input = value as Record<string, unknown>;
+  if (input.automationVersion !== undefined && input.automationVersion !== 1) throw new Error("INVALID_AUTOMATION_VERSION");
+  if (input.capacity !== undefined && (typeof input.capacity !== "number" || !Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > 100000)) throw new Error("INVALID_CAPACITY");
+  if (input.automationVersion === 1 && input.capacity === undefined) throw new Error("CAPACITY_REQUIRED");
   const clubKey = cleanText(input.clubKey, 40) as GoogleFormDraft["clubKey"];
   if (!googleFormClubKeys.includes(clubKey)) throw new Error("INVALID_CLUB");
   const title = cleanText(input.title, 200);
@@ -32,5 +35,5 @@ export function parseGoogleFormDraft(value: unknown): GoogleFormDraft {
   if (applicationDeadline && activityDate && Date.parse(applicationDeadline) > Date.parse(activityDate)) throw new Error("DEADLINE_AFTER_ACTIVITY");
   const editorEmail = cleanText(input.editorEmail, 240).toLowerCase();
   if (editorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editorEmail)) throw new Error("INVALID_EDITOR_EMAIL");
-  return { clubKey, title, description: cleanText(input.description, 5000), descriptionKo: cleanText(input.descriptionKo, 2500), descriptionEn: cleanText(input.descriptionEn, 2500), activityId: cleanText(input.activityId, 200), activityTitle: cleanText(input.activityTitle, 200), activityDate: cleanText(input.activityDate, 80), location: cleanText(input.location, 300), applicationDeadline, editorEmail, templateId, questions };
+  return { ...(input.capacity !== undefined ? { capacity: input.capacity as number } : {}), ...(input.automationVersion === 1 ? { automationVersion: 1 as const } : {}), clubKey, title, description: cleanText(input.description, 5000), descriptionKo: cleanText(input.descriptionKo, 2500), descriptionEn: cleanText(input.descriptionEn, 2500), activityId: cleanText(input.activityId, 200), activityTitle: cleanText(input.activityTitle, 200), activityDate: cleanText(input.activityDate, 80), location: cleanText(input.location, 300), applicationDeadline, editorEmail, templateId, questions };
 }

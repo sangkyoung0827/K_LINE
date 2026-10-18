@@ -8,7 +8,8 @@ import { noticeBody } from "@/lib/googleForms/planning";
 import { eccFormApplicationUrl } from "@/lib/googleForms/eccResponderEntry";
 import type { GoogleFormRegistryRow } from "@/lib/googleForms/types";
 import { createSignedWoohyukmonPayload, verifySignedWoohyukmonPayload } from "@/lib/woohyukmon/operations/token";
-import { generateEventPlan } from "./ai";
+import { generateEventPlan, sanitizeEventRequest } from "./ai";
+import { eventClarification } from "./clarification";
 import { assertStudioAccess, type StudioAccess } from "./access";
 import { club, formDraft, parseEventPlan, StudioError, type EventPlan, type StudioClub } from "./model";
 
@@ -32,9 +33,11 @@ async function loadJob(id: string, access: StudioAccess, write = false) {
   return rows[0];
 }
 function preview(job: StudioJob, access: StudioAccess) {
-  const canCreate = !access.readOnly && studioAdapters[job.club_key].creationSupported && !job.plan.missingInformation.length;
+  const missing = [...job.plan.missingInformation];
+  if (job.ai_metadata.formDraftVersion === 2 && job.plan.applicationDeadline?.length === 10) missing.push("applicationDeadlineTime");
+  const canCreate = !access.readOnly && studioAdapters[job.club_key].creationSupported && !missing.length;
   const token = canCreate ? createSignedWoohyukmonPayload({ namespace: "event_studio_v1", actor: access.email, club: job.club_key, job: job.id, revision: job.revision, hash: hash(job.plan), expires: Date.now() + 600000 } satisfies Approval) : null;
-  return { job, token, creationSupported: studioAdapters[job.club_key].creationSupported, missing: job.plan.missingInformation };
+  return { job, token, creationSupported: studioAdapters[job.club_key].creationSupported, missing, clarification: eventClarification(missing, job.plan.title) };
 }
 async function result(job: StudioJob, access: StudioAccess) {
   if (!job.form_registry_id) return preview(job, access);
@@ -49,9 +52,10 @@ function knownError(error: unknown, depth = 0): string {
   if (error instanceof StudioError) return error.code;
   if (depth < 3 && error instanceof Error && error.cause instanceof Error) {
     const causeCode = knownError(error.cause, depth + 1);
-    if (causeCode === "GOOGLE_RECONNECT_REQUIRED" || causeCode === "GOOGLE_RESPONDER_URL_INVALID" || causeCode === "GOOGLE_FORM_CONTENT_MISMATCH") return causeCode;
+    if (causeCode === "GOOGLE_RECONNECT_REQUIRED" || causeCode === "GOOGLE_AUTH_UNAVAILABLE" || causeCode === "GOOGLE_RESPONDER_URL_INVALID" || causeCode === "GOOGLE_FORM_CONTENT_MISMATCH") return causeCode;
   }
   const message = error instanceof Error ? error.message : "";
+  if (message === "GOOGLE_RECONNECT_REQUIRED" || message === "GOOGLE_AUTH_UNAVAILABLE") return message;
   if (message.startsWith("FORM_SETUP_RETRYABLE")) return "FORM_SETUP_RETRYABLE";
   if (message.includes("UNCERTAIN")) return "FORM_CREATION_UNCERTAIN_RECONCILIATION_REQUIRED";
   if (message.includes("OAuth") || message.includes("token exchange")) return "GOOGLE_RECONNECT_REQUIRED";
@@ -62,6 +66,7 @@ function knownError(error: unknown, depth = 0): string {
 async function execute(job: StudioJob, access: StudioAccess) {
   if (!studioAdapters[job.club_key].creationSupported) throw new StudioError("CLUB_ADAPTER_NOT_READY", 409);
   if (job.plan.missingInformation.length) throw new StudioError("EVENT_INFORMATION_MISSING", 409);
+  if (job.ai_metadata.formDraftVersion === 2 && job.plan.applicationDeadline?.length === 10) throw new StudioError("EVENT_DEADLINE_TIME_REQUIRED", 409);
   if (job.state === "notice_saved") return result(job, access);
   if (job.state === "running") throw new StudioError("JOB_RUNNING_RECOVERY_REQUIRED", 409);
   const locked = await supabaseRequest<StudioJob[]>(`${jobQuery(job.id)}&revision=eq.${job.revision}&state=eq.${job.state}&select=*`, {
@@ -69,7 +74,8 @@ async function execute(job: StudioJob, access: StudioAccess) {
   });
   if (!locked[0]) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);
   try {
-    const draft = formDraft(job.plan);
+    // Existing attempts retain their exact draft/hash; only newly planned jobs opt in.
+    const draft = formDraft(job.plan, job.ai_metadata.formDraftVersion === 2 ? 2 : 1);
     draft.activityId = job.id;
     const form = await createGoogleForm(draft, job.created_by, `studio_${job.id}`);
     actualResponderUrl(form.responder_url);
@@ -123,7 +129,7 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
       references = await historicalReferences(await getArchiveAccess(access.email), body.archiveIds, key);
     }
     const generated = await generateEventPlan(access.email, key, body.message, references);
-    const rows = await supabaseRequest<StudioJob[]>(`${jobs}?select=*`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ id: randomUUID(), club_key: key, plan: generated.plan, ai_metadata: { ...generated.metadata, ...(references.length ? { archiveIds: references.map(r => r.archiveId) } : {}) }, created_by: access.email }) });
+    const rows = await supabaseRequest<StudioJob[]>(`${jobs}?select=*`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ id: randomUUID(), club_key: key, plan: generated.plan, ai_metadata: { ...generated.metadata, formDraftVersion: 2, requestTurns: [sanitizeEventRequest(body.message)], ...(references.length ? { archiveIds: references.map(r => r.archiveId) } : {}) }, created_by: access.email }) });
     let archiveLinkPending = false;
     if (references.length) {
       const { linkArchiveReferences } = await import("@/lib/eventArchive/service");
@@ -138,6 +144,27 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
   const job = await loadJob(String(body.jobId || ""), access, !["get", "review"].includes(String(action)));
   if (action === "get") return result(job, access);
   if (action === "review") { assertStudioAccess(access, job.club_key); return preview(job, access); }
+  if (action === "refine") {
+    if (job.form_registry_id || job.state !== "draft") throw new StudioError("CREATED_JOB_CANNOT_BE_EDITED", 409);
+    if (body.revision !== job.revision) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);
+    // Only server-saved user input supplies facts. Never promote an AI proposal or edited draft to evidence.
+    const previous = job.ai_metadata.requestTurns;
+    if (!Array.isArray(previous) || !previous.length || !previous.every(turn => typeof turn === "string")) throw new StudioError("EVENT_RESTART_REQUIRED", 409);
+    if (typeof body.message !== "string" || !body.message.trim()) throw new StudioError("EVENT_REQUEST_REQUIRED");
+    const turns = [...previous, sanitizeEventRequest(body.message.trim())];
+    const request = turns.join("\n\n추가 답변 / Follow-up answer:\n");
+    if (turns.length > 8 || request.length > 6000) throw new StudioError("EVENT_CONVERSATION_LIMIT", 400);
+    let references: object[] = [];
+    if (Array.isArray(job.ai_metadata.archiveIds) && job.ai_metadata.archiveIds.length) {
+      const { getArchiveAccess } = await import("@/lib/eventArchive/access");
+      const { historicalReferences } = await import("@/lib/eventArchive/service");
+      references = await historicalReferences(await getArchiveAccess(access.email), job.ai_metadata.archiveIds, job.club_key);
+    }
+    const generated = await generateEventPlan(access.email, job.club_key, request, references);
+    const updated = await supabaseRequest<StudioJob[]>(`${jobQuery(job.id)}&revision=eq.${job.revision}&state=eq.draft&select=*`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ plan: generated.plan, ai_metadata: { ...job.ai_metadata, ...generated.metadata, requestTurns: turns }, revision: job.revision + 1, updated_at: new Date().toISOString() }) });
+    if (!updated[0]) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);
+    return preview(updated[0], access);
+  }
   if (action === "update") {
     if (job.form_registry_id || job.state !== "draft") throw new StudioError("CREATED_JOB_CANNOT_BE_EDITED", 409);
     if (body.revision !== job.revision) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);

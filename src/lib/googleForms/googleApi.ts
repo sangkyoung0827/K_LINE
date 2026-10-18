@@ -7,11 +7,13 @@ import { decryptGoogleToken, encryptGoogleToken } from "./crypto";
 import type { GoogleFormDraft, GoogleFormQuestion, GoogleFormRegistryRow, GoogleFormStatus } from "./types";
 import { actualResponderUrl, mapResponseAnswers, type FormStructure, type FormAnswer } from "./responses";
 import { assertGoogleFormsTestEnvironment, assertGoogleFormsPublicationApproval, isGoogleFormsAdminProduction } from "./safety";
+import { automationPolicy, automaticClosureReason } from "./automationPolicy";
 
 type OAuthConnection = { account_email: string; encrypted_refresh_token: string; scopes: string[] };
 type GoogleTokenResponse = { access_token?: string; expires_in?: number; refresh_token?: string; scope?: string; token_type?: string; error?: string; error_description?: string };
 type GoogleFormResource = FormStructure & { formId: string; info?: { title?: string; description?: string }; responderUri?: string; revisionId?: string };
 type GoogleResponse = { responseId?: string; createTime?: string; respondentEmail?: string; answers?: Record<string, FormAnswer> };
+class GoogleAuthenticationError extends Error {}
 
 const formsBase = "https://forms.googleapis.com/v1/forms";
 const registryColumns = "id,club_key,activity_id,activity_type,google_form_id,title,description,responder_url,edit_url,status,application_deadline,response_count,last_response_sync_at,metadata,created_by,created_at,updated_at";
@@ -45,6 +47,7 @@ async function exchange(params: URLSearchParams) {
   if (params.get("grant_type") === "authorization_code") params.set("redirect_uri", redirectUri);
   const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", signal: AbortSignal.timeout(20_000), headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: params, cache: "no-store" });
   const data = await response.json() as GoogleTokenResponse;
+  if (data.error === "invalid_grant") throw new Error("GOOGLE_RECONNECT_REQUIRED");
   if (!response.ok || !data.access_token) throw new Error(`Google OAuth token exchange failed (${response.status}).`);
   return data;
 }
@@ -72,14 +75,26 @@ export async function connectGoogleOperationsAccount(code: string, connectedBy: 
 
 export async function getGoogleConnectionStatus() {
   const rows = await supabaseRequest<OAuthConnection[]>("google_oauth_connections?select=account_email,encrypted_refresh_token,scopes&id=eq.operations&limit=1", { cache: "no-store" });
-  return rows[0] ? { connected: true, accountEmail: rows[0].account_email, scopes: rows[0].scopes } : { connected: false, accountEmail: "", scopes: [] };
+  if (!rows[0]) return { connected: false, accountEmail: "", scopes: [], health: "missing" };
+  try {
+    await exchange(new URLSearchParams({ refresh_token: decryptGoogleToken(rows[0].encrypted_refresh_token), grant_type: "refresh_token" }));
+    return { connected: true, accountEmail: rows[0].account_email, scopes: rows[0].scopes, health: "healthy" };
+  } catch (error) {
+    const expired = error instanceof Error && error.message === "GOOGLE_RECONNECT_REQUIRED";
+    return { connected: !expired, accountEmail: rows[0].account_email, scopes: rows[0].scopes, health: expired ? "reconnect_required" : "unavailable" };
+  }
 }
 
 async function accessToken() {
-  const rows = await supabaseRequest<OAuthConnection[]>("google_oauth_connections?select=account_email,encrypted_refresh_token,scopes&id=eq.operations&limit=1", { cache: "no-store" });
-  if (!rows[0]) throw new Error("Google Forms connection is not configured.");
-  const tokens = await exchange(new URLSearchParams({ refresh_token: decryptGoogleToken(rows[0].encrypted_refresh_token), grant_type: "refresh_token" }));
-  return tokens.access_token!;
+  try {
+    const rows = await supabaseRequest<OAuthConnection[]>("google_oauth_connections?select=account_email,encrypted_refresh_token,scopes&id=eq.operations&limit=1", { cache: "no-store" });
+    if (!rows[0]) throw new Error("GOOGLE_RECONNECT_REQUIRED");
+    const tokens = await exchange(new URLSearchParams({ refresh_token: decryptGoogleToken(rows[0].encrypted_refresh_token), grant_type: "refresh_token" }));
+    return tokens.access_token!;
+  } catch (error) {
+    // This error proves no subsequent Google resource request was sent.
+    throw new GoogleAuthenticationError(error instanceof Error && error.message === "GOOGLE_RECONNECT_REQUIRED" ? "GOOGLE_RECONNECT_REQUIRED" : "GOOGLE_AUTH_UNAVAILABLE");
+  }
 }
 
 export async function googleFetch<T>(url: string, init: RequestInit = {}) {
@@ -180,12 +195,14 @@ export async function createGoogleForm(draft: GoogleFormDraft, createdBy: string
     await setPublication(formId, false, false);
     const form = await googleFetch<GoogleFormResource>(`${formsBase}/${encodeURIComponent(formId)}`);
     const responderUrl = actualResponderUrl(form.responderUri);
-    const rows = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?on_conflict=idempotency_key&select=${registryColumns}`, { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify({ club_key: draft.clubKey, activity_id: draft.activityId || null, activity_instance_id: idempotencyKey, activity_type: draft.templateId || null, google_form_id: formId, title: draft.title, description: draft.description, responder_url: responderUrl, edit_url: `https://docs.google.com/forms/d/${formId}/edit`, status: "draft", application_deadline: draft.applicationDeadline || null, idempotency_key: idempotencyKey, created_by: normalizeEmail(createdBy), metadata: { activityDate: draft.activityDate || null, activityTitle: draft.activityTitle || null, location: draft.location || null, templateId: draft.templateId, questions: draft.questions } }) });
+    const rows = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?on_conflict=idempotency_key&select=${registryColumns}`, { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify({ club_key: draft.clubKey, activity_id: draft.activityId || null, activity_instance_id: idempotencyKey, activity_type: draft.templateId || null, google_form_id: formId, title: draft.title, description: draft.description, responder_url: responderUrl, edit_url: `https://docs.google.com/forms/d/${formId}/edit`, status: "draft", application_deadline: draft.applicationDeadline || null, idempotency_key: idempotencyKey, created_by: normalizeEmail(createdBy), metadata: { ...(draft.automationVersion === 1 ? { automation: { version: 1, capacity: draft.capacity } } : {}), activityDate: draft.activityDate || null, activityTitle: draft.activityTitle || null, location: draft.location || null, templateId: draft.templateId, questions: draft.questions } }) });
     await supabaseRequest(attemptQuery, { method: "PATCH", body: JSON.stringify({ status: "ready" }) });
     if (!rows[0]) return (await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?select=${registryColumns}&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}`))[0];
     return rows[0];
   } catch (error) {
-    await supabaseRequest(attemptQuery, { method: "PATCH", body: JSON.stringify({ remote_form_id: formId, status: formId ? "configuring" : "uncertain" }) }).catch(() => undefined);
+    const notSent = error instanceof GoogleAuthenticationError;
+    await supabaseRequest(attemptQuery, { method: "PATCH", body: JSON.stringify({ remote_form_id: formId, status: formId || notSent ? "configuring" : "uncertain" }) }).catch(() => undefined);
+    if (!formId && notSent) throw error;
     throw new Error(formId ? `FORM_SETUP_RETRYABLE: ${formId}` : "FORM_CREATION_UNCERTAIN_RECONCILIATION_REQUIRED", { cause: error });
   }
 }
@@ -195,6 +212,16 @@ export async function setGoogleFormStatus(row: GoogleFormRegistryRow, status: Go
   if (row.status === "archived") throw new Error("EVENT_ARCHIVED");
   if (status === "open" || status === "closed") assertGoogleFormsPublicationApproval(row, status, internalTestApproved);
   if (status === "open" && row.application_deadline && Date.parse(row.application_deadline) <= Date.now()) throw new Error("APPLICATION_DEADLINE_HAS_PASSED");
+  if (status === "open" && automationPolicy(row)) {
+    await syncGoogleFormResponses(row);
+    const [latest] = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${encodeURIComponent(row.id)}&select=${registryColumns}&limit=1`);
+    if (!latest || latest.status !== row.status) throw new Error("FORM_CHANGED_REFRESH_REQUIRED");
+    row = latest;
+    const policy = automationPolicy(row);
+    if (!policy) throw new Error("FORM_CHANGED_REFRESH_REQUIRED");
+    if (row.application_deadline && Date.parse(row.application_deadline) <= Date.now()) throw new Error("APPLICATION_DEADLINE_HAS_PASSED");
+    if (row.response_count >= policy.capacity) throw new Error("APPLICATION_CAPACITY_REACHED");
+  }
   await setPublication(row.google_form_id, status === "open" || status === "closed", status === "open");
   const rows = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${encodeURIComponent(row.id)}&status=eq.${row.status}&updated_at=eq.${encodeURIComponent(row.updated_at)}&select=${registryColumns}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status }) });
   if (!rows[0]) throw new Error("FORM_CHANGED_REFRESH_REQUIRED");
@@ -202,6 +229,7 @@ export async function setGoogleFormStatus(row: GoogleFormRegistryRow, status: Go
 }
 
 export async function syncGoogleFormResponses(row: GoogleFormRegistryRow) {
+  const startedAt = new Date().toISOString();
   const form = await googleFetch<GoogleFormResource>(`${formsBase}/${encodeURIComponent(row.google_form_id)}`);
   const responses = new Map<string, GoogleResponse>();
   const seenTokens = new Set<string>();
@@ -212,6 +240,7 @@ export async function syncGoogleFormResponses(row: GoogleFormRegistryRow) {
     for (const response of page.responses || []) {
       if (!response.responseId || !response.createTime) throw new Error("INVALID_GOOGLE_RESPONSE");
       responses.set(response.responseId, response);
+      if (responses.size > 100000) throw new Error("GOOGLE_RESPONSE_PAGE_LIMIT");
     }
     pageToken = page.nextPageToken || "";
     if (pageToken && seenTokens.has(pageToken)) throw new Error("REPEATED_GOOGLE_PAGE_TOKEN");
@@ -219,6 +248,7 @@ export async function syncGoogleFormResponses(row: GoogleFormRegistryRow) {
     if (seenTokens.size > 1000) throw new Error("GOOGLE_RESPONSE_PAGE_LIMIT");
   } while (pageToken);
 
+  const snapshot: Record<string, unknown>[] = [];
   for (const response of responses.values()) {
     if (!response.responseId || !response.createTime) continue;
     const mapped = mapResponseAnswers(form, response.answers);
@@ -231,11 +261,30 @@ export async function syncGoogleFormResponses(row: GoogleFormRegistryRow) {
       const members = await supabaseRequest<Array<{ email: string }>>(`site_members?select=email&email=eq.${encodeURIComponent(respondentEmail)}&limit=1`, { cache: "no-store" }).catch(() => []);
       matchedUserEmail = members[0] ? respondentEmail : null;
     }
-    await supabaseRequest("google_form_responses?on_conflict=google_form_registry_id,google_response_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ google_form_registry_id: row.id, google_response_id: response.responseId, submitted_at: response.createTime, respondent_email: respondentEmail || null, matched_user_email: matchedUserEmail, answers_json: answers, raw_answers_json: mapped, synced_at: new Date().toISOString() }) });
+    const record = { google_form_registry_id: row.id, google_response_id: response.responseId, submitted_at: response.createTime, respondent_email: respondentEmail || null, matched_user_email: matchedUserEmail, answers_json: answers, raw_answers_json: mapped, synced_at: startedAt };
+    if (automationPolicy(row)) snapshot.push(record);
+    else await supabaseRequest("google_form_responses?on_conflict=google_form_registry_id,google_response_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(record) });
   }
-  const now = new Date().toISOString();
-  await supabaseRequest(`google_forms?id=eq.${encodeURIComponent(row.id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ response_count: responses.size, last_response_sync_at: now }) });
+  if (automationPolicy(row)) return await supabaseRequest<number>("rpc/google_forms_commit_snapshot", { body: JSON.stringify({ p_form: row.id, p_started_at: startedAt, p_responses: snapshot }) });
+  // An older overlapping sync must not replace a newer snapshot's count.
+  await supabaseRequest(`google_forms?id=eq.${encodeURIComponent(row.id)}&or=(last_response_sync_at.is.null,last_response_sync_at.lte.${encodeURIComponent(startedAt)})`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ response_count: responses.size, last_response_sync_at: startedAt }) });
   return responses.size;
+}
+
+export async function closeGoogleFormIfNeeded(id: string) {
+  const [row] = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${encodeURIComponent(id)}&select=${registryColumns}&limit=1`);
+  if (!row) return null;
+  const reason = automaticClosureReason(row);
+  if (!reason) return null;
+  // Never publish a draft as a side effect of closing. Preserve Google's publication state.
+  const remote = await googleFetch<GoogleFormResource & { publishSettings?: { publishState?: { isPublished?: boolean } } }>(`${formsBase}/${encodeURIComponent(row.google_form_id)}`);
+  if (remote.formId !== row.google_form_id || !remote.publishSettings?.publishState) throw new Error("GOOGLE_PUBLICATION_STATE_NOT_CONFIRMED");
+  await setPublication(row.google_form_id, remote.publishSettings.publishState.isPublished === true, false);
+  const changed = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${encodeURIComponent(row.id)}&status=eq.open&updated_at=eq.${encodeURIComponent(row.updated_at)}&select=id`, {
+    method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status: "closed" }),
+  });
+  if (!changed[0]) throw new Error("FORM_CHANGED_REFRESH_REQUIRED");
+  return reason;
 }
 
 export { registryColumns };

@@ -7,6 +7,77 @@ const deletionRequest = (body = { confirmedEnded: true }, origin = "http://127.0
   method: "DELETE", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
 });
 
+test("follow-up answers regenerate the same draft from saved user facts, with natural questions and no premature Google create", async () => {
+  const h = await eventHarness(); try {
+    h.control.currentPlan = { ...fixturePlan(), activityDate: null, applicationDeadline: null, location: null, capacity: null,
+      noticeKo: fixturePlan().noticeKo + "\n일정과 장소는 미정으로 운영진 확인이 필요합니다.", noticeEn: fixturePlan().noticeEn + "\nThe schedule and venue are pending confirmation." };
+    const initial = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: "ECC MT 신청폼과 공지를 만들어 주세요." });
+    assert.equal(initial.token, null); assert.equal(h.control.externalCreates, 0);
+    assert.match(initial.clarification.ko, /언제 시작|몇 명/); assert.doesNotMatch(initial.clarification.ko, /activityDate|capacity/);
+    const calls = h.control.aiCalls;
+    await assert.rejects(h.api.studioOperation({ ...h.access(), readOnly: true }, { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage }), /READ_ONLY/);
+    await assert.rejects(h.api.studioOperation({ ...h.access(), manageableClubs: ["hanhwal"] }, { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage }), /JOB_NOT_FOUND/);
+    assert.equal(h.control.aiCalls, calls);
+    h.control.currentPlan = fixturePlan();
+    const refined = await h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage });
+    assert.equal(refined.job.id, initial.job.id); assert.equal(refined.job.revision, 2);
+    assert.deepEqual(refined.missing, []); assert.ok(refined.token);
+    assert.match(h.control.requests.at(-1).input, /ECC MT/); assert.match(h.control.requests.at(-1).input, /QA Library/);
+    assert.equal((await h.store.db.query("select count(*)::int as n from kline_forms_test_event_studio_jobs")).rows[0].n, 1);
+    assert.equal(h.control.externalCreates, 0);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage }), /JOB_CHANGED/);
+    const approved = await h.api.studioOperation(h.access(), { action: "approve", jobId: refined.job.id, token: refined.token, confirmed: true });
+    assert.equal(approved.job.state, "notice_saved"); assert.equal(h.control.externalCreates, 1);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 2, message: fixtureMessage }), /CREATED_JOB/);
+  } finally { await h.close(); }
+});
+
+test("internal draft commentary triggers a complete AI retry, never output editing; invalid refinement preserves its draft", async () => {
+  const h = await eventHarness(); try {
+    const bad = { ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nThis draft does not create a Google Form." };
+    h.control.outputs = [JSON.stringify(bad), JSON.stringify(fixturePlan())];
+    const generated = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(h.control.aiCalls, 2); assert.equal(generated.metadata.retries, 1);
+    assert.match(h.control.requests[1].instructions, /EVENT_NOTICE_INTERNAL_COMMENTARY/);
+    assert.deepEqual(generated.plan, fixturePlan());
+    const initial = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    h.control.currentPlan = bad;
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: "같은 조건입니다." }), /EVENT_NOTICE_INTERNAL_COMMENTARY/);
+    const unchanged = await h.api.studioOperation(h.access(), { action: "get", jobId: initial.job.id });
+    assert.equal(unchanged.job.revision, 1); assert.deepEqual(unchanged.job.plan, initial.job.plan);
+    assert.equal(h.control.externalCreates, 0);
+    await h.store.db.query("update kline_forms_test_event_studio_jobs set ai_metadata='{}' where id=$1", [initial.job.id]);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: fixtureMessage }), /EVENT_RESTART_REQUIRED/);
+  } finally { await h.close(); }
+});
+
+test("new studio jobs include bilingual logistics and capacity in the verified Google original; legacy drafts retain identical content", async () => {
+  const h = await eventHarness(); try {
+    const plan = fixturePlan();
+    const current = h.api.formDraft(plan);
+    assert.match(current.description, /07\/11\/2026, 18:00.*KST/);
+    assert.match(current.description, /06\/11\/2026, 18:00.*KST/);
+    assert.match(current.description, /Venue: QA Library/);
+    assert.match(current.description, /Capacity: 30/);
+    assert.equal(current.capacity, 30); assert.equal(current.automationVersion, 1);
+    const legacy = h.api.formDraft(plan, 1);
+    assert.equal(legacy.description, `${plan.descriptionKo}\n\n${plan.descriptionEn}`);
+    assert.equal(legacy.capacity, undefined); assert.equal(legacy.automationVersion, undefined);
+    const dateOnly = h.api.formDraft({ ...plan, activityDate: "2026-11-07", applicationDeadline: "2026-11-06" });
+    assert.match(dateOnly.description, /Date: 2026-11-07\n/);
+    assert.ok(!dateOnly.description.includes("00:00"));
+    h.control.currentPlan = { ...plan, applicationDeadline: "2026-11-06" };
+    const incomplete = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage + " 2026-11-06" });
+    assert.ok(incomplete.missing.includes("applicationDeadlineTime")); assert.equal(incomplete.token, null);
+    h.control.currentPlan = plan;
+    const job = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+    assert.equal(job.job.ai_metadata.formDraftVersion, 2);
+    const result = await h.api.studioOperation(h.access(), { action: "approve", jobId: job.job.id, token: job.token, confirmed: true });
+    assert.equal(h.control.remoteForms.get(result.form.google_form_id).info.description, current.description);
+    assert.deepEqual(result.form.metadata.automation, { version: 1, capacity: 30 });
+  } finally { await h.close(); }
+});
+
 test("ended event removal preserves original forms, responses, notices and jobs; hides both lists and is idempotent", async () => {
   const h = await eventHarness(); try {
     const planned = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
@@ -72,6 +143,33 @@ test("production event key is isolated from the existing general AI credential",
   } finally { await h.close(); }
 });
 
+test("one transport interruption retries without upgrading or creating forms; persistent interruption stops after two calls", async () => {
+  const h = await eventHarness(); try {
+    h.control.aiNetworkFailures = 1;
+    const generated = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(generated.metadata.retries, 1); assert.equal(h.control.aiCalls, 2);
+    assert.ok(h.control.requests.every(request => request.model === "gpt-6-luna"));
+    h.control.aiNetworkFailures = 10;
+    await assert.rejects(h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage), /NETWORK_FAILURE/);
+    assert.equal(h.control.aiCalls, 4); assert.equal(h.control.externalCreates, 0);
+  } finally { await h.close(); }
+});
+
+test("AI requests respect a shared deadline and timeout failures stop without creating a form", async () => {
+  const h = await eventHarness(); try {
+    assert.equal(h.api.eventAIRequestTimeout(145000, 0), 65000);
+    assert.equal(h.api.eventAIRequestTimeout(145000, 130000), 15000);
+    assert.throws(() => h.api.eventAIRequestTimeout(145000, 145000), /EVENT_AI_TIMEOUT/);
+    h.control.aiTimeoutFailures = 1;
+    const generated = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(generated.metadata.retries, 1); assert.equal(h.control.aiCalls, 2);
+    h.control.aiTimeoutFailures = 3;
+    await assert.rejects(h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage), /EVENT_AI_TIMEOUT/);
+    assert.equal(h.control.aiCalls, 4); assert.equal(h.control.externalCreates, 0);
+    assert.ok(h.control.requests.every(request => request.model === "gpt-6-luna"));
+  } finally { await h.close(); }
+});
+
 test("production permits ECC managers only and preserves read-only restrictions", async () => {
   const h = await eventHarness(); try {
     process.env.GOOGLE_FORMS_ENVIRONMENT = "admin-production";
@@ -131,6 +229,10 @@ test("new activity generic notices retry, proposal labels are required, and unre
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), location: null }, fixtureMessage), /MISSING_LOGISTICS_LABEL/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nNo prior experience is needed." }, fixtureMessage), /UNSUPPORTED_ELIGIBILITY/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nTea and postcards will be provided." }, fixtureMessage), /UNSUPPORTED_MATERIALS/);
+    assert.doesNotThrow(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nMaterials and equipment are not provided." }, fixtureMessage));
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nMaterials and equipment are provided." }, fixtureMessage + " Materials and equipment are not provided."), /UNSUPPORTED_MATERIALS/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: fixturePlan().noticeKo + "\n2026-11-07T18:00:00+09:00" }, fixtureMessage), /READABLE_DATES/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), descriptionEn: "An introduction. ".repeat(100) }, fixtureMessage), /NOT_CONCISE/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: "## " + fixturePlan().noticeKo }, fixtureMessage), /COPY_FORMAT/);
   } finally { await h.close(); }
 });
