@@ -35,7 +35,12 @@ commit partial counts. Legacy sync behavior is preserved.
 
 ## Worker and Recovery
 
-`GET /api/google-forms/maintenance` requires a server-only bearer secret
+`GET /api/google-forms/maintenance` accepts a server-only bearer secret for operator checks,
+or a SHA-256 HMAC signature over `google-forms-maintenance\n<unix-seconds>` for scheduling.
+Signatures expire after 90 seconds (15 seconds of future clock skew allowed); altered or
+expired signatures fail. Leases and retry delays make brief signed-request replays
+idempotent per form. Scheduled replies contain only an `ok` boolean, never form IDs,
+applicant counts or answers. The shared signing secret is
 `GOOGLE_FORMS_CRON_SECRET` (32+ characters; the old test-only name remains a fallback).
 Leased DB jobs claim at most three forms; lease TTL is ten minutes. A crashed worker can
 be reclaimed. Completion is bound to the same unexpired lease. Success/failure and next
@@ -54,6 +59,8 @@ sync remains available. A Google outage/token revocation can delay closure and s
 Additive migrations:
 - `20261018090607_google_forms_maintenance.sql`: server-only leases, claim/finish RPCs and atomic snapshots.
 - `20261018091100_google_forms_scheduler.sql`: existing-project pg_cron/pg_net integration and a fixed-origin dispatcher.
+- `20261018092012_google_forms_scheduler_queue_privacy.sql`: best-effort pg_net ACL hardening. Managed supabase_admin ownership can leave PUBLIC grants in place; do not rely on this REVOKE as a security boundary.
+- `20261018092152_google_forms_scheduler_signed_dispatch.sql`: **required** replacement dispatcher; sends only expiring HMAC signatures, never a Vault secret/bearer token through the pg_net queue.
 
 RLS is enabled; anon/authenticated cannot access the maintenance table or execute RPCs.
 Only the named new RPCs are added to the existing Forms store allowlist. No untrusted
@@ -61,7 +68,7 @@ URL, SQL or native-table access is accepted by the worker.
 
 Activation order, deliberately not automatic in migrations:
 1. Pass full repository checks and Browser Safety CI; review and deploy the new endpoint.
-2. Generate a dedicated random maintenance secret. Store it in Vercel Production as
+2. Confirm the final signed-dispatch migration is applied. Generate a dedicated random maintenance secret. Store it in Vercel Production as
    sensitive `GOOGLE_FORMS_CRON_SECRET` and Supabase Vault as `kline_forms_maintenance_token`.
    Never reuse Google/API/database credentials or place a secret in SQL source/logs.
 3. Redeploy; verify unauthenticated rejection and an authenticated no-op against the

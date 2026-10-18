@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { resolve, dirname } from "node:path";
 import vm from "node:vm";
 import { test } from "node:test";
-import { webcrypto } from "node:crypto";
+import { createHmac, webcrypto } from "node:crypto";
 import ts from "typescript";
 import { PGlite } from "@electric-sql/pglite";
 
@@ -249,6 +249,20 @@ test("expired OAuth before the create request is safely retryable without reconc
   h.control.refreshFailed = false;
   const created = await api.createGoogleForm(draft, "admin@example.test", "oauth_retry_request_1234");
   assert.equal(created.google_form_id, "remote123"); assert.equal(h.control.externalCreates, 1);
+});
+
+test("scheduled HMAC calls expire, reject tampering and return no form identifiers or response counts", async () => {
+  const secret = "test-only-maintenance-secret-0123456789", h = harness({ GOOGLE_FORMS_CRON_SECRET: secret });
+  const route = h.load("src/app/api/google-forms/maintenance/route.ts");
+  const request = (offset = 0, altered = false) => {
+    const stamp = String(Math.floor(Date.now() / 1000) + offset);
+    const signature = createHmac("sha256", altered ? "wrong" : secret).update(`google-forms-maintenance\n${stamp}`).digest("hex");
+    return new Request("http://localhost/cron", { headers: { "x-kline-forms-timestamp": stamp, "x-kline-forms-signature": signature } });
+  };
+  assert.deepEqual(await (await route.GET(request())).json(), { ok: true });
+  for (const req of [request(-100), request(30), request(0, true)]) assert.equal((await route.GET(req)).status, 401);
+  const sql = readFileSync("supabase/migrations/20261018092152_google_forms_scheduler_signed_dispatch.sql", "utf8");
+  assert.ok(sql.includes("extensions.hmac")); assert.ok(!sql.includes("'Authorization'"));
 });
 
 test("maintenance SQL excludes legacy and draft forms, leases are exclusive, stale owners cannot finish, and RLS denies clients", async () => {
