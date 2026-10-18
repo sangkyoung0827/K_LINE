@@ -143,6 +143,18 @@ test("production event key is isolated from the existing general AI credential",
   } finally { await h.close(); }
 });
 
+test("one transport interruption retries without upgrading or creating forms; persistent interruption stops after two calls", async () => {
+  const h = await eventHarness(); try {
+    h.control.aiNetworkFailures = 1;
+    const generated = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(generated.metadata.retries, 1); assert.equal(h.control.aiCalls, 2);
+    assert.ok(h.control.requests.every(request => request.model === "gpt-6-luna"));
+    h.control.aiNetworkFailures = 10;
+    await assert.rejects(h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage), /NETWORK_FAILURE/);
+    assert.equal(h.control.aiCalls, 4); assert.equal(h.control.externalCreates, 0);
+  } finally { await h.close(); }
+});
+
 test("production permits ECC managers only and preserves read-only restrictions", async () => {
   const h = await eventHarness(); try {
     process.env.GOOGLE_FORMS_ENVIRONMENT = "admin-production";
@@ -202,6 +214,10 @@ test("new activity generic notices retry, proposal labels are required, and unre
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), location: null }, fixtureMessage), /MISSING_LOGISTICS_LABEL/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nNo prior experience is needed." }, fixtureMessage), /UNSUPPORTED_ELIGIBILITY/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nTea and postcards will be provided." }, fixtureMessage), /UNSUPPORTED_MATERIALS/);
+    assert.doesNotThrow(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nMaterials and equipment are not provided." }, fixtureMessage));
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nMaterials and equipment are provided." }, fixtureMessage + " Materials and equipment are not provided."), /UNSUPPORTED_MATERIALS/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: fixturePlan().noticeKo + "\n2026-11-07T18:00:00+09:00" }, fixtureMessage), /READABLE_DATES/);
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), descriptionEn: "An introduction. ".repeat(100) }, fixtureMessage), /NOT_CONCISE/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: "## " + fixturePlan().noticeKo }, fixtureMessage), /COPY_FORMAT/);
   } finally { await h.close(); }
 });

@@ -75,3 +75,41 @@ Do not announce the end-to-end test as complete until these real steps succeed.
 
 No policy publication, OAuth production transition, scheduler activation or
 public recruitment notice is authorized by this validation record.
+
+## Operator Follow-Up and Further Corrections
+
+The operator authorized a 50-person test with fictional logistics, and asked for
+the program to reflect ECC material. They explicitly requested PR-only storage,
+not production deployment or merge. The test uses 24 October 2026, 13:00-18:00 KST,
+a clearly fictional ECC exchange venue, a 23 October 18:00 KST deadline, and a
+fictional zero fee with no supplied meals, transport or materials.
+
+The current ECC catalog describes MT only as an ECC MT application; no detailed
+historical MT itinerary was found. The system therefore uses the existing ECC
+cultural-exchange introduction as inspiration, not MT operating rules. Culture
+quiz, cross-cultural role-play and collaborative storytelling are proposals,
+not claims about an established ECC MT itinerary.
+
+Real OpenAI audits exposed further quality issues: ISO timestamps in participant
+copy, descriptions duplicating full notices, omitted test labels/timezones, and
+a validation false positive treating "materials are not provided" as a provision
+promise. The system prompt and semantic checks were corrected, then generation
+was restarted. One real UI planning call had a transport failure before any form
+existed; transport failures now retry once within the three-call budget, without
+upgrading models or retrying authentication/quota/refusal failures.
+
+Local server validation uses the same application components, planning service,
+Google API client and response routes, with real OpenAI/Google and local Postgres.
+It is NOT verification of production Next.js login or live Supabase persistence.
+The Google connection is reauthorized for the same existing scopes, stored only
+in the isolated local DB. No production Google connection is replaced.
+
+The first real Google attempt created form
+`1U2mkICEO_2ekOwuJ8VB1zpbjHNoEcnNOzkyzpxWTdJ4` and received two real test responses.
+Google and the local applicant screen both showed the same two test names;
+repeated synchronization kept two records. The close request closed Google but
+then exposed a local validation adapter bug: raw PGlite Date objects were passed
+where the real service receives JSON timestamps. The adapter was fixed; the
+Google responder page was independently checked to show reception closed. This
+partial attempt is preserved, not certified as the final passing run. A fresh
+full run follows the fix, rather than editing its generated content or records.
