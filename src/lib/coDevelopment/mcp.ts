@@ -22,7 +22,7 @@ export async function labMcp(request: Request, actor: LabActor) {
     });
   }
   const id = z.uuid();
-  server.registerTool("lab_starter", { description: "Read a complete editable source starter with local build/sync scripts, Codex MCP configuration, and a working synthetic member/dues/attendance example. No keys included.", inputSchema: {}, annotations: { readOnlyHint: true, openWorldHint: false } }, async () => {
+  server.registerTool("lab_starter", { description: "Read an empty editable project with local build/sync scripts and Codex MCP configuration. No example clubs, member records or keys are included.", inputSchema: {}, annotations: { readOnlyHint: true, openWorldHint: false } }, async () => {
     const result = { files: labStarter(new URL(request.url).origin) };
     return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: { result } };
   });
