@@ -2,7 +2,9 @@
 
 Account: `noritakeyuki@fuji.waseda.jp` (Yuki Noritake).
 
-This is developer **view** access, not a writable developer account. It is always
+This is production developer **view** access. The separate two-account
+Co-development Lab allows private prototype writes only; see `co-development-lab.md`.
+It is always
 included alongside the existing configured owner accounts; those accounts retain
 their previous access. No membership, payment, or organization records are changed.
 
@@ -13,7 +15,9 @@ their previous access. No membership, payment, or organization records are chang
   form fields are not used as identity.
 - GET/HEAD/OPTIONS navigation and data reads remain available with the existing
   developer visibility checks. All other HTTP methods are rejected before route
-  handlers, including API writes and page POST/server-action requests.
+  handlers, including API writes and page POST/server-action requests, except for
+  the separately authenticated `/api/co-development` prototype API. The read-only
+  marker remains set there; the dedicated lab transport can call only lab RPCs.
 - Existing `/api/auth` exclusion remains for Google login and logout only.
 - A middleware-owned request marker additionally prevents Supabase writes from
   read handlers that perform lazy initialization. Client-supplied markers are

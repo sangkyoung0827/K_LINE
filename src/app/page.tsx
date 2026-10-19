@@ -4,6 +4,7 @@ import { HomeTrackSections } from "@/components/HomeTrackSections";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 import { auth } from "@/auth";
 import { isDeveloperEmail } from "@/lib/admin";
+import { canUseCoDevelopment } from "@/lib/coDevelopment/model";
 
 export const metadata: Metadata = {
   title: {
@@ -50,7 +51,7 @@ export default async function HomePage() {
   return (
     <>
       <HeroSection />
-      <HomeTrackSections showEventStudio={isDeveloperEmail(session?.user?.email)} />
+      <HomeTrackSections showEventStudio={isDeveloperEmail(session?.user?.email)} showCoDevelopment={canUseCoDevelopment(session?.user?.email)} />
     </>
   );
 }

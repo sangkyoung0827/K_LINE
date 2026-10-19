@@ -22,10 +22,12 @@ function load(file, stubs, env = {}) {
   return module.exports;
 }
 const policy = load("src/lib/readOnlyDeveloper.ts", {});
+const labPolicy = load("src/lib/coDevelopment/model.ts", {});
 const middleware = load("src/middleware.ts", {
   "next/server": { NextRequest, NextResponse },
   "next-auth/jwt": { getToken },
   "@/lib/readOnlyDeveloper": policy,
+  "@/lib/coDevelopment/model": labPolicy,
 }, { AUTH_SECRET: secret }).middleware;
 
 async function request(method, path, account = email, extraHeaders = {}) {
