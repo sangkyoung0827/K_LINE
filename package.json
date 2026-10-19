@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test:club-assistant": "node --test scripts/woohyukmon-club.test.mjs scripts/woohyukmon-site-evidence.test.mjs",
+    "test:co-development": "node --test scripts/co-development.test.mjs",
+    "test:club-assistant": "npm run test:co-development && node --test scripts/woohyukmon-club.test.mjs scripts/woohyukmon-site-evidence.test.mjs",
     "pretest": "npm run test:club-assistant && npm run test:member-roster && npm run test:event-archive && npm run test:event-studio && npm run test:google-forms && npm run test:research && npm run test:ecc-resource-library && npm run test:siu-platform && npm run test:my-history && npm run test:ecc-official-mobile && npm run test:ecc-activity-guide && npm run test:social-impact-union && npm run test:activity-preferences && npm run test:woohyukmon && npm run test:ecc-approval-retry && npm run test:my-clubs && npm run test:mobile-navigation && npm run test:hanhwal-operations && npm run test:hanhwal-structured && npm run test:hanhwal-public && npm run test:ecc-gathering-days",
     "test:member-roster": "tsx --test src/lib/memberRoster.test.ts && node --test scripts/member-roster-export.test.mjs",
     "test:google-forms": "tsx --test src/lib/googleForms/internalTest.test.ts && node --test scripts/google-forms-v5.test.mjs scripts/google-forms-migration.test.mjs",
@@ -54,6 +55,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.13.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@napi-rs/canvas": "^1.0.5",
     "csv-parse": "^7.0.2",
     "docx": "9.5.1",
@@ -62,15 +64,16 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.468.0",
     "mammoth": "^1.12.0",
-    "next": "^15.3.4",
-    "next-auth": "^5.0.0-beta.31",
+    "next": "15.5.28",
+    "next-auth": "5.0.0-beta.32",
     "openai": "^6.42.0",
     "pdf-parse": "^2.4.5",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "read-excel-file": "^9.3.10",
-    "tus-js-client": "^4.3.1"
+    "tus-js-client": "^4.3.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -81,7 +84,7 @@
     "autoprefixer": "^10.4.20",
     "esbuild": "^0.28.2",
     "playwright": "^1.62.1",
-    "postcss": "^8.4.49",
+    "postcss": "8.5.31",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.23.12",
     "typescript": "^5.7.2"

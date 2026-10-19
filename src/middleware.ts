@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { isReadOnlyDeveloperEmail, isReadOnlyMethod, readOnlyDeveloperHeader } from "@/lib/readOnlyDeveloper";
+import { isCoDevelopmentApi } from "@/lib/coDevelopment/model";
 
 const publicFilePattern =
   /\.(?:avif|gif|html|ico|jpeg|jpg|json|png|svg|txt|webmanifest|webp|xml)$/i;
@@ -120,7 +121,7 @@ export async function middleware(request: NextRequest) {
       secureCookie: request.nextUrl.protocol === "https:"
     });
     if (isReadOnlyDeveloperEmail(token?.email)) {
-      if (!isReadOnlyMethod(request.method)) {
+      if (!isReadOnlyMethod(request.method) && !isCoDevelopmentApi(pathname)) {
         return NextResponse.json({
           error: "This developer account is read-only. Changes are not allowed.",
           code: "READ_ONLY_DEVELOPER"
