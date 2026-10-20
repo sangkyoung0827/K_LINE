@@ -2,7 +2,7 @@ import "server-only";
 import { supabaseRequest } from "@/lib/googleForms/store";
 import { assertGrounded, eventPlanSchema, parseEventPlan, StudioError, type EventPlan, type StudioClub } from "./model";
 import { eccNoticeKnowledge, resolveNoticeTemplate, verifiedNoticeRules } from "@/lib/googleForms/noticeKnowledge";
-import { resolveEventSchedule, scheduleEvidence } from "./schedule";
+import { noticeHasMatchingSchedule, resolveEventSchedule, scheduleEvidence } from "./schedule";
 import { publicActivities } from "@/data/activities";
 
 export const eventPromptVersion = "event-studio-2.0-request-first";
@@ -50,6 +50,7 @@ Include exactly one required short_answer Name / 이름 question. Use optional e
 Do not request email, phone, address, IDs, religion, sexual orientation, health, emergency contacts or post-event reflections.
 Never include source-review/debug notes or URLs. Never publish, recruit, or claim to create a Google Form.
 The descriptions and notices are copy-ready participant text, NOT a report to the organizer. Never mention drafts, templates, AI, validation, generated forms or what this system can/cannot create. A statement such as "this draft does not create a Google Form" is forbidden. Keep organizer questions outside the participant copy, in missingInformation.
+Never include parser/debug commentary such as "the resolved schedule differs" or "일정 기준값과 시각이 다릅니다". Use the resolved local date and clock consistently in both notices; never describe an internal disagreement to participants.
 Keep each description to 2-4 short sentences, at most 600 characters. It summarizes the activity, not the full notice: no numbered program, logistics table, or repeated notice sections. The form adds its approved logistics separately.
 Use human-readable calendar dates and clock times in notices (Korean: 2026년 10월 24일 13:00, 한국 시간; English: 24 October 2026, 13:00 KST). ISO timestamps belong only in the structured activityDate/applicationDeadline fields, never participant prose. Preserve the exact supplied instants and timezone, and state the timezone explicitly in EACH notice. Close any square brackets you open in test labels.
 For MT, do not mistake the event name for a confirmed overnight stay or transport arrangement. Ask for unknown logistics, leave unknown fees and transport unconfirmed, and suggest concrete social activities rather than generic "meet, talk, finish" filler. Include a relevant optional program-preference question, without collecting health or emergency data. Do not describe proposed activities as confirmed.
@@ -78,7 +79,7 @@ export function assertNoticeQuality(plan: EventPlan, message: string) {
   }
   if (plan.descriptionKo.length > 1000 || plan.descriptionEn.length > 1000 || /^\s*(?:✓|✅|\d+\.)/m.test(plan.descriptionKo + "\n" + plan.descriptionEn)) throw new StudioError("EVENT_DESCRIPTION_NOT_CONCISE");
   if (/\[연동\s*검증\s*전용\]/.test(message) && !/검증|\btest\b/i.test(plan.title)) throw new StudioError("EVENT_TEST_LABEL_REQUIRED");
-  if (/초안(?:입니다|으로|만으로|에는)|(?:공지|신청\s*(?:폼|문항|서)?|설명)\s*초안|\b(?:a|the|this) draft (?:announcement|application|notice|does|includes)\b|process notice reviewed|not specified in this template|(?:구글\s*폼|google\s*form).*(?:생성되지|생성되는 것은|does not create|not generated)/i.test(text + "\n" + plan.descriptionKo + "\n" + plan.descriptionEn)) {
+  if (/초안(?:입니다|으로|만으로|에는)|(?:공지|신청\s*(?:폼|문항|서)?|설명)\s*초안|\b(?:a|the|this) draft (?:announcement|application|notice|does|includes)\b|process notice reviewed|not specified in this template|일정\s*기준값|(?:파서|서버|시스템).*(?:해석|계산|일정|시각)|resolved schedule|parser|server.resolved|(?:구글\s*폼|google\s*form).*(?:생성되지|생성되는 것은|does not create|not generated)/i.test(text + "\n" + plan.descriptionKo + "\n" + plan.descriptionEn)) {
     throw new StudioError("EVENT_NOTICE_INTERNAL_COMMENTARY");
   }
   if (/^\s*#{1,6}\s|\*\*|\x60\x60\x60/m.test(text)) throw new StudioError("EVENT_NOTICE_COPY_FORMAT_REQUIRED");
@@ -97,6 +98,7 @@ export function assertNoticeQuality(plan: EventPlan, message: string) {
     throw new StudioError("EVENT_NOTICE_MISSING_LOGISTICS_LABEL");
   }
   if (plan.schedule) {
+    for (const notice of [plan.noticeKo, plan.noticeEn]) if (!noticeHasMatchingSchedule(notice, [plan.activityDate, plan.applicationDeadline], plan.schedule.timeZone)) throw new StudioError("EVENT_NOTICE_SCHEDULE_MISMATCH");
     const approvedDays = new Set([plan.activityDate, plan.applicationDeadline].filter(Boolean).map(value => value!.slice(0, 10)));
     const copy = [plan.noticeKo, plan.noticeEn, plan.descriptionKo, plan.descriptionEn].join("\n");
     for (const match of copy.matchAll(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/g)) {

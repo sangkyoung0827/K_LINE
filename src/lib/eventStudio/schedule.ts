@@ -57,10 +57,17 @@ export function naturalEventDate(input: string, reference: Date, kind: "activity
     return { value: local.add({ days }).toString({ timeZoneName: "never", smallestUnit: "second" }), qualifier: null, endOfDay: false };
   }
   const dateReference = !hasDay && previous ? new Date(base.toZonedDateTime({ timeZone, plainTime: "12:00" }).epochMilliseconds) : reference;
-  const result = parse(text, { instant: dateReference, timezone: Number(local.offsetNanoseconds) / 60e9 }, { forwardDate: hasDay && !/\d{4}-\d{2}-\d{2}/.test(text) })[0];
-  if (!result || !hasDay && !previous || result.end) return null;
+  const results = parse(text, { instant: dateReference, timezone: Number(local.offsetNanoseconds) / 60e9 }, { forwardDate: hasDay && !/\d{4}-\d{2}-\d{2}/.test(text) });
+  const dated = results.filter(result => result.start.isCertain("day"));
+  const result = dated[0] || results[0];
+  if (!result || !hasDay && !previous || dated.length > 1 || results.some(item => item.end)) return null;
   const start = result.start;
   const hasClock = /\bat\s*\d|\d:\d|\d\s*(?:am|pm)\b|\bnoon\b|\bmidnight\b|T\d{2}:/i.test(text);
+  // Chrono may split a date and clock separated by Korean prose. Never use its
+  // inferred noon as a supplied time; combine only one unambiguous explicit clock.
+  const clocks = results.filter(item => item.start.isCertain("hour"));
+  if (hasClock && clocks.length !== 1) return null;
+  const clock = hasClock ? clocks[0].start : start;
   try {
     const date = Temporal.PlainDate.from({ year: start.get("year")!, month: start.get("month")!, day: start.get("day")! }, { overflow: "reject" });
     const period = Object.entries(periods).find(([kr]) => input.includes(kr));
@@ -68,10 +75,11 @@ export function naturalEventDate(input: string, reference: Date, kind: "activity
     if (!hasClock && (period || englishPeriod)) return kind === "deadline" ? null : { value: date.toString(), qualifier: period ? `${period[0]} / ${period[1]}` : englishPeriod!, endOfDay: false };
     if (!hasClock && kind === "activity") return { value: date.toString(), qualifier: null, endOfDay: false };
     // Reject nonexistent or repeated DST wall times instead of silently shifting them.
-    const offset = start.isCertain("timezoneOffset") ? start.get("timezoneOffset")! : null;
+    const zoneSource = clock.isCertain("timezoneOffset") ? clock : start;
+    const offset = zoneSource.isCertain("timezoneOffset") ? zoneSource.get("timezoneOffset")! : null;
     const zone = offset === null ? timeZone : `${offset < 0 ? "-" : "+"}${pad(Math.floor(Math.abs(offset) / 60))}:${pad(Math.abs(offset) % 60)}`;
     const zoned = Temporal.ZonedDateTime.from({ timeZone: zone, year: date.year, month: date.month, day: date.day,
-      hour: hasClock ? start.get("hour")! : 23, minute: hasClock ? start.get("minute") || 0 : 59, second: hasClock ? start.get("second") || 0 : 59 }, { overflow: "reject", disambiguation: "reject" });
+      hour: hasClock ? clock.get("hour")! : 23, minute: hasClock ? clock.get("minute") || 0 : 59, second: hasClock ? clock.get("second") || 0 : 59 }, { overflow: "reject", disambiguation: "reject" });
     return { value: zoned.toString({ timeZoneName: "never", smallestUnit: "second" }), qualifier: approximate ? "약 / approximately" : /이후|부터|\bafter\b|\bfrom\b/i.test(input) ? "이후 / onwards" : null, endOfDay: !hasClock };
   } catch { return null; }
 }
@@ -99,4 +107,27 @@ export function resolveEventSchedule(message: string, reference = new Date()): E
 
 export function scheduleEvidence(schedule: EventSchedule) {
   return [schedule.activity && `Event date: ${schedule.activity.value}`, schedule.deadline && `Application deadline: ${schedule.deadline.value}`].filter(Boolean).join("\n");
+}
+
+export function noticeHasMatchingSchedule(copy: string, values: (string | null)[], timeZone: string) {
+  const expected = new Set(values.filter((value): value is string => Boolean(value && value.length > 10)).map(value => {
+    const local = Temporal.Instant.from(value).toZonedDateTimeISO(timeZone);
+    return `${local.toPlainDate()}T${pad(local.hour)}:${pad(local.minute)}`;
+  }));
+  const dates: { index: number; end: number; day: string }[] = [];
+  for (const match of copy.matchAll(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/g)) dates.push({ index: match.index, end: match.index + match[0].length, day: `${match[1]}-${pad(Number(match[2]))}-${pad(Number(match[3]))}` });
+  const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  for (const match of copy.matchAll(/\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/gi)) dates.push({ index: match.index, end: match.index + match[0].length, day: `${match[3]}-${pad(months.indexOf(match[2].toLowerCase()) + 1)}-${pad(Number(match[1]))}` });
+  dates.sort((a, b) => a.index - b.index);
+  const found = new Set<string>();
+  for (const [index, date] of dates.entries()) {
+    const suffix = copy.slice(date.end, Math.min(date.end + 160, dates[index + 1]?.index ?? copy.length)).split(/[\n.!?]/)[0];
+    const clock = /\b(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?\b/i.exec(suffix);
+    if (!clock) continue;
+    const hour = clock[3] ? Number(clock[1]) % 12 + (clock[3].toLowerCase() === "pm" ? 12 : 0) : Number(clock[1]);
+    const value = `${date.day}T${pad(hour)}:${clock[2]}`;
+    if (!expected.has(value)) return false;
+    found.add(value);
+  }
+  return [...expected].every(value => found.has(value));
 }

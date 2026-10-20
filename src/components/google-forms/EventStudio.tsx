@@ -44,6 +44,7 @@ const errors: Record<string, [string, string]> = {
   EVENT_RESTART_REQUIRED: ["이전 버전의 초안입니다. 위 입력창에서 처음부터 다시 기획해 주세요.", "This draft predates conversational planning. Start a new request above."],
   EVENT_CONVERSATION_LIMIT: ["대화가 길어졌습니다. 확정된 행사 정보를 모아 새 요청으로 입력해 주세요.", "Please consolidate the confirmed details into a new request."],
   EVENT_NOTICE_INTERNAL_COMMENTARY: ["공지 품질 검수를 통과하지 못했습니다. 다시 기획해 주세요.", "The notice did not pass quality review. Try planning again."],
+  EVENT_NOTICE_SCHEDULE_MISMATCH: ["공지와 신청폼의 날짜·시간이 일치하지 않아 생성을 중단했습니다. 다시 요청해 주세요.", "Creation stopped because the notice and form schedules did not match. Please try again."],
   EVENT_AI_NETWORK_FAILURE: ["AI 연결이 일시적으로 끊겼습니다. 다시 기획해 주세요. 폼은 생성되지 않았습니다.", "The AI connection was interrupted. Try planning again; no form was created."],
   EVENT_AI_TIMEOUT: ["AI 응답 대기 시간이 초과되었습니다. 입력한 내용은 유지됩니다. 잠시 후 다시 시도해 주세요. 폼은 생성되지 않았습니다.", "The AI response timed out. Your input is preserved. Try again shortly; no form was created."],
   CLUB_ADMIN_REQUIRED: ["해당 클럽의 관리자 권한이 필요합니다.", "Administrator access for this club is required."],
