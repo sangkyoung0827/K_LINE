@@ -32,6 +32,8 @@ export async function eventHarness(options = {}) {
     GOOGLE_FORMS_CLIENT_ID: "qa-client", GOOGLE_FORMS_CLIENT_SECRET: "qa-secret", GOOGLE_FORMS_TEST_ORIGIN: "http://127.0.0.1:3346",
     GOOGLE_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"), EVENT_AI_ENABLED: "true", EVENT_AI_PROVIDER: "openai",
     EVENT_AI_PRIMARY_MODEL: "gpt-6-luna", EVENT_AI_COMPLEX_MODEL: "gpt-6.1-sol", OPENAI_API_KEY: liveOpenAI ? originalEnv.OPENAI_API_KEY : "qa-only-not-a-real-key" });
+  delete process.env.EVENT_AI_OPENAI_API_KEY;
+  if (liveOpenAI) process.env.EVENT_AI_OPENAI_API_KEY = originalEnv.OPENAI_API_KEY;
   delete process.env.VERCEL_ENV;
   delete process.env.GOOGLE_FORMS_ECC_RESPONDER_GATE_ENABLED;
   if (liveGoogle) {

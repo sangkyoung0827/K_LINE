@@ -185,7 +185,8 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
       const { historicalReferences } = await import("@/lib/eventArchive/service");
       references = await historicalReferences(await getArchiveAccess(access.email), job.ai_metadata.archiveIds, job.club_key);
     }
-    const generated = await generateEventPlan(access.email, job.club_key, request, references);
+    const storedReference = typeof job.ai_metadata.scheduleReference === "string" ? Date.parse(job.ai_metadata.scheduleReference) : NaN;
+    const generated = await generateEventPlan(access.email, job.club_key, request, references, Number.isFinite(storedReference) ? new Date(storedReference) : new Date());
     const updated = await supabaseRequest<StudioJob[]>(`${jobQuery(job.id)}&revision=eq.${job.revision}&state=eq.draft&select=*`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ plan: generated.plan, ai_metadata: { ...job.ai_metadata, ...generated.metadata, requestTurns: turns }, revision: job.revision + 1, updated_at: new Date().toISOString() }) });
     if (!updated[0]) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);
     return preview(updated[0], access);

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import { eventHarness, fixturePlan, fixtureMessage } from "./event-studio-harness.mjs";
+const withoutTestDates = text => text.replace(/2026년 11월 [67]일 18:00 한국 시간/g, "미정").replace(/[67] November 2026, 18:00 KST/g, "pending confirmation");
 
 const deletionRequest = (body = { confirmedEnded: true }, origin = "http://127.0.0.1:3346") => new Request("http://127.0.0.1:3346/api/google-forms/forms/test", {
   method: "DELETE", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -122,7 +123,7 @@ test("personal migration repeats without widening database grants or changing op
 test("follow-up answers regenerate the same draft from saved user facts, with natural questions and no premature Google create", async () => {
   const h = await eventHarness(); try {
     h.control.currentPlan = { ...fixturePlan(), activityDate: null, applicationDeadline: null, location: null, capacity: null,
-      noticeKo: fixturePlan().noticeKo + "\n일정과 장소는 미정으로 운영진 확인이 필요합니다.", noticeEn: fixturePlan().noticeEn + "\nThe schedule and venue are pending confirmation." };
+      noticeKo: withoutTestDates(fixturePlan().noticeKo) + "\n일정과 장소는 미정으로 운영진 확인이 필요합니다.", noticeEn: withoutTestDates(fixturePlan().noticeEn) + "\nThe schedule and venue are pending confirmation." };
     const initial = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: "ECC MT 신청폼과 공지를 만들어 주세요." });
     assert.equal(initial.token, null); assert.equal(h.control.externalCreates, 0);
     assert.match(initial.clarification.ko, /언제 시작|몇 명/); assert.doesNotMatch(initial.clarification.ko, /activityDate|capacity/);
@@ -151,7 +152,8 @@ test("internal draft commentary triggers a complete AI retry, never output editi
     const generated = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
     assert.equal(h.control.aiCalls, 2); assert.equal(generated.metadata.retries, 1);
     assert.match(h.control.requests[1].instructions, /EVENT_NOTICE_INTERNAL_COMMENTARY/);
-    assert.deepEqual(generated.plan, fixturePlan());
+    const { schedule, ...content } = generated.plan;
+    assert.deepEqual(content, fixturePlan()); assert.equal(schedule.timeZone, "Asia/Seoul");
     const initial = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
     h.control.currentPlan = bad;
     await assert.rejects(h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: 1, message: "같은 조건입니다." }), /EVENT_NOTICE_INTERNAL_COMMENTARY/);
@@ -172,6 +174,8 @@ test("new studio jobs include bilingual logistics and capacity in the verified G
     assert.match(current.description, /Venue: QA Library/);
     assert.match(current.description, /Capacity: 30/);
     assert.equal(current.capacity, 30); assert.equal(current.automationVersion, 1);
+    assert.doesNotThrow(() => h.api.formDraft({ ...plan, activityDate: "2026-11-07", applicationDeadline: "2026-11-07T17:00:00+09:00" }));
+    assert.throws(() => h.api.formDraft({ ...plan, activityDate: "2026-11-07", applicationDeadline: "2026-11-08T17:00:00+09:00" }), /DEADLINE_AFTER_ACTIVITY/);
     const legacy = h.api.formDraft(plan, 1);
     assert.equal(legacy.description, `${plan.descriptionKo}\n\n${plan.descriptionEn}`);
     assert.equal(legacy.capacity, undefined); assert.equal(legacy.automationVersion, undefined);
@@ -179,8 +183,9 @@ test("new studio jobs include bilingual logistics and capacity in the verified G
     assert.match(dateOnly.description, /Date: 2026-11-07\n/);
     assert.ok(!dateOnly.description.includes("00:00"));
     h.control.currentPlan = { ...plan, applicationDeadline: "2026-11-06" };
-    const incomplete = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage + " 2026-11-06" });
-    assert.ok(incomplete.missing.includes("applicationDeadlineTime")); assert.equal(incomplete.token, null);
+    const dateDeadline = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: "문화교류. 행사 2026-11-07T18:00:00+09:00, 마감 2026-11-06, 장소 QA Library, 30명" });
+    assert.equal(dateDeadline.job.plan.applicationDeadline, "2026-11-06T23:59:59+09:00");
+    assert.equal(dateDeadline.job.plan.schedule.deadlineEndOfDay, true); assert.ok(dateDeadline.token);
     h.control.currentPlan = plan;
     const job = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
     assert.equal(job.job.ai_metadata.formDraftVersion, 2);
@@ -314,29 +319,28 @@ test("verified ECC references stay activity-specific and never transfer to other
   } finally { await h.close(); }
 });
 
-test("known source-backed notices repair generic AI output without historical fees or invented schedules", async () => {
+test("KLINE sources inform the model but never overwrite the generated notice with a canned template", async () => {
   const h = await eventHarness(); try {
-    h.control.currentPlan = { ...fixturePlan(), noticeKo: "공지\n신청을 받습니다.", noticeEn: "Notice\nApplications are open." };
+    const weak = { ...fixturePlan(), noticeKo: "공지\n신청을 받습니다.", noticeEn: "Notice\nApplications are open." };
+    h.control.outputs = [JSON.stringify(weak), JSON.stringify(fixturePlan())];
     const generated = await h.api.generateEventPlan(h.access().email, "ecc", "international gathering. " + fixtureMessage);
-    assert.equal(h.control.aiCalls, 1);
-    assert.match(generated.plan.noticeKo, /조별 채팅방|조원들이/);
-    assert.match(generated.plan.noticeEn, /one day before|meeting place together/);
-    assert.match(generated.plan.noticeEn, /own activity costs|restricted/);
+    assert.equal(h.control.aiCalls, 2);
+    assert.match(h.control.requests[0].instructions, /Groups change weekly/);
+    assert.match(h.control.requests[1].instructions, /EVENT_NOTICE_TOO_GENERIC/);
+    assert.equal(generated.plan.noticeKo, fixturePlan().noticeKo);
+    assert.equal(generated.plan.noticeEn, fixturePlan().noticeEn);
     assert.doesNotMatch(generated.plan.noticeKo + generated.plan.noticeEn, /15,?000|Wednesday|Tongjip|process notice/);
-    const english = await h.api.generateEventPlan(h.access().email, "ecc", "English Class. " + fixtureMessage);
-    assert.match(english.plan.noticeKo, /English Conversation Class|그룹은 매주/);
-    assert.doesNotMatch(english.plan.noticeEn, /Thursday, after 6pm/);
   } finally { await h.close(); }
 });
 
-test("new activity generic notices retry, proposal labels are required, and unrelated ECC rules are rejected", async () => {
+test("new activity generic notices retry without forcing canned headings; unrelated ECC rules are rejected", async () => {
   const h = await eventHarness(); try {
     const weak = { ...fixturePlan(), noticeKo: "문화교류 공지\n참여 신청을 받습니다.", noticeEn: "Culture notice\nApply to participate in this activity." };
     h.control.outputs = [JSON.stringify(weak), JSON.stringify(fixturePlan())];
     const result = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
     assert.equal(result.metadata.retries, 1);
     assert.match(h.control.requests[1].instructions, /EVENT_NOTICE_TOO_GENERIC/);
-    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: fixturePlan().noticeKo.replaceAll("제안", "확정") }, fixtureMessage), /PROPOSAL_LABEL/);
+    assert.doesNotThrow(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: fixturePlan().noticeKo.replaceAll("제안", "추천") }, fixtureMessage));
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nGroups change weekly based on applicants." }, fixtureMessage), /UNRELATED_RULES/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), location: null }, fixtureMessage), /MISSING_LOGISTICS_LABEL/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nNo prior experience is needed." }, fixtureMessage), /UNSUPPORTED_ELIGIBILITY/);
@@ -374,9 +378,11 @@ test("missing date, deadline, venue or capacity remains an editable draft and bl
   const h = await eventHarness(); try {
     for (const field of ["activityDate", "applicationDeadline", "location", "capacity"]) {
       h.control.currentPlan = { ...fixturePlan(), [field]: null,
-        noticeKo: fixturePlan().noticeKo + "\n미확정 정보는 운영진 확인 후 안내합니다.",
-        noticeEn: fixturePlan().noticeEn + "\nPending details will be announced after organizer confirmation." };
-      const r = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage });
+        noticeKo: withoutTestDates(fixturePlan().noticeKo) + "\n미확정 정보는 운영진 확인 후 안내합니다. 시간대: 한국 시간.",
+        noticeEn: withoutTestDates(fixturePlan().noticeEn) + "\nPending details will be announced after organizer confirmation. Timezone: KST." };
+      const fragments = { activityDate: "행사 2026-11-07T18:00:00+09:00", applicationDeadline: "마감 2026-11-06T18:00:00+09:00", location: "장소 QA Library", capacity: "30명" };
+      const request = Object.entries(fragments).filter(([key]) => key !== field).map(([, value]) => value).join(", ");
+      const r = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: request });
       assert.ok(r.missing.includes(field)); assert.equal(r.token, null);
       await assert.rejects(h.api.studioOperation(h.access(), { action: "approve", jobId: r.job.id, token: "", confirmed: true }));
     }
@@ -543,6 +549,50 @@ test("remote question edits cannot pass as the approved form or save a notice", 
 });
 
 
+test("a German university announcement retains the user's topic and applies natural follow-ups without external creation", async () => {
+  const h = await eventHarness(); try {
+    h.control.clubs = [];
+    const request = "독일 뒤스부르크 에센 대학에서 하는 활쏘기 프로그램 관련 모집 공고 만드세요";
+    // Deliberately mocked model output. This verifies the pipeline, not live AI writing quality.
+    const draft = { ...fixturePlan("personal"), title: "뒤스부르크 에센 대학 활쏘기 프로그램", activityDate: null, applicationDeadline: null, location: "독일 뒤스부르크 에센 대학", capacity: null,
+      noticeKo: withoutTestDates(fixturePlan().noticeKo) + "\n독일 뒤스부르크 에센 대학 활쏘기 프로그램입니다. 세부 일정은 미정이며 확인이 필요합니다.",
+      noticeEn: withoutTestDates(fixturePlan().noticeEn) + "\nArchery at the University of Duisburg-Essen. The schedule is pending confirmation." };
+    h.control.currentPlan = draft;
+    const initial = await h.api.studioOperation(h.access(), { action: "plan", message: request });
+    assert.equal(initial.job.club_key, "personal"); assert.equal(initial.token, null);
+    assert.equal(initial.job.plan.noticeKo, draft.noticeKo);
+    assert.deepEqual(initial.missing, ["activityDate", "applicationDeadline", "capacity"]);
+    assert.match(h.control.requests[0].instructions, /K_LINE is a reference library/);
+    assert.match(h.control.requests[0].instructions, /announcement immediately/);
+    assert.match(h.control.requests[0].instructions, /Han-hwal Korean Archery Experience/);
+    assert.doesNotMatch(h.control.requests[0].instructions, /Prototype review placeholder|Arrow Pen design development/);
+    const answer = "11월 20일 저녁 7시 행사 시작입니다. 신청 마감은 10월 30일에 마감합니다. 모집 인원은 50명입니다.";
+    await h.store.db.query("update kline_forms_test_event_studio_jobs set ai_metadata=jsonb_set(ai_metadata,'{scheduleReference}',to_jsonb('2026-10-20T08:00:00Z'::text)) where id=$1", [initial.job.id]);
+    h.control.currentPlan = { ...draft, capacity: 50 };
+    const refined = await h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: initial.job.revision, message: answer });
+    assert.equal(refined.job.plan.activityDate, "2026-11-20T19:00:00+01:00");
+    assert.equal(refined.job.plan.applicationDeadline, "2026-10-30T23:59:59+01:00");
+    assert.equal(refined.job.plan.capacity, 50); assert.deepEqual(refined.missing, []);
+    assert.ok(refined.token); assert.equal(refined.job.plan.schedule.timeZone, "Europe/Berlin");
+    assert.throws(() => h.api.assertNoticeQuality({ ...refined.job.plan, noticeKo: refined.job.plan.noticeKo + "\n2026년 11월 7일" }, request), /EVENT_NOTICE_UNSUPPORTED_DATE/);
+    assert.equal(refined.job.ai_metadata.scheduleReference, "2026-10-20T08:00:00.000Z");
+    assert.match(h.control.requests.at(-1).input, /독일 뒤스부르크 에센 대학/);
+    assert.match(h.control.requests.at(-1).input, /50명/);
+    assert.equal(h.control.externalCreates, 0);
+    const form = h.api.formDraft(refined.job.plan);
+    assert.match(form.description, /Europe\/Berlin/); assert.doesNotMatch(form.description, /KST/);
+  } finally { await h.close(); }
+});
+
+test("a UI-only preview cannot answer arbitrary prompts with a hardcoded Hanhwal fixture", async () => {
+  const source = await readFile("scripts/event-studio-personal-preview.mjs", "utf8");
+  assert.doesNotMatch(source, /hanhwalFixture|currentPlan\s*=/);
+  assert.match(source, /LOCAL_PREVIEW_AI_UNAVAILABLE/);
+  assert.match(source, /const liveAI = process.argv.includes\("--live-ai"\)/);
+  assert.match(source, /aiEnabled = liveAI/);
+  assert.match(source, /LOCAL_PREVIEW_GOOGLE_DISABLED/);
+});
+
 test("explicit Korean dates preserve year, clock precision and timezone grounding", async () => {
   const h = await eventHarness(); try {
     const message = "행사 2026년 10월 20일 오후 7시(한국시간), 마감 2026년 10월 19일 오후 6시(한국시간)";
@@ -560,7 +610,7 @@ test("explicit Korean dates preserve year, clock precision and timezone groundin
     assert.equal(h.api.supportsEventDate("2026-10-20T00:00:00+09:00", "2026년 10월 20일 오전 12시 KST"), true);
     assert.equal(h.api.supportsEventDate("2026-10-20T12:30:00+09:00", "2026년 10월 20일 오후 12시 30분 KST"), true);
     const p = { ...fixturePlan(), activityDate: "2026-10-20T19:00:00+09:00", applicationDeadline: "2026-10-19T18:00:00+09:00" };
-    h.control.currentPlan = p;
+    h.control.currentPlan = { ...p, noticeKo: withoutTestDates(p.noticeKo) + "\n시간대: 한국 시간.", noticeEn: withoutTestDates(p.noticeEn) + "\nTimezone: KST." };
     const generated = await h.api.generateEventPlan(h.access().email, "ecc", message + ", 장소 QA Library, 30명");
     assert.equal(generated.plan.activityDate, p.activityDate);
     assert.equal(h.control.aiCalls, 1);

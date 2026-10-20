@@ -49,15 +49,17 @@
     "check:hanhwal-isolation": "node scripts/check-hanhwal-isolation.mjs",
     "test": "npm run typecheck && npm run typecheck:market-collector && npm run build:market-collector && npm run verify:browser-metadata && npm run verify:traditional-liquor-schema && npm run test:traditional-liquor-collection && npm run test:traditional-liquor-real-import && npm run test:traditional-liquor-intents && npm run test:traditional-liquor-analytics && npm run test:business-data-collection && npm run test:ecc-announcements && npm run test:jeju-checkin && npm run test:jeju-tracking && npm run test:market-collector && npm run check:traditional-liquor-collection && npm run check:browser-safety && npm run check:hanhwal-isolation",
     "check": "npm run test && npm run build && npm run check:v4-isolation",
-    "test:event-studio": "node --test scripts/event-studio.test.mjs scripts/event-studio-oauth.test.mjs",
+    "test:event-studio": "node --import tsx --test src/lib/eventStudio/schedule.test.ts && node --test scripts/event-studio.test.mjs scripts/event-studio-oauth.test.mjs",
     "test:event-archive": "node --test scripts/event-archive.test.mjs",
     "test:event-archive-ui": "node --test scripts/event-archive-ui.test.mjs",
     "test:hanhwal-resource-library": "node --test scripts/hanhwal-resource-library.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",
+    "@js-temporal/polyfill": "0.5.1",
     "@modelcontextprotocol/sdk": "1.32.1",
     "@napi-rs/canvas": "^1.0.5",
+    "chrono-node": "2.10.3",
     "csv-parse": "^7.0.2",
     "docx": "9.5.1",
     "exceljs": "4.4.0",
