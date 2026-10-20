@@ -24,7 +24,7 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
   const [preview, setPreview] = useState<StudioPreview | null>(null);
   const [data, setData] = useState<ListResponse>({ access: initialAccess, connection: { connected: false, accountEmail: "" }, forms: [] });
   const [clubKey, setClubKey] = useState(initialAccess.manageableClubs[0]);
-  const [templateId, setTemplateId] = useState(templates[0]?.id || "");
+  const [templateId, setTemplateId] = useState(initialAccess.manageableClubs[0] === "hanhwal" ? "blank" : templates[0]?.id || "");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false); const [message, setMessage] = useState(""); const [selected, setSelected] = useState<string | null>(null); const [mirror, setMirror] = useState<MirrorResponse | null>(null);
   const [teamSize, setTeamSize] = useState(4);
@@ -84,15 +84,15 @@ export function GoogleFormsManager({ initialAccess, templates, production = fals
       event.preventDefault(); setSection(ids[next]);
       event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`#event-tab-${ids[next]}`)?.focus();
     }} onClick={() => setSection(id)} className={`min-h-11 min-w-0 break-words px-2 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${section === id ? "bg-ink text-paper" : "border border-ink/20"}`}>{label}</button>)}</div>
-    {!initialAccess.isReadOnly ? <div id="event-panel-assistant" role="tabpanel" aria-labelledby="event-tab-assistant" hidden={section !== "assistant"}><EventStudio key={studioRefresh} embedded initialPreview={preview} initialClub={clubKey === "social_impact_union" ? clubKey : "ecc"} onComplete={() => { setPreview(null); void load().catch(error => setMessage((error as Error).message)); }} /></div> : null}
+    {!initialAccess.isReadOnly ? <div id="event-panel-assistant" role="tabpanel" aria-labelledby="event-tab-assistant" hidden={section !== "assistant"}><EventStudio key={studioRefresh} embedded initialPreview={preview} initialClub={clubKey === "social_impact_union" || clubKey === "hanhwal" ? clubKey : "ecc"} onComplete={() => { setPreview(null); void load().catch(error => setMessage((error as Error).message)); }} /></div> : null}
     {message ? <p role="status" className="mt-5 border border-brass/30 bg-brass/10 p-3 text-sm font-semibold text-ink">{message}</p> : null}
     {data.connection.health === "reconnect_required" && <p role="alert" className="mt-4 text-sm text-red-700">{t("Google 연결이 만료되었습니다. 운영 계정을 다시 연결해 주세요.", "Google access expired. Reconnect the operations account.")}</p>}
     {data.connection.health === "unavailable" && <p role="status" className="mt-4 text-sm text-ink/65">{t("Google 연결 상태를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.", "Google connection check is temporarily unavailable.")}</p>}
-    <div className="mt-8 flex gap-2 overflow-x-auto">{initialAccess.manageableClubs.map((club) => <button key={club} disabled={busy} onClick={() => { setClubKey(club); resetCreation(); }} className={`min-h-10 whitespace-nowrap px-4 text-sm font-semibold ${clubKey === club ? "bg-navy text-paper" : "border border-ink/15"}`}>{club}</button>)}</div>
+    <div className="mt-8 flex gap-2 overflow-x-auto">{initialAccess.manageableClubs.map((club) => <button key={club} disabled={busy} onClick={() => { setClubKey(club); setTemplateId(club === "hanhwal" ? "blank" : templates[0]?.id || ""); resetCreation(); }} className={`min-h-10 whitespace-nowrap px-4 text-sm font-semibold ${clubKey === club ? "bg-navy text-paper" : "border border-ink/15"}`}>{club}</button>)}</div>
     {!initialAccess.isReadOnly && section === "forms" ? <div id="event-panel-forms" role="tabpanel" aria-labelledby="event-tab-forms" className="mt-6 border-t border-ink/12 pt-6">
       <h2 className="flex items-center gap-2 text-xl font-semibold"><FilePlus2 className="h-6 w-6" />Create Google Form</h2>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <Field label="Template"><select aria-label="Template" disabled={busy} value={templateId} onChange={(event) => { setTemplateId(event.target.value); resetCreation(); }} className="form-field">{templates.filter((template) => template.questions.length).map((template) => <option key={template.id} value={template.id}>{template.label}</option>)}</select></Field>
+        <Field label="Template"><select aria-label="Template" disabled={busy} value={templateId} onChange={(event) => { setTemplateId(event.target.value); resetCreation(); }} className="form-field">{templates.filter((template) => clubKey === "hanhwal" ? template.id === "blank" : template.questions.length).map((template) => <option key={template.id} value={template.id}>{clubKey === "hanhwal" ? t("새 활동", "New activity") : template.label}</option>)}</select></Field>
         <Field label="활동 제목"><input aria-label="활동 제목" disabled={busy} className="form-field" value={title} placeholder="활동 제목" onChange={(event) => { setTitle(event.target.value); resetCreation(); }} /></Field>
       </div>
       <button disabled={draftOnly || busy || !title.trim() || !templateId} onClick={() => void create()} className="mt-4 inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper disabled:opacity-45"><FilePlus2 className="h-4 w-4" />{busy ? t("기획 중...", "Planning...") : t("신청폼 · 공지 생성", "Create form and notice")}</button>

@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 import { normalizeEmail } from "@/lib/admin";
 import { supabaseRequest } from "./store";
@@ -17,6 +18,23 @@ class GoogleAuthenticationError extends Error {}
 
 const formsBase = "https://forms.googleapis.com/v1/forms";
 const registryColumns = "id,club_key,activity_id,activity_type,google_form_id,title,description,responder_url,edit_url,status,application_deadline,response_count,last_response_sync_at,metadata,created_by,created_at,updated_at";
+const connectionOwner = new AsyncLocalStorage<string>();
+export function withPersonalGoogleConnection<T>(verifiedEmail: string, operation: () => Promise<T>): Promise<T> {
+  const email = normalizeEmail(verifiedEmail);
+  if (!email) throw new Error("LOGIN_REQUIRED");
+  return connectionOwner.run(email, operation);
+}
+export function personalGoogleConnectionId(email: string) {
+  return `actor_${createHash("sha256").update(normalizeEmail(email)).digest("hex")}`;
+}
+function connectionId() {
+  const owner = connectionOwner.getStore();
+  return owner ? personalGoogleConnectionId(owner) : "operations";
+}
+function assertPersonalOwner(clubKey: string, owner: string) {
+  const context = connectionOwner.getStore();
+  if (clubKey === "personal" ? !context || context !== normalizeEmail(owner) : Boolean(context)) throw new Error("GOOGLE_ACCOUNT_OWNER_MISMATCH");
+}
 
 function oauthConfig() {
   assertGoogleFormsTestEnvironment();
@@ -53,29 +71,33 @@ async function exchange(params: URLSearchParams) {
 }
 
 export async function connectGoogleOperationsAccount(code: string, connectedBy: string) {
+  const personalOwner = connectionOwner.getStore();
+  if (personalOwner && personalOwner !== normalizeEmail(connectedBy)) throw new Error("GOOGLE_ACCOUNT_OWNER_MISMATCH");
   // Production reconnect may repair the existing operations identity, never silently replace it.
-  const existing = isGoogleFormsAdminProduction()
+  const existing = isGoogleFormsAdminProduction() && !personalOwner
     ? await supabaseRequest<OAuthConnection[]>("google_oauth_connections?select=account_email&id=eq.operations&limit=1", { cache: "no-store" })
     : [];
-  if (isGoogleFormsAdminProduction() && !existing[0]?.account_email) throw new Error("GOOGLE_OPERATIONS_ACCOUNT_NOT_CONFIGURED");
+  if (isGoogleFormsAdminProduction() && !personalOwner && !existing[0]?.account_email) throw new Error("GOOGLE_OPERATIONS_ACCOUNT_NOT_CONFIGURED");
   const tokens = await exchange(new URLSearchParams({ code, grant_type: "authorization_code" }));
   if (!tokens.refresh_token) throw new Error("Google did not return an offline refresh token. Revoke the prior grant and reconnect.");
   const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tokens.access_token}` }, cache: "no-store" });
   const profile = await profileResponse.json() as { email?: string; email_verified?: boolean };
   const accountEmail = normalizeEmail(profile.email);
   if (!profileResponse.ok || !accountEmail || profile.email_verified !== true) throw new Error("The connected Google account email could not be verified.");
-  if (isGoogleFormsAdminProduction() && accountEmail !== normalizeEmail(existing[0].account_email)) throw new Error("GOOGLE_OPERATIONS_ACCOUNT_MISMATCH");
+  if (personalOwner && accountEmail !== personalOwner) throw new Error("GOOGLE_ACCOUNT_OWNER_MISMATCH");
+  if (isGoogleFormsAdminProduction() && !personalOwner && accountEmail !== normalizeEmail(existing[0].account_email)) throw new Error("GOOGLE_OPERATIONS_ACCOUNT_MISMATCH");
   const scopes = (tokens.scope || "").split(" ");
   if (googleFormsScopes.filter((scope) => scope.startsWith("https:")).some((scope) => !scopes.includes(scope))) throw new Error("GOOGLE_REQUIRED_SCOPES_NOT_GRANTED");
   // Verify offline refresh before replacing a saved connection.
   await exchange(new URLSearchParams({ refresh_token: tokens.refresh_token, grant_type: "refresh_token" }));
-  await supabaseRequest("google_oauth_connections?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: "operations", account_email: accountEmail, encrypted_refresh_token: encryptGoogleToken(tokens.refresh_token), scopes: (tokens.scope || googleFormsScopes.join(" ")).split(" "), connected_by: normalizeEmail(connectedBy) }) });
+  await supabaseRequest("google_oauth_connections?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: connectionId(), account_email: accountEmail, encrypted_refresh_token: encryptGoogleToken(tokens.refresh_token), scopes: (tokens.scope || googleFormsScopes.join(" ")).split(" "), connected_by: normalizeEmail(connectedBy) }) });
   return accountEmail;
 }
 
 export async function getGoogleConnectionStatus() {
-  const rows = await supabaseRequest<OAuthConnection[]>("google_oauth_connections?select=account_email,encrypted_refresh_token,scopes&id=eq.operations&limit=1", { cache: "no-store" });
+  const rows = await supabaseRequest<OAuthConnection[]>(`google_oauth_connections?select=account_email,encrypted_refresh_token,scopes&id=eq.${connectionId()}&limit=1`, { cache: "no-store" });
   if (!rows[0]) return { connected: false, accountEmail: "", scopes: [], health: "missing" };
+  if (connectionOwner.getStore() && normalizeEmail(rows[0].account_email) !== connectionOwner.getStore()) return { connected: false, accountEmail: "", scopes: [], health: "missing" };
   try {
     await exchange(new URLSearchParams({ refresh_token: decryptGoogleToken(rows[0].encrypted_refresh_token), grant_type: "refresh_token" }));
     return { connected: true, accountEmail: rows[0].account_email, scopes: rows[0].scopes, health: "healthy" };
@@ -87,8 +109,9 @@ export async function getGoogleConnectionStatus() {
 
 async function accessToken() {
   try {
-    const rows = await supabaseRequest<OAuthConnection[]>("google_oauth_connections?select=account_email,encrypted_refresh_token,scopes&id=eq.operations&limit=1", { cache: "no-store" });
+    const rows = await supabaseRequest<OAuthConnection[]>(`google_oauth_connections?select=account_email,encrypted_refresh_token,scopes&id=eq.${connectionId()}&limit=1`, { cache: "no-store" });
     if (!rows[0]) throw new Error("GOOGLE_RECONNECT_REQUIRED");
+    if (connectionOwner.getStore() && normalizeEmail(rows[0].account_email) !== connectionOwner.getStore()) throw new Error("GOOGLE_RECONNECT_REQUIRED");
     const tokens = await exchange(new URLSearchParams({ refresh_token: decryptGoogleToken(rows[0].encrypted_refresh_token), grant_type: "refresh_token" }));
     return tokens.access_token!;
   } catch (error) {
@@ -154,6 +177,7 @@ export async function verifyGoogleFormDraft(formId: string, draft: GoogleFormDra
 }
 
 export async function createGoogleForm(draft: GoogleFormDraft, createdBy: string, idempotencyKey: string) {
+  assertPersonalOwner(draft.clubKey, createdBy);
   assertGoogleFormsTestEnvironment();
   if (!/^[a-zA-Z0-9_-]{16,120}$/.test(idempotencyKey)) throw new Error("IDEMPOTENCY_KEY_REQUIRED");
   const items = draft.questions.map(questionItem);
@@ -208,6 +232,7 @@ export async function createGoogleForm(draft: GoogleFormDraft, createdBy: string
 }
 
 export async function setGoogleFormStatus(row: GoogleFormRegistryRow, status: GoogleFormStatus, internalTestApproved = false) {
+  assertPersonalOwner(row.club_key, row.created_by);
   assertGoogleFormsTestEnvironment();
   if (row.status === "archived") throw new Error("EVENT_ARCHIVED");
   if (status === "open" || status === "closed") assertGoogleFormsPublicationApproval(row, status, internalTestApproved);
@@ -229,6 +254,7 @@ export async function setGoogleFormStatus(row: GoogleFormRegistryRow, status: Go
 }
 
 export async function syncGoogleFormResponses(row: GoogleFormRegistryRow) {
+  assertPersonalOwner(row.club_key, row.created_by);
   const startedAt = new Date().toISOString();
   const form = await googleFetch<GoogleFormResource>(`${formsBase}/${encodeURIComponent(row.google_form_id)}`);
   const responses = new Map<string, GoogleResponse>();
@@ -274,6 +300,7 @@ export async function syncGoogleFormResponses(row: GoogleFormRegistryRow) {
 export async function closeGoogleFormIfNeeded(id: string) {
   const [row] = await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?id=eq.${encodeURIComponent(id)}&select=${registryColumns}&limit=1`);
   if (!row) return null;
+  assertPersonalOwner(row.club_key, row.created_by);
   const reason = automaticClosureReason(row);
   if (!reason) return null;
   // Never publish a draft as a side effect of closing. Preserve Google's publication state.

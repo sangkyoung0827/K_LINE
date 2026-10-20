@@ -1,7 +1,7 @@
 export function eventClarification(missing: string[], title = "") {
   const questions: Record<string, [string, string]> = {
-    activityDate: ["행사는 언제 시작하나요? 연도와 시작 시간, 시간대(예: 한국 시간)를 알려주세요.", "When does the event start? Include the year, start time and timezone."],
-    applicationDeadline: ["신청은 언제 마감하나요? 날짜와 시간, 시간대를 알려주세요.", "When do applications close? Include the date, time and timezone."],
+    activityDate: ["행사는 언제인가요? ‘다음 주 금요일 저녁 7시쯤’처럼 알려주셔도 됩니다.", "When is the event? A phrase like ‘next Friday around 7pm’ is fine."],
+    applicationDeadline: ["신청은 언제까지 받을까요? 날짜만 알려주시면 해당 날짜가 끝날 때까지로 정리합니다.", "When should applications close? A date alone will mean the end of that local day."],
     applicationDeadlineTime: ["신청 마감은 몇 시인가요? 시간과 시간대를 알려주세요.", "What time do applications close? Include the timezone."],
     location: ["행사는 어디에서 진행하나요?", "Where will the event take place?"],
     capacity: ["몇 명을 모집하나요?", "How many participants can join?"],

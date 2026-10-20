@@ -2,7 +2,8 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { supabaseRequest } from "@/lib/googleForms/store";
 import { assertGoogleFormsTestEnvironment } from "@/lib/googleForms/safety";
-import { createGoogleForm, registryColumns, verifyGoogleFormDraft } from "@/lib/googleForms/googleApi";
+import { createGoogleForm, registryColumns, verifyGoogleFormDraft, withPersonalGoogleConnection, getGoogleConnectionStatus, syncGoogleFormResponses } from "@/lib/googleForms/googleApi";
+import { applicantNames } from "@/lib/googleForms/applicants";
 import { actualResponderUrl } from "@/lib/googleForms/responses";
 import { noticeBody } from "@/lib/googleForms/planning";
 import { eccFormApplicationUrl } from "@/lib/googleForms/eccResponderEntry";
@@ -11,6 +12,7 @@ import { createSignedWoohyukmonPayload, verifySignedWoohyukmonPayload } from "@/
 import { generateEventPlan, sanitizeEventRequest } from "./ai";
 import { eventClarification } from "./clarification";
 import { assertStudioAccess, type StudioAccess } from "./access";
+import { resolveStudioClub } from "./organizer";
 import { club, formDraft, parseEventPlan, StudioError, type EventPlan, type StudioClub } from "./model";
 
 export type StudioJob = {
@@ -25,10 +27,11 @@ const jobQuery = (id: string) => {
   return `${jobs}?id=eq.${id}`;
 };
 const hash = (plan: EventPlan) => createHash("sha256").update(JSON.stringify(plan)).digest("hex");
-export const studioAdapters = { ecc: { creationSupported: true }, hanhwal: { creationSupported: false }, social_impact_union: { creationSupported: false } };
+export const studioAdapters = { ecc: { creationSupported: true }, hanhwal: { creationSupported: true }, social_impact_union: { creationSupported: false }, personal: { creationSupported: true } };
 async function loadJob(id: string, access: StudioAccess, write = false) {
   const rows = await supabaseRequest<StudioJob[]>(`${jobQuery(id)}&club_key=in.(${access.manageableClubs.join(",")})&select=*&limit=1`);
   if (!rows[0]) throw new StudioError("JOB_NOT_FOUND", 404);
+  if (rows[0].club_key === "personal" && rows[0].created_by !== access.email) throw new StudioError("JOB_NOT_FOUND", 404);
   assertStudioAccess(access, rows[0].club_key, write);
   return rows[0];
 }
@@ -84,9 +87,9 @@ async function execute(job: StudioJob, access: StudioAccess) {
     const link = eccFormApplicationUrl(form);
     const content = `${noticeBody(`${job.plan.noticeKo}\n\n${job.plan.noticeEn}`)}\n\n신청 링크 / Application Form\n${link}`;
     if (!content.endsWith(link)) throw new StudioError("NOTICE_APPLICATION_LINK_MISSING");
-    // The established ECC adapter uses a separate private notice table, never native published posts.
-    await supabaseRequest("club_board_posts?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify({ id: job.id, board_id: "ecc", title: job.plan.title, content, author_name: access.email, status: "draft", media: [] }) });
-    const saved = await supabaseRequest<{ id: string; content: string; status: string }[]>(`club_board_posts?id=eq.${job.id}&board_id=eq.ecc&select=id,content,status&limit=1`);
+    // This is the private Forms notice table, never the clubs' published boards.
+    await supabaseRequest("club_board_posts?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify({ id: job.id, board_id: job.club_key, title: job.plan.title, content, author_name: access.email, status: "draft", media: [] }) });
+    const saved = await supabaseRequest<{ id: string; content: string; status: string }[]>(`club_board_posts?id=eq.${job.id}&board_id=eq.${job.club_key}&select=id,content,status&limit=1`);
     if (saved[0]?.status !== "draft" || !saved[0].content.includes(link)) throw new StudioError("NOTICE_SAVE_NOT_CONFIRMED", 502);
     const updated = await supabaseRequest<StudioJob[]>(`${jobQuery(job.id)}&select=*`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ state: "notice_saved", notice_id: job.id, updated_at: new Date().toISOString() }) });
     return result(updated[0], access);
@@ -98,18 +101,29 @@ async function execute(job: StudioJob, access: StudioAccess) {
 }
 export async function studioOperation(access: StudioAccess, body: Record<string, unknown>) {
   assertGoogleFormsTestEnvironment();
+  if (!access.email) throw new StudioError("LOGIN_REQUIRED", 401);
   if (!access.manageableClubs.length) throw new StudioError("CLUB_ADMIN_REQUIRED", 403);
   const action = body.action;
   if (action === "list") {
-    const rows = await supabaseRequest<StudioJob[]>(`${jobs}?club_key=in.(${access.manageableClubs.join(",")})&select=*&order=updated_at.desc&limit=50`);
+    const managed = access.manageableClubs.filter(key => key !== "personal");
+    const own = access.manageableClubs.includes("personal") ? await supabaseRequest<StudioJob[]>(`${jobs}?club_key=eq.personal&created_by=eq.${encodeURIComponent(access.email)}&select=*&order=updated_at.desc&limit=50`) : [];
+    const team = managed.length ? await supabaseRequest<StudioJob[]>(`${jobs}?club_key=in.(${managed.join(",")})&select=*&order=updated_at.desc&limit=50`) : [];
+    const rows = [...own, ...team].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)).slice(0, 50);
     const formIds = rows.map(job => job.form_registry_id).filter(Boolean);
     const archived = formIds.length ? await supabaseRequest<{ id: string }[]>(`google_forms?id=in.(${formIds.join(",")})&club_key=in.(${access.manageableClubs.join(",")})&status=eq.archived&select=id`) : [];
     const archivedIds = new Set(archived.map(form => form.id));
     return { jobs: rows.filter(job => !job.form_registry_id || !archivedIds.has(job.form_registry_id)), access, adapters: studioAdapters, aiEnabled: process.env.EVENT_AI_ENABLED === "true" };
   }
+  if (action === "connection") {
+    return withPersonalGoogleConnection(access.email, async () => {
+      const status = await getGoogleConnectionStatus();
+      return { connected: status.health === "healthy" };
+    });
+  }
   if (action === "limits") {
     if (!access.canSetLimits || access.readOnly) throw new StudioError("SUPER_ADMIN_REQUIRED", 403);
     const key = club(body.clubKey);
+    if (key === "personal") throw new StudioError("PERSONAL_LIMITS_NOT_EDITABLE", 403);
     const actorLimit = Number(body.userDailyLimit), clubLimit = Number(body.clubDailyLimit);
     if (!Number.isInteger(actorLimit) || !Number.isInteger(clubLimit) || actorLimit < 1 || actorLimit > 100 || clubLimit < 1 || clubLimit > 1000) throw new StudioError("INVALID_AI_LIMIT");
     await supabaseRequest("event_ai_limits?on_conflict=club_key", { method: "POST", headers: { Prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ club_key: key, user_daily_limit: actorLimit, club_daily_limit: clubLimit, changed_by: access.email }) });
@@ -117,13 +131,14 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
   }
   if (action === "usage") {
     const key = club(body.clubKey); assertStudioAccess(access, key, false);
-    return { usage: await supabaseRequest(`event_ai_usage?club_key=eq.${key}&select=id,requested_model,actual_model,reason,attempt,input_tokens,output_tokens,duration_ms,error_code,status,estimated_cost_usd,created_at&order=created_at.desc&limit=100`), limits: await supabaseRequest(`event_ai_limits?club_key=eq.${key}&select=club_key,user_daily_limit,club_daily_limit`) };
+    return { usage: await supabaseRequest(`event_ai_usage?club_key=eq.${key}${key === "personal" ? `&actor_email=eq.${encodeURIComponent(access.email)}` : ""}&select=id,requested_model,actual_model,reason,attempt,input_tokens,output_tokens,duration_ms,error_code,status,estimated_cost_usd,created_at&order=created_at.desc&limit=100`), limits: await supabaseRequest(`event_ai_limits?club_key=eq.${key}&select=club_key,user_daily_limit,club_daily_limit`) };
   }
   if (action === "plan") {
-    const key = club(body.clubKey); assertStudioAccess(access, key);
     if (typeof body.message !== "string") throw new StudioError("EVENT_REQUEST_REQUIRED");
+    const key = resolveStudioClub(body.message, body.clubKey); assertStudioAccess(access, key);
     let references: { archiveId: string; historicalOnly: boolean; title: string | null; text: string }[] = [];
     if (Array.isArray(body.archiveIds) && body.archiveIds.length) {
+      if (key === "personal") throw new StudioError("PRIVATE_ARCHIVE_REFERENCE_NOT_ALLOWED", 403);
       const { getArchiveAccess } = await import("@/lib/eventArchive/access");
       const { historicalReferences } = await import("@/lib/eventArchive/service");
       references = await historicalReferences(await getArchiveAccess(access.email), body.archiveIds, key);
@@ -143,6 +158,16 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
   }
   const job = await loadJob(String(body.jobId || ""), access, !["get", "review"].includes(String(action)));
   if (action === "get") return result(job, access);
+  if (action === "responses") {
+    if (!job.form_registry_id) throw new StudioError("FORM_REGISTRY_NOT_FOUND", 404);
+    const snapshot = await result(job, access);
+    if (!("form" in snapshot)) throw new StudioError("FORM_REGISTRY_NOT_FOUND", 404);
+    const operation = () => syncGoogleFormResponses(snapshot.form);
+    const total = job.club_key === "personal" ? await withPersonalGoogleConnection(access.email, operation) : await operation();
+    const responses = await supabaseRequest<{ id: string; answers_json: Record<string, string[]>; respondent_email: string | null }[]>(`google_form_responses?google_form_registry_id=eq.${job.form_registry_id}&select=id,answers_json,respondent_email&order=submitted_at.asc&limit=1000`);
+    const names = applicantNames(responses);
+    return { applicants: responses.map((response, index) => ({ id: response.id, name: names[index] })), total };
+  }
   if (action === "review") { assertStudioAccess(access, job.club_key); return preview(job, access); }
   if (action === "refine") {
     if (job.form_registry_id || job.state !== "draft") throw new StudioError("CREATED_JOB_CANNOT_BE_EDITED", 409);
@@ -160,7 +185,8 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
       const { historicalReferences } = await import("@/lib/eventArchive/service");
       references = await historicalReferences(await getArchiveAccess(access.email), job.ai_metadata.archiveIds, job.club_key);
     }
-    const generated = await generateEventPlan(access.email, job.club_key, request, references);
+    const storedReference = typeof job.ai_metadata.scheduleReference === "string" ? Date.parse(job.ai_metadata.scheduleReference) : NaN;
+    const generated = await generateEventPlan(access.email, job.club_key, request, references, Number.isFinite(storedReference) ? new Date(storedReference) : new Date());
     const updated = await supabaseRequest<StudioJob[]>(`${jobQuery(job.id)}&revision=eq.${job.revision}&state=eq.draft&select=*`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ plan: generated.plan, ai_metadata: { ...job.ai_metadata, ...generated.metadata, requestTurns: turns }, revision: job.revision + 1, updated_at: new Date().toISOString() }) });
     if (!updated[0]) throw new StudioError("JOB_CHANGED_REVIEW_AGAIN", 409);
     return preview(updated[0], access);
@@ -187,7 +213,7 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
     let approval: Approval;
     try { approval = verifySignedWoohyukmonPayload(body.token) as Approval; } catch { throw new StudioError("INVALID_APPROVAL", 403); }
     if (approval.namespace !== "event_studio_v1" || approval.actor !== access.email || approval.club !== job.club_key || approval.job !== job.id || approval.revision !== job.revision || approval.hash !== hash(job.plan) || !Number.isFinite(approval.expires) || approval.expires <= Date.now()) throw new StudioError("APPROVAL_EXPIRED_OR_CHANGED", 409);
-    return execute(job, access);
+    return job.club_key === "personal" ? withPersonalGoogleConnection(access.email, () => execute(job, access)) : execute(job, access);
   }
   throw new StudioError("UNKNOWN_STUDIO_ACTION");
 }

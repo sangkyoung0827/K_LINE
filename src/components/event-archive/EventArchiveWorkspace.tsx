@@ -195,7 +195,7 @@ export function EventArchiveWorkspace({ access, canCreate }: { access: ArchiveAc
     {status && <p role="status" className="text-sm text-muted">{status}</p>}
     {tab === "creator" && <>
       {references.length > 0 && <div className="flex items-center justify-between gap-3 border-b border-ink/15 pb-3 text-sm"><p>{t("참고 원본", "Historical references")}: {references.length}</p><button type="button" title={t("참고 자료 해제", "Clear references")} aria-label="Clear references" className="flex h-11 w-11 items-center justify-center" onClick={() => setReferences([])}><X className="h-4 w-4" /></button></div>}
-      <EventStudio initialClub={referenceClub === "unclassified" ? undefined : referenceClub} archiveIds={references} />
+      <EventStudio initialClub={references.length && referenceClub !== "unclassified" ? referenceClub : undefined} archiveIds={references} />
     </>}
     {tab === "archive" && <>
       {batch && <div className="flex items-start justify-between gap-3 border-b border-ink/15 pb-4"><div><h2 className="break-words text-lg font-semibold">{items[0]?.collection?.title || t("행사 묶음", "Event collection")}</h2><p className="text-sm text-muted">{items[0]?.collection?.eventDate} · {items.length} {t("건", "materials")}</p></div><button type="button" aria-label="Clear collection filter" title={t("전체 자료 보기", "All materials")} className="flex h-11 w-11 shrink-0 items-center justify-center" onClick={() => setBatch("")}><X className="h-4 w-4" /></button></div>}

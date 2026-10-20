@@ -1,13 +1,15 @@
 import type { GoogleFormDraft, GoogleFormQuestion } from "@/lib/googleForms/types";
 import { parseGoogleFormDraft } from "@/lib/googleForms/validation";
+import { displayEventDate } from "./dateLabel";
 
-export const studioClubs = ["ecc", "hanhwal", "social_impact_union"] as const;
+export const studioClubs = ["ecc", "hanhwal", "social_impact_union", "personal"] as const;
 export type StudioClub = typeof studioClubs[number];
 export type EventPlan = {
   clubKey: StudioClub; title: string; descriptionKo: string; descriptionEn: string;
   noticeKo: string; noticeEn: string; activityDate: string | null;
   applicationDeadline: string | null; location: string | null; capacity: number | null;
   questions: GoogleFormQuestion[]; missingInformation: string[]; requiresReview: true;
+  schedule?: { timeZone: string; activityQualifier: string | null; deadlineQualifier: string | null; deadlineEndOfDay: boolean; deadlineConflict: boolean };
 };
 export class StudioError extends Error {
   constructor(public code: string, public status = 400) { super(code); }
@@ -25,10 +27,9 @@ export function missingFields(plan: EventPlan) {
     !plan.location && "location", plan.capacity === null && "capacity"].filter(Boolean) as string[];
 }
 export function formDraft(plan: EventPlan, version = 2): GoogleFormDraft {
-  if (plan.clubKey === "hanhwal") throw new StudioError("CLUB_ADAPTER_NOT_READY", 409);
   const logistics = version >= 2 ? [
-    plan.activityDate && `일시 / Date: ${displayEventDate(plan.activityDate)}`,
-    plan.applicationDeadline && `신청 마감 / Deadline: ${displayEventDate(plan.applicationDeadline)}`,
+    plan.activityDate && `일시 / Date: ${displayEventDate(plan.activityDate, plan.schedule?.timeZone)}${plan.schedule?.activityQualifier ? ` (${plan.schedule.activityQualifier})` : ""}`,
+    plan.applicationDeadline && `신청 마감 / Deadline: ${displayEventDate(plan.applicationDeadline, plan.schedule?.timeZone)}${plan.schedule?.deadlineQualifier ? ` (${plan.schedule.deadlineQualifier})` : ""}${plan.schedule?.deadlineEndOfDay ? " (당일 끝 / end of day)" : ""}`,
     plan.location && `장소 / Venue: ${plan.location}`,
     plan.capacity !== null && `모집 인원 / Capacity: ${plan.capacity}`,
     plan.capacity !== null && "정원 초과 응답은 대기자로 분류됩니다. / Responses beyond capacity will be waitlisted.",
@@ -40,10 +41,6 @@ export function formDraft(plan: EventPlan, version = 2): GoogleFormDraft {
     templateId: "blank", activityId: "", editorEmail: "", location: plan.location || "",
     activityDate: plan.activityDate || "", applicationDeadline: plan.applicationDeadline || "",
     description, questions: plan.questions });
-}
-function displayEventDate(value: string) {
-  if (value.length === 10) return value;
-  return `${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value))} (KST, UTC+09:00)`;
 }
 export function parseEventPlan(value: unknown, expectedClub: StudioClub): EventPlan {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new StudioError("INVALID_EVENT_PLAN");
@@ -64,7 +61,7 @@ export function parseEventPlan(value: unknown, expectedClub: StudioClub): EventP
   plan.capacity = raw.capacity === null ? null : Number(raw.capacity);
   if (plan.capacity !== null && (!Number.isInteger(raw.capacity) || plan.capacity < 1 || plan.capacity > 100000)) throw new StudioError("INVALID_CAPACITY");
   if (!Array.isArray(raw.questions) || raw.questions.length < 1 || raw.questions.length > 20) throw new StudioError("INVALID_QUESTIONS");
-  // Reuse the established question/date validator; HANHWAL never executes under this temporary parsing key.
+  // Question validation is independent of the organizer's authorized storage scope.
   plan.questions = parseGoogleFormDraft({ clubKey: "general", title: plan.title, templateId: "blank", questions: raw.questions,
     activityDate: plan.activityDate || "", applicationDeadline: plan.applicationDeadline || "" }).questions;
   const titles = new Set<string>();
@@ -82,6 +79,13 @@ export function parseEventPlan(value: unknown, expectedClub: StudioClub): EventP
   if (names.length !== 1 || !names[0].required || names[0].type !== "short_answer") throw new StudioError("PARTICIPANT_NAME_REQUIRED");
   if (!/[가-힣]/.test(plan.descriptionKo + plan.noticeKo) || !/[a-z]/i.test(plan.descriptionEn + plan.noticeEn)) throw new StudioError("BILINGUAL_CONTENT_REQUIRED");
   plan.missingInformation = missingFields(plan);
+  if (raw.schedule && typeof raw.schedule === "object") {
+    const schedule = raw.schedule as Record<string, unknown>;
+    const timeZone = text(schedule.timeZone, 80);
+    try { new Intl.DateTimeFormat("en", { timeZone }); } catch { throw new StudioError("INVALID_EVENT_TIMEZONE"); }
+    plan.schedule = { timeZone, activityQualifier: schedule.activityQualifier ? text(schedule.activityQualifier, 80) : null,
+      deadlineQualifier: schedule.deadlineQualifier ? text(schedule.deadlineQualifier, 80) : null, deadlineEndOfDay: schedule.deadlineEndOfDay === true, deadlineConflict: schedule.deadlineConflict === true };
+  }
   return plan;
 }
 export function assertGrounded(plan: EventPlan, message: string) {

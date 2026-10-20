@@ -32,7 +32,10 @@ export function parseGoogleFormDraft(value: unknown): GoogleFormDraft {
   if (new Set(questions.map((question) => question.id)).size !== questions.length) throw new Error("DUPLICATE_QUESTION_ID");
   const activityDate = cleanText(input.activityDate, 80);
   if (activityDate && !Number.isFinite(Date.parse(activityDate))) throw new Error("INVALID_ACTIVITY_DATE");
-  if (applicationDeadline && activityDate && Date.parse(applicationDeadline) > Date.parse(activityDate)) throw new Error("DEADLINE_AFTER_ACTIVITY");
+  // A calendar-only event has no midnight start. Same-day deadlines remain valid.
+  if (applicationDeadline && activityDate && (activityDate.length === 10
+    ? applicationDeadline.slice(0, 10) > activityDate
+    : Date.parse(applicationDeadline) > Date.parse(activityDate))) throw new Error("DEADLINE_AFTER_ACTIVITY");
   const editorEmail = cleanText(input.editorEmail, 240).toLowerCase();
   if (editorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editorEmail)) throw new Error("INVALID_EDITOR_EMAIL");
   return { ...(input.capacity !== undefined ? { capacity: input.capacity as number } : {}), ...(input.automationVersion === 1 ? { automationVersion: 1 as const } : {}), clubKey, title, description: cleanText(input.description, 5000), descriptionKo: cleanText(input.descriptionKo, 2500), descriptionEn: cleanText(input.descriptionEn, 2500), activityId: cleanText(input.activityId, 200), activityTitle: cleanText(input.activityTitle, 200), activityDate: cleanText(input.activityDate, 80), location: cleanText(input.location, 300), applicationDeadline, editorEmail, templateId, questions };

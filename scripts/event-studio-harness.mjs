@@ -19,7 +19,7 @@ export const fixtureMessage = "문화교류 체험. 행사 2026-11-07T18:00:00+0
 export async function eventHarness(options = {}) {
   const control = { email: "qa-admin@example.test", clubs: ["ecc", "hanhwal", "social_impact_union"], readOnly: false,
     aiCalls: 0, externalCreates: 0, failNotice: false, failGoogle: false, failOAuth: false, missingUrl: false,
-    aiStatus: 200, aiNetworkFailures: 0, aiTimeoutFailures: 0, outputs: [], currentPlan: fixturePlan(), remoteForms: new Map(), requests: [], liveAIOutputs: [] };
+    aiStatus: 200, aiNetworkFailures: 0, aiTimeoutFailures: 0, outputs: [], currentPlan: fixturePlan(), remoteForms: new Map(), remoteResponses: new Map(), requests: [], liveAIOutputs: [] };
   globalThis.__studioQA = control;
   const originalFetch = globalThis.fetch;
   const originalEnv = { ...process.env };
@@ -32,6 +32,8 @@ export async function eventHarness(options = {}) {
     GOOGLE_FORMS_CLIENT_ID: "qa-client", GOOGLE_FORMS_CLIENT_SECRET: "qa-secret", GOOGLE_FORMS_TEST_ORIGIN: "http://127.0.0.1:3346",
     GOOGLE_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"), EVENT_AI_ENABLED: "true", EVENT_AI_PROVIDER: "openai",
     EVENT_AI_PRIMARY_MODEL: "gpt-6-luna", EVENT_AI_COMPLEX_MODEL: "gpt-6.1-sol", OPENAI_API_KEY: liveOpenAI ? originalEnv.OPENAI_API_KEY : "qa-only-not-a-real-key" });
+  delete process.env.EVENT_AI_OPENAI_API_KEY;
+  if (liveOpenAI) process.env.EVENT_AI_OPENAI_API_KEY = originalEnv.OPENAI_API_KEY;
   delete process.env.VERCEL_ENV;
   delete process.env.GOOGLE_FORMS_ECC_RESPONDER_GATE_ENABLED;
   if (liveGoogle) {
@@ -68,7 +70,12 @@ export async function eventHarness(options = {}) {
       if (url.endsWith("?unpublished=true")) control.externalCreates++;
       return originalFetch(url, init);
     }
-    if (url === "https://oauth2.googleapis.com/token") return Response.json(control.failOAuth ? { error: "invalid_grant" } : { access_token: "qa-only-access" }, { status: control.failOAuth ? 400 : 200 });
+    if (url === "https://oauth2.googleapis.com/token") return Response.json(control.failOAuth ? { error: "invalid_grant" } : { access_token: "qa-only-access", ...(init.body.get("grant_type") === "authorization_code" ? { refresh_token: "qa-only-personal-refresh", scope: control.oauthScopes ?? "openid email https://www.googleapis.com/auth/forms.body https://www.googleapis.com/auth/forms.responses.readonly https://www.googleapis.com/auth/drive.file" } : {}) }, { status: control.failOAuth ? 400 : 200 });
+    if (url === "https://openidconnect.googleapis.com/v1/userinfo") return Response.json({ email: control.oauthEmail || control.email, email_verified: control.oauthVerified !== false });
+    if (url.startsWith("https://forms.googleapis.com/v1/forms/") && new URL(url).pathname.endsWith("/responses")) {
+      const id = new URL(url).pathname.split("/").at(-2);
+      return Response.json({ responses: control.remoteResponses.get(id) || [] });
+    }
     if (url.endsWith("?unpublished=true")) {
       control.externalCreates++;
       if (control.failGoogle) throw new Error("QA_CREATE_TIMEOUT");
@@ -91,7 +98,7 @@ export async function eventHarness(options = {}) {
     throw new Error("QA_UNEXPECTED_EXTERNAL_REQUEST");
   };
   const dir = await mkdtemp(join(tmpdir(), "studio-qa-bundle-"));
-  await build({ stdin: { contents: `export * from './src/lib/eventStudio/model'; export * from './src/lib/eventStudio/ai'; export * from './src/lib/eventStudio/service'; export * from './src/lib/eventStudio/access'; export {POST} from './src/app/api/event-studio/route'; export {DELETE as deleteEvent} from './src/app/api/google-forms/forms/[id]/route'; export {GET as listForms} from './src/app/api/google-forms/forms/route'; export {GET as getResponses,POST as syncResponses} from './src/app/api/google-forms/forms/[id]/responses/route'; export {getGoogleFormsAccess} from './src/lib/googleForms/access'; export {setGoogleFormStatus,googleAuthorizationUrl,connectGoogleOperationsAccount,getGoogleConnectionStatus,googleFetch,registryColumns} from './src/lib/googleForms/googleApi'; export {createSignedWoohyukmonPayload} from './src/lib/woohyukmon/operations/token'; export {encryptGoogleToken} from './src/lib/googleForms/crypto';`, resolveDir: process.cwd(), loader: "ts" },
+  await build({ stdin: { contents: `export * from './src/lib/eventStudio/model'; export * from './src/lib/eventStudio/organizer'; export * from './src/lib/eventStudio/ai'; export * from './src/lib/eventStudio/service'; export * from './src/lib/eventStudio/access'; export {POST} from './src/app/api/event-studio/route'; export {DELETE as deleteEvent} from './src/app/api/google-forms/forms/[id]/route'; export {GET as listForms} from './src/app/api/google-forms/forms/route'; export {GET as getResponses,POST as syncResponses} from './src/app/api/google-forms/forms/[id]/responses/route'; export {getGoogleFormsAccess} from './src/lib/googleForms/access'; export {setGoogleFormStatus,googleAuthorizationUrl,connectGoogleOperationsAccount,getGoogleConnectionStatus,googleFetch,registryColumns,withPersonalGoogleConnection,personalGoogleConnectionId} from './src/lib/googleForms/googleApi'; export {createSignedWoohyukmonPayload} from './src/lib/woohyukmon/operations/token'; export {encryptGoogleToken} from './src/lib/googleForms/crypto';`, resolveDir: process.cwd(), loader: "ts" },
     outfile: join(dir, "backend.cjs"), bundle: true, packages: "external", platform: "node", format: "cjs",
     banner: { js: `module.paths.unshift(${JSON.stringify(join(process.cwd(), "node_modules"))});` },
     plugins: [{ name: "qa-identities", setup(b) {
@@ -112,7 +119,7 @@ export async function eventHarness(options = {}) {
   const api = createRequire(import.meta.url)(join(dir, "backend.cjs"));
   const refresh = api.encryptGoogleToken("qa-only-refresh");
   if (!liveGoogle) await store.db.query("insert into kline_forms_test_google_oauth_connections(id,account_email,encrypted_refresh_token,scopes,connected_by) values('operations','qa-owner@example.test',$1,ARRAY['https://www.googleapis.com/auth/forms.body'],'qa-admin@example.test')", [refresh]);
-  const access = () => ({ email: control.email, manageableClubs: control.clubs, readOnly: control.readOnly, canSetLimits: true });
+  const access = () => ({ email: control.email, manageableClubs: [...new Set([...control.clubs, "personal"])], readOnly: control.readOnly, canSetLimits: true });
   return { api, control, store, access, async close() {
     globalThis.fetch = originalFetch; for (const key of Object.keys(process.env)) if (!(key in originalEnv)) delete process.env[key]; Object.assign(process.env, originalEnv); await store.db.close();
   } };

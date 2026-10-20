@@ -220,8 +220,9 @@ test("Event Archive: actual local PostgreSQL + filesystem round-trip, not remote
         const page = await readFile(new URL("../src/app/page.tsx",import.meta.url),"utf8");
         const hub = await readFile(new URL("../src/app/event-studio/page.tsx",import.meta.url),"utf8");
         assert.match(home,/showEventStudio = false/); assert.match(home,/card\.accent !== "studio" \|\| showEventStudio/);
-        assert.match(page,/showEventStudio=\{isDeveloperEmail\(session\?\.user\?\.email\)\}/);
-        assert.match(hub,/if \(!isDeveloperEmail\(session\?\.user\?\.email\)\) notFound\(\)/);
+        assert.match(page,/showEventStudio=\{Boolean\(session\?\.user\?\.email\)\}/);
+        assert.match(hub,/isDeveloperEmail\(session\.user\.email\) \? await getArchiveAccess\(\) : null/);
+        assert.match(hub,/access \? <EventArchiveWorkspace.*: <EventStudio \/>/);
       } finally { control.clubs = before; control.readOnly = false; }
     });
     await t.test("test settings cannot point to production and archive store cannot touch legacy tables", async () => {

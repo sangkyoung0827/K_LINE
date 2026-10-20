@@ -1,4 +1,4 @@
-export const googleFormClubKeys = ["ecc", "social_impact_union", "jeju", "general"] as const;
+export const googleFormClubKeys = ["ecc", "hanhwal", "social_impact_union", "jeju", "general", "personal"] as const;
 export type GoogleFormClubKey = (typeof googleFormClubKeys)[number];
 export type GoogleFormStatus = "draft" | "open" | "closed" | "archived";
 export type GoogleQuestionType = "short_answer" | "paragraph" | "multiple_choice" | "checkbox" | "dropdown" | "date" | "time";
