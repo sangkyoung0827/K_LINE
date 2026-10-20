@@ -5,7 +5,7 @@
   "scripts": {
     "test:co-development": "node --test scripts/co-development.test.mjs",
     "test:club-assistant": "npm run test:co-development && node --test scripts/woohyukmon-club.test.mjs scripts/woohyukmon-site-evidence.test.mjs",
-    "pretest": "npm run test:club-assistant && npm run test:member-roster && npm run test:event-archive && npm run test:event-studio && npm run test:google-forms && npm run test:research && npm run test:ecc-resource-library && npm run test:siu-platform && npm run test:my-history && npm run test:ecc-official-mobile && npm run test:ecc-activity-guide && npm run test:social-impact-union && npm run test:activity-preferences && npm run test:woohyukmon && npm run test:ecc-approval-retry && npm run test:my-clubs && npm run test:mobile-navigation && npm run test:hanhwal-operations && npm run test:hanhwal-structured && npm run test:hanhwal-public && npm run test:ecc-gathering-days",
+    "pretest": "npm run test:hanhwal-resource-library && npm run test:club-assistant && npm run test:member-roster && npm run test:event-archive && npm run test:event-studio && npm run test:google-forms && npm run test:research && npm run test:ecc-resource-library && npm run test:siu-platform && npm run test:my-history && npm run test:ecc-official-mobile && npm run test:ecc-activity-guide && npm run test:social-impact-union && npm run test:activity-preferences && npm run test:woohyukmon && npm run test:ecc-approval-retry && npm run test:my-clubs && npm run test:mobile-navigation && npm run test:hanhwal-operations && npm run test:hanhwal-structured && npm run test:hanhwal-public && npm run test:ecc-gathering-days",
     "test:member-roster": "tsx --test src/lib/memberRoster.test.ts && node --test scripts/member-roster-export.test.mjs",
     "test:google-forms": "tsx --test src/lib/googleForms/internalTest.test.ts && node --test scripts/google-forms-v5.test.mjs scripts/google-forms-migration.test.mjs",
     "test:google-forms-ui": "node --test scripts/google-forms-ui.test.mjs",
@@ -51,7 +51,8 @@
     "check": "npm run test && npm run build && npm run check:v4-isolation",
     "test:event-studio": "node --test scripts/event-studio.test.mjs",
     "test:event-archive": "node --test scripts/event-archive.test.mjs",
-    "test:event-archive-ui": "node --test scripts/event-archive-ui.test.mjs"
+    "test:event-archive-ui": "node --test scripts/event-archive-ui.test.mjs",
+    "test:hanhwal-resource-library": "node --test scripts/hanhwal-resource-library.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",

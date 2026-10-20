@@ -29,8 +29,10 @@ function route(file, stubs) {
 
 test("storage inspection uses file metadata, not HEAD response headers", async () => {
   let requested = "";
-  const api = route("src/lib/eccResources/storage.ts", {
+  const factory = route("src/lib/clubResources/storage.ts", {
     "server-only": {},
+    "./model": { resourceExtension: () => "txt" },
+    "./signature": { validResourceHeader: () => true },
     "@/lib/supabaseServer": {
       getSupabaseConfig: () => ({ url: "https://files.test", serviceRoleKey: "test-key" }),
       SupabaseRequestError: class extends Error {}
@@ -40,10 +42,11 @@ test("storage inspection uses file metadata, not HEAD response headers", async (
       return new Response(JSON.stringify({ size: 101, content_type: "text/plain;charset=UTF-8" }), { status: 200 });
     }
   });
-  const info = await api.inspectResourceFile(`${id}/file.txt`);
+  const api = factory.createResourceStorage("ecc-resource-library");
+  const info = await api.inspectResourceFile(`${id}/${id}.txt`);
   assert.equal(info.sizeBytes, 101);
   assert.equal(info.mimeType, "text/plain");
-  assert.equal(requested, `GET https://files.test/storage/v1/object/info/ecc-resource-library/${id}/file.txt`);
+  assert.equal(requested, `GET https://files.test/storage/v1/object/info/ecc-resource-library/${id}/${id}.txt`);
 });
 
 const noAccess = { email: "", canUpload: false, isAdmin: false };
@@ -208,7 +211,7 @@ test("category migration is repeatable and preserves existing resources, boards 
 });
 
 function resourceServer(requests) {
-  const model = route("src/lib/eccResources/model.ts", {});
+  const model = route("src/lib/clubResources/model.ts", {});
   return route("src/lib/eccResources/server.ts", {
     "server-only": {},
     "@/auth": { auth: async () => ({ user: { name: "Uploader" } }) },
