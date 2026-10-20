@@ -5,7 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
-import { eventHarness } from "./event-studio-harness.mjs";
+import { eventHarness, fixturePlan, fixtureMessage } from "./event-studio-harness.mjs";
 
 test("personal OAuth routes bind nonce, identity and mode; callbacks cannot replace operations or replay", async () => {
   const h = await eventHarness();
@@ -19,10 +19,11 @@ test("personal OAuth routes bind nonce, identity and mode; callbacks cannot repl
         "next/headers": "export async function cookies(){const jar=globalThis.__studioOAuthQA.jar;return {get:key=>jar.get(key),set:(key,value,options)=>jar.set(key,{value,options}),delete:key=>jar.delete(key)}}",
         "@/lib/eventStudio/access": "export const getStudioAccess=(...args)=>globalThis.__studioOAuthQA.api.getStudioAccess(...args)",
         "@/lib/eventStudio/model": "export const StudioError=globalThis.__studioOAuthQA.api.StudioError",
+        "@/lib/eventStudio/service": "export const studioOperation=(...args)=>globalThis.__studioOAuthQA.api.studioOperation(...args)",
         "@/lib/googleForms/access": "export const getGoogleFormsAccess=(...args)=>globalThis.__studioOAuthQA.api.getGoogleFormsAccess(...args)",
         "@/lib/googleForms/googleApi": "export const googleAuthorizationUrl=(...args)=>globalThis.__studioOAuthQA.api.googleAuthorizationUrl(...args);export const connectGoogleOperationsAccount=(...args)=>globalThis.__studioOAuthQA.api.connectGoogleOperationsAccount(...args);export const withPersonalGoogleConnection=(...args)=>globalThis.__studioOAuthQA.api.withPersonalGoogleConnection(...args)",
       };
-      b.onResolve({ filter: /^(server-only|next\/headers|@\/lib\/(eventStudio\/(access|model)|googleForms\/(access|googleApi)))$/ }, args => ({ path: args.path, namespace: "test" }));
+      b.onResolve({ filter: /^(server-only|next\/headers|@\/lib\/(eventStudio\/(access|model|service)|googleForms\/(access|googleApi)))$/ }, args => ({ path: args.path, namespace: "test" }));
       b.onLoad({ filter: /.*/, namespace: "test" }, args => ({ contents: sources[args.path] }));
     } }] });
     const routes = createRequire(import.meta.url)(join(dir, "routes.cjs"));
@@ -48,5 +49,21 @@ test("personal OAuth routes bind nonce, identity and mode; callbacks cannot repl
     h.control.readOnly = false; h.control.email = "";
     assert.equal((await start()).headers.get("location"), "https://kline.test/login?callbackUrl=%2Fevent-studio");
     assert.deepEqual((await h.store.db.query("select * from kline_forms_test_google_oauth_connections where id='operations'")).rows, operationsBefore);
+    h.control.email = "test-admin@example.test";
+    h.control.currentPlan = fixturePlan("personal");
+    const access = await h.api.getStudioAccess();
+    const draft = await h.api.studioOperation(access, { action: "plan", message: fixtureMessage, clubKey: "personal" });
+    const resume = await routes.start(new Request(`https://kline.test/api/google-forms/oauth/start?mode=personal&job=${draft.job.id}`));
+    assert.equal(resume.status, 307);
+    const resumeState = new URL(resume.headers.get("location")).searchParams.get("state");
+    assert.equal((await callback(resumeState)).headers.get("location"), `https://kline.test/event-studio?connected=1&job=${draft.job.id}`);
+    const cancel = await routes.start(new Request(`https://kline.test/api/google-forms/oauth/start?mode=personal&job=${draft.job.id}`));
+    const cancelState = new URL(cancel.headers.get("location")).searchParams.get("state");
+    const cancelled = await routes.callback(new Request(`https://kline.test/api/google-forms/oauth/callback?state=${encodeURIComponent(cancelState)}&error=access_denied`));
+    assert.equal(cancelled.headers.get("location"), `https://kline.test/event-studio?error=oauth_failed&job=${draft.job.id}`);
+    assert.equal(h.control.externalCreates, 0);
+    h.control.email = "peer@example.test";
+    const rejected = await routes.start(new Request(`https://kline.test/api/google-forms/oauth/start?mode=personal&job=${draft.job.id}`));
+    assert.equal(rejected.status, 503);
   } finally { delete globalThis.__studioOAuthQA; await h.close(); }
 });
