@@ -165,6 +165,24 @@ test("internal draft commentary triggers a complete AI retry, never output editi
   } finally { await h.close(); }
 });
 
+test("clock mismatch and parser commentary trigger full model retries before any Google creation", async () => {
+  const h = await eventHarness(); try {
+    for (const [bad, code] of [
+      [{ ...fixturePlan(), noticeKo: fixturePlan().noticeKo.replace("11월 7일 18:00", "11월 7일 12:00") }, "EVENT_NOTICE_SCHEDULE_MISMATCH"],
+      [{ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nThe resolved schedule differs on the start time." }, "EVENT_NOTICE_INTERNAL_COMMENTARY"],
+    ]) {
+      const before = h.control.aiCalls;
+      h.control.outputs = [JSON.stringify(bad), JSON.stringify(fixturePlan())];
+      const generated = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+      assert.equal(h.control.aiCalls, before + 2);
+      assert.match(h.control.requests.at(-1).instructions, new RegExp(code));
+      assert.equal(generated.plan.noticeKo, fixturePlan().noticeKo);
+      assert.equal(generated.plan.noticeEn, fixturePlan().noticeEn);
+    }
+    assert.equal(h.control.externalCreates, 0);
+  } finally { await h.close(); }
+});
+
 test("new studio jobs include bilingual logistics and capacity in the verified Google original; legacy drafts retain identical content", async () => {
   const h = await eventHarness(); try {
     const plan = fixturePlan();
@@ -182,7 +200,7 @@ test("new studio jobs include bilingual logistics and capacity in the verified G
     const dateOnly = h.api.formDraft({ ...plan, activityDate: "2026-11-07", applicationDeadline: "2026-11-06" });
     assert.match(dateOnly.description, /Date: 2026-11-07\n/);
     assert.ok(!dateOnly.description.includes("00:00"));
-    h.control.currentPlan = { ...plan, applicationDeadline: "2026-11-06" };
+    h.control.currentPlan = { ...plan, applicationDeadline: "2026-11-06", noticeKo: plan.noticeKo.replace("11월 6일 18:00", "11월 6일 23:59"), noticeEn: plan.noticeEn.replace("6 November 2026, 18:00", "6 November 2026, 23:59") };
     const dateDeadline = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: "문화교류. 행사 2026-11-07T18:00:00+09:00, 마감 2026-11-06, 장소 QA Library, 30명" });
     assert.equal(dateDeadline.job.plan.applicationDeadline, "2026-11-06T23:59:59+09:00");
     assert.equal(dateDeadline.job.plan.schedule.deadlineEndOfDay, true); assert.ok(dateDeadline.token);
@@ -378,8 +396,8 @@ test("missing date, deadline, venue or capacity remains an editable draft and bl
   const h = await eventHarness(); try {
     for (const field of ["activityDate", "applicationDeadline", "location", "capacity"]) {
       h.control.currentPlan = { ...fixturePlan(), [field]: null,
-        noticeKo: withoutTestDates(fixturePlan().noticeKo) + "\n미확정 정보는 운영진 확인 후 안내합니다. 시간대: 한국 시간.",
-        noticeEn: withoutTestDates(fixturePlan().noticeEn) + "\nPending details will be announced after organizer confirmation. Timezone: KST." };
+        noticeKo: fixturePlan().noticeKo.replace(field === "activityDate" ? "2026년 11월 7일 18:00 한국 시간" : field === "applicationDeadline" ? "2026년 11월 6일 18:00 한국 시간" : "NO_MATCH", "미정") + "\n미확정 정보는 운영진 확인 후 안내합니다. 시간대: 한국 시간.",
+        noticeEn: fixturePlan().noticeEn.replace(field === "activityDate" ? "7 November 2026, 18:00 KST" : field === "applicationDeadline" ? "6 November 2026, 18:00 KST" : "NO_MATCH", "pending confirmation") + "\nPending details will be announced after organizer confirmation. Timezone: KST." };
       const fragments = { activityDate: "행사 2026-11-07T18:00:00+09:00", applicationDeadline: "마감 2026-11-06T18:00:00+09:00", location: "장소 QA Library", capacity: "30명" };
       const request = Object.entries(fragments).filter(([key]) => key !== field).map(([, value]) => value).join(", ");
       const r = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: request });
@@ -568,7 +586,9 @@ test("a German university announcement retains the user's topic and applies natu
     assert.doesNotMatch(h.control.requests[0].instructions, /Prototype review placeholder|Arrow Pen design development/);
     const answer = "11월 20일 저녁 7시 행사 시작입니다. 신청 마감은 10월 30일에 마감합니다. 모집 인원은 50명입니다.";
     await h.store.db.query("update kline_forms_test_event_studio_jobs set ai_metadata=jsonb_set(ai_metadata,'{scheduleReference}',to_jsonb('2026-10-20T08:00:00Z'::text)) where id=$1", [initial.job.id]);
-    h.control.currentPlan = { ...draft, capacity: 50 };
+    h.control.currentPlan = { ...draft, capacity: 50,
+      noticeKo: fixturePlan().noticeKo.replace("2026년 11월 7일 18:00 한국 시간", "2026년 11월 20일 19:00 독일 현지 시간").replace("2026년 11월 6일 18:00 한국 시간", "2026년 10월 30일 23:59 독일 현지 시간"),
+      noticeEn: fixturePlan().noticeEn.replace("7 November 2026, 18:00 KST", "20 November 2026, 19:00 CET").replace("6 November 2026, 18:00 KST", "30 October 2026, 23:59 CET") };
     const refined = await h.api.studioOperation(h.access(), { action: "refine", jobId: initial.job.id, revision: initial.job.revision, message: answer });
     assert.equal(refined.job.plan.activityDate, "2026-11-20T19:00:00+01:00");
     assert.equal(refined.job.plan.applicationDeadline, "2026-10-30T23:59:59+01:00");
@@ -610,7 +630,7 @@ test("explicit Korean dates preserve year, clock precision and timezone groundin
     assert.equal(h.api.supportsEventDate("2026-10-20T00:00:00+09:00", "2026년 10월 20일 오전 12시 KST"), true);
     assert.equal(h.api.supportsEventDate("2026-10-20T12:30:00+09:00", "2026년 10월 20일 오후 12시 30분 KST"), true);
     const p = { ...fixturePlan(), activityDate: "2026-10-20T19:00:00+09:00", applicationDeadline: "2026-10-19T18:00:00+09:00" };
-    h.control.currentPlan = { ...p, noticeKo: withoutTestDates(p.noticeKo) + "\n시간대: 한국 시간.", noticeEn: withoutTestDates(p.noticeEn) + "\nTimezone: KST." };
+    h.control.currentPlan = { ...p, noticeKo: p.noticeKo.replace("2026년 11월 7일 18:00", "2026년 10월 20일 19:00").replace("2026년 11월 6일 18:00", "2026년 10월 19일 18:00"), noticeEn: p.noticeEn.replace("7 November 2026, 18:00", "20 October 2026, 19:00").replace("6 November 2026, 18:00", "19 October 2026, 18:00") };
     const generated = await h.api.generateEventPlan(h.access().email, "ecc", message + ", 장소 QA Library, 30명");
     assert.equal(generated.plan.activityDate, p.activityDate);
     assert.equal(h.control.aiCalls, 1);
