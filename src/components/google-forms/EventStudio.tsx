@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Check, ChevronDown, ChevronUp, Glasses, Plus, RefreshCw, Save, Trash2, Users } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { StudioAccess } from "@/lib/eventStudio/access";
@@ -8,6 +8,7 @@ import type { EventPlan, StudioClub } from "@/lib/eventStudio/model";
 import type { StudioJob } from "@/lib/eventStudio/service";
 import { eventClarification } from "@/lib/eventStudio/clarification";
 import { displayEventDate } from "@/lib/eventStudio/dateLabel";
+import { completeEventFlow, creationIntentKey, matchingCreationIntent, type CreationStep } from "@/lib/eventStudio/creationFlow";
 import { ActivityNoticeOutput } from "./ActivityNoticeOutput";
 import { EventDeleteButton } from "./EventDeleteButton";
 
@@ -34,6 +35,8 @@ const errors: Record<string, [string, string]> = {
   JOB_CHANGED_REVIEW_AGAIN: ["다른 화면에서 초안이 변경되었습니다. 다시 불러와주세요.", "The draft changed elsewhere. Reload it."],
   FORM_CREATION_UNCERTAIN_RECONCILIATION_REQUIRED: ["Google 생성 결과 확인이 필요합니다. 새 폼을 만들지 않고 복구를 기다립니다.", "Google's result is uncertain. Reconcile it before creating another form."],
   GOOGLE_RECONNECT_REQUIRED: ["Google 연결을 다시 승인해주세요.", "Reconnect your Google account."],
+  JOB_RUNNING_WAIT: ["폼 생성 결과를 확인 중입니다. 새로 생성하지 말고 잠시 후 행사 목록을 새로고침해주세요.", "Form creation is still being checked. Refresh events shortly instead of creating another form."],
+  OAUTH_FAILED: ["Google 연결이 완료되지 않았습니다. 작성한 행사는 보존되었습니다. 다시 연결해주세요.", "Google connection did not complete. Your event is saved; reconnect to continue."],
   EVENT_SCOPE_MISMATCH: ["현재 활동의 단체와 요청한 단체가 다릅니다. 개인 행사는 Event Studio에서 새로 만들어 주세요.", "The request does not match this club. Start a new personal event in Event Studio."],
   EVENT_ORGANIZER_AMBIGUOUS: ["어느 단체의 행사인가요? 주최 단체 하나를 알려주세요.", "Which organization is hosting this event?"],
   GOOGLE_AUTH_UNAVAILABLE: ["Google 인증 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.", "Google authentication is temporarily unavailable. Try again shortly."],
@@ -53,6 +56,9 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
   const [message, setMessage] = useState(""), [result, setResult] = useState<StudioPreview | null>(null), [plan, setPlan] = useState<EventPlan | null>(null);
   const [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false), [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
+  const [createForm, setCreateForm] = useState(true), [needsConnection, setNeedsConnection] = useState(false);
+  const [step, setStep] = useState<CreationStep>("planning");
+  const resumed = useRef(false);
   const [applicants, setApplicants] = useState<{ id: string; name: string }[] | null>(null);
   const [applicantTotal, setApplicantTotal] = useState(0);
   async function load() {
@@ -66,35 +72,67 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
     return () => { active = false; };
   }, [initialClub]);
   useEffect(() => { if (initialPreview) select(initialPreview); }, [initialPreview]);
-  function select(next: StudioPreview) { setResult(next); setPlan(next.job.plan); setDirty(false); setMessage(""); setApplicants(null); }
+  useEffect(() => {
+    if (!config || (initialClub && initialClub !== "personal") || resumed.current) return;
+    const params = new URLSearchParams(window.location.search), jobId = params.get("job");
+    if (!jobId) return;
+    resumed.current = true; setBusy(true);
+    void (async () => {
+      const next = await studioCommand<StudioPreview>({ action: "get", jobId });
+      select(next);
+      if (params.get("error")) { setError("OAUTH_FAILED"); return; }
+      let intent: string | null = null;
+      try { intent = sessionStorage.getItem(creationIntentKey); sessionStorage.removeItem(creationIntentKey); } catch { /* Storage may be disabled; keep a manual completion action. */ }
+      if (!config.access.readOnly && params.get("connected") === "1" && matchingCreationIntent(intent, jobId, next.job.revision)) {
+        setConnected(true);
+        await finish(next);
+      }
+    })().catch(e => setError(e.message)).finally(() => setBusy(false));
+  }, [config, initialClub]);
+  function select(next: StudioPreview) { setResult(next); setPlan(next.job.plan); setDirty(false); setMessage(""); setApplicants(null); setNeedsConnection(false); }
   function edit(update: Partial<EventPlan>) { if (plan) { setPlan({ ...plan, ...update }); setDirty(true); } }
+  async function finish(next: StudioPreview) {
+    const completed = await completeEventFlow(next, studioCommand, setStep);
+    select(completed.preview); setNeedsConnection(completed.needsConnection);
+    if (completed.needsConnection) setConnected(false);
+    if (completed.preview.job.state === "notice_saved") onComplete?.();
+  }
+  function rememberCreation() {
+    if (!result) return;
+    try { sessionStorage.setItem(creationIntentKey, JSON.stringify({ jobId: result.job.id, revision: result.job.revision, expires: Date.now() + 600000 })); }
+    catch { /* The saved job can still be completed manually after reconnecting. */ }
+  }
   async function run(action: string) {
-    if (busy) return; setBusy(true); setError("");
+    if (busy) return; setBusy(true); setError(""); setStep(action === "update" ? "saving" : "planning");
     if (action === "plan") { setResult(null); setPlan(null); setApplicants(null); }
     try {
-      const next = await studioCommand<StudioPreview>({ action, ...(initialClub ? { clubKey: initialClub } : {}), message, archiveIds, jobId: result?.job.id, revision: result?.job.revision,
-        ...(action === "update" ? { plan } : {}), ...(action === "approve" ? { confirmed: true, token: result?.token } : {}) });
-      select(next); await load(); if (action === "approve") onComplete?.();
+      const next = await studioCommand<StudioPreview>({ action: action === "complete" ? dirty ? "update" : "get" : action, ...(initialClub ? { clubKey: initialClub } : {}), message, archiveIds, jobId: result?.job.id, revision: result?.job.revision,
+        ...(action === "update" || action === "complete" && dirty ? { plan } : {}) });
+      select(next);
+      if (action === "complete" || createForm && ["plan", "refine"].includes(action)) await finish(next);
+      await load();
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
   const visibleJobs = config?.jobs.filter(j => !initialClub || j.club_key === initialClub) || [];
   const readOnly = Boolean(config?.access.readOnly);
   const personal = (plan?.clubKey || initialClub || "personal") === "personal";
+  const connectUrl = `/api/google-forms/oauth/start?mode=personal${result ? `&job=${encodeURIComponent(result.job.id)}` : ""}`;
   return <section className={embedded ? "mt-7 min-w-0 space-y-5 text-ink" : "mx-auto w-full max-w-5xl space-y-5 px-4 py-5 text-ink sm:px-6"}>
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
       {embedded ? <h2 className="flex items-center gap-2 text-xl font-semibold"><Glasses aria-hidden className="h-6 w-6 shrink-0" />{t("우혁몬", "WOOHYUKMON")}</h2> : <h2 className="text-lg font-semibold">{t("행사 만들기", "Create an event")}</h2>}
       <div className="flex items-center gap-2">
         {result && !readOnly && <button type="button" aria-label={t("새 행사", "New event")} title={t("새 행사", "New event")} disabled={busy} className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-ink/5 disabled:opacity-40" onClick={() => { setResult(null); setPlan(null); setMessage(""); setDirty(false); setError(""); setApplicants(null); }}><Plus aria-hidden className="h-5 w-5" /></button>}
-        {personal && !readOnly && (connected ? <span className="inline-flex items-center gap-1 text-sm text-emerald-800"><Check aria-hidden className="h-4 w-4" />{t("Google 연결됨", "Google connected")}</span> : config?.googleConnectAvailable === false ? <span className="text-sm text-muted">{t("Google 미연결", "Google not connected")}</span> : <a className="inline-flex min-h-11 items-center border border-ink/20 px-3 text-sm" href="/api/google-forms/oauth/start?mode=personal">{t("내 Google 연결", "Connect my Google")}</a>)}
+        {personal && !readOnly && (connected ? <span className="inline-flex items-center gap-1 text-sm text-emerald-800"><Check aria-hidden className="h-4 w-4" />{t("Google 연결됨", "Google connected")}</span> : config?.googleConnectAvailable === false ? <span className="text-sm text-muted">{t("Google 미연결", "Google not connected")}</span> : <a className="inline-flex min-h-11 items-center border border-ink/20 px-3 text-sm" href={connectUrl}>{t("내 Google 연결", "Connect my Google")}</a>)}
         <button type="button" title={t("행사 목록 새로고침", "Refresh events")} aria-label={t("행사 목록 새로고침", "Refresh events")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md hover:bg-ink/5 disabled:opacity-40" disabled={busy} onClick={() => void load().catch(e => setError(e.message))}><RefreshCw aria-hidden className="h-4 w-4" /></button>
       </div>
     </div>
     {!config?.aiEnabled && config && <p role="status" className="text-sm text-ink/65">{t("행사 전용 AI 연결을 준비 중입니다. 저장된 초안은 계속 확인할 수 있습니다.", "Event AI is not enabled yet. Saved drafts remain accessible.")}</p>}
     {!readOnly && <form onSubmit={e => { e.preventDefault(); void run(result?.job.state === "draft" ? "refine" : "plan"); }} className="flex items-end gap-2 rounded-lg border border-ink/20 bg-white/70 p-2 focus-within:ring-2 focus-within:ring-brass/40">
       <textarea aria-label={t("행사 계획", "Event request")} disabled={busy || dirty} className="min-h-28 min-w-0 flex-1 resize-y bg-transparent p-3 text-base outline-none" placeholder={result?.job.state === "draft" ? t("날짜를 알려주거나 공지를 수정해 달라고 말씀해주세요.", "Add details or ask for changes to the announcement.") : t("어떤 행사를 만들까요?", "What event would you like to create?")} value={message} onChange={e => setMessage(e.target.value)} />
-      <button aria-label={t(result?.job.state === "draft" ? "답변 반영" : "행사 기획", result?.job.state === "draft" ? "Apply details" : "Plan event")} title={t("보내기", "Send")} disabled={busy || dirty || !message.trim() || !config?.aiEnabled} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-ink text-paper transition-opacity disabled:opacity-30"><ArrowUp aria-hidden className="h-5 w-5" /></button>
+      <button aria-label={t(result?.job.state === "draft" ? "답변 반영" : createForm ? "공지·구글폼 만들기" : "공지 만들기", result?.job.state === "draft" ? "Apply details" : createForm ? "Create announcement and Google Form" : "Create announcement")} title={t("보내기", "Send")} disabled={busy || dirty || !message.trim() || !config?.aiEnabled} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-ink text-paper transition-opacity disabled:opacity-30"><ArrowUp aria-hidden className="h-5 w-5" /></button>
     </form>}
-    {busy && <p role="status" className="text-sm">{t("작업을 확인하고 있습니다. 잠시 기다려주세요.", "Checking this step. Please wait.")}</p>}
+    {!readOnly && <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={createForm} disabled={busy} onChange={e => setCreateForm(e.target.checked)} />{t("비공개 Google 폼도 함께 만들기", "Also create a private Google Form")}</label>}
+    {busy && <p role="status" className="text-sm">{({ planning: t("공지와 신청 질문을 정리하고 있습니다.", "Preparing the announcement and application questions."), saving: t("수정한 내용을 저장하고 있습니다.", "Saving your changes."), connecting: t("Google 연결을 확인하고 있습니다.", "Checking your Google connection."), creating: t("Google 폼을 만들고 공지·신청 링크를 함께 저장하고 있습니다.", "Creating the Google Form and saving the announcement and application link.") })[step]}</p>}
     {error && <p role="alert" className="break-words text-sm text-red-700">{errors[error]?.[ko ? 0 : 1] || t("처리하지 못했습니다. 입력한 내용은 유지됩니다. 잠시 후 다시 시도해주세요.", "Could not complete this step. Your input is preserved. Please retry shortly.")}</p>}
     {visibleJobs.length > 0 && <div className="grid gap-2"><label className="text-sm font-semibold" htmlFor="studio-drafts">{t("저장된 행사", "Saved events")}</label><select id="studio-drafts" className="form-field" value={result?.job.id || ""} disabled={busy} onChange={e => { if (e.target.value) { setBusy(true); void studioCommand<StudioPreview>({ action: "get", jobId: e.target.value }).then(select).catch(e => setError(e.message)).finally(() => setBusy(false)); } }}><option value="">{t("선택", "Select")}</option>{visibleJobs.map(job => <option key={job.id} value={job.id}>{job.plan.title}</option>)}</select></div>}
     {result && plan && <div className="space-y-4 border-t border-ink/15 pt-5">
@@ -117,16 +155,19 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
         <ActivityNoticeOutput notice={result.notice || ""} applicationUrl={result.applicationUrl || ""} onError={setError} />
       </> : <>
         <h2 className="text-xl font-semibold">{plan.title}</h2>
-        <ActivityNoticeOutput notice={`${plan.noticeKo}\n\n${plan.noticeEn}`} applicationUrl="" onError={setError} />
+        {result.missing.length > 0 && <p role="status" className="whitespace-pre-line text-sm leading-relaxed">{(result.clarification || eventClarification(result.missing, plan.title))[ko ? "ko" : "en"]}</p>}
+        {!readOnly && <div className="space-y-2">
+          {needsConnection && <p role="status" className="text-sm">{t("공지와 신청 질문이 준비됐습니다. Google을 연결하면 이 행사로 돌아와 폼까지 완성합니다.", "The announcement and questions are ready. Connect Google to return here and finish the form.")}</p>}
+          {needsConnection && config?.googleConnectAvailable !== false ? <a href={connectUrl} onClick={rememberCreation} className="inline-flex min-h-11 items-center bg-ink px-4 text-sm text-paper">{t("Google 연결하고 완성", "Connect Google and finish")}</a> : <button disabled={busy || !result.creationSupported || result.missing.length > 0 || result.job.state === "running"} className="inline-flex min-h-11 items-center gap-2 bg-ink px-4 text-sm text-paper disabled:opacity-40" onClick={() => void run("complete")}><Check aria-hidden className="h-4 w-4" />{t("공지·구글폼 완성", "Finish announcement and Google Form")}</button>}
+          {result.job.state === "running" && <button disabled={busy} className="min-h-11 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run("recover")}>{t("생성 결과 확인", "Check creation result")}</button>}
+        </div>}
+        <ActivityNoticeOutput notice={`${plan.noticeKo}\n\n${plan.noticeEn}`} applicationUrl="" showApplicationLink={false} onError={setError} />
         {plan.schedule && <section aria-label={t("해석한 일정", "Interpreted schedule")} className="space-y-1 border-y border-ink/10 py-3 text-sm">
           <p>{t("시간대", "Timezone")}: {plan.schedule.timeZone}</p>
           {plan.activityDate && <p>{t("행사", "Event")}: {displayEventDate(plan.activityDate, plan.schedule.timeZone)} {plan.schedule.activityQualifier}</p>}
           {plan.applicationDeadline && <p>{t("마감", "Deadline")}: {displayEventDate(plan.applicationDeadline, plan.schedule.timeZone)} {plan.schedule.deadlineQualifier} {plan.schedule.deadlineEndOfDay && t("(해당 날짜가 끝날 때)", "(end of that day)")}</p>}
           {plan.schedule.deadlineConflict && <p>{t("신청 마감이 행사 시작보다 늦습니다. 마감만 다시 알려주세요.", "The deadline falls after the event. Please correct the deadline.")}</p>}
         </section>}
-        <div className="space-y-3">
-          {result.missing.length > 0 && <p role="status" className="whitespace-pre-line text-sm leading-relaxed">{(result.clarification || eventClarification(result.missing, plan.title))[ko ? "ko" : "en"]}</p>}
-        </div>
         <details className="group">
         <summary className="mb-4 flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden">{t("신청폼 · 공지 검토", "Review form and notice")}<ChevronDown aria-hidden className="h-4 w-4 transition-transform group-open:rotate-180" /></summary>
         <fieldset disabled={readOnly || busy || result.job.state !== "draft"} className="min-w-0 space-y-4 disabled:opacity-70">
@@ -148,8 +189,6 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
         </details>
         {!readOnly && <div className="flex flex-wrap gap-2">
           <button disabled={busy || !dirty} className="inline-flex min-h-11 items-center gap-2 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run("update")}><Save className="h-4 w-4" />{t("초안 저장", "Save draft")}</button>
-          <button disabled={busy || dirty || !result.creationSupported || result.missing.length > 0} className="min-h-11 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run(result.job.state === "running" ? "recover" : "review")}>{t("승인 새로 확인", "Renew approval")}</button>
-          <button disabled={busy || dirty || !result.token || result.job.state === "running" || personal && !connected} className="inline-flex min-h-11 items-center gap-2 bg-ink px-4 text-sm text-paper disabled:opacity-40" onClick={() => void run("approve")}><Check className="h-4 w-4" />{t("승인 · 비공개 폼 생성", "Approve private form creation")}</button>
         </div>}
       </>}
     </div>}

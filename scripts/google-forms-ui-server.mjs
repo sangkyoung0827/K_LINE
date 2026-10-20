@@ -19,11 +19,17 @@ await build({ entryPoints: ["scripts/fixtures/google-forms-ui.tsx"], outfile: jo
 execFileSync("node", ["node_modules/tailwindcss/lib/cli.js", "-i", "src/app/globals.css", "-o", join(temp, "ui.css")], { stdio: "ignore" });
 let workflow;
 let studioJob;
+let personalConnected = false, studioCreates = 0;
 const form = { id: "fixture-form", google_form_id: "test-fixture", club_key: "ecc", title: "ECC Gathering", status: "draft", responder_url: "https://docs.google.com/forms/d/e/test-fixture/viewform", response_count: 1, last_response_sync_at: null };
 const mirror = [{ id: "fixture-response", submitted_at: "2026-10-04T09:00:00Z", respondent_email: "person@example.test", answers_json: { Name: ["Test Participant"], Days: ["Friday", "Saturday"] } }];
 createServer(async (request, response) => {
   const url = new URL(request.url, "http://localhost");
   const send = (value, status = 200) => { response.writeHead(status, { "Content-Type": "application/json" }); response.end(JSON.stringify(value)); };
+  if (url.pathname === "/fixture-counts") return send({ studioCreates });
+  if (url.pathname === "/api/google-forms/oauth/start") {
+    personalConnected = true;
+    response.writeHead(302, { Location: `/?personal=1&connected=1&job=${encodeURIComponent(url.searchParams.get("job"))}` }); response.end(); return;
+  }
   if (url.pathname === "/ui.js" || url.pathname === "/ui.css") { response.writeHead(200, { "Content-Type": url.pathname.endsWith("css") ? "text/css" : "text/javascript" }); response.end(readFileSync(join(temp, url.pathname.slice(1)))); return; }
   if (url.pathname === "/api/google-forms/forms" && request.method === "GET") return send({ access: { manageableClubs: ["ecc"] }, connection: { connected: true, accountEmail: "test@example.test" }, forms: form.status === "archived" ? [] : [form] });
   if (url.pathname === `/api/google-forms/forms/${form.id}` && request.method === "DELETE") {
@@ -36,15 +42,17 @@ createServer(async (request, response) => {
     let raw = ""; for await (const chunk of request) raw += chunk;
     const body = JSON.parse(raw || "{}");
     if (body.action === "list") return send({ jobs: studioJob ? [studioJob] : [], access: { email: "test-admin@example.test", manageableClubs: ["ecc"], readOnly: false, canSetLimits: false }, aiEnabled: true });
+    if (body.action === "connection") return send({ connected: personalConnected });
     if (body.action === "plan") {
       const missing = body.message.includes("활동 제목:") ? ["activityDate", "applicationDeadline", "location", "capacity"] : [];
-      const plan = fixturePlan();
+      const plan = fixturePlan(body.clubKey || "personal");
       if (missing.length) Object.assign(plan, { title: "ECC MT UI Test", activityDate: null, applicationDeadline: null, location: null, capacity: null });
-      studioJob = { id: "fixture-studio-job", club_key: "ecc", revision: 1, state: "draft", plan, ai_metadata: { model: "gpt-6-luna", requestTurns: [body.message] } };
+      studioJob = { id: "fixture-studio-job", club_key: plan.clubKey, revision: 1, state: "draft", plan, ai_metadata: { model: "gpt-6-luna", requestTurns: [body.message] } };
       return send({ job: studioJob, token: missing.length ? null : "fixture-only-token", creationSupported: true, missing });
     }
-    if (body.action === "refine") { studioJob.plan = { ...fixturePlan(), title: studioJob.plan.title }; studioJob.revision++; return send({ job: studioJob, token: "fixture-only-token", creationSupported: true, missing: [] }); }
-    if (body.action === "approve") { studioJob.state = "notice_saved"; studioJob.form_registry_id = form.id; form.title = studioJob.plan.title; return send({ job: studioJob, token: null, creationSupported: true, missing: [], form: { ...form, edit_url: "https://docs.google.com/forms/d/test-fixture/edit" }, notice: studioJob.plan.noticeKo + "\n\n" + studioJob.plan.noticeEn, applicationUrl: form.responder_url }); }
+    if (body.action === "refine") { studioJob.plan = { ...fixturePlan(studioJob.club_key), title: studioJob.plan.title }; studioJob.revision++; return send({ job: studioJob, token: "fixture-only-token", creationSupported: true, missing: [] }); }
+    if (["get", "review"].includes(body.action)) return send({ job: studioJob, token: "fixture-only-token", creationSupported: true, missing: [], ...(studioJob.state === "notice_saved" ? { form: { ...form, edit_url: "https://docs.google.com/forms/d/test-fixture/edit" }, notice: studioJob.plan.noticeKo + "\n\n" + studioJob.plan.noticeEn, applicationUrl: form.responder_url } : {}) });
+    if (body.action === "approve") { if (studioJob.state !== "notice_saved") studioCreates++; studioJob.state = "notice_saved"; studioJob.form_registry_id = form.id; form.title = studioJob.plan.title; return send({ job: studioJob, token: null, creationSupported: true, missing: [], form: { ...form, edit_url: "https://docs.google.com/forms/d/test-fixture/edit" }, notice: studioJob.plan.noticeKo + "\n\n" + studioJob.plan.noticeEn, applicationUrl: form.responder_url }); }
     return send({ error: "FIXTURE_OPERATION_NOT_SUPPORTED" }, 400);
   }
   if (url.pathname.startsWith("/api/")) {
