@@ -124,7 +124,7 @@ export function ClubResourceLibrary({ canUpload, club = "ecc" }: { canUpload: bo
 
   return <section className={`${club === "hanhwal" ? "hanhwal-resource-theme bg-white" : "bg-paper"} px-4 py-8 sm:px-6 sm:py-12 md:py-16`}>
     <div className="mx-auto max-w-6xl">
-      <Link href={`/${club}-official`} className="inline-flex items-center gap-2 text-sm font-semibold text-navy"><ArrowLeft aria-hidden className="h-4 w-4" />{ko ? `${label}로 돌아가기` : `Back to ${english}`}</Link>
+      <Link href={club === "hanhwal" ? "/our-activities/hanhwal" : "/ecc-official"} className="inline-flex items-center gap-2 text-sm font-semibold text-navy"><ArrowLeft aria-hidden className="h-4 w-4" />{ko ? `${label}로 돌아가기` : `Back to ${english}`}</Link>
       <header className="mt-7 border-b border-navy/15 pb-7">
         <p className="text-xs font-bold uppercase text-brass">{english.toUpperCase()} RESOURCE LIBRARY</p>
         <h1 className="mt-2 font-serif text-3xl font-semibold text-navy sm:text-4xl">{ko ? `${label} 통합자료실` : `${english} Resource Library`}</h1>
@@ -160,7 +160,7 @@ export function ClubResourceLibrary({ canUpload, club = "ecc" }: { canUpload: bo
             <div className="min-w-0">{club === "hanhwal" && <p className="mb-2 text-xs font-semibold">{resource.status === "pending" ? (ko ? "검토 대기" : "Awaiting review") : resource.visibility === "staff" ? (ko ? "운영진 전용" : "Staff only") : resource.visibility === "members" ? (ko ? "회원 전용" : "Members only") : (ko ? "공개 승인" : "Approved public")}</p>}<p className="mb-1 text-xs font-semibold text-brass">{resourceCategoryLabel(resource.category, ko ? "ko" : "en", club)}</p><h2 className="line-clamp-2 font-serif text-lg font-semibold text-navy">{resource.title}</h2><p className="mt-1 truncate text-xs text-muted">{resource.fileName} · {sizeLabel(resource.sizeBytes)}</p><p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">{resource.description}</p><p className="mt-3 text-xs text-muted">{resource.uploaderName || english} · {new Date(resource.publishedAt).toLocaleDateString(ko ? "ko-KR" : "en-US")}</p></div>
           </Link>;
         })}</div> : <p className="mt-8 border-t border-navy/10 py-12 text-center text-sm text-muted">{ko ? "표시할 자료가 없습니다." : "No resources to display."}</p>}
-      <div className="mt-7"><a href={`/our-activities/${club}${club === "ecc" ? "/free-board" : ""}`} className="text-xs text-muted underline">{ko ? "이전 게시글 보기" : "View earlier board posts"}</a></div>
+      <div className="mt-7"><a href={`/our-activities/${club}${club === "ecc" ? "/free-board" : ""}`} className="text-xs text-muted underline">{club === "hanhwal" ? (ko ? "한활 홈페이지" : "Hanhwal website") : (ko ? "이전 게시글 보기" : "View earlier board posts")}</a></div>
     </div>
   </section>;
 }
