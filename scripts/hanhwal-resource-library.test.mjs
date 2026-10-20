@@ -80,6 +80,11 @@ test("shared validators and categories stay club-specific; preview support is ho
   assert.equal(model.canPreviewResource("application/x-hwp"),false);
   assert.equal(model.canPreviewResource("application/vnd.openxmlformats-officedocument.presentationml.presentation"),false);
 });
+test("live verification never copies existing private club files",()=>{
+  const source=readFileSync("scripts/hanhwal-resource-live.mjs","utf8");
+  assert.doesNotMatch(source,/ecc_resource_files|ecc-resource-library|hanhwal_roles|member_registrations/);
+  assert.match(source,/hanhwal-public-sample\.pptx/);
+});
 test("restrictive storage guards block Hanhwal even beside broad policies, without changing other buckets",async()=>{
   const db=new PGlite();
   try{

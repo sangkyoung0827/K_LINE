@@ -30,15 +30,12 @@ try {
   await build({entryPoints:["src/lib/hanhwalResources/server.ts"],outfile:join(dir,"live.mjs"),platform:"node",format:"esm",bundle:true,packages:"external",plugins:[{name:"synthetic-local-identity",setup(b){b.onResolve({filter:/.*/},a=>Object.hasOwn(mocks,a.path)?{path:a.path,namespace:"fixture"}:undefined);b.onLoad({filter:/.*/,namespace:"fixture"},a=>({contents:mocks[a.path],resolveDir:process.cwd()}));}}]});
   const api=await import(pathToFileURL(join(dir,"live.mjs")));
   const actor=role=>globalThis.__hanhwalLiveActor={email:role==="public"?"":role==="member"?"hanhwal-storage-test@example.invalid":"hanhwal-storage-admin@example.invalid",isOfficialMember:role!=="public",isAdmin:role==="admin"};
-  const call=(method,segments=[],body)=>api.handleHanhwalResource(new Request("https://kline.test/api/hanhwal/resources/"+segments.join("/"),{method,headers:{Origin:"https://kline.test","Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)}),segments);
-  const pptx=(await rest("ecc_resource_files?select=storage_path,mime_type&status=eq.published&mime_type=eq.application%2Fvnd.openxmlformats-officedocument.presentationml.presentation&limit=1"))[0];
-  assert.ok(pptx,"A real existing PPTX is required");
-  const source=await fetch(origin+"/storage/v1/object/authenticated/ecc-resource-library/"+pptx.storage_path,{headers});
-  assert.ok(source.ok);const pptBytes=Buffer.from(await source.arrayBuffer());
+  const call=(method,segments=[],body,query="")=>api.handleHanhwalResource(new Request("https://kline.test/api/hanhwal/resources/"+segments.join("/")+query,{method,headers:{Origin:"https://kline.test","Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)}),segments);
+  const pptBytes = await readFile("/tmp/hanhwal-public-sample.pptx");
   const files=[
     {name:"verification.pdf",type:"application/pdf",bytes:await readFile("/tmp/hanhwal-test-original.pdf")},
     {name:"verification.hwp",type:"application/x-hwp",bytes:await readFile("/tmp/hanhwal-test-original.hwp")},
-    {name:"verification.pptx",type:pptx.mime_type,bytes:pptBytes},
+    {name:"verification.pptx",type:"application/vnd.openxmlformats-officedocument.presentationml.presentation",bytes:pptBytes},
     {name:"verification.png",type:"image/png",bytes:await readFile("public/images/k-line-official-logo.png")}
   ];
   for(const file of files){
@@ -52,7 +49,9 @@ try {
     const complete=await call("POST",[ticket.id,"publish"]);
     assert.equal(complete.status,200,await complete.clone().text());let resource=(await complete.json()).resource;
     assert.equal(resource.status,"pending");
+    const mine=await call("GET"); assert.equal(mine.status,200,await mine.clone().text()); assert.ok((await mine.json()).resources.some(r=>r.id===ticket.id));
     actor("public");assert.equal((await call("GET",[ticket.id,"file"])).status,404);
+    const publicList=await call("GET");assert.equal(publicList.status,200);assert.ok(!(await publicList.json()).resources.some(r=>r.id===ticket.id));
     actor("admin");
     const edit=await call("PATCH",[ticket.id],{title:resource.title,description:"Temporary private verification",category:resource.category,visibility:"staff",revision:resource.revision});
     assert.equal(edit.status,200);resource=(await edit.json()).resource;
@@ -62,7 +61,9 @@ try {
     assert.equal(redirect.status,302);
     const original=await fetch(redirect.headers.get("location"));assert.ok(original.ok);
     const restored=Buffer.from(await original.arrayBuffer());assert.equal(hash(restored),hash(file.bytes));
-    const download=await call("GET",[ticket.id,"file"],undefined);
+    const download=await call("GET",[ticket.id,"file"],undefined,"?download=1");
+    assert.equal(new URL(download.headers.get("location")).searchParams.get("download"),file.name);
+    const attachment=await fetch(download.headers.get("location")); assert.ok(attachment.ok); assert.equal(hash(Buffer.from(await attachment.arrayBuffer())),hash(file.bytes));
     assert.equal(download.status,302);
     actor("member");assert.equal((await call("GET",[ticket.id,"file"])).status,404);
     actor("public");assert.equal((await call("GET",[ticket.id,"file"])).status,404);

@@ -59,7 +59,7 @@
 | --- | ---: | --- |
 | PDF (public PDF.js sample) | 1016315 | 3662ff519e485810520552bf301d8c3b2b917fd2f83303f4965d7abed367e113 |
 | HWP (public pyhwp aligns.hwp) | 16384 | b101b4faff3c65f88ac9f8f583219cf5825d0747be85dbe45174dcd84207a3d1 |
-| PPTX (read-only ECC original) | 552176 | 9f883606891ca41b4ce128014ca58d77a235643403a748cdde3a908643633a92 |
+| PPTX (public Apache POI sample) | 308041 | fda10ff5e22a0222a40a69ddd6d00b29dc8081eff499ccf2b5df0579395a0df2 |
 | PNG (existing site image) | 13042 | d538bfd80befe36a242291c80dc2dbf00ab79836487f560ad1380a31abfa89b7 |
 
 - Temporary live records and storage objects were removed by exact IDs. The
@@ -69,7 +69,15 @@
   layout has no horizontal overflow; isolated memory-only member PDF selection,
   upload/completion, admin metadata/category edit and approval, and public
   combined category/text search. No preview fixture is imported by app routes.
-- Initial npm run check passed; final code and CI results are recorded in the PR.
+- npm run check passed. Browser Safety, including existing Event Archive and
+  mobile-navigation browser tests, passed on ed28318. The final verification-only
+  follow-up additionally uses public fixtures without reading ECC Storage,
+  checks the member/public listing against actual PostgREST filters, and verifies
+  explicit download filenames and content hashes. The PR must pass again on its
+  final head before merge.
+- Public fixture sources: Mozilla PDF.js compressed.tracemonkey-pldi-09.pdf;
+  mete0r/pyhwp tests/hwp5_tests/fixtures/aligns.hwp; Apache POI
+  test-data/slideshow/45541_Header.pptx. No fixture file is committed or seeded.
 
 ## Limits / Not Claimed
 
