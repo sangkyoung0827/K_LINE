@@ -1,6 +1,7 @@
 import Link from "next/link";
 import styles from "@/app/our-activities/hanhwal/hanhwal.module.css";
 import { HanhwalAdminNavigation } from "@/components/HanhwalAdminNavigation";
+import { I18nText } from "@/components/LanguageProvider";
 
 const base = "/our-activities/hanhwal";
 
@@ -14,6 +15,7 @@ export function HanhwalHeader() {
         <nav className={styles.navigation} aria-label="Hanhwal navigation">
           <Link href={base}>Home</Link>
           <Link href={`${base}/gallery`}>Gallery</Link>
+          <Link href={`${base}/resources`}><I18nText ko="통합자료실" en="Resources" /></Link>
           <Link href="/hanhwal-join">Join</Link>
           <HanhwalAdminNavigation />
           <Link href={`${base}/solbam`}><span aria-hidden>🐆</span> Solbam</Link>

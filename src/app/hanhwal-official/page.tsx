@@ -87,6 +87,11 @@ export default async function HanhwalOfficialPage() {
           </p>
           <div className="overflow-hidden border border-ink/10 bg-white/50">
             <OfficialRow
+              href="/our-activities/hanhwal/resources"
+              icon={MessageSquareText}
+              title={<I18nText en="Hanhwal Resource Library" ko="한활 통합자료실" />}
+            />
+            <OfficialRow
               href="/our-activities/hanhwal"
               icon={MessageSquareText}
               title={<I18nText en="Hanhwal Website" ko="한활 웹사이트" />}
