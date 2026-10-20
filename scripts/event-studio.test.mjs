@@ -7,6 +7,118 @@ const deletionRequest = (body = { confirmedEnded: true }, origin = "http://127.0
   method: "DELETE", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
 });
 
+test("standalone requests are personal regardless of club words; embedded scopes cannot silently change", async () => {
+  const h = await eventHarness(); try {
+    for (const request of ["한활 활동 만들기", "ECC gathering", "새로운 문화 체험", "ECC와 한활 합동 활동"]) assert.equal(h.api.resolveStudioClub(request), "personal");
+    assert.equal(h.api.resolveStudioClub("한활 활동", "hanhwal"), "hanhwal");
+    assert.throws(() => h.api.resolveStudioClub("한활 활동", "ecc"), /SCOPE_MISMATCH/);
+    assert.throws(() => h.api.resolveStudioClub("ECC와 한활", "ecc"), /AMBIGUOUS/);
+    h.control.clubs = [];
+    assert.deepEqual((await h.api.getStudioAccess()).manageableClubs, ["personal"]);
+    h.control.currentPlan = fixturePlan("personal");
+    const planned = await h.api.studioOperation(h.access(), { action: "plan", message: "한활 활동 만들기. " + fixtureMessage });
+    assert.equal(planned.job.club_key, "personal");
+    assert.equal(planned.job.created_by, h.control.email);
+    assert.equal(h.control.externalCreates, 0);
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "plan", clubKey: "hanhwal", message: "한활 활동. " + fixtureMessage }), /CLUB_ADMIN_REQUIRED/);
+  } finally { await h.close(); }
+});
+
+test("personal forms never fall back to operations credentials; creation and response sync are owner-only", async () => {
+  const h = await eventHarness(); try {
+    h.control.clubs = []; h.control.currentPlan = fixturePlan("personal");
+    const planned = await h.api.studioOperation(h.access(), { action: "plan", message: "한활 활동 검증. " + fixtureMessage });
+    assert.deepEqual(await h.api.studioOperation(h.access(), { action: "connection" }), { connected: false });
+    const approval = { action: "approve", jobId: planned.job.id, token: planned.token, confirmed: true };
+    await assert.rejects(h.api.studioOperation(h.access(), approval), /GOOGLE_RECONNECT_REQUIRED/);
+    assert.equal(h.control.externalCreates, 0);
+    const owner = h.control.email;
+    await h.store.db.query("insert into kline_forms_test_google_oauth_connections(id,account_email,encrypted_refresh_token,scopes,connected_by) values($1,$2,$3,ARRAY['https://www.googleapis.com/auth/forms.body'],$2)", [h.api.personalGoogleConnectionId(owner), owner, h.api.encryptGoogleToken("qa-personal-only")]);
+    assert.deepEqual(await h.api.studioOperation(h.access(), { action: "connection" }), { connected: true });
+    const created = await h.api.studioOperation(h.access(), approval);
+    assert.equal(created.form.club_key, "personal"); assert.equal(created.job.state, "notice_saved");
+    assert.equal(h.control.externalCreates, 1);
+    const remote = h.control.remoteForms.get(created.form.google_form_id);
+    const nameQuestion = remote.items.find(item => /Name|이름/.test(item.title)).questionItem.question.questionId;
+    h.control.remoteResponses.set(created.form.google_form_id, [{ responseId: "qa-personal-response", createTime: "2026-10-20T08:00:00Z", answers: { [nameQuestion]: { textAnswers: { answers: [{ value: "검증 참가자" }] } } } }]);
+    const synced = await h.api.studioOperation(h.access(), { action: "responses", jobId: planned.job.id });
+    assert.equal(synced.applicants[0].name, "검증 참가자");
+    assert.deepEqual(Object.keys(synced.applicants[0]).sort(), ["id", "name"]);
+    h.control.email = "peer@example.test";
+    assert.deepEqual((await h.api.studioOperation(h.access(), { action: "list" })).jobs, []);
+    assert.deepEqual(await h.api.studioOperation(h.access(), { action: "connection" }), { connected: false });
+    for (const action of ["get", "review", "refine", "update", "approve", "recover", "responses"]) await assert.rejects(h.api.studioOperation(h.access(), { ...approval, action }), /JOB_NOT_FOUND/);
+    h.control.clubs = ["ecc", "hanhwal", "social_impact_union"];
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "get", jobId: planned.job.id }), /JOB_NOT_FOUND/);
+    assert.equal(h.control.externalCreates, 1);
+    assert.equal((await h.store.db.query("select board_id from kline_forms_test_club_board_posts")).rows[0].board_id, "personal");
+  } finally { await h.close(); }
+});
+
+test("authorized Hanhwal creation stays separate from ECC and preserves the original on replay", async () => {
+  const h = await eventHarness(); try {
+    h.control.currentPlan = fixturePlan("hanhwal"); h.control.clubs = ["hanhwal"];
+    const planned = await h.api.studioOperation(h.access(), { action: "plan", clubKey: "hanhwal", message: "한활 활쏘기 활동 검증. " + fixtureMessage });
+    assert.ok(planned.creationSupported); assert.ok(planned.token);
+    const request = { action: "approve", jobId: planned.job.id, token: planned.token, confirmed: true };
+    const created = await h.api.studioOperation(h.access(), request);
+    assert.equal(created.form.club_key, "hanhwal"); assert.equal(created.form.status, "draft");
+    assert.equal((await h.store.db.query("select board_id,status from kline_forms_test_club_board_posts")).rows[0].board_id, "hanhwal");
+    assert.equal((await h.api.studioOperation(h.access(), request)).form.google_form_id, created.form.google_form_id);
+    assert.equal(h.control.externalCreates, 1);
+    h.control.clubs = ["ecc"];
+    await assert.rejects(h.api.studioOperation(h.access(), { action: "get", jobId: planned.job.id }), /JOB_NOT_FOUND/);
+    assert.equal((await h.store.db.query("select count(*)::int as n from kline_forms_test_google_forms where club_key='ecc'")).rows[0].n, 0);
+  } finally { await h.close(); }
+});
+
+test("creator UI has no club selector, usage or model labels and keeps a personal OAuth entry", async () => {
+  const source = await readFile("src/components/google-forms/EventStudio.tsx", "utf8");
+  assert.doesNotMatch(source, /aria-label=\{t\("클럽"|AI 사용량|AI usage|초안 버전|ai_metadata\.model/);
+  assert.match(source, /oauth\/start\?mode=personal/);
+  assert.match(source, /ArrowUp aria-hidden/);
+  assert.match(source, /응답자 확인/);
+});
+
+test("personal OAuth verifies its owner, encrypts separate credentials, and never replaces the operations account", async () => {
+  const h = await eventHarness(); try {
+    const before = (await h.store.db.query("select * from kline_forms_test_google_oauth_connections where id='operations'")).rows;
+    const owner = h.control.email;
+    const connect = () => h.api.withPersonalGoogleConnection(owner, () => h.api.connectGoogleOperationsAccount("qa-consent-code", owner));
+    h.control.oauthEmail = "different@example.test";
+    await assert.rejects(connect(), /GOOGLE_ACCOUNT_OWNER_MISMATCH/);
+    h.control.oauthEmail = owner; h.control.oauthVerified = false;
+    await assert.rejects(connect(), /could not be verified/);
+    h.control.oauthVerified = true; h.control.oauthScopes = "openid email";
+    await assert.rejects(connect(), /REQUIRED_SCOPES/);
+    delete h.control.oauthScopes;
+    assert.equal(await connect(), owner);
+    const personal = (await h.store.db.query("select * from kline_forms_test_google_oauth_connections where id=$1", [h.api.personalGoogleConnectionId(owner)])).rows[0];
+    assert.equal(personal.account_email, owner); assert.equal(personal.connected_by, owner);
+    assert.match(personal.encrypted_refresh_token, /^v1\./);
+    assert.ok(!personal.encrypted_refresh_token.includes("qa-only-personal-refresh"));
+    assert.deepEqual((await h.store.db.query("select * from kline_forms_test_google_oauth_connections where id='operations'")).rows, before);
+    assert.deepEqual(await h.api.withPersonalGoogleConnection(owner, () => h.api.getGoogleConnectionStatus()).then(status => status.accountEmail), owner);
+    await assert.rejects(h.api.withPersonalGoogleConnection(owner, () => h.api.connectGoogleOperationsAccount("qa-code", "peer@example.test")), /OWNER_MISMATCH/);
+  } finally { await h.close(); }
+});
+
+test("personal migration repeats without widening database grants or changing operational data", async () => {
+  const h = await eventHarness(); try {
+    const before = (await h.store.db.query("select * from kline_forms_test_google_oauth_connections where id='operations'")).rows;
+    await h.store.db.exec("reset role");
+    await h.store.db.exec(await readFile("supabase/migrations/20261020065501_event_studio_personal_and_hanhwal.sql", "utf8"));
+    assert.deepEqual((await h.store.db.query("select * from kline_forms_test_google_oauth_connections where id='operations'")).rows, before);
+    for (const role of ["anon", "authenticated"]) {
+      await h.store.db.exec(`set role ${role}`);
+      await assert.rejects(h.store.db.query("select * from kline_forms_test_google_oauth_connections"), /permission denied/);
+      await assert.rejects(h.store.db.query("select * from kline_forms_test_event_studio_jobs"), /permission denied/);
+      await assert.rejects(h.store.db.query("select public.kline_forms_test_event_ai_reserve('peer','personal','qa','test',0)"), /permission denied/);
+      await h.store.db.exec("reset role");
+    }
+  } finally { await h.close(); }
+});
+
 test("follow-up answers regenerate the same draft from saved user facts, with natural questions and no premature Google create", async () => {
   const h = await eventHarness(); try {
     h.control.currentPlan = { ...fixturePlan(), activityDate: null, applicationDeadline: null, location: null, capacity: null,
@@ -170,18 +282,18 @@ test("AI requests respect a shared deadline and timeout failures stop without cr
   } finally { await h.close(); }
 });
 
-test("production permits ECC managers only and preserves read-only restrictions", async () => {
+test("production permits personal workspaces and authorized ECC/Hanhwal managers only", async () => {
   const h = await eventHarness(); try {
     process.env.GOOGLE_FORMS_ENVIRONMENT = "admin-production";
     process.env.GOOGLE_FORMS_ADMIN_PRODUCTION_ENABLED = "true";
     h.control.clubs = ["hanhwal"];
-    assert.deepEqual((await h.api.getStudioAccess()).manageableClubs, []);
+    assert.deepEqual((await h.api.getStudioAccess()).manageableClubs, ["personal", "hanhwal"]);
     h.control.clubs = ["ecc"];
-    assert.deepEqual((await h.api.getStudioAccess()).manageableClubs, ["ecc"]);
+    assert.deepEqual((await h.api.getStudioAccess()).manageableClubs, ["personal", "ecc"]);
     h.control.readOnly = true;
     assert.equal((await h.api.getStudioAccess()).readOnly, true);
     h.control.clubs = ["ecc", "hanhwal", "social_impact_union"];
-    assert.deepEqual((await h.api.getStudioAccess()).manageableClubs, ["ecc"]);
+    assert.deepEqual((await h.api.getStudioAccess()).manageableClubs, ["personal", "ecc", "hanhwal"]);
   } finally { await h.close(); }
 });
 
@@ -242,7 +354,7 @@ test("strict Responses output and durable per-call telemetry for all three clubs
       h.control.currentPlan = fixturePlan(club);
       const next = await h.api.studioOperation(h.access(), { action: "plan", clubKey: club, message: fixtureMessage });
       assert.equal(next.job.club_key, club); assert.equal(next.job.revision, 1);
-      assert.equal(next.creationSupported, club === "ecc");
+      assert.equal(next.creationSupported, club !== "social_impact_union");
       const input = h.control.requests.at(-1); assert.equal(input.text.format.strict, true); assert.equal(input.text.format.type, "json_schema"); assert.equal(input.store, false);
     }
     const usage = await h.api.studioOperation(h.access(), { action: "usage", clubKey: "ecc" });
@@ -345,7 +457,7 @@ test("ordinary/read-only/cross-club managers and cross-origin requests fail clos
     h.control.clubs = ["hanhwal"];
     await assert.rejects(h.api.studioOperation(h.access(), { action: "get", jobId: r.job.id }), /NOT_FOUND/);
     await assert.rejects(h.api.studioOperation(h.access(), { action: "plan", clubKey: "ecc", message: fixtureMessage }), /ADMIN/);
-    h.control.clubs = []; await assert.rejects(h.api.studioOperation(h.access(), { action: "list" }), /ADMIN/);
+    h.control.clubs = []; assert.deepEqual((await h.api.studioOperation(h.access(), { action: "list" })).jobs, []);
     h.control.clubs = ["ecc"]; h.control.readOnly = true;
     await assert.rejects(h.api.studioOperation(h.access(), { action: "approve", jobId: r.job.id, token: r.token, confirmed: true }), /READ_ONLY/);
     const crossOrigin = await h.api.POST(new Request("http://localhost/api/event-studio", { method: "POST", headers: { origin: "https://evil.test" }, body: "{}" })); assert.equal(crossOrigin.status, 403);

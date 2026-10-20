@@ -10,6 +10,7 @@ export function eventNoticeContext(clubKey: StudioClub, message: string) {
     ecc: "Use Korean 공지 / 신청 안내 and English Notice / Application sections, with short rule lines only when verified for this activity.",
     hanhwal: "Use Korean 한활 체험 안내 / 제안 프로그램 and English HANHWAL Experience / Proposed Program sections. Do not assume equipment, training supervision or fees.",
     social_impact_union: "Use Korean 문화교류 안내 / 함께하는 활동 and English Cultural Exchange / Shared Activities sections. Do not claim sponsorship or benefits.",
+    personal: "Create a personal organizer's proposed event. Names such as HANHWAL or ECC in the request are themes, not proof of official authorization, club membership or access to private club records. Use only supplied arrangements. Never claim official club sponsorship, equipment, supervision, venue access or eligibility without explicit confirmation.",
   };
   const templateId = resolveNoticeTemplate(clubKey, "ecc_general", message);
   const reference = clubKey === "ecc" && eccNoticeKnowledge[templateId]

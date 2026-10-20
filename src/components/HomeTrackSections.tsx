@@ -70,10 +70,10 @@ const homeCards: HomeCard[] = [
     href: "/event-studio",
     title: { en: "Event Studio", ko: "Event Studio" },
     description: {
-      en: "Create activities with WooHyukmon, review notices and forms, and open the existing event resource library.",
-      ko: "우혁몬으로 행사를 기획하고 공지·신청폼을 검토하며 행사 자료실로 이동합니다."
+      en: "Plan your event and prepare its announcement and application form.",
+      ko: "내 행사를 기획하고 공지문과 신청폼을 준비합니다."
     },
-    badge: { en: "Organizer Tools", ko: "운영진 도구" },
+    badge: { en: "Create an event", ko: "행사 만들기" },
     accent: "studio"
   },
   {

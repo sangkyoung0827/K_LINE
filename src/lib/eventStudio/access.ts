@@ -15,14 +15,15 @@ export async function getStudioAccess(verifiedEmail?: string, verifiedReadOnly =
   const global = await getAdminAccess(email);
   const readOnly = verifiedReadOnly || Boolean(global.isReadOnly);
   if (isGoogleFormsAdminProduction()) {
-    const ecc = global.isSuperAdmin || (await getEccAccessForEmail(email)).isAdmin;
-    return { email, manageableClubs: ecc ? ["ecc"] : [], readOnly, canSetLimits: global.isSuperAdmin && !readOnly };
+    const ecc = global.isSuperAdmin || await getEccAccessForEmail(email).then(access => access.isAdmin).catch(() => false);
+    const hanhwal = global.isSuperAdmin || await getHanhwalAccessForEmail(email).then(access => access.isAdmin).catch(() => false);
+    return { email, manageableClubs: ["personal", ...(ecc ? ["ecc" as const] : []), ...(hanhwal ? ["hanhwal" as const] : [])], readOnly, canSetLimits: global.isSuperAdmin && !readOnly };
   }
   if (global.isSuperAdmin) return { email, manageableClubs: [...studioClubs], readOnly, canSetLimits: !readOnly };
-  const manageableClubs: StudioClub[] = [];
-  if ((await getEccAccessForEmail(email)).isAdmin) manageableClubs.push("ecc");
-  if ((await getHanhwalAccessForEmail(email)).isAdmin) manageableClubs.push("hanhwal");
-  const rows = await supabaseRequest<{ role: string }[]>(`siu_roles?select=role&email=eq.${encodeURIComponent(email)}&limit=1`, { cache: "no-store" });
+  const manageableClubs: StudioClub[] = ["personal"];
+  if (await getEccAccessForEmail(email).then(access => access.isAdmin).catch(() => false)) manageableClubs.push("ecc");
+  if (await getHanhwalAccessForEmail(email).then(access => access.isAdmin).catch(() => false)) manageableClubs.push("hanhwal");
+  const rows = await supabaseRequest<{ role: string }[]>(`siu_roles?select=role&email=eq.${encodeURIComponent(email)}&limit=1`, { cache: "no-store" }).catch(() => []);
   if (["admin", "super_admin", "developer"].includes(rows[0]?.role || "")) manageableClubs.push("social_impact_union");
   return { email, manageableClubs, readOnly, canSetLimits: false };
 }

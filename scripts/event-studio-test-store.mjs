@@ -12,11 +12,12 @@ export async function createPreviewStore() {
   const db = new PGlite();
   await db.waitReady;
   await db.exec("create role anon; create role authenticated; create role service_role bypassrls; grant usage on schema public to service_role;");
-  for (const filename of ["20261005092720_google_forms_shared_project_test.sql", "20261010172743_event_studio.sql"]) {
+  for (const filename of ["20261005092720_google_forms_shared_project_test.sql", "20261006110024_google_forms_admin_production.sql", "20261010172743_event_studio.sql"]) {
     await db.exec((await readFile(new URL("../supabase/migrations/" + filename, import.meta.url), "utf8")).replace("create extension if not exists pgcrypto;", ""));
   }
   // Exercise the production snapshot transaction against local, test-prefixed tables.
   await db.exec((await readFile(new URL("../supabase/migrations/20261018090607_google_forms_maintenance.sql", import.meta.url), "utf8")).replaceAll("kline_forms_live_", "kline_forms_test_"));
+  await db.exec(await readFile(new URL("../supabase/migrations/20261020065501_event_studio_personal_and_hanhwal.sql", import.meta.url), "utf8"));
   const localTables = new Set(["event_studio_jobs", "event_ai_usage", "event_ai_limits", "google_oauth_connections", "google_forms", "google_form_creation_attempts", "google_form_responses", "google_form_workflows", "google_form_operation_audit", "site_members", "club_board_posts"].map(n => "kline_forms_test_" + n));
   const columns = new Map(), columnTypes = new Map();
   await db.exec("set role service_role;");

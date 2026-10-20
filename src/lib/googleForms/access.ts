@@ -3,6 +3,7 @@ import "server-only";
 import { auth } from "@/auth";
 import { getAdminAccess, normalizeEmail } from "@/lib/admin";
 import { getEccAccessForEmail } from "@/lib/eccAccess";
+import { getHanhwalAccessForEmail } from "@/lib/hanhwalAccess";
 import { getJejuAccessForEmail } from "@/lib/jeju/access";
 import { getCurrentSiuAccess } from "@/lib/siu/access";
 import type { GoogleFormClubKey } from "./types";
@@ -29,21 +30,23 @@ export async function getGoogleFormsAccess(): Promise<GoogleFormsAccess> {
       authenticated: true,
       canConnect: !global.isReadOnly,
       isReadOnly: Boolean(global.isReadOnly),
-      manageableClubs: isGoogleFormsAdminProduction() ? ["ecc"] : ["ecc", "social_impact_union", "jeju", "general"]
+      manageableClubs: isGoogleFormsAdminProduction() ? ["ecc", "hanhwal"] : ["ecc", "hanhwal", "social_impact_union", "jeju", "general"]
     };
   }
 
-  const [ecc, siu, jeju] = await Promise.all([
+  const [ecc, hanhwal, siu, jeju] = await Promise.all([
     getEccAccessForEmail(email).catch(() => null),
+    getHanhwalAccessForEmail(email).catch(() => null),
     getCurrentSiuAccess().catch(() => null),
     getJejuAccessForEmail(email).catch(() => null)
   ]);
   const manageableClubs: GoogleFormClubKey[] = [];
   if (ecc?.isAdmin) manageableClubs.push("ecc");
+  if (hanhwal?.isAdmin) manageableClubs.push("hanhwal");
   if (!isGoogleFormsAdminProduction() && siu?.isAdmin) manageableClubs.push("social_impact_union");
   if (!isGoogleFormsAdminProduction() && jeju?.isAdmin) manageableClubs.push("jeju");
 
-  return { email, authenticated: true, canConnect: false, isReadOnly: false, manageableClubs };
+  return { email, authenticated: true, canConnect: false, isReadOnly: Boolean(global.isReadOnly), manageableClubs };
 }
 
 export function assertClubAccess(access: GoogleFormsAccess, clubKey: GoogleFormClubKey, write = false) {

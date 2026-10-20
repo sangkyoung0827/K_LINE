@@ -1,7 +1,7 @@
 import type { GoogleFormDraft, GoogleFormQuestion } from "@/lib/googleForms/types";
 import { parseGoogleFormDraft } from "@/lib/googleForms/validation";
 
-export const studioClubs = ["ecc", "hanhwal", "social_impact_union"] as const;
+export const studioClubs = ["ecc", "hanhwal", "social_impact_union", "personal"] as const;
 export type StudioClub = typeof studioClubs[number];
 export type EventPlan = {
   clubKey: StudioClub; title: string; descriptionKo: string; descriptionEn: string;
@@ -25,7 +25,6 @@ export function missingFields(plan: EventPlan) {
     !plan.location && "location", plan.capacity === null && "capacity"].filter(Boolean) as string[];
 }
 export function formDraft(plan: EventPlan, version = 2): GoogleFormDraft {
-  if (plan.clubKey === "hanhwal") throw new StudioError("CLUB_ADAPTER_NOT_READY", 409);
   const logistics = version >= 2 ? [
     plan.activityDate && `일시 / Date: ${displayEventDate(plan.activityDate)}`,
     plan.applicationDeadline && `신청 마감 / Deadline: ${displayEventDate(plan.applicationDeadline)}`,
@@ -64,7 +63,7 @@ export function parseEventPlan(value: unknown, expectedClub: StudioClub): EventP
   plan.capacity = raw.capacity === null ? null : Number(raw.capacity);
   if (plan.capacity !== null && (!Number.isInteger(raw.capacity) || plan.capacity < 1 || plan.capacity > 100000)) throw new StudioError("INVALID_CAPACITY");
   if (!Array.isArray(raw.questions) || raw.questions.length < 1 || raw.questions.length > 20) throw new StudioError("INVALID_QUESTIONS");
-  // Reuse the established question/date validator; HANHWAL never executes under this temporary parsing key.
+  // Question validation is independent of the organizer's authorized storage scope.
   plan.questions = parseGoogleFormDraft({ clubKey: "general", title: plan.title, templateId: "blank", questions: raw.questions,
     activityDate: plan.activityDate || "", applicationDeadline: plan.applicationDeadline || "" }).questions;
   const titles = new Set<string>();
