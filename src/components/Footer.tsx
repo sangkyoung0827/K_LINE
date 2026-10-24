@@ -21,6 +21,7 @@ export function Footer() {
       ) : null}
       <div className="mx-auto max-w-7xl border-t border-navy/10 pt-5 text-center text-xs font-medium leading-6 text-muted sm:pt-9 sm:text-sm sm:text-navy/36">
         © K_LINE Campus K-Culture Hub. All rights reserved.
+        <a href="/privacy.html" className="mt-2 block min-h-11 py-2 underline underline-offset-4"><I18nText ko="개인정보처리방침" en="Privacy Policy" /></a>
         <span className="sr-only">
           <I18nText en="International student club community." ko="국제 학생 클럽 커뮤니티입니다." />
         </span>
