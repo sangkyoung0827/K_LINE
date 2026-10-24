@@ -28,11 +28,19 @@ test("disconnected Google preserves the draft for OAuth rather than making a sec
 });
 test("changed revision, running job, and provider failure cannot trigger a blind retry", async () => {
   const team = { ...draft, job: { ...draft.job, club_key: "ecc" as const } };
-  await assert.rejects(completeEventFlow(team, async <T>() => ({ ...draft, job: { ...draft.job, revision: 3 } }) as T, () => {}), /JOB_CHANGED/);
+  await assert.rejects(completeEventFlow(team, async <T>(body: object) => ((body as { action:string }).action === "connection" ? {connected:true} : { ...draft, job: { ...draft.job, revision: 3 } }) as T, () => {}), /JOB_CHANGED/);
   await assert.rejects(completeEventFlow({ ...draft, job: { ...draft.job, state: "running" } }, async () => { throw new Error("must not call"); }, () => {}), /JOB_RUNNING/);
   let calls = 0;
-  await assert.rejects(completeEventFlow(team, async <T>(body: object) => { calls++; if ((body as { action: string }).action === "approve") throw new Error("NETWORK"); return draft as T; }, () => {}), /NETWORK/);
-  assert.equal(calls, 2);
+  await assert.rejects(completeEventFlow(team, async <T>(body: object) => { calls++; const action=(body as { action:string }).action; if (action === "approve") throw new Error("NETWORK"); return (action === "connection" ? {connected:true} : draft) as T; }, () => {}), /NETWORK/);
+  assert.equal(calls, 3);
+});
+test("expired team connections stop before approval, while outages never prompt needless reauthorization", async () => {
+  const team={...draft,job:{...draft.job,club_key:"ecc" as const}};
+  const calls: object[]=[];
+  const result=await completeEventFlow(team,async <T>(body:object)=>{calls.push(body);return {connected:false,health:"reconnect_required"} as T;},()=>{});
+  assert.equal(result.needsConnection,true);assert.equal(result.preview,team);
+  assert.deepEqual(calls,[{action:"connection",clubKey:"ecc"}]);
+  await assert.rejects(completeEventFlow(draft,async <T>()=>({connected:false,health:"unavailable"}) as T,()=>{}),/GOOGLE_AUTH_UNAVAILABLE/);
 });
 test("OAuth continuation requires this browser's unexpired intent for the exact job and revision", () => {
   const raw = JSON.stringify({ jobId: "job", revision: 2, expires: 1000 });

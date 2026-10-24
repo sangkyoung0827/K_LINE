@@ -70,7 +70,11 @@ export async function eventHarness(options = {}) {
       if (url.endsWith("?unpublished=true")) control.externalCreates++;
       return originalFetch(url, init);
     }
-    if (url === "https://oauth2.googleapis.com/token") return Response.json(control.failOAuth ? { error: "invalid_grant" } : { access_token: "qa-only-access", ...(init.body.get("grant_type") === "authorization_code" ? { refresh_token: "qa-only-personal-refresh", scope: control.oauthScopes ?? "openid email https://www.googleapis.com/auth/forms.body https://www.googleapis.com/auth/forms.responses.readonly https://www.googleapis.com/auth/drive.file" } : {}) }, { status: control.failOAuth ? 400 : 200 });
+    if (url === "https://oauth2.googleapis.com/token") {
+      if (control.oauthUnavailable) return Response.json({error:"temporarily_unavailable"},{status:503});
+      const invalid = control.failOAuth || control.invalidRefreshTokens?.has(String(init.body.get("refresh_token")));
+      return Response.json(invalid ? { error: "invalid_grant" } : { access_token: "qa-only-access", ...(init.body.get("grant_type") === "authorization_code" ? { ...(control.oauthNoRefresh ? {} : { refresh_token: "qa-only-personal-refresh" }), scope: control.oauthScopes ?? "openid email https://www.googleapis.com/auth/forms.body https://www.googleapis.com/auth/forms.responses.readonly https://www.googleapis.com/auth/drive.file" } : {}) }, { status: invalid ? 400 : 200 });
+    }
     if (url === "https://openidconnect.googleapis.com/v1/userinfo") return Response.json({ email: control.oauthEmail || control.email, email_verified: control.oauthVerified !== false });
     if (url.startsWith("https://forms.googleapis.com/v1/forms/") && new URL(url).pathname.endsWith("/responses")) {
       const id = new URL(url).pathname.split("/").at(-2);

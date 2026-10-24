@@ -29,13 +29,13 @@ test("personal forms never fall back to operations credentials; creation and res
   const h = await eventHarness(); try {
     h.control.clubs = []; h.control.currentPlan = fixturePlan("personal");
     const planned = await h.api.studioOperation(h.access(), { action: "plan", message: "한활 활동 검증. " + fixtureMessage });
-    assert.deepEqual(await h.api.studioOperation(h.access(), { action: "connection" }), { connected: false });
+    assert.equal((await h.api.studioOperation(h.access(), { action: "connection" })).connected, false);
     const approval = { action: "approve", jobId: planned.job.id, token: planned.token, confirmed: true };
     await assert.rejects(h.api.studioOperation(h.access(), approval), /GOOGLE_RECONNECT_REQUIRED/);
     assert.equal(h.control.externalCreates, 0);
     const owner = h.control.email;
     await h.store.db.query("insert into kline_forms_test_google_oauth_connections(id,account_email,encrypted_refresh_token,scopes,connected_by) values($1,$2,$3,ARRAY['https://www.googleapis.com/auth/forms.body'],$2)", [h.api.personalGoogleConnectionId(owner), owner, h.api.encryptGoogleToken("qa-personal-only")]);
-    assert.deepEqual(await h.api.studioOperation(h.access(), { action: "connection" }), { connected: true });
+    assert.equal((await h.api.studioOperation(h.access(), { action: "connection" })).connected, true);
     const created = await h.api.studioOperation(h.access(), approval);
     assert.equal(created.form.club_key, "personal"); assert.equal(created.job.state, "notice_saved");
     assert.equal(h.control.externalCreates, 1);
@@ -47,7 +47,7 @@ test("personal forms never fall back to operations credentials; creation and res
     assert.deepEqual(Object.keys(synced.applicants[0]).sort(), ["id", "name"]);
     h.control.email = "peer@example.test";
     assert.deepEqual((await h.api.studioOperation(h.access(), { action: "list" })).jobs, []);
-    assert.deepEqual(await h.api.studioOperation(h.access(), { action: "connection" }), { connected: false });
+    assert.equal((await h.api.studioOperation(h.access(), { action: "connection" })).connected, false);
     for (const action of ["get", "review", "refine", "update", "approve", "recover", "responses"]) await assert.rejects(h.api.studioOperation(h.access(), { ...approval, action }), /JOB_NOT_FOUND/);
     h.control.clubs = ["ecc", "hanhwal", "social_impact_union"];
     await assert.rejects(h.api.studioOperation(h.access(), { action: "get", jobId: planned.job.id }), /JOB_NOT_FOUND/);

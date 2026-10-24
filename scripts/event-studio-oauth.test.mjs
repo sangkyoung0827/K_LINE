@@ -11,12 +11,13 @@ test("personal OAuth routes bind nonce, identity and mode; callbacks cannot repl
   const h = await eventHarness();
   try {
     const jar = new Map();
-    globalThis.__studioOAuthQA = { api: h.api, jar };
+    const cookieWrites = [];
+    globalThis.__studioOAuthQA = { api: h.api, jar, cookieWrites };
     const dir = await mkdtemp(join(tmpdir(), "studio-oauth-test-"));
     await build({ stdin: { contents: "export {GET as start} from './src/app/api/google-forms/oauth/start/route';export {GET as callback} from './src/app/api/google-forms/oauth/callback/route';", resolveDir: process.cwd(), loader: "ts" }, outfile: join(dir, "routes.cjs"), bundle: true, packages: "external", platform: "node", format: "cjs", banner: { js: `module.paths.unshift(${JSON.stringify(join(process.cwd(), "node_modules"))});` }, plugins: [{ name: "test-session", setup(b) {
       const sources = {
         "server-only": "",
-        "next/headers": "export async function cookies(){const jar=globalThis.__studioOAuthQA.jar;return {get:key=>jar.get(key),set:(key,value,options)=>jar.set(key,{value,options}),delete:key=>jar.delete(key)}}",
+        "next/headers": "export async function cookies(){const {jar,cookieWrites}=globalThis.__studioOAuthQA;return {get:key=>jar.get(key),set:(key,value,options)=>{cookieWrites.push({key,value,options});if(options?.maxAge===0){if(jar.get(key)?.options?.path===options.path)jar.delete(key)}else jar.set(key,{value,options})},delete:key=>jar.delete(key)}}",
         "@/lib/eventStudio/access": "export const getStudioAccess=(...args)=>globalThis.__studioOAuthQA.api.getStudioAccess(...args)",
         "@/lib/eventStudio/model": "export const StudioError=globalThis.__studioOAuthQA.api.StudioError",
         "@/lib/eventStudio/service": "export const studioOperation=(...args)=>globalThis.__studioOAuthQA.api.studioOperation(...args)",
@@ -40,6 +41,8 @@ test("personal OAuth routes bind nonce, identity and mode; callbacks cannot repl
     const done = await callback(state);
     assert.equal(done.headers.get("location"), "https://kline.test/event-studio?connected=1");
     assert.equal(jar.size, 0);
+    assert.equal(cookieWrites.at(-1).options.maxAge, 0);
+    assert.equal(cookieWrites.at(-1).options.path, "/api/google-forms/oauth");
     assert.match((await callback(state)).headers.get("location"), /error=oauth_failed/);
     await start(); const otherState = jar.get("kline_google_oauth_state").value;
     h.control.email = "peer@example.test";
@@ -50,6 +53,14 @@ test("personal OAuth routes bind nonce, identity and mode; callbacks cannot repl
     assert.equal((await start()).headers.get("location"), "https://kline.test/login?callbackUrl=%2Fevent-studio");
     assert.deepEqual((await h.store.db.query("select * from kline_forms_test_google_oauth_connections where id='operations'")).rows, operationsBefore);
     h.control.email = "test-admin@example.test";
+    h.control.oauthEmail = "wrong-owner@example.test";
+    await start();
+    assert.match((await callback(jar.get("kline_google_oauth_state").value)).headers.get("location"), /error=oauth_account_mismatch/);
+    delete h.control.oauthEmail;
+    h.control.oauthScopes = "openid email";
+    await start();
+    assert.match((await callback(jar.get("kline_google_oauth_state").value)).headers.get("location"), /error=oauth_scopes_required/);
+    delete h.control.oauthScopes;
     h.control.currentPlan = fixturePlan("personal");
     const access = await h.api.getStudioAccess();
     const draft = await h.api.studioOperation(access, { action: "plan", message: fixtureMessage, clubKey: "personal" });
