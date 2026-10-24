@@ -23,7 +23,7 @@ export async function GET() {
     const access = await getGoogleFormsAccess();
     if (!access.authenticated) throw new GoogleFormsAuthorizationError("LOGIN_REQUIRED", 401);
     const forms = access.manageableClubs.length ? await supabaseRequest<GoogleFormRegistryRow[]>(`google_forms?select=${registryColumns}&club_key=in.(${access.manageableClubs.join(",")})&status=neq.archived&order=created_at.desc`, { cache: "no-store" }) : [];
-    const connection = access.canConnect || access.manageableClubs.length ? await getGoogleConnectionStatus().catch(() => ({ connected: false, accountEmail: "", scopes: [] })) : { connected: false, accountEmail: "", scopes: [] };
+    const connection = access.canConnect || access.manageableClubs.length ? await getGoogleConnectionStatus().catch(() => ({ connected: false, accountEmail: "", scopes: [], health: "unavailable" })) : { connected: false, accountEmail: "", scopes: [], health: "missing" };
     const internalTests = access.canConnect && !access.isReadOnly && isGoogleFormsAdminProduction()
       ? Object.fromEntries(forms.map(form => [form.id, internalTestControls(form, process.env.GOOGLE_FORMS_INTERNAL_TEST_FORMS || "")])) : {};
     return NextResponse.json({ access, connection, forms, internalTests }, { headers: { "Cache-Control": "no-store" } });

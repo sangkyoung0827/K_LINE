@@ -42,7 +42,11 @@ createServer(async (request, response) => {
     let raw = ""; for await (const chunk of request) raw += chunk;
     const body = JSON.parse(raw || "{}");
     if (body.action === "list") return send({ jobs: studioJob ? [studioJob] : [], access: { email: "test-admin@example.test", manageableClubs: ["ecc"], readOnly: false, canSetLimits: false }, aiEnabled: true });
-    if (body.action === "connection") return send({ connected: personalConnected });
+    if (body.action === "connection") {
+      if (body.clubKey && !["personal", "ecc"].includes(body.clubKey)) return send({ error: "FORBIDDEN" }, 403);
+      const connected = body.clubKey === "ecc" || personalConnected;
+      return send({ connected, health: connected ? "healthy" : "missing" });
+    }
     if (body.action === "plan") {
       const missing = body.message.includes("활동 제목:") ? ["activityDate", "applicationDeadline", "location", "capacity"] : [];
       const plan = fixturePlan(body.clubKey || "personal");

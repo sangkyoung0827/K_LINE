@@ -115,10 +115,10 @@ export async function studioOperation(access: StudioAccess, body: Record<string,
     return { jobs: rows.filter(job => !job.form_registry_id || !archivedIds.has(job.form_registry_id)), access, adapters: studioAdapters, aiEnabled: process.env.EVENT_AI_ENABLED === "true" };
   }
   if (action === "connection") {
-    return withPersonalGoogleConnection(access.email, async () => {
-      const status = await getGoogleConnectionStatus();
-      return { connected: status.health === "healthy" };
-    });
+    const key = body.clubKey === undefined ? "personal" : club(body.clubKey);
+    assertStudioAccess(access, key, false);
+    const status = key === "personal" ? await withPersonalGoogleConnection(access.email, getGoogleConnectionStatus) : await getGoogleConnectionStatus();
+    return { connected: status.health === "healthy", health: status.health };
   }
   if (action === "limits") {
     if (!access.canSetLimits || access.readOnly) throw new StudioError("SUPER_ADMIN_REQUIRED", 403);

@@ -37,6 +37,9 @@ const errors: Record<string, [string, string]> = {
   GOOGLE_RECONNECT_REQUIRED: ["Google 연결을 다시 승인해주세요.", "Reconnect your Google account."],
   JOB_RUNNING_WAIT: ["폼 생성 결과를 확인 중입니다. 새로 생성하지 말고 잠시 후 행사 목록을 새로고침해주세요.", "Form creation is still being checked. Refresh events shortly instead of creating another form."],
   OAUTH_FAILED: ["Google 연결이 완료되지 않았습니다. 작성한 행사는 보존되었습니다. 다시 연결해주세요.", "Google connection did not complete. Your event is saved; reconnect to continue."],
+  OAUTH_OFFLINE_REQUIRED: ["Google의 연결 유지 승인이 필요합니다. 기존 접근 권한을 삭제하지 말고 다시 연결해주세요.", "Google offline access is required. Reconnect without deleting your existing grant."],
+  OAUTH_ACCOUNT_MISMATCH: ["개인 연결은 K_LINE 로그인 계정으로, 단체 연결은 기존 운영 계정으로 연결해주세요.", "For personal access use your K_LINE login account; for club access use the existing operations account."],
+  OAUTH_SCOPES_REQUIRED: ["폼 생성·응답 읽기·앱 파일 접근 권한을 모두 승인해주세요.", "Approve form creation, response reading and access to app-created files."],
   EVENT_SCOPE_MISMATCH: ["현재 활동의 단체와 요청한 단체가 다릅니다. 개인 행사는 Event Studio에서 새로 만들어 주세요.", "The request does not match this club. Start a new personal event in Event Studio."],
   EVENT_ORGANIZER_AMBIGUOUS: ["어느 단체의 행사인가요? 주최 단체 하나를 알려주세요.", "Which organization is hosting this event?"],
   GOOGLE_AUTH_UNAVAILABLE: ["Google 인증 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.", "Google authentication is temporarily unavailable. Try again shortly."],
@@ -50,13 +53,15 @@ const errors: Record<string, [string, string]> = {
   CLUB_ADMIN_REQUIRED: ["해당 클럽의 관리자 권한이 필요합니다.", "Administrator access for this club is required."],
   EVENT_STUDIO_UNAVAILABLE: ["Event Studio 연결을 확인해주세요. 기존 신청 기능은 계속 사용할 수 있습니다.", "Check the Event Studio connection. Existing applications remain available."],
 };
-export function EventStudio({ initialClub, initialPreview, onComplete, embedded = false, archiveIds = [] }: { initialClub?: StudioClub; initialPreview?: StudioPreview | null; onComplete?: () => void; embedded?: boolean; archiveIds?: string[] }) {
+export function EventStudio({ initialClub, initialPreview, onComplete, embedded = false, archiveIds = [], canReconnectOperations = false }: { initialClub?: StudioClub; initialPreview?: StudioPreview | null; onComplete?: () => void; embedded?: boolean; archiveIds?: string[]; canReconnectOperations?: boolean }) {
   const { language } = useLanguage(); const ko = language === "ko";
   const t = (kr: string, en: string) => ko ? kr : en;
   const [config, setConfig] = useState<Config | null>(null);
   const [message, setMessage] = useState(""), [result, setResult] = useState<StudioPreview | null>(null), [plan, setPlan] = useState<EventPlan | null>(null);
   const [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false), [error, setError] = useState("");
-  const [connected, setConnected] = useState(false);
+  const [googleHealth, setGoogleHealth] = useState("checking");
+  const [connectionRefresh, setConnectionRefresh] = useState(0);
+  const connected = googleHealth === "healthy";
   const [createForm, setCreateForm] = useState(true), [needsConnection, setNeedsConnection] = useState(false);
   const [step, setStep] = useState<CreationStep>("planning");
   const resumed = useRef(false);
@@ -69,10 +74,16 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
   useEffect(() => { setResult(null); setPlan(null); }, [initialClub]);
   useEffect(() => {
     let active = true;
-    if (!initialClub || initialClub === "personal") void studioCommand<{ connected: boolean }>({ action: "connection" }).then(status => { if (active) setConnected(status.connected); }).catch(() => { if (active) setConnected(false); });
+    setGoogleHealth("checking");
+    void studioCommand<{ connected: boolean; health?: string }>({ action: "connection", clubKey: initialClub || "personal" }).then(status => { if (active) setGoogleHealth(status.health || (status.connected ? "healthy" : "missing")); }).catch(() => { if (active) setGoogleHealth("unavailable"); });
     return () => { active = false; };
-  }, [initialClub]);
+  }, [initialClub, connectionRefresh]);
   useEffect(() => { if (initialPreview) select(initialPreview); }, [initialPreview]);
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get("error");
+    if (!reason) return;
+    setError(reason === "oauth_offline_required" ? "OAUTH_OFFLINE_REQUIRED" : reason === "oauth_account_mismatch" ? "OAUTH_ACCOUNT_MISMATCH" : reason === "oauth_scopes_required" ? "OAUTH_SCOPES_REQUIRED" : reason === "oauth_reconnect_required" ? "GOOGLE_RECONNECT_REQUIRED" : "OAUTH_FAILED");
+  }, []);
   useEffect(() => {
     if (!config || (initialClub && initialClub !== "personal") || resumed.current) return;
     const params = new URLSearchParams(window.location.search), jobId = params.get("job");
@@ -81,11 +92,11 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
     void (async () => {
       const next = await studioCommand<StudioPreview>({ action: "get", jobId });
       select(next);
-      if (params.get("error")) { setError("OAUTH_FAILED"); return; }
+      if (params.get("error")) return;
       let intent: string | null = null;
       try { intent = sessionStorage.getItem(creationIntentKey); sessionStorage.removeItem(creationIntentKey); } catch { /* Storage may be disabled; keep a manual completion action. */ }
       if (!config.access.readOnly && params.get("connected") === "1" && matchingCreationIntent(intent, jobId, next.job.revision)) {
-        setConnected(true);
+        setGoogleHealth("healthy");
         await finish(next);
       }
     })().catch(e => setError(e.message)).finally(() => setBusy(false));
@@ -95,7 +106,7 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
   async function finish(next: StudioPreview) {
     const completed = await completeEventFlow(next, studioCommand, setStep);
     select(completed.preview); setNeedsConnection(completed.needsConnection);
-    if (completed.needsConnection) setConnected(false);
+    if (completed.needsConnection) setGoogleHealth("reconnect_required");
     if (completed.preview.job.state === "notice_saved") onComplete?.();
   }
   function rememberCreation() {
@@ -112,19 +123,19 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
       select(next);
       if (action === "complete" || createForm && ["plan", "refine"].includes(action)) await finish(next);
       await load();
-    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { const code = (e as Error).message; setError(code); if (code === "GOOGLE_RECONNECT_REQUIRED") setGoogleHealth("reconnect_required"); } finally { setBusy(false); }
   }
   const visibleJobs = config?.jobs.filter(j => !initialClub || j.club_key === initialClub) || [];
   const readOnly = Boolean(config?.access.readOnly);
   const personal = (plan?.clubKey || initialClub || "personal") === "personal";
-  const connectUrl = `/api/google-forms/oauth/start?mode=personal${result ? `&job=${encodeURIComponent(result.job.id)}` : ""}`;
+  const connectUrl = personal ? `/api/google-forms/oauth/start?mode=personal${result ? `&job=${encodeURIComponent(result.job.id)}` : ""}` : "/api/google-forms/oauth/start";
   return <section className={embedded ? "mt-7 min-w-0 space-y-5 text-ink" : "mx-auto w-full max-w-5xl space-y-5 px-4 py-5 text-ink sm:px-6"}>
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
       {embedded ? <h2 className="flex items-center gap-2 text-xl font-semibold"><Glasses aria-hidden className="h-6 w-6 shrink-0" />{t("우혁몬", "WOOHYUKMON")}</h2> : <h2 className="text-lg font-semibold">{t("행사 만들기", "Create an event")}</h2>}
       <div className="flex items-center gap-2">
         {result && !readOnly && <button type="button" aria-label={t("새 행사", "New event")} title={t("새 행사", "New event")} disabled={busy} className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-ink/5 disabled:opacity-40" onClick={() => { setResult(null); setPlan(null); setMessage(""); setDirty(false); setError(""); setApplicants(null); }}><Plus aria-hidden className="h-5 w-5" /></button>}
-        {personal && !readOnly && (connected ? <span className="inline-flex items-center gap-1 text-sm text-emerald-800"><Check aria-hidden className="h-4 w-4" />{t("Google 연결됨", "Google connected")}</span> : config?.googleConnectAvailable === false ? <span className="text-sm text-muted">{t("Google 미연결", "Google not connected")}</span> : <a className="inline-flex min-h-11 items-center border border-ink/20 px-3 text-sm" href={connectUrl}>{t("내 Google 연결", "Connect my Google")}</a>)}
-        <button type="button" title={t("행사 목록 새로고침", "Refresh events")} aria-label={t("행사 목록 새로고침", "Refresh events")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md hover:bg-ink/5 disabled:opacity-40" disabled={busy} onClick={() => void load().catch(e => setError(e.message))}><RefreshCw aria-hidden className="h-4 w-4" /></button>
+        {personal && !readOnly && (connected ? <span className="inline-flex items-center gap-1 text-sm text-emerald-800"><Check aria-hidden className="h-4 w-4" />{t("Google 연결됨", "Google connected")}</span> : googleHealth === "checking" || googleHealth === "unavailable" || config?.googleConnectAvailable === false ? <span role="status" className="text-sm text-muted">{googleHealth === "checking" ? t("Google 확인 중", "Checking Google") : googleHealth === "unavailable" ? t("Google 연결 확인 불가", "Google check unavailable") : t("Google 미연결", "Google not connected")}</span> : <a className="inline-flex min-h-11 items-center border border-ink/20 px-3 text-sm" href={connectUrl}>{googleHealth === "reconnect_required" ? t("내 Google 다시 연결", "Reconnect my Google") : t("내 Google 연결", "Connect my Google")}</a>)}
+        <button type="button" title={t("행사 목록 새로고침", "Refresh events")} aria-label={t("행사 목록 새로고침", "Refresh events")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md hover:bg-ink/5 disabled:opacity-40" disabled={busy} onClick={() => { setConnectionRefresh(value => value + 1); void load().catch(e => setError(e.message)); }}><RefreshCw aria-hidden className="h-4 w-4" /></button>
       </div>
     </div>
     {!config?.aiEnabled && config && <p role="status" className="text-sm text-ink/65">{t("행사 전용 AI 연결을 준비 중입니다. 저장된 초안은 계속 확인할 수 있습니다.", "Event AI is not enabled yet. Saved drafts remain accessible.")}</p>}
@@ -158,8 +169,8 @@ export function EventStudio({ initialClub, initialPreview, onComplete, embedded 
         <h2 className="text-xl font-semibold">{plan.title}</h2>
         {result.missing.length > 0 && <p role="status" className="whitespace-pre-line text-sm leading-relaxed">{(result.clarification || eventClarification(result.missing, plan.title))[ko ? "ko" : "en"]}</p>}
         {!readOnly && <div className="space-y-2">
-          {needsConnection && <p role="status" className="text-sm">{t("공지와 신청 질문이 준비됐습니다. Google을 연결하면 이 행사로 돌아와 폼까지 완성합니다.", "The announcement and questions are ready. Connect Google to return here and finish the form.")}</p>}
-          {needsConnection && config?.googleConnectAvailable !== false ? <a href={connectUrl} onClick={rememberCreation} className="inline-flex min-h-11 items-center bg-ink px-4 text-sm text-paper">{t("Google 연결하고 완성", "Connect Google and finish")}</a> : <button disabled={busy || !result.creationSupported || result.missing.length > 0 || result.job.state === "running"} className="inline-flex min-h-11 items-center gap-2 bg-ink px-4 text-sm text-paper disabled:opacity-40" onClick={() => void run("complete")}><Check aria-hidden className="h-4 w-4" />{t("공지·구글폼 완성", "Finish announcement and Google Form")}</button>}
+          {needsConnection && <p role="status" className="text-sm">{personal ? t("공지와 신청 질문은 저장되었습니다. Google을 연결하면 이어서 완성합니다.", "The announcement and questions are saved. Reconnect Google to continue.") : t("운영 계정 연결이 필요합니다. 작성한 행사는 보존되었습니다.", "The operations account needs reconnection. Your event is saved.")}</p>}
+          {needsConnection && config?.googleConnectAvailable !== false && (personal || canReconnectOperations) ? <a href={connectUrl} onClick={rememberCreation} className="inline-flex min-h-11 items-center bg-ink px-4 text-sm text-paper">{personal ? t("Google 연결하고 완성", "Connect Google and finish") : t("운영 Google 다시 연결", "Reconnect operations Google")}</a> : <button disabled={busy || !result.creationSupported || result.missing.length > 0 || result.job.state === "running"} className="inline-flex min-h-11 items-center gap-2 bg-ink px-4 text-sm text-paper disabled:opacity-40" onClick={() => void run("complete")}><Check aria-hidden className="h-4 w-4" />{t("공지·구글폼 완성", "Finish announcement and Google Form")}</button>}
           {result.job.state === "running" && <button disabled={busy} className="min-h-11 border border-ink/20 px-4 text-sm disabled:opacity-40" onClick={() => void run("recover")}>{t("생성 결과 확인", "Check creation result")}</button>}
         </div>}
         <ActivityNoticeOutput notice={`${plan.noticeKo}\n\n${plan.noticeEn}`} applicationUrl="" showApplicationLink={false} onError={setError} />

@@ -74,12 +74,9 @@ export async function connectGoogleOperationsAccount(code: string, connectedBy: 
   const personalOwner = connectionOwner.getStore();
   if (personalOwner && personalOwner !== normalizeEmail(connectedBy)) throw new Error("GOOGLE_ACCOUNT_OWNER_MISMATCH");
   // Production reconnect may repair the existing operations identity, never silently replace it.
-  const existing = isGoogleFormsAdminProduction() && !personalOwner
-    ? await supabaseRequest<OAuthConnection[]>("google_oauth_connections?select=account_email&id=eq.operations&limit=1", { cache: "no-store" })
-    : [];
+  const existing = await supabaseRequest<OAuthConnection[]>(`google_oauth_connections?select=account_email,encrypted_refresh_token,scopes&id=eq.${connectionId()}&limit=1`, { cache: "no-store" });
   if (isGoogleFormsAdminProduction() && !personalOwner && !existing[0]?.account_email) throw new Error("GOOGLE_OPERATIONS_ACCOUNT_NOT_CONFIGURED");
   const tokens = await exchange(new URLSearchParams({ code, grant_type: "authorization_code" }));
-  if (!tokens.refresh_token) throw new Error("Google did not return an offline refresh token. Revoke the prior grant and reconnect.");
   const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tokens.access_token}` }, cache: "no-store" });
   const profile = await profileResponse.json() as { email?: string; email_verified?: boolean };
   const accountEmail = normalizeEmail(profile.email);
@@ -88,7 +85,15 @@ export async function connectGoogleOperationsAccount(code: string, connectedBy: 
   if (isGoogleFormsAdminProduction() && !personalOwner && accountEmail !== normalizeEmail(existing[0].account_email)) throw new Error("GOOGLE_OPERATIONS_ACCOUNT_MISMATCH");
   const scopes = (tokens.scope || "").split(" ");
   if (googleFormsScopes.filter((scope) => scope.startsWith("https:")).some((scope) => !scopes.includes(scope))) throw new Error("GOOGLE_REQUIRED_SCOPES_NOT_GRANTED");
-  // Verify offline refresh before replacing a saved connection.
+  // Repeated consent may omit a refresh token; retain only a verified same-owner grant.
+  if (!tokens.refresh_token) {
+    const saved = existing[0];
+    if (!saved || normalizeEmail(saved.account_email) !== accountEmail || !saved.encrypted_refresh_token) throw new Error("GOOGLE_OFFLINE_ACCESS_REQUIRED");
+    if (googleFormsScopes.filter(scope => scope.startsWith("https:")).some(scope => !saved.scopes.includes(scope))) throw new Error("GOOGLE_REQUIRED_SCOPES_NOT_GRANTED");
+    await exchange(new URLSearchParams({ refresh_token: decryptGoogleToken(saved.encrypted_refresh_token), grant_type: "refresh_token" }));
+    // Reusing the token must not reset its consent timestamp or imply a longer lifetime.
+    return accountEmail;
+  }
   await exchange(new URLSearchParams({ refresh_token: tokens.refresh_token, grant_type: "refresh_token" }));
   await supabaseRequest("google_oauth_connections?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: connectionId(), account_email: accountEmail, encrypted_refresh_token: encryptGoogleToken(tokens.refresh_token), scopes: (tokens.scope || googleFormsScopes.join(" ")).split(" "), connected_by: normalizeEmail(connectedBy) }) });
   return accountEmail;
@@ -103,7 +108,7 @@ export async function getGoogleConnectionStatus() {
     return { connected: true, accountEmail: rows[0].account_email, scopes: rows[0].scopes, health: "healthy" };
   } catch (error) {
     const expired = error instanceof Error && error.message === "GOOGLE_RECONNECT_REQUIRED";
-    return { connected: !expired, accountEmail: rows[0].account_email, scopes: rows[0].scopes, health: expired ? "reconnect_required" : "unavailable" };
+    return { connected: false, accountEmail: rows[0].account_email, scopes: rows[0].scopes, health: expired ? "reconnect_required" : "unavailable" };
   }
 }
 
