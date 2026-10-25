@@ -39,6 +39,7 @@ export function naturalEventDate(input: string, reference: Date, kind: "activity
     .replace(/글피/g, " in 3 days ").replace(/모레/g, " in 2 days ").replace(/내일/g, " tomorrow ").replace(/오늘/g, " today ");
   const approximate = /(?:시|분)\s*(?:쯤|정도|경)|\b(?:around|about|approximately)\b/i.test(input);
   text = text.replace(/\b(?:around|about|approximately)\b/gi, " ");
+  text = text.replace(/((오전|오후|저녁|밤|아침|낮|새벽)\s*\d{1,2}\s*시(?:\s*(?:반|\d{1,2}\s*분))?)\s*부터\s*(\d{1,2}\s*시(?:\s*(?:반|\d{1,2}\s*분))?)\s*까지/g, "$1부터 $2 $3까지");
   let invalidClock = false;
   text = text.replace(/(오전|오후|저녁|밤|아침|낮|새벽)?\s*(\d{1,2})\s*시(?:\s*(반|\d{1,2}\s*분))?/g, (_, period, rawHour, minutes) => {
     let hour = Number(rawHour); const minute = minutes === "반" ? 30 : Number(String(minutes || "0").replace(/\D/g, ""));
@@ -47,6 +48,7 @@ export function naturalEventDate(input: string, reference: Date, kind: "activity
     return ` at ${pad(hour)}:${pad(minute)} `;
   });
   if (invalidClock) return null;
+  text = text.replace(/at\s+(\d{2}:\d{2})\s*부터\s*at\s+(\d{2}:\d{2})\s*까지/g, "from $1 to $2");
   text = text.replace(/자정/g, " at 00:00 ").replace(/정오/g, " at 12:00 ").replace(/한국\s*(?:표준)?시간|한국\s*표준시|서울\s*시간/g, " KST ")
     .replace(/독일\s*(?:현지\s*)?시간|베를린\s*시간/g, " ");
   for (const [kr, en] of Object.entries(periods)) text = text.replaceAll(kr, ` ${en} `);
@@ -60,7 +62,16 @@ export function naturalEventDate(input: string, reference: Date, kind: "activity
   const results = parse(text, { instant: dateReference, timezone: Number(local.offsetNanoseconds) / 60e9 }, { forwardDate: hasDay && !/\d{4}-\d{2}-\d{2}/.test(text) });
   const dated = results.filter(result => result.start.isCertain("day"));
   const result = dated[0] || results[0];
-  if (!result || !hasDay && !previous || dated.length > 1 || results.some(item => item.end)) return null;
+  if (!result || !hasDay && !previous || dated.length > 1) return null;
+  const range = results.some(item => item.end);
+  // Only a single, same-day activity interval has an unambiguous start. Keep
+  // deadline ranges, alternatives and overnight/DST ambiguity unresolved.
+  if (range) {
+    const end = result.end;
+    if (kind !== "activity" || results.length !== 1 || !end || !result.start.isCertain("hour") || !end.isCertain("hour") ||
+      ["year", "month", "day"].some(unit => result.start.get(unit as "year" | "month" | "day") !== end.get(unit as "year" | "month" | "day")) ||
+      end.get("hour")! * 60 + (end.get("minute") || 0) <= result.start.get("hour")! * 60 + (result.start.get("minute") || 0)) return null;
+  }
   const start = result.start;
   const hasClock = /\bat\s*\d|\d:\d|\d\s*(?:am|pm)\b|\bnoon\b|\bmidnight\b|T\d{2}:/i.test(text);
   // Chrono may split a date and clock separated by Korean prose. Never use its
@@ -80,7 +91,9 @@ export function naturalEventDate(input: string, reference: Date, kind: "activity
     const zone = offset === null ? timeZone : `${offset < 0 ? "-" : "+"}${pad(Math.floor(Math.abs(offset) / 60))}:${pad(Math.abs(offset) % 60)}`;
     const zoned = Temporal.ZonedDateTime.from({ timeZone: zone, year: date.year, month: date.month, day: date.day,
       hour: hasClock ? clock.get("hour")! : 23, minute: hasClock ? clock.get("minute") || 0 : 59, second: hasClock ? clock.get("second") || 0 : 59 }, { overflow: "reject", disambiguation: "reject" });
-    return { value: zoned.toString({ timeZoneName: "never", smallestUnit: "second" }), qualifier: approximate ? "약 / approximately" : /이후|부터|\bafter\b|\bfrom\b/i.test(input) ? "이후 / onwards" : null, endOfDay: !hasClock };
+    if (result.end) Temporal.ZonedDateTime.from({ timeZone: zone, year: date.year, month: date.month, day: date.day,
+      hour: result.end.get("hour")!, minute: result.end.get("minute") || 0 }, { overflow: "reject", disambiguation: "reject" });
+    return { value: zoned.toString({ timeZoneName: "never", smallestUnit: "second" }), qualifier: approximate ? "약 / approximately" : !range && /이후|부터|\bafter\b|\bfrom\b/i.test(input) ? "이후 / onwards" : null, endOfDay: !hasClock };
   } catch { return null; }
 }
 
@@ -118,14 +131,19 @@ export function noticeHasMatchingSchedule(copy: string, values: (string | null)[
   for (const match of copy.matchAll(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/g)) dates.push({ index: match.index, end: match.index + match[0].length, day: `${match[1]}-${pad(Number(match[2]))}-${pad(Number(match[3]))}` });
   const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
   for (const match of copy.matchAll(/\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/gi)) dates.push({ index: match.index, end: match.index + match[0].length, day: `${match[3]}-${pad(months.indexOf(match[2].toLowerCase()) + 1)}-${pad(Number(match[1]))}` });
+  for (const match of copy.matchAll(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/gi)) dates.push({ index: match.index, end: match.index + match[0].length, day: `${match[3]}-${pad(months.indexOf(match[1].toLowerCase()) + 1)}-${pad(Number(match[2]))}` });
   dates.sort((a, b) => a.index - b.index);
   const found = new Set<string>();
   for (const [index, date] of dates.entries()) {
-    const suffix = copy.slice(date.end, Math.min(date.end + 160, dates[index + 1]?.index ?? copy.length)).split(/[\n.!?]/)[0];
-    const clock = /\b(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?\b/i.exec(suffix);
+    const suffix = copy.slice(date.end, Math.min(date.end + 160, dates[index + 1]?.index ?? copy.length)).replace(/\b([ap])\.m\./gi, "$1m").split(/[\n.!?]/)[0];
+    const clock = /(?:(오전|오후|저녁|밤|아침|낮|새벽)\s*)?(\d{1,2})(?::(\d{2})(?::\d{2})?\s*(am|pm)?\b|\s*시(?:\s*(반|\d{1,2}\s*분))?|\s*(am|pm)\b)/i.exec(suffix);
     if (!clock) continue;
-    const hour = clock[3] ? Number(clock[1]) % 12 + (clock[3].toLowerCase() === "pm" ? 12 : 0) : Number(clock[1]);
-    const value = `${date.day}T${pad(hour)}:${clock[2]}`;
+    const period = clock[1] || clock[4] || clock[6];
+    let hour = Number(clock[2]);
+    const minute = Number(clock[3] || (clock[5] === "반" ? 30 : clock[5]?.replace(/\D/g, "")) || 0);
+    if (hour > 23 || minute > 59 || period && (hour < 1 || hour > 12) || clock[0].includes("시") && !period && hour > 0 && hour < 12) return false;
+    if (period) hour = hour % 12 + (/오후|저녁|밤|낮|pm/i.test(period) && !(period === "밤" && hour === 12) ? 12 : 0);
+    const value = `${date.day}T${pad(hour)}:${pad(minute)}`;
     if (!expected.has(value)) return false;
     found.add(value);
   }
