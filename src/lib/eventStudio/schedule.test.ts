@@ -22,6 +22,35 @@ test("participant copies must match both local calendar days and clock times", (
   assert.equal(noticeHasMatchingSchedule("미정", values, "Europe/Berlin"), false);
 });
 
+test("same-day activity ranges resolve their start without guessing alternatives or overnight dates", () => {
+  for (const text of ["2026년 11월 7일 오후 6시부터 오후 7시까지 한국 시간", "2026년 11월 7일 오후 6시부터 7시까지", "7 November 2026 from 18:00 to 19:00 KST"]) {
+    assert.equal(naturalEventDate(text, now, "activity")?.value, "2026-11-07T18:00:00+09:00", text);
+    assert.equal(naturalEventDate(text, now, "activity")?.qualifier, null);
+    assert.equal(naturalEventDate(text, now, "deadline"), null);
+  }
+  for (const text of ["2026년 11월 7일 오후 7시부터 오후 6시까지", "2026년 11월 7일 오후 6시 또는 오후 7시", "2026년 11월 7일 오후 6시부터 오후 7시까지 또는 오후 8시"]) {
+    assert.equal(naturalEventDate(text, now, "activity"), null, text);
+  }
+  assert.equal(naturalEventDate("2026-10-25 from 01:30 to 02:30", now, "activity", "Europe/Berlin"), null);
+});
+
+test("natural Korean clocks and English month-first notices match the same approved instants", () => {
+  const values = ["2026-11-07T18:00:00+09:00", "2026-11-06T18:00:00+09:00"];
+  const copies = [
+    "일시: 2026년 11월 7일 오후 6시부터 오후 7시까지 한국 시간. 마감: 2026년 11월 6일 오후 6시 한국 시간.",
+    "일시: 2026년 11월 7일 오후 6시부터 19:00까지 한국 시간. 마감: 2026년 11월 6일 오후 6시 한국 시간.",
+    "일시: 2026년 11월 7일 오후 6:00 한국 시간. 마감: 2026년 11월 6일 18:00 한국 시간.",
+    "Event: November 7, 2026 at 6 pm KST. Deadline: November 6, 2026 at 6 p.m. KST.",
+    "Event: 7 November 2026 at 6:00 pm KST. Deadline: 6 November 2026 at 18:00 KST.",
+  ];
+  for (const copy of copies) {
+    assert.equal(noticeHasMatchingSchedule(copy, values, "Asia/Seoul"), true, copy);
+    assert.equal(noticeHasMatchingSchedule(copy.replace(/오후 6시|오후 6:00|6 pm|6:00 pm/, "12:00"), values, "Asia/Seoul"), false);
+  }
+  assert.equal(noticeHasMatchingSchedule(copies[0].replace("11월 7일", "11월 8일"), values, "Asia/Seoul"), false);
+  assert.equal(noticeHasMatchingSchedule(copies[0].replaceAll("오후 6시", "오후 13시"), values, "Asia/Seoul"), false);
+});
+
 test("the reported Germany follow-up resolves year, local clock, deadline and capacity independently", () => {
   const result = resolveEventSchedule("독일 뒤스부르크 에센 대학에서 하는 활쏘기 프로그램 관련 모집 공고 만드세요\n추가 답변 / Follow-up answer:\n11월 20일 저녁 7시 행사 시작입니다. 신청 마감은 10월 30일에 마감합니다. 모집 인원은 50명입니다.", now);
   assert.equal(result.activity?.value, "2026-11-20T19:00:00+01:00");
