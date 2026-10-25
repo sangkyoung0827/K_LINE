@@ -1,11 +1,25 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { eventHarness, fixturePlan, fixtureMessage } from "./event-studio-harness.mjs";
 const withoutTestDates = text => text.replace(/2026년 11월 [67]일 18:00 한국 시간/g, "미정").replace(/[67] November 2026, 18:00 KST/g, "pending confirmation");
 
 const deletionRequest = (body = { confirmedEnded: true }, origin = "http://127.0.0.1:3346") => new Request("http://127.0.0.1:3346/api/google-forms/forms/test", {
   method: "DELETE", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(body),
+});
+
+test("private notice audit fails closed without explicit approval and a server key", () => {
+  const cases = [
+    ["scripts/event-studio-notice-private-build.mjs", {}, /PRIVATE_NOTICE_BUILD_APPROVAL_REQUIRED/],
+    ["scripts/event-studio-notice-audit.mjs", {}, /LIVE_AUDIT_APPROVAL_REQUIRED/],
+    ["scripts/event-studio-notice-audit.mjs", { EVENT_NOTICE_LIVE_AUDIT: "true", EVENT_NOTICE_AUDIT_USE_SERVER_ENV: "true", EVENT_NOTICE_AUDIT_OUTPUT: "/tmp/never-written-notice-audit.json", WOOHYUKMON_PREVIEW_OPENAI_ENABLED: "true" }, /LIVE_OPENAI_APPROVAL_AND_KEY_REQUIRED/],
+  ];
+  for (const [script, flags, error] of cases) {
+    const result = spawnSync(process.execPath, [script], { encoding: "utf8", timeout: 10000, env: { PATH: process.env.PATH, ...flags } });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, error);
+  }
 });
 
 test("standalone requests are personal regardless of club words; embedded scopes cannot silently change", async () => {
@@ -420,6 +434,11 @@ test("new activity generic notices retry without forcing canned headings; unrela
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: fixturePlan().noticeKo + "\n2026-11-07T18:00:00+09:00" }, fixtureMessage), /READABLE_DATES/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), descriptionEn: "An introduction. ".repeat(100) }, fixtureMessage), /NOT_CONCISE/);
     assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: "## " + fixturePlan().noticeKo }, fixtureMessage), /COPY_FORMAT/);
+    for (const denial of ["신청 링크는 제공되지 않습니다.", "등록 링크가 없습니다.", "No application link will be provided.", "The registration link is unavailable."]) {
+      assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\n" + denial }, fixtureMessage), /INTERNAL_COMMENTARY/);
+    }
+    assert.doesNotThrow(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeKo: fixturePlan().noticeKo + "\n장소의 온라인 접속 링크는 아직 없습니다. 신청 링크는 별도로 안내합니다." }, fixtureMessage));
+    assert.doesNotThrow(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nThe application link is not public yet." }, fixtureMessage));
   } finally { await h.close(); }
 });
 test("strict Responses output and durable per-call telemetry for all three clubs/languages", async () => {
