@@ -351,6 +351,58 @@ test("KLINE sources inform the model but never overwrite the generated notice wi
   } finally { await h.close(); }
 });
 
+test("notice editorial guidance reaches the outbound request without changing models, output, dates or form creation", async () => {
+  const h = await eventHarness(); try {
+    const request = fixtureMessage + ". 프로그램은 자기소개 10분, 문화 이야기 30분, 소감 나누기 20분입니다.";
+    const result = await h.api.generateEventPlan(h.access().email, "ecc", request);
+    const call = h.control.requests[0];
+    assert.equal(call.input, request);
+    assert.equal(call.model, "gpt-6-luna");
+    assert.equal(call.reasoning.effort, "low");
+    assert.equal(call.max_output_tokens, 5000);
+    assert.match(call.instructions, /PARTICIPANT NOTICE EDITORIAL STANDARD/);
+    assert.match(call.instructions, /Preserve EVERY supplied program step, its order and duration in both languages/);
+    assert.match(call.instructions, /Do not use report-style headings/);
+    assert.match(call.instructions, /STYLE EXCERPTS ONLY -- not historical evidence/);
+    assert.match(call.instructions, /do not copy these example topics/);
+    assert.match(call.instructions, /Do not insert a URL, a fake placeholder/);
+    assert.match(call.instructions, /SAME program, supplied timings, costs, capacity, rules and unresolved details/);
+    assert.equal(result.plan.noticeKo, fixturePlan().noticeKo);
+    assert.equal(result.plan.noticeEn, fixturePlan().noticeEn);
+    assert.equal(result.plan.activityDate, fixturePlan().activityDate);
+    assert.equal(result.metadata.promptVersion, "event-studio-2.1-participant-notice-20261026");
+    assert.equal(h.control.externalCreates, 0);
+  } finally { await h.close(); }
+});
+
+test("notice style applies to unfamiliar activities without inheriting ECC rules or claiming organization authority", async () => {
+  const h = await eventHarness(); try {
+    for (const [club, topic] of [["hanhwal", "국궁 문화 체험"], ["ecc", "처음 여는 명상과 문화 이야기"], ["personal", "나만의 여행자 모임"]]) {
+      h.control.currentPlan = fixturePlan(club);
+      await h.api.generateEventPlan(h.access().email, club, topic + ". " + fixtureMessage);
+      const call = h.control.requests.at(-1);
+      assert.match(call.instructions, /PARTICIPANT NOTICE EDITORIAL STANDARD/);
+      assert.match(call.instructions, /Clearly label these as proposed when not confirmed/);
+      assert.doesNotMatch(call.instructions, /Groups change weekly based on applicants|next application will be restricted/);
+      if (club === "personal") assert.match(call.instructions, /not proof of official authorization/);
+    }
+    assert.equal(h.control.externalCreates, 0);
+  } finally { await h.close(); }
+});
+
+test("notice quality retry retains the editorial standard instead of falling back to a generic replacement", async () => {
+  const h = await eventHarness(); try {
+    h.control.outputs = [JSON.stringify({ ...fixturePlan(), noticeKo: "공지", noticeEn: "Notice" }), JSON.stringify(fixturePlan())];
+    const result = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(h.control.aiCalls, 2);
+    assert.match(h.control.requests[1].instructions, /EVENT_NOTICE_TOO_GENERIC/);
+    assert.match(h.control.requests[1].instructions, /retaining the participant notice editorial standard/);
+    assert.match(h.control.requests[1].instructions, /Preserve all supplied program steps, durations and facts in both languages/);
+    assert.equal(result.plan.noticeKo, fixturePlan().noticeKo);
+    assert.equal(h.control.externalCreates, 0);
+  } finally { await h.close(); }
+});
+
 test("new activity generic notices retry without forcing canned headings; unrelated ECC rules are rejected", async () => {
   const h = await eventHarness(); try {
     const weak = { ...fixturePlan(), noticeKo: "문화교류 공지\n참여 신청을 받습니다.", noticeEn: "Culture notice\nApply to participate in this activity." };
