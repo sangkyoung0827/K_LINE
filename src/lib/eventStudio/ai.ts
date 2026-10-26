@@ -6,6 +6,11 @@ import { noticeHasMatchingSchedule, resolveEventSchedule, scheduleEvidence } fro
 import { publicActivities } from "@/data/activities";
 
 export const eventPromptVersion = "event-studio-2.1-participant-notice-20261026";
+const eventRepairGuidance: Record<string, string> = {
+  UNSUPPORTED_EVENT_LOCATION: "Copy the venue name verbatim as one contiguous phrase from the CURRENT user request. Do not translate it, append parenthetical access details to location, or turn a supplied venue into null. Put access details in the notice separately.",
+  EVENT_NOTICE_MISSING_LOGISTICS_LABEL: "Keep all supplied logistics. Only genuinely unknown date or venue fields are null; label those as 미정 in Korean and to be confirmed in English. A missing access link does not make a supplied venue unknown.",
+  EVENT_NOTICE_UNSUPPORTED_MATERIALS: "Remove unsupported promises of supplied materials or equipment. Preserve explicit exclusions as clear negative sentences, e.g. 장비는 제공하지 않습니다. / Equipment is not provided. Do not invent supplies to support proposed activities.",
+};
 export const eventNoticeWritingGuide = `PARTICIPANT NOTICE EDITORIAL STANDARD
 Write a finished message that an organizer would actually send to participants, not an administrative summary of an event record.
 Open with one or two warm, specific sentences: what will people actually do together, and what makes this particular activity worth joining? Ground this in the current request or the relevant verified introduction. Avoid generic filler such as "a meaningful time", "an unforgettable experience", or merely "applications are open".
@@ -105,9 +110,9 @@ export function assertNoticeQuality(plan: EventPlan, message: string) {
   if (eligibility.test(text) && !/초보|경험.*(?:없어도|불필요)|준비.*(?:없이|불필요)|beginner|no (?:prior )?(?:experience|preparation|familiarity)/i.test(message)) {
     throw new StudioError("EVENT_NOTICE_UNSUPPORTED_ELIGIBILITY");
   }
-  for (const line of text.split(/[\n.!?]+/)) {
+  for (const line of text.split(/[\n.!?;]+|\bbut\b|하지만|다만/i)) {
     const supplies = /준비된\s*(?:차|엽서|재료|장비)|(?:재료|장비|준비물|차|엽서).*(?:제공|지원)|(?:tea|aromas|postcards|materials|equipment).*(?:provided|supplied)/i;
-    const deniedSupplies = /(?:재료|장비|준비물|물품|엽서|차).*(?:제공(?:되지\s*않|하지\s*않|은?\s*없|이?\s*없)|지원(?:하지\s*않|은?\s*없))|(?:tea|aromas|postcards|materials|equipment).*(?:not (?:be )?(?:provided|supplied)|(?:are|is) (?:not|never) (?:provided|supplied))/i;
+    const deniedSupplies = /(?:재료|장비|준비물|물품|엽서|차).*(?:제공(?:되지\s*않|하지\s*않|은?\s*없|이?\s*없|\s*[:：]\s*없)|지원(?:하지\s*않|은?\s*없))|(?:tea|aromas|postcards|materials|equipment).*(?:not (?:be )?(?:provided|supplied)|(?:are|is) (?:not|never) (?:provided|supplied))|^\s*no\s+[^;.!?]*\b(?:tea|aromas|postcards|materials|equipment)\b[^;.!?]*\b(?:is|are|will be)\s+(?:provided|supplied)\s*$/i;
     if (supplies.test(line) && !deniedSupplies.test(line) && !(supplies.test(message) && !deniedSupplies.test(message)) && !/if |whether|confirm|pending|제안|확인|확정|경우|된다면|준비하면/i.test(line)) {
       throw new StudioError("EVENT_NOTICE_UNSUPPORTED_MATERIALS");
     }
@@ -178,6 +183,7 @@ export async function generateEventPlan(actorEmail: string, clubKey: StudioClub,
   let businessFailures = 0;
   let networkFailures = 0;
   let correction = "";
+  const repairIssues = new Map<string, string>();
   // Leave room for persistence and the response inside the 160s client / 180s route limits.
   const deadline = Date.now() + 145_000;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -221,7 +227,8 @@ export async function generateEventPlan(actorEmail: string, clubKey: StudioClub,
       // No external form exists at this stage. Retry one transient transport failure,
       // but never retry authentication/quota/refusal errors or grow the three-call budget.
       if (["EVENT_AI_NETWORK_FAILURE", "EVENT_AI_TIMEOUT"].includes(errorCode) && networkFailures++ === 0 && attempt < 2 && Date.now() < deadline) continue;
-      correction = `The previous draft failed server validation: ${errorCode}. Correct this issue while retaining the participant notice editorial standard. Preserve all supplied program steps, durations and facts in both languages; do not replace them with generic summaries. Use concrete proposed activities only when requested, and the verified participation process for an established activity. Unsupported logistics must be null, not invented. Return the complete JSON schema again.`;
+      repairIssues.set(errorCode, eventRepairGuidance[errorCode] || "Correct this validation issue without discarding supplied facts.");
+      correction = `The previous draft failed server validation: ${errorCode}. Correct ALL issues observed in this request, not just the latest: ${JSON.stringify(Object.fromEntries(repairIssues))}. Correct these issues while retaining the participant notice editorial standard. Preserve all supplied program steps, durations and facts in both languages; do not replace them with generic summaries. Use concrete proposed activities only when requested, and the verified participation process for an established activity. Unsupported logistics must be null, not invented. Return the complete JSON schema again.`;
       const terminal = /OPENAI_|UNAVAILABLE|REFUSED|NETWORK|TIMEOUT|INCOMPLETE/.test(errorCode);
       if (terminal || attempt === 2) throw error instanceof StudioError ? error : new StudioError(errorCode, errorCode === "EVENT_AI_TIMEOUT" ? 504 : 502);
       if (errorCode !== "EVENT_AI_FORMAT_INVALID") businessFailures++;
