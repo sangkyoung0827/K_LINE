@@ -38,6 +38,7 @@ async function checkWideAnswer(width) {
     requests.push(`${method} ${path}`);
     let json = {};
     if (path === "/api/auth/session") json = { user: { email, name: "Layout Test" }, expires: "2099-01-01T00:00:00.000Z" };
+    else if (path === "/api/co-development/catalog") json = [];
     else if (path === "/api/woohyukmon/club-assistant" && method === "GET") json = { email, scopes: ["ecc", "hanhwal"], roles: { ecc: "admin" }, readOnly: false };
     else if (path === "/api/woohyukmon/club-assistant" && method === "POST") json = {
       handled: true, kind: "answer", title: "ECC layout test", summary,
