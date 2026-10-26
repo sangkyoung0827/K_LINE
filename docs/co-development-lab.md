@@ -1,5 +1,7 @@
 # 공동개발실
 
+> Historical release notes: this document describes the earlier two-account implementation. For the current local Developer Studio, review/publication flow, security limits and unperformed operational steps, see [developer-studio.md](./developer-studio.md).
+
 ## 접근과 승인
 
 - 소유자: `waterfallingsound0827@gmail.com`

@@ -9,6 +9,7 @@ import { I18nText, useLanguage } from "@/components/LanguageProvider";
 import { SocialImpactUnionMark } from "@/components/social-impact-union/SocialImpactUnionMark";
 import { socialImpactUnion } from "@/data/socialImpactUnion";
 import { CoDevelopmentCard } from "@/components/co-development/CoDevelopmentCard";
+import { PublishedServices } from "@/components/co-development/PublishedServices";
 
 type HomeCard = {
   href: string;
@@ -21,9 +22,9 @@ type HomeCard = {
 const homeCards: HomeCard[] = [
   {
     href: "/co-development",
-    title: { en: "Co-development Lab", ko: "공동개발실" },
-    description: { en: "Private prototypes, shared tests and owner review.", ko: "시험 기능을 만들고 함께 사용하며 검토합니다." },
-    badge: { en: "Private", ko: "공동개발자 전용" },
+    title: { en: "Developer Studio", ko: "Developer Studio" },
+    description: { en: "Develop projects and submit them for review.", ko: "프로젝트를 개발하고 검토를 요청합니다." },
+    badge: { en: "Development", ko: "개발" },
     accent: "collaboration"
   },
   {
@@ -57,16 +58,6 @@ const homeCards: HomeCard[] = [
     accent: "siu"
   },
   {
-    href: "woohyukmon",
-    title: { en: "Woohyukmon", ko: "우혁몬" },
-    description: {
-      en: "Your K_LINE assistant.",
-      ko: "K_LINE과 함께하는 우혁몬"
-    },
-    badge: { en: "Woohyukmon", ko: "우혁몬" },
-    accent: "woohyukmon"
-  },
-  {
     href: "/event-studio",
     title: { en: "Event Studio", ko: "Event Studio" },
     description: {
@@ -93,9 +84,10 @@ export function HomeTrackSections({ showEventStudio = false, showCoDevelopment =
     <section className="bg-paper px-4 pb-10 sm:px-5 sm:pb-14 md:px-8 md:pb-20">
       <div className="mx-auto max-w-7xl">
         <div className="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 md:gap-7">
-          {homeCards.filter(card => (card.accent !== "studio" || showEventStudio) && (card.accent !== "collaboration" || showCoDevelopment)).map((card) => (
-            card.accent === "collaboration" ? <CoDevelopmentCard key={card.href} /> : <HomePortalCard key={card.href} card={card} />
+          {homeCards.filter(card => card.accent !== "studio" || showEventStudio).map((card) => (
+            card.accent === "collaboration" ? <CoDevelopmentCard key={card.href} personalize={showCoDevelopment} /> : <HomePortalCard key={card.href} card={card} />
           ))}
+          <PublishedServices />
         </div>
       </div>
     </section>

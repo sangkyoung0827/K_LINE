@@ -49,7 +49,7 @@ const server = createServer(async (request,response)=>{
     if(!/^\/images\/[a-zA-Z0-9_./-]+$/.test(url.pathname)||url.pathname.includes("..")){response.writeHead(404);response.end();return;}
     try{response.setHeader("Content-Type",url.pathname.endsWith(".svg")?"image/svg+xml":"image/png");response.end(await readFile("public"+url.pathname));}catch{response.writeHead(404);response.end();}return;
   }
-  if(url.pathname!=="/"&&url.pathname!=="/co-development"){response.writeHead(404);response.end();return;}
+  if(url.pathname!=="/"&&url.pathname!=="/co-development"&&!/^\/services\/[0-9a-f-]{36}$/.test(url.pathname)){response.writeHead(404);response.end();return;}
   if(url.pathname==="/co-development"&&!harness.api.canUseCoDevelopment(email)){response.writeHead(404);response.end("Not found");return;}
   response.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"});
   response.end('<!doctype html><html lang="ko"><meta name="viewport" content="width=device-width,initial-scale=1"><title>K_LINE 공동개발실 · 로컬 검증</title><link rel="stylesheet" href="/ui.css"><body><div id="root"></div><script src="/ui.js"></script></body></html>');

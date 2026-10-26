@@ -1,5 +1,6 @@
 import { LabError, labPreviewCsp, labPreviewHtml } from "@/lib/coDevelopment/model";
-import { labActor, labCommand, labPreview } from "@/lib/coDevelopment/server";
+import { labActor, labCommand, labPreview, labCatalog, labPublicRevision, labServiceData } from "@/lib/coDevelopment/server";
+import type { LabReviewDetail } from "@/lib/coDevelopment/model";
 import { labActionSchema } from "@/lib/coDevelopment/schema";
 import { labMcp } from "@/lib/coDevelopment/mcp";
 import { labStarter } from "@/lib/coDevelopment/starter";
@@ -32,6 +33,11 @@ async function handle(request: Request, context: Context) {
     const path = (await context.params).segments || [];
     const isActions = path.length === 1 && path[0] === "actions";
     const isMcp = path.length === 1 && path[0] === "mcp";
+    if (request.method === "GET" && path.length === 1 && path[0] === "catalog") return Response.json(await labCatalog(), { headers: privateHeaders });
+    if (request.method === "GET" && path.length === 2 && path[0] === "service") {
+      const revision = await labPublicRevision(path[1]);
+      return htmlResponse(revision.html);
+    }
     const actor = await labActor(request, !(isActions || isMcp));
     if ((isActions || isMcp) && actor.via !== "token") throw new LabError("LAB_FORBIDDEN", 403);
     if (isMcp) {
@@ -47,7 +53,7 @@ async function handle(request: Request, context: Context) {
       const zip = new JSZip();
       for (const [name, content] of Object.entries(labStarter(new URL(request.url).origin))) zip.file(name, content);
       const bytes = await zip.generateAsync({ type: "uint8array" });
-      return new Response(Uint8Array.from(bytes).buffer, { headers: { ...privateHeaders, "Content-Type": "application/zip", "Content-Disposition": 'attachment; filename="yuki-codex-lab.zip"' } });
+      return new Response(Uint8Array.from(bytes).buffer, { headers: { ...privateHeaders, "Content-Type": "application/zip", "Content-Disposition": 'attachment; filename="kline-developer-studio.zip"' } });
     }
     if (request.method === "GET" && path.length === 1 && path[0] === "card") {
       const settings = await labCommand(actor, { action: "settings_get" }) as { appearance: { cardHtml: string } };
@@ -64,16 +70,28 @@ async function handle(request: Request, context: Context) {
         "X-Frame-Options": "SAMEORIGIN"
       } });
     }
+    if (request.method === "GET" && path.length === 2 && path[0] === "review-preview") {
+      const detail = await labCommand(actor, { action: "review_detail", id: path[1] }) as LabReviewDetail;
+      return htmlResponse(detail.revision.html);
+    }
+    if (request.method === "POST" && path.length === 3 && path[0] === "service" && path[2] === "data") {
+      if (!request.headers.get("content-type")?.startsWith("application/json")) throw new LabError("INVALID_BODY");
+      return Response.json(await labServiceData(actor, path[1], await readBody(request)), { headers: privateHeaders });
+    }
     if (request.method === "GET" && path.length === 0) return Response.json(await labCommand(actor, { action: "list" }), { headers: privateHeaders });
     if (request.method !== "POST" || (path.length && !isActions)) throw new LabError("NOT_FOUND", 404);
     if (!request.headers.get("content-type")?.startsWith("application/json")) throw new LabError("INVALID_BODY");
     const body = await readBody(request);
-    if (isActions && !["list", "get", "save", "settings_get", "settings_save"].includes(String(body.action))) throw new LabError("LAB_FORBIDDEN", 403);
+    if (isActions && !["list", "get", "save", "bundle_save", "source_get", "records_list", "record_save", "settings_get", "settings_save"].includes(String(body.action))) throw new LabError("LAB_FORBIDDEN", 403);
     return Response.json(await labCommand(actor, body), { headers: privateHeaders });
   } catch (error) {
     const known = error instanceof LabError;
     return Response.json({ error: known ? error.code : "LAB_UNAVAILABLE" }, { status: known ? error.status : 503, headers: privateHeaders });
   }
+}
+function htmlResponse(html: string) {
+  return new Response(labPreviewHtml(html), { headers: { ...privateHeaders, "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": labPreviewCsp,
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()", "X-Frame-Options": "SAMEORIGIN" } });
 }
 export const GET = handle;
 export const POST = handle;

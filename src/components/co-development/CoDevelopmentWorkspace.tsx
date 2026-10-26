@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Code2, Copy, Download, FileUp, FlaskConical, KeyRound, Palette, Play, Plus, RefreshCw, Save, Send, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { defaultLabAppearance, labApiPath, type LabAppearance, type LabProject, type LabRecord, type LabRecords, type LabRevision, type LabSettings, type LabState } from "@/lib/coDevelopment/model";
+import { OwnerReviews } from "./OwnerReviews";
 
 type Summary = Omit<LabProject, "html" | "fixture">;
 type Revision = Omit<LabRevision, "html" | "fixture">;
@@ -26,7 +27,7 @@ function download(name: string, value: string | Blob, type = "application/json")
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function CoDevelopmentWorkspace() {
+export function CoDevelopmentWorkspace({ owner = false }: { owner?: boolean }) {
   const { language } = useLanguage();
   const ko = language === "ko";
   const t = (kr: string, en: string) => ko ? kr : en;
@@ -205,6 +206,25 @@ export function CoDevelopmentWorkspace() {
     });
   }
 
+  useEffect(() => {
+    if (busy || dirty || loading || connecting || customizing) return;
+    let disposed = false, pending = false;
+    const timer = setInterval(() => {
+      if (pending || document.visibilityState !== "visible") return;
+      pending = true;
+      void command<{ projects: Summary[] }>({ action: "list" }).then(async data => {
+        if (disposed) return;
+        setProjects(data.projects);
+        const latest = data.projects.find(p => p.id === detail?.project.id) || (!detail ? data.projects[0] : null);
+        if (latest && latest.revision !== detail?.project.revision) {
+          const result = await command<Detail>({ action: "get", id: latest.id });
+          if (!disposed) applyDetail(result);
+        }
+      }).catch(() => {}).finally(() => { pending = false; });
+    }, 5000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, [busy, dirty, loading, connecting, customizing, detail?.project.id, detail?.project.revision]);
+
   return <main className="min-h-[80dvh] px-4 py-6 sm:px-6" style={{ background: settings.appearance.background, color: settings.appearance.foreground }}>
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-ink/15 pb-5">
@@ -250,6 +270,7 @@ export function CoDevelopmentWorkspace() {
           </div>}
         </section>
       </div>}
+      {owner && <OwnerReviews />}
     </div>
     {connecting && <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/40 p-4"><section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="lab-connect-title" className="mx-auto my-6 max-w-2xl space-y-5 rounded-lg bg-paper p-5 shadow-xl sm:p-7"><div className="flex items-center justify-between gap-4"><h2 id="lab-connect-title" className="text-xl font-semibold">{t("개발 연결", "Development connection")}</h2><button autoFocus type="button" className={iconButton} aria-label={t("닫기", "Close")} onClick={() => { setConnecting(false); setToken(""); }}><X size={18} /></button></div>
       <div role="tablist" aria-label={t("연결 방식", "Connection method")} className="flex border-b border-ink/20">{(["codex", "gpt"] as const).map(mode => <button key={mode} type="button" role="tab" aria-selected={mode===connectionMode} onClick={() => setConnectionMode(mode)} className={`min-h-11 border-b-2 px-4 text-sm font-semibold ${mode===connectionMode ? "border-teal-800" : "border-transparent"}`}>{mode==="codex" ? "Codex" : "GPT Actions"}</button>)}</div>
