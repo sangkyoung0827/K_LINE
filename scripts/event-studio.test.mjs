@@ -417,6 +417,30 @@ test("notice quality retry retains the editorial standard instead of falling bac
   } finally { await h.close(); }
 });
 
+test("repair instructions retain earlier failures and explain exact venue and supply constraints", async () => {
+  const h = await eventHarness(); try {
+    h.control.outputs = [JSON.stringify({ ...fixturePlan(), location: "QA Library (online)" }),
+      JSON.stringify({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nEquipment will be provided." }), JSON.stringify(fixturePlan())];
+    const result = await h.api.generateEventPlan(h.access().email, "ecc", fixtureMessage);
+    assert.equal(result.metadata.retries, 2);
+    assert.match(h.control.requests[2].instructions, /UNSUPPORTED_EVENT_LOCATION/);
+    assert.match(h.control.requests[2].instructions, /EVENT_NOTICE_UNSUPPORTED_MATERIALS/);
+    assert.match(h.control.requests[2].instructions, /Copy the venue name verbatim/);
+    assert.match(h.control.requests[2].instructions, /Equipment is not provided/);
+    assert.equal(result.plan.noticeEn, fixturePlan().noticeEn);
+    assert.equal(h.control.externalCreates, 0);
+  } finally { await h.close(); }
+});
+
+test("natural supply exclusions are accepted without accepting contrasting supply promises", async () => {
+  const h = await eventHarness(); try {
+    for (const exclusion of ["장비 제공: 없음", "No equipment is provided", "No accommodation, transport, meals or equipment will be provided"]) {
+      assert.doesNotThrow(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\n" + exclusion }, fixtureMessage));
+    }
+    assert.throws(() => h.api.assertNoticeQuality({ ...fixturePlan(), noticeEn: fixturePlan().noticeEn + "\nNo equipment is provided, but tea is provided." }, fixtureMessage), /UNSUPPORTED_MATERIALS/);
+  } finally { await h.close(); }
+});
+
 test("new activity generic notices retry without forcing canned headings; unrelated ECC rules are rejected", async () => {
   const h = await eventHarness(); try {
     const weak = { ...fixturePlan(), noticeKo: "문화교류 공지\n참여 신청을 받습니다.", noticeEn: "Culture notice\nApply to participate in this activity." };
