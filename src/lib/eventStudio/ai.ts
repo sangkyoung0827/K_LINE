@@ -5,7 +5,23 @@ import { eccNoticeKnowledge, resolveNoticeTemplate, verifiedNoticeRules } from "
 import { noticeHasMatchingSchedule, resolveEventSchedule, scheduleEvidence } from "./schedule";
 import { publicActivities } from "@/data/activities";
 
-export const eventPromptVersion = "event-studio-2.0-request-first";
+export const eventPromptVersion = "event-studio-2.1-participant-notice-20261026";
+export const eventNoticeWritingGuide = `PARTICIPANT NOTICE EDITORIAL STANDARD
+Write a finished message that an organizer would actually send to participants, not an administrative summary of an event record.
+Open with one or two warm, specific sentences: what will people actually do together, and what makes this particular activity worth joining? Ground this in the current request or the relevant verified introduction. Avoid generic filler such as "a meaningful time", "an unforgettable experience", or merely "applications are open".
+Then use a few short, useful sections chosen for THIS activity: what we will do, date/place, how to apply, and essential participation rules. Do not use report-style headings such as "Confirmed details", "확정된 정보", "Input information", or "Generated result". Do not repeat the introduction as a second vague activity summary.
+Preserve EVERY supplied program step, its order and duration in both languages. If the user gives an end time, keep it alongside the start time. Do not compress a supplied 10/30/20-minute itinerary into "introductions, conversation and reflections" without its timings.
+For a first-time activity where program ideas are requested, propose distinct, concrete participant actions, not generic "meet, talk, finish" stages. Clearly label these as proposed when not confirmed. For an established Gathering or English Class, explain its verified participation process instead of inventing a new itinerary.
+Use the relevant verified rules in concise participant-facing wording. Preserve their meaning and conditions; never transfer another club's penalties, weekly grouping, costs or eligibility. Historical archive content may inspire style and activities, never current logistics.
+Keep the Korean natural and welcoming, and write equally complete, idiomatic English rather than a stiff sentence-by-sentence translation. Both versions must contain the SAME program, supplied timings, costs, capacity, rules and unresolved details.
+Make the text easy to scan in a mobile chat: short paragraphs, a blank line between sections, one logistical fact per line, and optional restrained checkmarks. Avoid dense prose, tables, decorative emoji chains and loud sales language. Do not pad the notice to reach a word count.
+Only include supplied or independently verified arrangements. Put missing logistics in one concise pending-details line and ask the organizer separately via missingInformation. Do not invent benefits, medical claims, food, equipment, transport, staff or payment instructions to make a notice sound attractive.
+End with one clear next action using the application link shared separately. Do not insert a URL, a fake placeholder, a claim that registration is already open, or organizer instructions about approving a draft. The application link is handled separately by the system: never claim it does not exist, is unavailable, or will not be provided. A missing online meeting/access link refers to the venue, NOT the application form or application link. For an integration-test-only request, retain the visible test label and one concise no-recruitment warning, but do not let the warning replace the activity-specific introduction or program; a no-recruitment warning does not imply that the private test form or its link cannot be created.
+STYLE EXCERPTS ONLY -- not historical evidence or arrangements for the current event:
+Weak: "문화교류 모임입니다. 자기소개와 대화를 하고 소감을 나눕니다. / This is a cultural exchange event with introductions, conversation and reflections."
+Stronger invitation, ONLY for a request about sharing everyday culture: "같은 일상도 나라마다 어떻게 다를까요? 서로의 이야기를 듣고, 내가 익숙하게 여겼던 문화를 새로운 시선으로 만나보세요. / How does everyday life differ across cultures? Share your own stories, listen to others, and see familiar customs from a different perspective."
+Stronger proposed activity, ONLY for a request to design a cultural exchange program: "제안 활동: 각자 소개하고 싶은 생활 문화를 하나 고르고, 서로의 비슷한 점과 다른 점을 이야기합니다. / Proposed activity: Each person chooses an everyday custom to introduce, then compares similarities and differences with the group."
+Adapt the writing technique to the actual activity; do not copy these example topics or treat a proposed activity as confirmed. Silently check specificity, supplied-detail coverage, bilingual parity and factual grounding before returning the complete JSON.`;
 export function publicEventReferences(message: string) {
   const topic = message.replace(/활쏘기|국궁|한활/g, " archery ").replace(/한지/g, " hanji ").replace(/서예/g, " calligraphy ");
   const terms = [...new Set(topic.toLowerCase().split(/[^a-z0-9가-힣]+/).filter(term => term.length > 2))];
@@ -32,6 +48,7 @@ export function eventNoticeContext(clubKey: StudioClub, message: string) {
 }
 export const eventSystemPrompt = `You are WOOHYUKMON, K_LINE's event operations drafting assistant.
 Produce one coherent event proposal, natural Korean and English announcements, and pre-event application questions.
+${eventNoticeWritingGuide}
 Use short participant-facing sections: invitation, activities, confirmed logistics, application guidance.
 Each language needs a complete, useful notice, not a title plus "applications are open".
 Work like a general-purpose event writing assistant: satisfy the user's actual writing/planning request first, using K_LINE sources only as optional references. If the user asks for an announcement, provide a useful announcement immediately even with unknown logistics. Ask for remaining facts outside the copy; they block external execution, not drafting.
@@ -71,6 +88,7 @@ export function assertNoticeQuality(plan: EventPlan, message: string) {
     throw new StudioError("EVENT_NOTICE_UNRELATED_RULES");
   }
   const text = plan.noticeKo + "\n" + plan.noticeEn;
+  if (/(?:신청|지원|등록)\s*(?:링크|URL)(?:\s*(?:는|가|은|이|를|도))?\s*(?:제공(?:되지\s*않|하지\s*않|하지\s*못|할\s*수\s*없)|없|이용(?:할\s*수\s*없|이?\s*불가))|no\s+(?:application|registration|sign.up)\s+link\s+(?:will\s+be\s+provided|exists?\b|is\s+available)|(?:application|registration|sign.up)\s+link\s+(?:is|will\s+be|can\s+be)\s+(?:not\s+(?:provided|available|created)|unavailable\b)/i.test(text)) throw new StudioError("EVENT_NOTICE_INTERNAL_COMMENTARY");
   if (/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(text)) throw new StudioError("EVENT_NOTICE_READABLE_DATES_REQUIRED");
   if ([plan.activityDate, plan.applicationDeadline].some(value => value?.endsWith("+09:00")) &&
     (!/한국\s*시간|KST|UTC\+09/i.test(plan.noticeKo) || !/KST|Korea(?:n| Standard)? [Tt]ime|UTC\+09/i.test(plan.noticeEn))) throw new StudioError("EVENT_NOTICE_TIMEZONE_REQUIRED");
@@ -203,7 +221,7 @@ export async function generateEventPlan(actorEmail: string, clubKey: StudioClub,
       // No external form exists at this stage. Retry one transient transport failure,
       // but never retry authentication/quota/refusal errors or grow the three-call budget.
       if (["EVENT_AI_NETWORK_FAILURE", "EVENT_AI_TIMEOUT"].includes(errorCode) && networkFailures++ === 0 && attempt < 2 && Date.now() < deadline) continue;
-      correction = `The previous draft failed server validation: ${errorCode}. Correct this issue. Write complete activity-specific notices in both languages with invitation, concrete proposed steps, confirmed/pending logistics and application guidance. Unsupported logistics must be null, not invented. Return the complete JSON schema again.`;
+      correction = `The previous draft failed server validation: ${errorCode}. Correct this issue while retaining the participant notice editorial standard. Preserve all supplied program steps, durations and facts in both languages; do not replace them with generic summaries. Use concrete proposed activities only when requested, and the verified participation process for an established activity. Unsupported logistics must be null, not invented. Return the complete JSON schema again.`;
       const terminal = /OPENAI_|UNAVAILABLE|REFUSED|NETWORK|TIMEOUT|INCOMPLETE/.test(errorCode);
       if (terminal || attempt === 2) throw error instanceof StudioError ? error : new StudioError(errorCode, errorCode === "EVENT_AI_TIMEOUT" ? 504 : 502);
       if (errorCode !== "EVENT_AI_FORMAT_INVALID") businessFailures++;
