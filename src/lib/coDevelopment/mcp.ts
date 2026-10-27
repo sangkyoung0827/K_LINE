@@ -6,7 +6,7 @@ import { LabError } from "./model";
 import { labCommand, type LabActor } from "./server";
 import { labStarter } from "./starter";
 
-const instructions = "Private K_LINE development lab for the owner and Yuki only. Develop source files in your own Codex workspace; build self-contained HTML locally and upload it with lab_save_bundle. Use lab_records for synthetic project data, never production members or credentials. Both accounts can use the saved result. No shell, arbitrary SQL, production tables, repository writes or deployment access is provided. Read current versions before saving; reconcile conflicts instead of overwriting. Keep lab credentials in environment variables, not source or model messages.";
+const instructions = "K_LINE Developer Studio. Develop source files in your own Codex workspace; build self-contained HTML locally and upload it with lab_save_bundle. Use lab_records for synthetic project data, never production members or credentials. Only this account's projects are available; the original owner/Yuki shared workspace remains shared. No shell, arbitrary SQL, production tables, repository writes, review approval or deployment access is provided. Read current versions before saving; reconcile conflicts instead of overwriting. Keep lab credentials in environment variables, not source or model messages.";
 
 export async function labMcp(request: Request, actor: LabActor) {
   const server = new McpServer({ name: "kline-private-development", version: "1.0.0" }, { instructions });

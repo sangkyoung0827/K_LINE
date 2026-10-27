@@ -11,6 +11,18 @@ const output = process.env.MOBILE_SCREENSHOT_DIR || join(tmpdir(), "kline-mobile
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 
+async function openAssistant(page, width) {
+  if (width < 768 || width >= 1024) {
+    const launcher = page.locator(width < 768 ? '.mobile-bottom-nav [aria-controls="global-woohyukmon"]' : 'header [aria-controls="global-woohyukmon"]');
+    await launcher.click();
+    return launcher;
+  }
+  const menu = page.locator('[aria-controls="kline-mobile-navigation"]');
+  await menu.click();
+  await page.locator('#kline-mobile-navigation').getByRole("button", { name: "Woohyukmon", exact: true }).click();
+  return menu;
+}
+
 async function checkWideAnswer(width) {
   const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
   const email = "layout-test@example.invalid";
@@ -26,6 +38,7 @@ async function checkWideAnswer(width) {
     requests.push(`${method} ${path}`);
     let json = {};
     if (path === "/api/auth/session") json = { user: { email, name: "Layout Test" }, expires: "2099-01-01T00:00:00.000Z" };
+    else if (path === "/api/co-development/catalog") json = [];
     else if (path === "/api/woohyukmon/club-assistant" && method === "GET") json = { email, scopes: ["ecc", "hanhwal"], roles: { ecc: "admin" }, readOnly: false };
     else if (path === "/api/woohyukmon/club-assistant" && method === "POST") json = {
       handled: true, kind: "answer", title: "ECC layout test", summary,
@@ -36,10 +49,7 @@ async function checkWideAnswer(width) {
   });
   try {
     await page.goto(base);
-    const launcher = width < 768 ? page.locator('.mobile-bottom-nav [aria-controls="global-woohyukmon"]')
-      : width >= 1024 ? page.locator('header [aria-controls="global-woohyukmon"]')
-        : page.locator('[data-home-woohyukmon]');
-    await launcher.click();
+    await openAssistant(page, width);
     const dialog = page.getByRole("dialog", { name: "Woohyukmon", exact: true });
     await dialog.getByRole("combobox").selectOption("ecc");
     await dialog.getByRole("textbox").fill("ECC 신청 건수와 실제 참석 기록을 구분해 조회만 해주세요. ".repeat(6));
@@ -113,10 +123,10 @@ try {
       assert.equal(await menu.getAttribute("aria-expanded"), "false");
       assert.equal(await menu.evaluate((element) => element === document.activeElement), true);
       assert.equal(await nav.isVisible(), true);
-      const cards = await page.locator('main a[href="/our-activities/ecc"], main a[href="/our-activities/hanhwal"], main [data-home-woohyukmon]').all();
+      const cards = await page.locator('main a[href="/our-activities/ecc"], main a[href="/our-activities/hanhwal"], main a[href="/co-development"]').all();
       for (const card of cards) {
         const box = await card.boundingBox();
-        assert.ok(box && box.height >= 44 && box.height <= 140);
+        assert.ok(box && box.height >= 44 && box.height <= 140, `Compact home card ${await card.getAttribute("href")} at ${width}px: ${JSON.stringify(box)}`);
       }
       await menu.click();
       await page.locator('#kline-mobile-navigation').getByRole("button", { name: "Woohyukmon", exact: true }).click();
@@ -132,8 +142,9 @@ try {
     assert.ok(geometry.document <= geometry.viewport + 1, `Horizontal overflow at ${width}px`);
     assert.deepEqual(errors, []);
     await page.screenshot({ path: join(output, `home-${width}.png`), fullPage: true });
-    const launcher = width < 768 ? nav.getByRole("button", { name: /Woohyukmon|우혁몬/ }) : width >= 1024 ? page.locator('header [aria-controls="global-woohyukmon"]') : page.locator('[data-home-woohyukmon]');
-    await launcher.click();
+    assert.equal(await page.locator('main a[href="/co-development"]').count(), 1);
+    assert.equal(await page.locator('[data-home-woohyukmon]').count(), 0);
+    const launcher = await openAssistant(page, width);
     const dialog = page.getByRole("dialog", { name: "Woohyukmon", exact: true });
     await dialog.waitFor({ state: "visible" });
     const close = dialog.getByRole("button", { name: "Close Woohyukmon", exact: true });
@@ -151,6 +162,8 @@ try {
     await close.press("Escape");
     await dialog.waitFor({ state: "hidden" });
     assert.equal(await launcher.evaluate(element => element === document.activeElement), true);
+    await page.goto(`${base}/co-development`);
+    await page.waitForURL(url => url.pathname === "/login" && url.searchParams.get("callbackUrl") === "/co-development");
     await page.goto(`${base}/jeju/profile`);
     await page.getByRole("heading", { name: /Memory Book in Woohyukmon|추억록은 우혁몬 앱에서/ }).waitFor();
     assert.equal(await page.getByRole("textbox").count(), 0);

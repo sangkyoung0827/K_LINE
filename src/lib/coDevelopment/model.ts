@@ -4,8 +4,13 @@ export const labAccounts = [labOwner, labCollaborator] as const;
 export const labApiPath = "/api/co-development";
 
 export function canUseCoDevelopment(email?: string | null) {
-  return labAccounts.some(account => account === (email || "").trim().toLowerCase());
+  return Boolean(email && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()));
 }
+
+export function isLabOwner(email?: string | null) { return email?.trim().toLowerCase() === labOwner; }
+export type LabReview = { id: string; project_id: string; revision_id: string; revision: number; title: string; description: string; state: "pending" | "approved" | "rejected"; requested_by: string; requested_at: string; note: string; current_revision: number; publication_version: number; active: boolean | null; published_revision_id: string | null };
+export type LabReviewDetail = { review: LabReview; revision: LabRevision; source: { files: Record<string, string>; sourceHash: string } | null; previousHtml: string | null };
+export type PublishedLab = { id: string; title: string; description: string; revision: number };
 
 export function isCoDevelopmentApi(path: string) {
   return path === labApiPath || path.startsWith(`${labApiPath}/`);
@@ -48,8 +53,13 @@ export function labSources(value: unknown): Record<string, string> {
     if (path.length > 160 || (!safeDotfile && (!/^[a-zA-Z0-9_][a-zA-Z0-9_./-]*$/.test(path) || path.split("/").some(part => !part || part.startsWith(".")))) || /(^|\/)(node_modules|private|secrets|credentials)(\/|\.|$)/i.test(path) || /\.(pem|key|p12|pfx)$/i.test(path) || typeof content !== "string" || content.includes("\0") || /\bkll_[a-f0-9]{64}\b/.test(content)) throw new LabError("INVALID_SOURCES");
   }
   const result = Object.fromEntries(entries);
+  labNoSecrets(JSON.stringify(result));
   if (new TextEncoder().encode(JSON.stringify(result)).length > 1048576) throw new LabError("SOURCES_TOO_LARGE", 413);
   return result;
+}
+
+export function labNoSecrets(value: string) {
+  if (/\bkll_[a-f0-9]{64}\b|\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{32,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(value)) throw new LabError("SOURCE_CONTAINS_CREDENTIAL");
 }
 
 export function labRecordData(value: unknown) {
@@ -58,7 +68,7 @@ export function labRecordData(value: unknown) {
   return data;
 }
 export const defaultLabAppearance: LabAppearance = {
-  title: "공동개발실", description: "", cardHtml: "", background: "#ffffff", foreground: "#172323", accent: "#17685a", landingProjectId: null
+  title: "Developer Studio", description: "", cardHtml: "", background: "#F4EBDD", foreground: "#1F2A44", accent: "#D6A85A", landingProjectId: null
 };
 
 export function labAppearance(value: unknown): LabAppearance {
@@ -96,6 +106,7 @@ export function labSave(value: Record<string, unknown>, id: string): LabSave {
   if (typeof value.description !== "string" || value.description.length > 2000) throw new LabError("INVALID_DESCRIPTION");
   if (typeof value.html !== "string" || !value.html.trim()) throw new LabError("HTML_REQUIRED");
   if (new TextEncoder().encode(value.html).length > 262144) throw new LabError("HTML_TOO_LARGE", 413);
+  labNoSecrets(JSON.stringify({ html: value.html, fixture: value.fixture }));
   return { id: labId(value.id ?? id), expectedRevision: labVersion(value.expectedRevision), title: value.title.trim(), description: value.description.trim(), html: value.html, fixture: labData(value.fixture) };
 }
 

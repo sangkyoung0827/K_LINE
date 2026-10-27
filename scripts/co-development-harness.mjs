@@ -13,9 +13,9 @@ const dbOrigin = "http://co-dev-db.invalid";
 export async function coDevelopmentHarness() {
   const db = new PGlite(); await db.waitReady;
   await db.exec("create role anon; create role authenticated; create role service_role bypassrls; grant usage on schema public to anon, authenticated, service_role; alter default privileges in schema public grant all on tables to anon, authenticated, service_role;");
-  const migrations = (await readdir("supabase/migrations")).filter(name => /_co_development_(lab|customization|codex)\.sql$/.test(name)).sort();
+  const migrations = (await readdir("supabase/migrations")).filter(name => /_(?:co_development_(lab|customization|codex)|developer_studio)\.sql$/.test(name)).sort();
   for (const migration of migrations) await db.exec(await readFile(`supabase/migrations/${migration}`, "utf8"));
-  const signatures = new Map((await db.query("select proname,proargnames from pg_proc where pronamespace='public'::regnamespace and proname like 'co_dev_%' and proname<>'co_dev_assert'")).rows.map(row => [row.proname, row.proargnames]));
+  const signatures = new Map((await db.query("select proname,proargnames from pg_proc where pronamespace='public'::regnamespace and proname like 'co_dev_%' and proname<>'co_dev_assert'")).rows.map(row => [row.proname, row.proargnames || []]));
   await db.exec("set role service_role;");
   const originalFetch = globalThis.fetch;
   const identity = new AsyncLocalStorage();

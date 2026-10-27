@@ -24,9 +24,9 @@ async function ok(body, email, options) {
   const result = await response.json(); assert.equal(response.status, 200, JSON.stringify(result)); return result;
 }
 
-test("exactly two accounts can see the workspace policy, regardless of developer role", () => {
-  for (const email of [h.api.labOwner, h.api.labCollaborator, ` ${h.api.labCollaborator.toUpperCase()} `]) assert.equal(h.api.canUseCoDevelopment(email), true);
-  for (const email of [null, "", "other-admin@example.test", "waterfallingsound0827@gamail.com", "noritakeyuki@fuji.waseda.jp.evil.test"]) assert.equal(h.api.canUseCoDevelopment(email), false);
+test("any signed-in account can enter; email-like input alone never authenticates an API request", () => {
+  for (const email of [h.api.labOwner, h.api.labCollaborator, ` ${h.api.labCollaborator.toUpperCase()} `,"member@example.test","other-admin@example.test"]) assert.equal(h.api.canUseCoDevelopment(email), true);
+  for (const email of [null, "", "invalid", "member @example.test"]) assert.equal(h.api.canUseCoDevelopment(email), false);
 });
 
 test("both encrypted Google-session identities can save and run the same revision", async () => {
@@ -48,8 +48,15 @@ test("both encrypted Google-session identities can save and run the same revisio
   assert.match(await response.text(), /window.KLINE_LAB/);
 });
 
-test("normal members, other developers, anonymous users and spoofed identity headers cannot access prototypes", async () => {
-  for (const email of [null, "member@example.test", "other-developer@example.test"]) {
+test("members enter empty isolated workspaces; anonymous and spoofed identities cannot access prototypes", async () => {
+  for (const email of ["member@example.test", "other-developer@example.test"]) {
+    assert.deepEqual((await ok({action:"list"},email)).projects,[]);
+    const { appearance } = await ok({action:"settings_get"},email);
+    assert.equal(appearance.background, "#F4EBDD");
+    assert.equal(appearance.foreground, "#1F2A44");
+    assert.equal(appearance.accent, "#D6A85A");
+  }
+  for (const email of [null]) {
     const response = await h.call({ action: "list" }, email, { headers: { "x-email": h.api.labOwner, "x-kline-read-only-developer": "0" } });
     assert.ok([401, 403].includes(response.status));
   }
@@ -99,7 +106,7 @@ test("schema is private and only exposes limited lab actions", async () => {
   const response = await h.handle(new NextRequest("http://127.0.0.1:3365/api/co-development/schema", { headers: { cookie: await h.cookie(h.api.labCollaborator) } }));
   assert.equal(response.status, 200); const schema = await response.json();
   assert.deepEqual(Object.keys(schema.paths), ["/api/co-development/actions"]);
-  assert.deepEqual(schema.paths["/api/co-development/actions"].post.requestBody.content["application/json"].schema.properties.action.enum, ["list", "get", "save", "settings_get", "settings_save"]);
+  assert.deepEqual(schema.paths["/api/co-development/actions"].post.requestBody.content["application/json"].schema.properties.action.enum, ["list", "get", "save", "bundle_save", "source_get", "records_list", "record_save", "settings_get", "settings_save"]);
 });
 
 test("Yuki's GPT can redesign the card and choose a shared opening screen without owner intervention", async () => {
@@ -121,10 +128,14 @@ test("Yuki's GPT can redesign the card and choose a shared opening screen withou
   assert.equal(card.status, 200); assert.equal(await card.text(), appearance.cardHtml);
   assert.match(card.headers.get("content-security-policy"), /sandbox allow-scripts/); assert.match(card.headers.get("content-security-policy"), /connect-src 'none'/);
   assert.equal(card.headers.get("cache-control"), "private, no-store");
-  for (const email of [null, "member@example.test", "developer@example.test"]) {
+  for (const email of [null]) {
     assert.ok([401, 403].includes((await h.call({ action: "settings_get" }, email)).status));
     const response = await h.handle(new NextRequest("https://kline.test/api/co-development/card", { headers: email ? { cookie: await h.cookie(email, true) } : {} }));
     assert.ok([401, 403].includes(response.status));
+  }
+  for (const email of ["member@example.test", "developer@example.test"]) {
+    const settings = await ok({action:"settings_get"},email);
+    assert.equal(settings.version,0); assert.equal(settings.appearance.cardHtml,"");
   }
   const invalid = [ { ...appearance, accent: "red;position:fixed" }, { ...appearance, cardHtml: "x".repeat(65537) }, { ...appearance, landingProjectId: "../../admin" }, { ...appearance, production: true } ];
   for (const value of invalid) assert.ok([400, 413].includes((await h.call({ action: "settings_save", appearance: value, expectedVersion: updated.version }, null, options)).status));
@@ -194,7 +205,7 @@ test("project test backend persists across revisions, paginates, detects conflic
   assert.equal((await h.db.query("select count(*)::int as n from co_dev_record_history where project_id=$1 and id=$2",[input.id,id])).rows[0].n,4);
   assert.equal((await h.call({ ...request, expectedVersion: 4, data: { text:"a".repeat(16385) } })).status,413);
   assert.equal((await h.call({ ...request, collection:"members;drop table x" })).status,400);
-  for(const email of [null,"member@example.test","developer@example.test"]) assert.ok([401,403].includes((await h.call(request,email)).status));
+    for(const email of [null,"member@example.test","developer@example.test"]) assert.ok([401,403,404].includes((await h.call(request,email)).status));
 });
 
 test("browser SDK keeps request correlation separate from record ids and rejects envelope overrides", async () => {
@@ -269,4 +280,154 @@ test("only namespaced lab mutations bypass the existing Yuki read-only middlewar
   assert.ok(h.calls.every(call => call.name.startsWith("co_dev_")));
   const response = await h.call({ action: "save", ...draft(), html: "x".repeat(262145) }); assert.equal(response.status, 413);
   assert.equal((await h.call({ action: "get", id: "id);drop table member;--" })).status, 400);
+});
+
+const alice = "alice@example.test", bob = "bob@example.test";
+async function publicGet(path, email) {
+  return h.handle(new NextRequest(`https://kline.test/api/co-development/${path}`, { headers: email ? {cookie:await h.cookie(email,true)} : {} }));
+}
+async function dataCall(projectId, body, email = alice, headers = {}) {
+  return h.call(body,email,{url:`https://kline.test/api/co-development/service/${projectId}/data`,headers});
+}
+
+test("tenant guards cover every project, revision, source, state, record and settings entry point", async () => {
+  const input = {...draft(),action:"bundle_save",files:{"main.js":"console.log('hello')"}};
+  const saved = await ok(input,alice);
+  const rid = saved.revisionId;
+  const recordId = randomUUID();
+  await ok({action:"record_save",projectId:input.id,collection:"events",id:recordId,data:{title:"Synthetic"},expectedVersion:0},alice);
+  const forbidden = [
+    {action:"get",id:input.id},{action:"revision",revisionId:rid},{action:"source_get",revisionId:rid},
+    {action:"state_read",revisionId:rid},{action:"state_save",revisionId:rid,data:{},expectedVersion:0},
+    {action:"records_list",projectId:input.id,collection:"events"},
+    {action:"record_save",projectId:input.id,collection:"events",id:recordId,data:{},expectedVersion:1},
+    {...input,expectedRevision:1},{...input,expectedRevision:0},{action:"review",id:input.id,expectedRevision:1}
+  ];
+  for (const email of [bob,h.api.labCollaborator,h.api.labOwner]) {
+    assert.ok(!(await ok({action:"list"},email)).projects.some(p=>p.id===input.id));
+    for (const body of forbidden) assert.equal((await h.call(body,email)).status,404,`${email} ${body.action}`);
+    assert.equal((await publicGet(`preview/${rid}`,email)).status,404);
+  }
+  const settings=await ok({action:"settings_get"},alice);
+  await ok({action:"settings_save",appearance:{...settings.appearance,title:"Alice",landingProjectId:input.id},expectedVersion:settings.version},alice);
+  assert.notEqual((await ok({action:"settings_get"},bob)).appearance.title,"Alice");
+  assert.equal((await h.call({action:"settings_save",appearance:{...settings.appearance,landingProjectId:input.id},expectedVersion:0},bob)).status,404);
+  assert.equal((await ok({action:"get",id:input.id},alice)).project.revision,1);
+});
+
+test("ordinary account GPT Actions can save real source bundles and data but never review or release", async () => {
+  const {token}=await ok({action:"token_rotate"},bob);
+  const options={url:"https://kline.test/api/co-development/actions",headers:{authorization:`Bearer ${token}`}};
+  const input={...draft(),action:"bundle_save",files:{"main.js":"document.title='Bob'"}};
+  const saved=await ok(input,null,options);
+  const source=await ok({action:"source_get",revisionId:saved.revisionId},null,options);
+  assert.deepEqual(source.files,input.files);
+  await ok({action:"record_save",projectId:input.id,collection:"tasks",id:randomUUID(),data:{done:false},expectedVersion:0},null,options);
+  const page=await ok({action:"records_list",projectId:input.id,collection:"tasks"},null,options);assert.equal(page.records.length,1);
+  for(const action of ["review","review_queue","review_detail","review_decide","release","token_rotate","service_data","sql","deploy"]) assert.equal((await h.call({action,id:input.id,publish:true,approve:true},null,options)).status,403);
+  const aliceProject=(await ok({action:"list"},alice)).projects[0];
+  assert.equal((await h.call({action:"get",id:aliceProject.id},null,options)).status,404);
+  await ok({action:"token_revoke"},bob);
+  assert.equal((await h.call({action:"list"},null,options)).status,403);
+});
+
+test("owner reviews immutable source and preview; stale submissions cannot be approved or published", async () => {
+  const input={...draft(),action:"bundle_save",files:{"main.js":"v1"}};const saved=await ok(input,alice);
+  await ok({action:"review",id:input.id,expectedRevision:1},alice);
+  const queue=await ok({action:"review_queue"},h.api.labOwner);const item=queue.find(q=>q.project_id===input.id);
+  assert.ok(item);assert.equal(item.state,"pending");
+  const detail=await ok({action:"review_detail",id:item.id},h.api.labOwner);
+  assert.equal(detail.revision.html,input.html);assert.deepEqual(detail.source.files,input.files);
+  const preview=await publicGet(`review-preview/${item.id}`,h.api.labOwner);assert.equal(preview.status,200);assert.match(preview.headers.get("content-security-policy"),/sandbox allow-scripts/);
+  for(const email of [alice,bob,h.api.labCollaborator,null]) {
+    assert.ok([401,403].includes((await h.call({action:"review_queue"},email)).status));
+    assert.ok([401,403].includes((await publicGet(`review-preview/${item.id}`,email)).status));
+    assert.ok([401,403].includes((await h.call({action:"review_decide",id:item.id,approve:true,note:"spoof"},email)).status));
+  }
+  assert.equal((await h.call({action:"release",id:item.id,expectedVersion:0,publish:true},h.api.labOwner)).status,400);
+  const issued=await ok({action:"token_rotate"},h.api.labOwner);
+  assert.equal((await h.call({action:"review_decide",id:item.id,approve:true,note:"invalid channel"},null,{headers:{authorization:`Bearer ${issued.token}`}})).status,403);
+  await ok({...input,expectedRevision:1,html:"<p>v2</p>"},alice);
+  assert.equal((await h.call({action:"review_decide",id:item.id,approve:true,note:"stale"},h.api.labOwner)).status,409);
+  assert.equal((await ok({action:"review_detail",id:item.id},h.api.labOwner)).revision.html,saved.project.html);
+  assert.equal((await publicGet(`service/${input.id}`)).status,404);
+});
+
+test("approval and publication are separate; only the approved revision becomes a public card", async () => {
+  const input={...draft(),title:"Approved service",description:"Synthetic service",html:"<h1>Approved v1</h1>"};await ok(input,alice);
+  await ok({action:"review",id:input.id,expectedRevision:1},alice);
+  const item=(await ok({action:"review_queue"},h.api.labOwner)).find(q=>q.project_id===input.id);
+  await ok({action:"review_decide",id:item.id,approve:true,note:"Reviewed source and functionality"},h.api.labOwner);
+  assert.equal((await publicGet(`service/${input.id}`)).status,404);
+  const published=await ok({action:"release",id:item.id,expectedVersion:0,publish:true},h.api.labOwner);assert.equal(published.version,1);
+  const catalog=await (await publicGet("catalog")).json();const card=catalog.find(p=>p.id===input.id);assert.equal(card.title,input.title);
+  for(const key of ["created_by","fixture","html","source"])assert.equal(card[key],undefined);
+  const page=await publicGet(`service/${input.id}`);assert.match(await page.text(),/Approved v1/);assert.equal(page.headers.get("cache-control"),"private, no-store");
+  await ok({...input,expectedRevision:1,html:"<h1>UNAPPROVED v2</h1>",title:"Unapproved service"},alice);
+  const unchanged=await (await publicGet(`service/${input.id}`)).text();assert.match(unchanged,/Approved v1/);assert.doesNotMatch(unchanged,/UNAPPROVED/);
+  assert.equal((await h.call({action:"release",id:item.id,expectedVersion:1,publish:true},h.api.labOwner)).status,409);
+  await ok({action:"release",id:item.id,expectedVersion:1,publish:false},h.api.labOwner);
+  assert.equal((await publicGet(`service/${input.id}`)).status,404);
+  assert.equal((await dataCall(input.id,{action:"state_read"})).status,404);
+});
+
+test("published data is partitioned per signed-in visitor and never copies author test records", async () => {
+  const input={...draft(),fixture:{secret:"synthetic-only-private-fixture"}};await ok(input,alice);
+  await ok({action:"record_save",projectId:input.id,collection:"tasks",id:randomUUID(),data:{privateTest:true},expectedVersion:0},alice);
+  await ok({action:"review",id:input.id,expectedRevision:1},alice);
+  const item=(await ok({action:"review_queue"},h.api.labOwner)).find(q=>q.project_id===input.id);
+  await ok({action:"review_decide",id:item.id,approve:true,note:"Reviewed"},h.api.labOwner);
+  await ok({action:"release",id:item.id,expectedVersion:0,publish:true},h.api.labOwner);
+  const initial=await (await dataCall(input.id,{action:"state_read"})).json();assert.deepEqual(initial,{data:{},version:0});
+  assert.equal((await dataCall(input.id,{action:"state_read"},null)).status,401);
+  assert.equal((await dataCall(input.id,{action:"state_read"},alice,{origin:"https://evil.test"})).status,403);
+  const token=await ok({action:"token_rotate"},alice);
+  assert.equal((await dataCall(input.id,{action:"state_read"},null,{authorization:`Bearer ${token.token}`})).status,403);
+  const recordId=randomUUID();
+  const saved=await dataCall(input.id,{action:"record_save",collection:"tasks",id:recordId,expectedVersion:0,data:{text:"Alice live task"},actor:bob,projectId:randomUUID()});assert.equal(saved.status,200);
+  const mine=await (await dataCall(input.id,{action:"records_list",collection:"tasks"})).json();assert.equal(mine.records.length,1);assert.equal(mine.records[0].data.text,"Alice live task");assert.equal(mine.records[0].actor,undefined);
+  const theirs=await (await dataCall(input.id,{action:"records_list",collection:"tasks"},bob)).json();assert.deepEqual(theirs.records,[]);
+  assert.equal((await dataCall(input.id,{action:"record_save",collection:"tasks",id:recordId,expectedVersion:1,data:{bad:true}},bob)).status,409);
+  assert.equal((await dataCall(input.id,{action:"record_save",collection:"tasks",id:recordId,expectedVersion:0,data:{bad:true}})).status,409);
+  assert.equal((await dataCall(input.id,{action:"record_save",collection:"tasks",id:recordId,expectedVersion:1,data:{text:"Archived"},archived:true})).status,200);
+  assert.deepEqual((await (await dataCall(input.id,{action:"records_list",collection:"tasks"})).json()).records,[]);
+  assert.equal((await dataCall(input.id,{action:"state_save",data:{count:1},expectedVersion:0})).status,200);
+  const largeState={text:"x".repeat(50000)};
+  assert.equal((await dataCall(input.id,{action:"state_save",data:largeState,expectedVersion:1})).status,200);
+  assert.deepEqual((await (await dataCall(input.id,{action:"state_read"})).json()).data,largeState);
+  assert.equal((await dataCall(input.id,{action:"state_save",data:{text:"x".repeat(65536)},expectedVersion:2})).status,413);
+  assert.deepEqual((await (await dataCall(input.id,{action:"state_read"},bob)).json()).data,{});
+  const bad=await dataCall(input.id,{action:"record_save",collection:"../members",id:recordId,expectedVersion:0,data:{}});assert.equal(bad.status,400);
+});
+
+test("rejected submissions do not publish; missing review notes and embedded credentials fail closed", async () => {
+  const input=draft();await ok(input,bob);await ok({action:"review",id:input.id,expectedRevision:1},bob);
+  const item=(await ok({action:"review_queue"},h.api.labOwner)).find(q=>q.project_id===input.id);
+  assert.equal((await h.call({action:"review_decide",id:item.id,approve:true,note:""},h.api.labOwner)).status,400);
+  await ok({action:"review_decide",id:item.id,approve:false,note:"Needs changes"},h.api.labOwner);
+  assert.equal((await h.call({action:"release",id:item.id,expectedVersion:0,publish:true},h.api.labOwner)).status,400);
+  assert.equal((await publicGet(`service/${input.id}`)).status,404);
+  assert.equal((await h.call({...draft(),html:`<p>kll_${"a".repeat(64)}</p>`},bob)).status,400);
+  assert.equal((await h.call({...draft(),fixture:{key:`sk-proj-${"x".repeat(40)}`}},bob)).status,400);
+});
+
+test("additive migration is repeatable, preserves legacy data and keeps every table/RPC private", async () => {
+  const count=(await h.db.query("select count(*) as n from co_dev_projects")).rows[0].n;
+  const old=await ok({action:"list"},h.api.labCollaborator);
+  await h.db.exec("reset role");
+  try { await h.db.exec(await readFile("supabase/migrations/20261026174659_developer_studio.sql","utf8")); } finally { await h.db.exec("set role service_role"); }
+  assert.equal((await h.db.query("select count(*) as n from co_dev_projects")).rows[0].n,count);
+  assert.deepEqual(await ok({action:"list"},h.api.labCollaborator),old);
+  for(const role of ["anon","authenticated"]) {
+    await h.db.exec(`set role ${role}`);
+    try {
+      for(const table of ["co_dev_reviews","co_dev_publications","co_dev_release_history","co_dev_user_settings","co_dev_user_settings_history","co_dev_service_records","co_dev_service_writes"]) {
+        await assert.rejects(h.db.query(`select * from ${table}`),/permission denied/);
+        await assert.rejects(h.db.query(`delete from ${table}`),/permission denied/);
+      }
+      await assert.rejects(h.db.query("select co_dev_catalog()"),/permission denied/);
+      await assert.rejects(h.db.query("select co_dev_internal_get($1,$2)",[h.api.labOwner,old.projects[0].id]),/permission denied/);
+    } finally { await h.db.exec("set role service_role"); }
+  }
+  assert.ok(h.calls.every(call=>!call.name.includes("internal_")));
 });

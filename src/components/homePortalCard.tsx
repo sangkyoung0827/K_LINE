@@ -1,0 +1,2 @@
+// Keep shared class literals under components so Tailwind includes them in production CSS.
+export const homePortalCardClassName = "group relative grid min-h-24 grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-3 rounded-lg border border-navy/10 bg-white/58 p-4 text-left transition duration-200 hover:border-brass/70 hover:bg-white/78 sm:flex sm:flex-col sm:items-stretch sm:gap-0 sm:rounded-xl sm:p-5 sm:shadow-[0_18px_45px_rgba(31,42,68,0.06)] md:min-h-[292px] md:rounded-2xl md:p-8";

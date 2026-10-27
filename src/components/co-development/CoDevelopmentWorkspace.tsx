@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Code2, Copy, Download, FileUp, FlaskConical, KeyRound, Palette, Play, Plus, RefreshCw, Save, Send, X } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { defaultLabAppearance, labApiPath, type LabAppearance, type LabProject, type LabRecord, type LabRecords, type LabRevision, type LabSettings, type LabState } from "@/lib/coDevelopment/model";
+import { OwnerReviews } from "./OwnerReviews";
 
 type Summary = Omit<LabProject, "html" | "fixture">;
 type Revision = Omit<LabRevision, "html" | "fixture">;
@@ -26,7 +27,7 @@ function download(name: string, value: string | Blob, type = "application/json")
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function CoDevelopmentWorkspace() {
+export function CoDevelopmentWorkspace({ owner = false }: { owner?: boolean }) {
   const { language } = useLanguage();
   const ko = language === "ko";
   const t = (kr: string, en: string) => ko ? kr : en;
@@ -205,6 +206,25 @@ export function CoDevelopmentWorkspace() {
     });
   }
 
+  useEffect(() => {
+    if (busy || dirty || loading || connecting || customizing) return;
+    let disposed = false, pending = false;
+    const timer = setInterval(() => {
+      if (pending || document.visibilityState !== "visible") return;
+      pending = true;
+      void command<{ projects: Summary[] }>({ action: "list" }).then(async data => {
+        if (disposed) return;
+        setProjects(data.projects);
+        const latest = data.projects.find(p => p.id === detail?.project.id) || (!detail ? data.projects[0] : null);
+        if (latest && latest.revision !== detail?.project.revision) {
+          const result = await command<Detail>({ action: "get", id: latest.id });
+          if (!disposed) applyDetail(result);
+        }
+      }).catch(() => {}).finally(() => { pending = false; });
+    }, 5000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, [busy, dirty, loading, connecting, customizing, detail?.project.id, detail?.project.revision]);
+
   return <main className="min-h-[80dvh] px-4 py-6 sm:px-6" style={{ background: settings.appearance.background, color: settings.appearance.foreground }}>
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-ink/15 pb-5">
@@ -224,7 +244,7 @@ export function CoDevelopmentWorkspace() {
         {toolsOpen && <aside className="min-w-0 space-y-3 lg:border-r lg:border-ink/15 lg:pr-5">
           <div className="flex items-center justify-between"><h2 className="text-base font-semibold">{t("시험 기능", "Prototypes")}</h2><div className="flex gap-1"><button type="button" className={iconButton} title={t("새로고침", "Refresh")} aria-label={t("새로고침", "Refresh")} disabled={busy} onClick={() => void perform(refresh)}><RefreshCw size={17} /></button><button type="button" className={iconButton} title={t("새 기능", "New prototype")} aria-label={t("새 기능", "New prototype")} disabled={busy} onClick={() => { if (!canLeave()) return; setDetail(null); setEditor(empty); setRevisionId(""); setDirty(false); newId.current = null; setTab("source"); }}><Plus size={18} /></button></div></div>
           {!projects.length && <p className="py-5 text-sm text-muted">{t("등록된 시험 기능이 없습니다.", "No prototypes yet.")}</p>}
-          <ul className="space-y-2">{projects.map(project => <li key={project.id}><button type="button" disabled={busy} onClick={() => { if (canLeave()) void perform(async () => { await load(project.id); setTab("preview"); }); }} className={`w-full rounded border p-3 text-left ${detail?.project.id === project.id ? "border-teal-800 bg-teal-50" : "border-ink/15 bg-white/50"}`}><span className="block break-words font-semibold">{project.title}</span><span className="mt-2 block text-xs text-muted">v{project.revision} · {project.review_state === "review_requested" ? t("검토 요청", "Review requested") : t("개발 중", "Draft")}</span></button></li>)}</ul>
+          <ul className="space-y-2">{projects.map(project => <li key={project.id}><button type="button" disabled={busy} onClick={() => { if (canLeave()) void perform(async () => { await load(project.id); setTab("preview"); }); }} className={`w-full rounded border p-3 text-left ${detail?.project.id === project.id ? "border-brass bg-hanji text-navy" : "border-ink/15 bg-white/50"}`}><span className="block break-words font-semibold">{project.title}</span><span className="mt-2 block text-xs text-muted">v{project.revision} · {project.review_state === "review_requested" ? t("검토 요청", "Review requested") : t("개발 중", "Draft")}</span></button></li>)}</ul>
         </aside>}
         <section className="min-w-0 space-y-4">
           {!toolsOpen && projects.length > 1 && <select className="form-field max-w-md bg-white text-ink" aria-label={t("결과물 선택", "Select result")} value={detail?.project.id || ""} disabled={busy} onChange={event => void perform(async () => { await load(event.target.value); setTab("preview"); })}>{projects.map(project => <option key={project.id} value={project.id}>{project.title}</option>)}</select>}
@@ -250,9 +270,10 @@ export function CoDevelopmentWorkspace() {
           </div>}
         </section>
       </div>}
+      {owner && <OwnerReviews />}
     </div>
     {connecting && <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/40 p-4"><section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="lab-connect-title" className="mx-auto my-6 max-w-2xl space-y-5 rounded-lg bg-paper p-5 shadow-xl sm:p-7"><div className="flex items-center justify-between gap-4"><h2 id="lab-connect-title" className="text-xl font-semibold">{t("개발 연결", "Development connection")}</h2><button autoFocus type="button" className={iconButton} aria-label={t("닫기", "Close")} onClick={() => { setConnecting(false); setToken(""); }}><X size={18} /></button></div>
-      <div role="tablist" aria-label={t("연결 방식", "Connection method")} className="flex border-b border-ink/20">{(["codex", "gpt"] as const).map(mode => <button key={mode} type="button" role="tab" aria-selected={mode===connectionMode} onClick={() => setConnectionMode(mode)} className={`min-h-11 border-b-2 px-4 text-sm font-semibold ${mode===connectionMode ? "border-teal-800" : "border-transparent"}`}>{mode==="codex" ? "Codex" : "GPT Actions"}</button>)}</div>
+      <div role="tablist" aria-label={t("연결 방식", "Connection method")} className="flex border-b border-ink/20">{(["codex", "gpt"] as const).map(mode => <button key={mode} type="button" role="tab" aria-selected={mode===connectionMode} onClick={() => setConnectionMode(mode)} className={`min-h-11 border-b-2 px-4 text-sm font-semibold ${mode===connectionMode ? "border-brass text-navy" : "border-transparent"}`}>{mode==="codex" ? "Codex" : "GPT Actions"}</button>)}</div>
       {connectionMode === "codex" ? <div role="tabpanel" className="space-y-4"><pre className="overflow-auto rounded border border-ink/20 bg-white p-3 text-xs">{`[mcp_servers.kline_lab]\nurl = "${window.location.origin}${labApiPath}/mcp"\nbearer_token_env_var = "KLINE_LAB_TOKEN"`}</pre><div className="flex flex-wrap gap-2"><button className={button} disabled={busy} onClick={() => void perform(() => copy(`[mcp_servers.kline_lab]\nurl = "${window.location.origin}${labApiPath}/mcp"\nbearer_token_env_var = "KLINE_LAB_TOKEN"`))}><Copy size={16} />{t("Codex 설정 복사", "Copy Codex config")}</button><button className={button} disabled={busy} onClick={() => void perform(async () => { const response = await fetch(`${labApiPath}/starter`, { cache: "no-store" }); if (!response.ok) throw new Error("LAB_UNAVAILABLE"); download("yuki-codex-lab.zip", await response.blob()); })}><Download size={16} />{t("개발 프로젝트 받기", "Download project")}</button></div></div> : <div role="tabpanel" className="space-y-4"><ol className="list-decimal space-y-3 pl-5 text-sm leading-6"><li>{t("개인 GPT의 Actions에서 스키마를 가져옵니다.", "Import the schema in your personal GPT's Actions settings.")}</li><li>{t("인증을 API Key · Bearer로 선택하고 아래 연결키를 입력합니다.", "Choose API Key authentication with Bearer and enter the connection key below.")}</li></ol><button type="button" className={button} disabled={busy} onClick={() => void perform(async () => { const response = await fetch(`${labApiPath}/schema`, { cache: "no-store" }); if (!response.ok) throw new Error("LAB_UNAVAILABLE"); const value = JSON.stringify(await response.json(), null, 2); setSchema(value); await copy(value); })}><Copy size={16} />{t("스키마 복사", "Copy schema")}</button></div>}
       <div className="flex flex-wrap gap-2"><button type="button" className={button} disabled={busy} onClick={() => void perform(async () => { const value = await command<{ token: string; expiresAt: string }>({ action: "token_rotate" }); setToken(value.token); setExpiry(value.expiresAt); })}><KeyRound size={16} />{t("연결키 발급 · 갱신", "Issue / rotate key")}</button><button type="button" className={button} disabled={busy} onClick={() => void perform(async () => { await command({ action: "token_revoke" }); setToken(""); setNotice(t("연결을 해제했습니다.", "Connection revoked.")); })}>{t("연결 해제", "Revoke")}</button></div>
       {schema && <details><summary className="cursor-pointer text-sm">OpenAPI</summary><pre className="mt-2 max-h-48 overflow-auto rounded border border-ink/20 bg-white p-3 text-xs">{schema}</pre></details>}
