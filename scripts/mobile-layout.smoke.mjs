@@ -143,6 +143,7 @@ try {
     assert.deepEqual(errors, []);
     await page.screenshot({ path: join(output, `home-${width}.png`), fullPage: true });
     assert.equal(await page.locator('main a[href="/co-development"]').count(), 1);
+    assert.equal(await page.locator('main a').last().getAttribute("href"), "/co-development");
     assert.equal(await page.locator('[data-home-woohyukmon]').count(), 0);
     const launcher = await openAssistant(page, width);
     const dialog = page.getByRole("dialog", { name: "Woohyukmon", exact: true });
