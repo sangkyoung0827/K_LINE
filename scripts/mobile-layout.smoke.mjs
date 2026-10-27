@@ -123,7 +123,7 @@ try {
       assert.equal(await menu.getAttribute("aria-expanded"), "false");
       assert.equal(await menu.evaluate((element) => element === document.activeElement), true);
       assert.equal(await nav.isVisible(), true);
-      const cards = await page.locator('main a[href="/our-activities/ecc"], main a[href="/our-activities/hanhwal"]').all();
+      const cards = await page.locator('main a[href="/our-activities/ecc"], main a[href="/our-activities/hanhwal"], main a[href="/co-development"]').all();
       for (const card of cards) {
         const box = await card.boundingBox();
         assert.ok(box && box.height >= 44 && box.height <= 140);

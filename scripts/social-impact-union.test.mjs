@@ -80,6 +80,8 @@ test("SIU and existing home cards share the exact responsive wrapper, with prese
     const cards = [...html.matchAll(/<a href="([^"]+)" class="([^"]+)"/g)];
     assert.deepEqual(cards.map((card) => card[1]), ["/our-activities/ecc", "/our-activities/hanhwal", "/social-impact-union", ...(showEventStudio ? ["/event-studio"] : []), "/open-k-culture-research"]);
     assert.match(html, /href="\/co-development" aria-label="Developer Studio"/);
+    const studioCard = html.match(/<a href="\/co-development" aria-label="Developer Studio" class="([^"]+)"/);
+    assert.equal(studioCard[1], cards[0][2]);
     assert.doesNotMatch(html, /data-home-woohyukmon|Open Woohyukmon|우혁몬 열기/);
     assert.equal(new Set(cards.map((card) => card[2])).size, 1);
     assert.match(html, /md:grid-cols-2 xl:grid-cols-3/);
