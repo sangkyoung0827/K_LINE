@@ -68,7 +68,7 @@ export function labRecordData(value: unknown) {
   return data;
 }
 export const defaultLabAppearance: LabAppearance = {
-  title: "Developer Studio", description: "", cardHtml: "", background: "#ffffff", foreground: "#172323", accent: "#17685a", landingProjectId: null
+  title: "Developer Studio", description: "", cardHtml: "", background: "#F4EBDD", foreground: "#1F2A44", accent: "#D6A85A", landingProjectId: null
 };
 
 export function labAppearance(value: unknown): LabAppearance {

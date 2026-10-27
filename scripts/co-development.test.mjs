@@ -49,7 +49,13 @@ test("both encrypted Google-session identities can save and run the same revisio
 });
 
 test("members enter empty isolated workspaces; anonymous and spoofed identities cannot access prototypes", async () => {
-  for (const email of ["member@example.test", "other-developer@example.test"]) assert.deepEqual((await ok({action:"list"},email)).projects,[]);
+  for (const email of ["member@example.test", "other-developer@example.test"]) {
+    assert.deepEqual((await ok({action:"list"},email)).projects,[]);
+    const { appearance } = await ok({action:"settings_get"},email);
+    assert.equal(appearance.background, "#F4EBDD");
+    assert.equal(appearance.foreground, "#1F2A44");
+    assert.equal(appearance.accent, "#D6A85A");
+  }
   for (const email of [null]) {
     const response = await h.call({ action: "list" }, email, { headers: { "x-email": h.api.labOwner, "x-kline-read-only-developer": "0" } });
     assert.ok([401, 403].includes(response.status));
