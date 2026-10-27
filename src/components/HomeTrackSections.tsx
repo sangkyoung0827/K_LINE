@@ -22,13 +22,6 @@ type HomeCard = {
 
 const homeCards: HomeCard[] = [
   {
-    href: "/co-development",
-    title: { en: "Developer Studio", ko: "Developer Studio" },
-    description: { en: "Develop projects and submit them for review.", ko: "프로젝트를 개발하고 검토를 요청합니다." },
-    badge: { en: "Development", ko: "개발" },
-    accent: "collaboration"
-  },
-  {
     href: "/our-activities/ecc",
     title: { en: "ECC", ko: "ECC" },
     description: {
@@ -86,9 +79,10 @@ export function HomeTrackSections({ showEventStudio = false, showCoDevelopment =
       <div className="mx-auto max-w-7xl">
         <div className="grid gap-3 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 md:gap-7">
           {homeCards.filter(card => card.accent !== "studio" || showEventStudio).map((card) => (
-            card.accent === "collaboration" ? <CoDevelopmentCard key={card.href} personalize={showCoDevelopment} /> : <HomePortalCard key={card.href} card={card} />
+            <HomePortalCard key={card.href} card={card} />
           ))}
           <PublishedServices />
+          <CoDevelopmentCard personalize={showCoDevelopment} />
         </div>
       </div>
     </section>
