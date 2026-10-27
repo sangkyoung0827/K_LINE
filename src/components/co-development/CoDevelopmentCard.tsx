@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, FlaskConical } from "lucide-react";
 import { defaultLabAppearance, labApiPath, type LabSettings } from "@/lib/coDevelopment/model";
-import { homePortalCardClassName } from "@/lib/homePortalCard";
+import { homePortalCardClassName } from "@/components/homePortalCard";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
 export function CoDevelopmentCard({ personalize = false }: { personalize?: boolean }) {

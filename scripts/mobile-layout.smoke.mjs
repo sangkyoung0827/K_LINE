@@ -126,7 +126,7 @@ try {
       const cards = await page.locator('main a[href="/our-activities/ecc"], main a[href="/our-activities/hanhwal"], main a[href="/co-development"]').all();
       for (const card of cards) {
         const box = await card.boundingBox();
-        assert.ok(box && box.height >= 44 && box.height <= 140);
+        assert.ok(box && box.height >= 44 && box.height <= 140, `Compact home card ${await card.getAttribute("href")} at ${width}px: ${JSON.stringify(box)}`);
       }
       await menu.click();
       await page.locator('#kline-mobile-navigation').getByRole("button", { name: "Woohyukmon", exact: true }).click();

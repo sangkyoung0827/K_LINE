@@ -10,7 +10,7 @@ import { SocialImpactUnionMark } from "@/components/social-impact-union/SocialIm
 import { socialImpactUnion } from "@/data/socialImpactUnion";
 import { CoDevelopmentCard } from "@/components/co-development/CoDevelopmentCard";
 import { PublishedServices } from "@/components/co-development/PublishedServices";
-import { homePortalCardClassName } from "@/lib/homePortalCard";
+import { homePortalCardClassName } from "@/components/homePortalCard";
 
 type HomeCard = {
   href: string;
