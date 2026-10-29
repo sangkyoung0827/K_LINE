@@ -43,6 +43,7 @@ type DraftState = Record<
 type RegistrationListResponse = {
   error?: string;
   registrations?: HanhwalMemberRegistration[];
+  updatedRegistrations?: HanhwalMemberRegistration[];
   updatedCount?: number;
 };
 
@@ -148,7 +149,13 @@ export function HanhwalMemberRegistrationManagementPanel() {
     [registrations]
   );
 
+  const changedRegistrations = useMemo(() => registrations.filter((registration) => {
+    const draft = drafts[registration.id];
+    return draft && (draft.adminNote.trim() !== registration.adminNote || draft.paymentConfirmed !== registration.paymentConfirmed);
+  }), [drafts, registrations]);
+
   const updateDraft = (id: string, value: Partial<DraftState[string]>) => {
+    setMessage("");
     setDrafts((current) => {
       const existing = current[id] ?? {
         adminNote: "",
@@ -166,6 +173,15 @@ export function HanhwalMemberRegistrationManagementPanel() {
   };
 
   const save = async () => {
+    if (saving || changedRegistrations.length === 0) return;
+    const updates = changedRegistrations.map((registration) => {
+      const draft = drafts[registration.id];
+      return {
+        id: registration.id,
+        ...(draft.adminNote.trim() !== registration.adminNote ? { adminNote: draft.adminNote } : {}),
+        ...(draft.paymentConfirmed !== registration.paymentConfirmed ? { paymentConfirmed: draft.paymentConfirmed } : {})
+      };
+    });
     setSaving(true);
     setMessage("");
     setError("");
@@ -177,11 +193,8 @@ export function HanhwalMemberRegistrationManagementPanel() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          registrations: registrations.map((registration) => ({
-            adminNote: drafts[registration.id]?.adminNote ?? "",
-            id: registration.id,
-            paymentConfirmed: Boolean(drafts[registration.id]?.paymentConfirmed)
-          }))
+          responseMode: "changes",
+          registrations: updates
         })
       });
       const data = (await response.json()) as RegistrationListResponse;
@@ -190,11 +203,13 @@ export function HanhwalMemberRegistrationManagementPanel() {
         throw new Error(data.error || "Hanhwal member registrations could not be saved.");
       }
 
-      const nextRegistrations = data.registrations ?? [];
-      setRegistrations(nextRegistrations);
-      setDrafts(
-        Object.fromEntries(
-          nextRegistrations.map((registration) => [
+      const saved = data.updatedRegistrations ?? [];
+      const savedById = new Map(saved.map((registration) => [registration.id, registration]));
+      setRegistrations((current) => current.map((registration) => savedById.get(registration.id) ?? registration));
+      setDrafts((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          saved.map((registration) => [
             registration.id,
             {
               adminNote: registration.adminNote,
@@ -202,11 +217,11 @@ export function HanhwalMemberRegistrationManagementPanel() {
             }
           ])
         )
-      );
+      }));
       setMessage(
         language === "ko"
-          ? `신규회원 등록 ${data.updatedCount ?? 0}건을 저장했습니다.`
-          : `${data.updatedCount ?? 0} Hanhwal member registration records saved.`
+          ? `변경된 회원 정보 ${data.updatedCount ?? 0}건을 저장했습니다.`
+          : `${data.updatedCount ?? 0} changed member records saved.`
       );
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Hanhwal member registrations could not be saved.");
@@ -239,27 +254,40 @@ export function HanhwalMemberRegistrationManagementPanel() {
               />
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="border border-ink/10 bg-white/45 p-3">
-              <p className="font-serif text-2xl font-semibold text-ink">{summary.total}</p>
-              <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
-                <I18nText en="Total" ko="전체" />
-              </p>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="border border-ink/10 bg-white/45 p-3">
+                <p className="font-serif text-2xl font-semibold text-ink">{summary.total}</p>
+                <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
+                  <I18nText en="Total" ko="전체" />
+                </p>
+              </div>
+              <div className="border border-pine/20 bg-pine/10 p-3">
+                <p className="font-serif text-2xl font-semibold text-pine">{summary.approved}</p>
+                <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
+                  <I18nText en="Approved" ko="승인" />
+                </p>
+              </div>
+              <div className="border border-brass/20 bg-brass/10 p-3">
+                <p className="font-serif text-2xl font-semibold text-ink">{summary.pending}</p>
+                <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
+                  <I18nText en="Pending" ko="대기" />
+                </p>
+              </div>
             </div>
-            <div className="border border-pine/20 bg-pine/10 p-3">
-              <p className="font-serif text-2xl font-semibold text-pine">{summary.approved}</p>
-              <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
-                <I18nText en="Approved" ko="승인" />
-              </p>
-            </div>
-            <div className="border border-brass/20 bg-brass/10 p-3">
-              <p className="font-serif text-2xl font-semibold text-ink">{summary.pending}</p>
-              <p className="mt-1 text-xs font-semibold uppercase text-ink/48">
-                <I18nText en="Pending" ko="대기" />
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || changedRegistrations.length === 0}
+              className="inline-flex min-h-12 items-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Save aria-hidden className="h-4 w-4" />}
+              {saving ? <I18nText en="Saving..." ko="저장 중..." /> : <I18nText en="Save" ko="저장" />}
+            </button>
           </div>
         </div>
+        {message ? <p role="status" className="mt-3 text-sm font-semibold text-pine">{message}</p> : null}
+        {error ? <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
       </div>
 
       {registrations.length > 0 ? (
@@ -289,6 +317,7 @@ export function HanhwalMemberRegistrationManagementPanel() {
                   <input
                     type="checkbox"
                     checked={draft.paymentConfirmed}
+                    disabled={saving}
                     onChange={(event) =>
                       updateDraft(registration.id, { paymentConfirmed: event.target.checked })
                     }
@@ -379,8 +408,10 @@ export function HanhwalMemberRegistrationManagementPanel() {
                     </div>
                     <textarea
                       className="form-field min-h-28"
+                      maxLength={1200}
                       placeholder={language === "ko" ? "관리자 메모" : "Admin note"}
                       value={draft.adminNote}
+                      disabled={saving}
                       onChange={(event) => updateDraft(registration.id, { adminNote: event.target.value })}
                     />
                   </div>
@@ -398,19 +429,6 @@ export function HanhwalMemberRegistrationManagementPanel() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-ink/10 p-5 md:p-6">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving || registrations.length === 0}
-          className="inline-flex min-h-12 items-center gap-2 bg-ink px-6 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Save aria-hidden className="h-4 w-4" />}
-          {saving ? <I18nText en="Saving..." ko="저장 중..." /> : <I18nText en="Save" ko="저장" />}
-        </button>
-        {message ? <p className="text-sm font-semibold text-pine">{message}</p> : null}
-        {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
-      </div>
     </section>
   );
 }
