@@ -11,6 +11,7 @@ import { ReadOnlyDeveloperNotice } from "@/components/ReadOnlyDeveloperNotice";
 export function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublicHanhwalPage = [
+    "/hanhwal-join",
     "/our-activities/hanhwal",
     "/our-activities/hanhwal/gallery",
     "/our-activities/hanhwal/solbam",
