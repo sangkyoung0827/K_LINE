@@ -10,6 +10,8 @@ export function canUseCoDevelopment(email?: string | null) {
 export function isLabOwner(email?: string | null) { return email?.trim().toLowerCase() === labOwner; }
 export type LabReview = { id: string; project_id: string; revision_id: string; revision: number; title: string; description: string; state: "pending" | "approved" | "rejected"; requested_by: string; requested_at: string; note: string; current_revision: number; publication_version: number; active: boolean | null; published_revision_id: string | null };
 export type LabReviewDetail = { review: LabReview; revision: LabRevision; source: { files: Record<string, string>; sourceHash: string } | null; previousHtml: string | null };
+export type LabOwnerProject = Omit<LabProject,"html"|"fixture">;
+export type LabOwnerDetail = { project: LabOwnerProject; revisions: Omit<LabRevision,"html"|"fixture">[]; revision: LabRevision; source: LabReviewDetail["source"] };
 export type PublishedLab = { id: string; title: string; description: string; revision: number };
 
 export function isCoDevelopmentApi(path: string) {

@@ -1,9 +1,10 @@
 import { LabError, labPreviewCsp, labPreviewHtml } from "@/lib/coDevelopment/model";
-import { labActor, labCommand, labPreview, labCatalog, labPublicRevision, labServiceData } from "@/lib/coDevelopment/server";
+import { labActor, labCommand, labPreview, labCatalog, labPublicRevision, labServiceData, labOwnerRevision } from "@/lib/coDevelopment/server";
 import type { LabReviewDetail } from "@/lib/coDevelopment/model";
 import { labActionSchema } from "@/lib/coDevelopment/schema";
 import { labMcp } from "@/lib/coDevelopment/mcp";
 import { labStarter } from "@/lib/coDevelopment/starter";
+import { labOnboarding } from "@/lib/coDevelopment/onboarding";
 import JSZip from "jszip";
 
 export const runtime = "nodejs";
@@ -47,7 +48,10 @@ async function handle(request: Request, context: Context) {
       return response;
     }
     if (request.method === "GET" && path.length === 1 && path[0] === "schema") {
-      return Response.json(labActionSchema(new URL(request.url).origin), { headers: privateHeaders });
+      return Response.json(labActionSchema(new URL(request.url).origin), { headers: { ...privateHeaders, ...(new URL(request.url).searchParams.get("download") === "1" ? {"Content-Disposition":'attachment; filename="openapi.json"'} : {}) } });
+    }
+    if (request.method === "GET" && path.length === 1 && path[0] === "onboarding") {
+      return new Response(labOnboarding(new URL(request.url).origin), { headers: { ...privateHeaders, "Content-Type":"text/markdown; charset=utf-8", "Content-Disposition":'attachment; filename="KLINE-GPT-START.md"' } });
     }
     if (request.method === "GET" && path.length === 1 && path[0] === "starter") {
       const zip = new JSZip();
@@ -73,6 +77,9 @@ async function handle(request: Request, context: Context) {
     if (request.method === "GET" && path.length === 2 && path[0] === "review-preview") {
       const detail = await labCommand(actor, { action: "review_detail", id: path[1] }) as LabReviewDetail;
       return htmlResponse(detail.revision.html);
+    }
+    if (request.method === "GET" && path.length === 2 && path[0] === "owner-preview") {
+      return htmlResponse((await labOwnerRevision(actor,path[1])).html);
     }
     if (request.method === "POST" && path.length === 3 && path[0] === "service" && path[2] === "data") {
       if (!request.headers.get("content-type")?.startsWith("application/json")) throw new LabError("INVALID_BODY");

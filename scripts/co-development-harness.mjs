@@ -23,7 +23,26 @@ export async function coDevelopmentHarness() {
   const calls = [];
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(String(input));
-    if (url.origin !== dbOrigin || !url.pathname.startsWith("/rest/v1/rpc/co_dev_")) throw new Error("UNEXPECTED_EXTERNAL_REQUEST");
+    if (url.origin !== dbOrigin) throw new Error("UNEXPECTED_EXTERNAL_REQUEST");
+    if (init.method === "GET") {
+      const table=url.pathname.slice("/rest/v1/".length);
+      const columns={co_dev_projects:["id","title","description","revision","review_state","created_by","updated_by","created_at","updated_at"],co_dev_revisions:["id","project_id","revision","title","description","html","fixture","created_by","created_at"],co_dev_sources:["revision_id","files","source_hash"]}[table];
+      if(!columns||!url.pathname.startsWith("/rest/v1/"))throw new Error("UNEXPECTED_LAB_READ");
+      const select=url.searchParams.get("select");if(select!=="*"&&!select?.split(",").every(c=>columns.includes(c)))throw new Error("UNEXPECTED_SELECT");
+      const clauses=[],args=[];
+      for(const [key,value] of url.searchParams){
+        if(["select","order","limit"].includes(key))continue;
+        if(!["id","project_id","revision_id"].includes(key)||!columns.includes(key))throw new Error("UNEXPECTED_FILTER");
+        const match=/^(eq|gt)\.([a-f0-9-]{36})$/.exec(value);if(!match)throw new Error("UNEXPECTED_FILTER");
+        args.push(match[2]);clauses.push(`${key}${match[1]==="eq"?"=":">"}$${args.length}`);
+      }
+      const order=url.searchParams.get("order"),limit=url.searchParams.get("limit");
+      if(order&&!/^(id\.asc|revision\.desc)$/.test(order))throw new Error("UNEXPECTED_ORDER");
+      if(!/^\d{1,3}$/.test(limit||""))throw new Error("UNEXPECTED_LIMIT");
+      calls.push({name:"co_dev_owner_read",body:{table}});
+      return Response.json((await db.query(`select ${select} from public.${table}${clauses.length?" where "+clauses.join(" and "):""}${order?" order by "+order.replace("."," "):""} limit ${Number(limit)}`,args)).rows);
+    }
+    if (!url.pathname.startsWith("/rest/v1/rpc/co_dev_")) throw new Error("UNEXPECTED_EXTERNAL_REQUEST");
     const name = url.pathname.split("/").at(-1);
     const keys = signatures.get(name); if (!keys || init.method !== "POST") throw new Error("UNEXPECTED_RPC");
     const body = JSON.parse(init.body); calls.push({ name, body });
