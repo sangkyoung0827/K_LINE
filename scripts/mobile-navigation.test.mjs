@@ -77,3 +77,41 @@ test("Korean labels use the same routes and expose Woohyukmon for guests and mem
   for (const role of [guest, member, admin]) assert.match(render(role, role, "ko"), /우혁몬/);
   assert.match(render(member, member, "ko"), /활동 신청/);
 });
+
+function renderLayout(pathname, role) {
+  const layoutCode = ts.transpileModule(readFileSync("src/components/Layout.tsx", "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 }
+  }).outputText;
+  const layoutModule = { exports: {} };
+  const chrome = ["Navbar", "Footer", "MobileBottomNav", "ReadOnlyDeveloperNotice", "ActivityRatingModal", "GlobalWoohyukmonGate"];
+  vm.runInNewContext(`(function(require,module,exports){${layoutCode}\n})`)((name) => {
+    if (name === "next/navigation") return { usePathname: () => pathname };
+    const component = chrome.find((item) => name === `@/components/${item}`);
+    if (component) return { [component]: () => React.createElement("div", { "data-site-chrome": component, "data-role": role }) };
+    return require(name);
+  }, layoutModule, layoutModule.exports);
+  return renderToStaticMarkup(React.createElement(layoutModule.exports.Layout, null,
+    React.createElement("div", { "data-page-content": true }, role)
+  ));
+}
+
+test("Hanhwal join hides all global site chrome for every role while preserving page content", () => {
+  for (const role of ["guest", "member", "official_member", "admin", "super_admin", "developer", "read_only_developer"]) {
+    const html = renderLayout("/hanhwal-join", role);
+    assert.doesNotMatch(html, /data-site-chrome|mobile-app-shell/);
+    assert.match(html, /data-page-content/);
+    assert.ok(html.includes(role));
+  }
+});
+
+test("Hanhwal public pages stay standalone and all other pages retain global navigation", () => {
+  for (const pathname of ["/our-activities/hanhwal", "/our-activities/hanhwal/gallery", "/our-activities/hanhwal/solbam", "/our-activities/hanhwal/activities"]) {
+    assert.doesNotMatch(renderLayout(pathname, "member"), /data-site-chrome/);
+  }
+  for (const pathname of ["/", "/ecc-join", "/hanhwal-official", "/our-activities/hanhwal/members", "/our-activities/hanhwal/resources", "/co-development"]) {
+    const html = renderLayout(pathname, "admin");
+    for (const component of ["Navbar", "Footer", "MobileBottomNav"]) {
+      assert.ok(html.includes(`data-site-chrome="${component}"`), `${pathname}: ${component}`);
+    }
+  }
+});
