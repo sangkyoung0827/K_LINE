@@ -1,6 +1,11 @@
+import { labOnboarding } from "./onboarding";
+import { labActionSchema } from "./schema";
+
 // Download contains source and connection instructions only, never credentials.
 export function labStarter(origin: string): Record<string, string> {
   return {
+    "START-HERE.md": labOnboarding(origin),
+    "openapi.json": JSON.stringify(labActionSchema(origin),null,2),
     "package.json": JSON.stringify({ name: "kline-developer-project", version: "1.0.0", private: true, type: "module", scripts: { build: "node tools/build.mjs", sync: "node --env-file=.env.local tools/sync.mjs" }, devDependencies: { esbuild: "0.28.2", "@modelcontextprotocol/sdk": "1.32.1", zod: "4.6.7" } }, null, 2),
     ".gitignore": "node_modules/\ndist/\n.env*\n.lab-project.json\n",
     "AGENTS.md": `# Private K_LINE development\nWork freely on this project's source and tests. Use synthetic data only. This is NOT the K_LINE production repository.\nBuild locally; use the kline_lab MCP tools to save a versioned bundle and customize its private card.\nUse window.KLINE_LAB.records for the shared test backend. Do not fetch production APIs, use SQL, put credentials in source, push the owner's repository, publish, or deploy.\nNative form submissions are blocked in the sandbox. Use type=button click/keydown handlers and the SDK for all saves.\nBackend source may be developed and tested locally, but uploading source does not execute it on K_LINE. Additional server runtimes and integrations require a separately reviewed isolated preview.\nRead current versions before saving. Preserve ids on retries. Do not override remote changes silently. Do not read .env.local into a model message or tool output.\n`,

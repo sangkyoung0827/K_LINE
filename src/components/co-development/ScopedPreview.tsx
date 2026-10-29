@@ -5,7 +5,7 @@ import { RefreshCw, Square } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { labApiPath } from "@/lib/coDevelopment/model";
 
-export function ScopedPreview({ id, review = false }: { id: string; review?: boolean }) {
+export function ScopedPreview({ id, review = false, ownerDraft = false }: { id: string; review?: boolean; ownerDraft?: boolean }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [running, setRunning] = useState(true);
   const [run, setRun] = useState(0);
@@ -36,7 +36,7 @@ export function ScopedPreview({ id, review = false }: { id: string; review?: boo
               data: input.data, expectedVersion: input.action === "record_create" ? 0 : input.expectedVersion,
               after: input.after, limit: input.limit, includeArchived: input.includeArchived, archived: input.archived };
             let result: unknown;
-            if (review) {
+            if (review || ownerDraft) {
               // Review interactions are ephemeral: never write to the author's lab or live records.
               if (action === "state_read") result = state;
               else if (action === "state_save") {
@@ -70,13 +70,13 @@ export function ScopedPreview({ id, review = false }: { id: string; review?: boo
     };
     window.addEventListener("message", onReady);
     return () => { closed = true; port?.close(); window.removeEventListener("message", onReady); };
-  }, [id, review, running, run, ko]);
+  }, [id, review, ownerDraft, running, run, ko]);
   return <div className="min-w-0 space-y-2">
     <div className="flex justify-end gap-2">
       <button type="button" title={ko ? "다시 실행" : "Restart"} aria-label={ko ? "다시 실행" : "Restart"} className="h-11 w-11 rounded border border-ink/20" onClick={() => { setError(""); setRunning(true); setRun(v => v + 1); }}><RefreshCw className="mx-auto" size={18} /></button>
       <button type="button" title={ko ? "실행 중지" : "Stop"} aria-label={ko ? "실행 중지" : "Stop"} className="h-11 w-11 rounded border border-ink/20" onClick={() => setRunning(false)}><Square className="mx-auto" size={18} /></button>
     </div>
     {error && <p role="alert" className="text-sm text-red-800">{error}</p>}
-    {running && <iframe ref={frame} key={`${id}:${run}`} title={review ? "Review preview" : "Service preview"} src={`${labApiPath}/${review ? "review-preview" : "service"}/${id}`} sandbox="allow-scripts" referrerPolicy="no-referrer" className="h-[70dvh] min-h-80 w-full rounded border border-ink/20 bg-white" />}
+    {running && <iframe ref={frame} key={`${id}:${run}`} title={review || ownerDraft ? "Review preview" : "Service preview"} src={`${labApiPath}/${ownerDraft ? "owner-preview" : review ? "review-preview" : "service"}/${id}`} sandbox="allow-scripts" referrerPolicy="no-referrer" className="h-[70dvh] min-h-80 w-full rounded border border-ink/20 bg-white" />}
   </div>;
 }

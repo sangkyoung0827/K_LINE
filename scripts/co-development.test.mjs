@@ -272,6 +272,52 @@ test("source starter download is private and contains no account or server secre
   } finally {await rm(dir,{recursive:true,force:true});}
 });
 
+test("GPT start file is authenticated, complete, origin-bound and never contains a connection key",async()=>{
+  const issued=await ok({action:"token_rotate"},"onboarding@example.test");
+  for(const path of ["onboarding","schema?download=1"]){
+    const response=await publicGet(path,"onboarding@example.test");
+    assert.equal(response.status,200);assert.equal(response.headers.get("cache-control"),"private, no-store");assert.match(response.headers.get("content-disposition"),/attachment/);
+    const text=await response.text();assert.ok(!text.includes(issued.token));assert.ok(!/sk-(?:proj-)?[a-zA-Z0-9_-]{32,}/.test(text));
+    if(path==="onboarding"){
+      assert.match(text,/https:\/\/kline.test\/api\/co-development\/mcp/);assert.match(text,/does not install tools/);assert.match(text,/NOT an OpenAI API key/);assert.match(text,/including drafts/);assert.match(text,/cannot submit, approve, publish/);
+      const schema=JSON.parse(text.match(/```json\n([\s\S]*?)\n```/)[1]);assert.equal(schema.servers[0].url,"https://kline.test");assert.deepEqual(Object.keys(schema.paths),["/api/co-development/actions"]);
+    }
+    assert.equal((await publicGet(path,null)).status,401);
+    const bearer=await h.handle(new NextRequest(`https://kline.test/api/co-development/${path}`,{headers:{authorization:`Bearer ${issued.token}`}}));assert.equal(bearer.status,403);
+  }
+  const zip=await JSZip.loadAsync(await (await publicGet("starter","onboarding@example.test")).arrayBuffer());
+  assert.equal(await zip.file("START-HERE.md").async("string"),await (await publicGet("onboarding","onboarding@example.test")).text());
+  assert.equal(JSON.parse(await zip.file("openapi.json").async("string")).servers[0].url,"https://kline.test");
+  const local=await h.handle(new NextRequest("http://localhost:3365/api/co-development/onboarding",{headers:{cookie:await h.cookie("onboarding@example.test")}}));assert.match(await local.text(),/not reachable by a remote GPT/);
+});
+
+test("owner inspects all saved drafts and immutable source but members and GPT keys cannot cross tenants or release",async()=>{
+  const author="oversight-author@example.test",other="oversight-other@example.test";
+  const input={...draft(),action:"bundle_save",title:"Owner oversight draft",files:{"src/main.js":"console.log('local only')"}};
+  await ok(input,author);const saved=await ok({action:"get",id:input.id},author),revisionId=saved.revisions[0].id;
+  const listing=await ok({action:"owner_projects"},h.api.labOwner);assert.ok(listing.projects.some(p=>p.id===input.id));assert.ok(listing.projects.every(p=>p.html===undefined&&p.fixture===undefined));
+  const detail=await ok({action:"owner_project",id:input.id},h.api.labOwner);assert.equal(detail.project.created_by,author);assert.equal(detail.revision.html,input.html);assert.deepEqual(detail.source.files,input.files);
+  assert.equal((await ok({action:"review_queue"},h.api.labOwner)).some(r=>r.project_id===input.id),false);
+  const preview=await publicGet(`owner-preview/${revisionId}`,h.api.labOwner);assert.equal(preview.status,200);assert.match(preview.headers.get("content-security-policy"),/connect-src 'none'/);assert.match(preview.headers.get("content-security-policy"),/sandbox allow-scripts/);
+  for(const email of [author,other,h.api.labCollaborator,null]){
+    for(const body of [{action:"owner_projects"},{action:"owner_project",id:input.id}])assert.ok([401,403].includes((await h.call(body,email)).status));
+    assert.ok([401,403].includes((await publicGet(`owner-preview/${revisionId}`,email)).status));
+  }
+  const key=await ok({action:"token_rotate"},h.api.labOwner);const options={url:"https://kline.test/api/co-development/actions",headers:{authorization:`Bearer ${key.token}`}};
+  for(const action of ["owner_projects","owner_project","review_decide","release"])assert.equal((await h.call({action,id:input.id},null,options)).status,403);
+  assert.equal((await h.handle(new NextRequest(`https://kline.test/api/co-development/owner-preview/${revisionId}`,{headers:options.headers}))).status,403);
+  await ok({...input,expectedRevision:1,html:"<p>New revision</p>"},author);
+  const old=await ok({action:"owner_project",id:input.id,revisionId},h.api.labOwner);assert.equal(old.revision.html,input.html);
+  const notThisProject=await ok(draft(),other);const foreign=await ok({action:"get",id:notThisProject.project.id},other);
+  assert.equal((await h.call({action:"owner_project",id:input.id,revisionId:foreign.revisions[0].id},h.api.labOwner)).status,404);
+  await ok({action:"review",id:input.id,expectedRevision:2},author);
+  const submitted=(await ok({action:"review_queue"},h.api.labOwner)).find(r=>r.project_id===input.id);
+  await ok({action:"review_decide",id:submitted.id,approve:true,note:"Reviewed code and test preview"},h.api.labOwner);
+  assert.ok(!(await (await publicGet("catalog",null)).json()).some(p=>p.id===input.id));
+  await ok({action:"release",id:submitted.id,expectedVersion:0,publish:true},h.api.labOwner);
+  assert.ok((await (await publicGet("catalog",null)).json()).some(p=>p.id===input.id));
+});
+
 test("only namespaced lab mutations bypass the existing Yuki read-only middleware restriction", async () => {
   for (const path of ["/api/ecc/operations", "/api/admin/roles", "/developer", "/api/co-development-evil", "/api/google-forms/forms"]) {
     const response = await h.api.middleware(new NextRequest(`https://kline.test${path}`, { method: "POST", headers: { cookie: await h.cookie(h.api.labCollaborator, true) } }));
