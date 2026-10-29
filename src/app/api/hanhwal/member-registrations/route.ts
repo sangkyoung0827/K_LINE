@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
-import {
-  listHanhwalMemberRegistrations,
-  patchHanhwalMemberRegistration
-} from "@/lib/hanhwalMemberRegistrations";
-import {
-  approveHanhwalOfficialMember,
-  getCurrentHanhwalAccess,
-  revokeHanhwalOfficialMember
-} from "@/lib/hanhwalAccess";
+import { listHanhwalMemberRegistrations } from "@/lib/hanhwalMemberRegistrations";
+import { applyHanhwalMemberAdminUpdate } from "@/lib/hanhwalMemberAdminActions";
+import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
 import {
   cleanText,
   SupabaseConfigError,
@@ -112,6 +106,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = (await request.json()) as {
+      responseMode?: string;
       registrations?: Array<{
         adminNote?: unknown;
         id?: unknown;
@@ -119,48 +114,43 @@ export async function PATCH(request: Request) {
       }>;
     };
     const updates = Array.isArray(body.registrations) ? body.registrations : [];
+    if (updates.length > 1000 || updates.some((update) => !update ||
+      (update.paymentConfirmed !== undefined && typeof update.paymentConfirmed !== "boolean") ||
+      (update.adminNote !== undefined && typeof update.adminNote !== "string"))) {
+      return NextResponse.json({ error: "Invalid member registration changes." }, { status: 400 });
+    }
     const updated = [];
+    let updatedCount = 0;
+    const seen = new Set<string>();
 
     for (const update of updates) {
       const id = cleanText(update.id, 120);
 
-      if (!id) {
+      if (!id || seen.has(id)) {
         continue;
       }
+      seen.add(id);
 
-      const registration = await patchHanhwalMemberRegistration({
+      const result = await applyHanhwalMemberAdminUpdate({
         adminEmail: access.email,
-        adminNote: cleanText(update.adminNote, 1200),
+        adminNote: update.adminNote === undefined ? undefined : cleanText(update.adminNote, 1200),
         id,
-        paymentConfirmed: Boolean(update.paymentConfirmed)
+        paymentConfirmed: update.paymentConfirmed as boolean | undefined
       });
+      const registration = result.registration;
 
       if (!registration) {
         continue;
       }
 
-      if (registration.paymentConfirmed) {
-        await approveHanhwalOfficialMember({
-          approvedBy: access.email,
-          avatarUrl: registration.googleAvatarUrl,
-          email: registration.googleEmail,
-          name: registration.googleName || registration.fullName
-        });
-      } else {
-        await revokeHanhwalOfficialMember({
-          email: registration.googleEmail,
-          revokedBy: access.email
-        });
-      }
-
+      if (result.changed) updatedCount++;
       updated.push(registration);
     }
 
-    const registrations = await listHanhwalMemberRegistrations();
-
     return NextResponse.json({
-      registrations,
-      updatedCount: updated.length
+      ...(body.responseMode === "changes" ? {} : { registrations: await listHanhwalMemberRegistrations() }),
+      updatedRegistrations: updated,
+      updatedCount
     });
   } catch (error) {
     return apiErrorResponse(error);
