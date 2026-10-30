@@ -39,6 +39,7 @@ export default function robots(): MetadataRoute.Robots {
           "/ecc-alumni/status",
           "/goods",
           "/goods/",
+          "/gks-hub",
           "/jeju",
           "/k-culture-project",
           "/k-culture-project/submit",
