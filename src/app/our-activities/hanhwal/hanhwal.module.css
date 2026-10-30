@@ -41,7 +41,7 @@
 .heroImage { object-fit: cover; }
 .hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,25,50,.78), rgba(5,25,50,.25), rgba(5,25,50,0)); }
 .heroOverlay { position: absolute; z-index: 2; left: 8%; bottom: 90px; max-width: 650px; color: #fff; }
-.heroOverlay h1 { margin: 15px 0 25px; color: #fff; font-size: clamp(55px, 8vw, 100px); letter-spacing: -4px; }
+.heroOverlay h1 { margin: 15px 0 25px; color: #fff; font-size: 72px; letter-spacing: 0; overflow-wrap: anywhere; }
 .heroOverlay > p:last-child { max-width: 600px; color: rgba(255,255,255,.92); font-size: 21px; }
 .eyebrow { margin: 0 0 22px; color: var(--navy-light); font-size: 13px; font-weight: 800; letter-spacing: 5px; }
 .heroEyebrow { color: #fff; }
@@ -227,7 +227,7 @@
 @media (max-width: 600px) { .publicGalleryGrid, .faqGrid { grid-template-columns: 1fr; } }
 @media (max-width: 500px) {
   .hero { height: 450px; }
-  .heroOverlay h1 { font-size: 42px; letter-spacing: -1px; }
+  .heroOverlay h1 { font-size: 42px; letter-spacing: 0; }
   .sectionContainer, .welcomeGrid { padding: 75px 22px; }
   .solbamTitleRow { align-items: flex-start; }
   .solbamSmallImage { width: 75px; height: 75px; }

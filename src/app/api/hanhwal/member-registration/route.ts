@@ -7,6 +7,9 @@ import {
   validateHanhwalMemberRegistrationForm
 } from "@/lib/hanhwalMemberRegistrations";
 import { getCurrentHanhwalAccess } from "@/lib/hanhwalAccess";
+import { canOpenHanhwalTeamChat, hanhwalTeamChatPath } from "@/lib/hanhwalJoin";
+import { getHanhwalOperationalSettings } from "@/lib/hanhwalOperations";
+import { isReadOnlyDeveloperEmail } from "@/lib/readOnlyDeveloper";
 import { registerSiteMember } from "@/lib/siteAnalytics";
 import {
   SupabaseConfigError,
@@ -80,11 +83,28 @@ export async function GET() {
     }
 
     const registration = await getHanhwalMemberRegistrationByEmail(access.email);
+    const canOpenTeamChat = canOpenHanhwalTeamChat(access, registration);
+    let settings = null;
+    let teamChatUnavailable = false;
+    if (canOpenTeamChat) {
+      try {
+        settings = await getHanhwalOperationalSettings();
+      } catch (error) {
+        console.error("Hanhwal team chat settings could not be loaded", error);
+        teamChatUnavailable = true;
+      }
+    }
 
     return NextResponse.json({
       access,
-      registration
-    });
+      registration,
+      teamChatPath: canOpenTeamChat && !teamChatUnavailable ? hanhwalTeamChatPath : "",
+      teamChatUnavailable,
+      periodLabel: settings?.periodLabel ?? "",
+      teamChatDescriptionKo: settings?.teamChatDescriptionKo ?? "",
+      teamChatDescriptionEn: settings?.teamChatDescriptionEn ?? "",
+      canManageTeamChat: access.isAdmin && !isReadOnlyDeveloperEmail(access.email)
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return apiErrorResponse(error);
   }
@@ -140,12 +160,14 @@ export async function POST(request: Request) {
       googleName: session.user.name,
       siteMemberId: siteMember?.id
     });
+    if (!registration) throw new Error("Hanhwal registration was not saved.");
 
     return NextResponse.json(
       {
         message:
           "Your HANHWAL registration has been submitted. HANHWAL officers will check your payment and approve your official membership soon.",
-        registration
+        registration,
+        teamChatPath: canOpenHanhwalTeamChat(access, registration) ? hanhwalTeamChatPath : ""
       },
       { status: existing ? 200 : 201 }
     );

@@ -1,13 +1,17 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CheckCircle2,
+  ChevronDown,
   Edit3,
+  FileText,
   Loader2,
+  MessageCircle,
+  Settings,
   ShieldCheck
 } from "lucide-react";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
@@ -39,6 +43,13 @@ type RegistrationResponse = {
   error?: string;
   message?: string;
   registration?: HanhwalMemberRegistration | null;
+  teamChatPath?: string;
+  teamChatDescriptionKo?: string;
+  teamChatDescriptionEn?: string;
+  periodLabel?: string;
+  canManageTeamChat?: boolean;
+  teamChatUnavailable?: boolean;
+  access?: { isOfficialMember?: boolean };
 };
 
 type FormState = {
@@ -91,8 +102,8 @@ function registrationToForm(registration: HanhwalMemberRegistration | null): For
   };
 }
 
-function statusText(registration: HanhwalMemberRegistration, language: "en" | "ko") {
-  if (registration.officialMember || registration.status === "approved") {
+function statusText(registration: HanhwalMemberRegistration, language: "en" | "ko", approved = false) {
+  if (approved || registration.officialMember || registration.status === "approved") {
     return language === "ko" ? "정식회원 승인 완료" : "Official member approved";
   }
 
@@ -103,8 +114,8 @@ function statusText(registration: HanhwalMemberRegistration, language: "en" | "k
   return language === "ko" ? "회비 확인 대기 중" : "Waiting for payment confirmation";
 }
 
-function statusDescription(registration: HanhwalMemberRegistration, language: "en" | "ko") {
-  if (registration.officialMember || registration.status === "approved") {
+function statusDescription(registration: HanhwalMemberRegistration, language: "en" | "ko", approved = false) {
+  if (approved || registration.officialMember || registration.status === "approved") {
     return language === "ko"
       ? "이 Google 계정은 Hanhwal 정식회원으로 승인되었습니다. Hanhwal OFFICIAL에서 팀채팅 링크와 QR을 확인할 수 있습니다."
       : "This Google account is approved as an Hanhwal official member. You can open the protected team chat link and QR in Hanhwal OFFICIAL.";
@@ -121,7 +132,7 @@ function statusDescription(registration: HanhwalMemberRegistration, language: "e
     : "Your registration is submitted. Hanhwal officers will approve official membership after confirming payment.";
 }
 
-export function HanhwalMemberRegistrationForm({ variant = "default" }: { variant?: "default" | "site" }) {
+export function HanhwalMemberRegistrationForm({ variant = "default", intro }: { variant?: "default" | "site"; intro?: React.ReactNode }) {
   const isSite = variant === "site";
   const { language } = useLanguage();
   const pathname = usePathname();
@@ -135,11 +146,25 @@ export function HanhwalMemberRegistrationForm({ variant = "default" }: { variant
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loginRequired, setLoginRequired] = useState(false);
+  const [teamChatPath, setTeamChatPath] = useState("");
+  const [teamChatDescription, setTeamChatDescription] = useState({ ko: "", en: "" });
+  const [periodLabel, setPeriodLabel] = useState("");
+  const [canManageTeamChat, setCanManageTeamChat] = useState(false);
+  const [teamChatUnavailable, setTeamChatUnavailable] = useState(false);
+  const [officialAccess, setOfficialAccess] = useState(false);
+  const refreshAllowed = useRef(false);
+
+  useEffect(() => {
+    refreshAllowed.current = (Boolean(registration) || officialAccess) && !editing && !saving;
+  }, [registration, officialAccess, editing, saving]);
 
   useEffect(() => {
     let active = true;
+    let latestRequest = 0;
 
-    fetch("/api/hanhwal/member-registration")
+    const load = (refresh = false) => {
+      const currentRequest = ++latestRequest;
+      return fetch("/api/hanhwal/member-registration", { cache: "no-store" })
       .then((response) =>
         response.json().then((data: RegistrationResponse) => ({
           data,
@@ -147,12 +172,13 @@ export function HanhwalMemberRegistrationForm({ variant = "default" }: { variant
         }))
       )
       .then(({ data, response }) => {
-        if (!active) {
+        if (!active || currentRequest !== latestRequest || (refresh && !refreshAllowed.current)) {
           return;
         }
 
         if (response.status === 401) {
           setLoginRequired(true);
+          setTeamChatPath("");
           return;
         }
 
@@ -161,32 +187,63 @@ export function HanhwalMemberRegistrationForm({ variant = "default" }: { variant
         }
 
         const loadedRegistration = data.registration ?? null;
+        setLoginRequired(false);
+        setError("");
         setRegistration(loadedRegistration);
-        setForm(registrationToForm(loadedRegistration));
+        if (!refresh) setForm(registrationToForm(loadedRegistration));
+        setTeamChatPath(data.teamChatPath === "/api/hanhwal/team-chat" ? data.teamChatPath : "");
+        setTeamChatDescription({ ko: data.teamChatDescriptionKo ?? "", en: data.teamChatDescriptionEn ?? "" });
+        setPeriodLabel(data.periodLabel ?? "");
+        setCanManageTeamChat(Boolean(data.canManageTeamChat));
+        setOfficialAccess(Boolean(data.access?.isOfficialMember));
+        setTeamChatUnavailable(Boolean(data.teamChatUnavailable));
       })
       .catch((loadError) => {
-        if (!active) {
+        if (!active || currentRequest !== latestRequest || (refresh && !refreshAllowed.current)) {
           return;
         }
 
         setError(loadError instanceof Error ? loadError.message : "Hanhwal registration could not be loaded.");
       })
       .finally(() => {
-        if (active) {
+        if (active && currentRequest === latestRequest && !refresh) {
           setLoading(false);
         }
       });
+    };
+    void load();
+    const refresh = () => { if (refreshAllowed.current) void load(true); };
+    const restore = (event: PageTransitionEvent) => { if (event.persisted) refresh(); };
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", restore);
 
     return () => {
       active = false;
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", restore);
     };
   }, []);
 
-  const canEdit = useMemo(
-    () => !registration || (!registration.officialMember && registration.status !== "approved"),
-    [registration]
+  const approved = officialAccess || Boolean(registration?.officialMember || registration?.status === "approved");
+  const canEdit = !approved;
+  const showForm = (!registration && !approved) || editing;
+  const membershipActions = (
+    <div className={styles.memberActions}>
+      {approved ? <Link href="/hanhwal-official" className={styles.secondaryAction}>
+        <ShieldCheck aria-hidden className="h-4 w-4 shrink-0" /><I18nText en="Hanhwal OFFICIAL" ko="한활 공식 메뉴" />
+      </Link> : null}
+      {teamChatPath ? <a href={teamChatPath} className={styles.primaryAction}>
+        <MessageCircle aria-hidden className="h-4 w-4 shrink-0" /><I18nText en="Join Hanhwal team chat" ko="한활 팀채팅 입장하기" />
+      </a> : null}
+    </div>
   );
-  const showForm = !registration || editing;
+  const teamChatInstructions = teamChatPath && teamChatDescription[language]
+    ? <p className="whitespace-pre-wrap break-words text-sm leading-6 text-ink/68">{teamChatDescription[language]}</p> : null;
+  const managementLink = canManageTeamChat ? (
+    <Link href="/our-activities/hanhwal/operations" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline underline-offset-4">
+      <Settings aria-hidden className="h-4 w-4" /><I18nText en="Team chat settings" ko="팀채팅 설정" />
+    </Link>
+  ) : null;
 
   const updateForm = (field: FormField, value: string) => {
     setForm((current) => ({
@@ -201,6 +258,7 @@ export function HanhwalMemberRegistrationForm({ variant = "default" }: { variant
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (saving) return;
     setSaving(true);
     setMessage("");
     setError("");
@@ -234,17 +292,22 @@ export function HanhwalMemberRegistrationForm({ variant = "default" }: { variant
       if (!response.ok) {
         throw new Error(data.error || "Hanhwal registration could not be submitted.");
       }
+      if (!data.registration) throw new Error("Hanhwal registration was not saved. Please try again.");
 
       setRegistration(data.registration ?? null);
       setForm(registrationToForm(data.registration ?? null));
       setFieldErrors({});
       setEditing(false);
+      setTeamChatPath(data.teamChatPath === "/api/hanhwal/team-chat" ? data.teamChatPath : "");
       setMessage(
         language === "ko"
           ? "Hanhwal 신규회원 등록이 제출되었습니다. 운영진이 회비 납부를 확인하면 정식회원 권한이 열립니다."
           : data.message ||
               "Your Hanhwal registration has been submitted. Hanhwal officers will check your payment and approve your official membership soon."
       );
+      if (data.teamChatPath === "/api/hanhwal/team-chat") {
+        window.location.assign(data.teamChatPath);
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Hanhwal registration could not be submitted.");
     } finally {
@@ -254,6 +317,7 @@ export function HanhwalMemberRegistrationForm({ variant = "default" }: { variant
 
   return (
     <div className={isSite ? styles.siteForm : "grid gap-8"}>
+      {isSite && !loading && !registration && !officialAccess && !loginRequired ? intro : null}
       {!isSite ? <section className="paper-panel p-5 md:p-8">
         <div className="grid gap-6">
           <div>
@@ -314,37 +378,63 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
         </section>
       ) : null}
 
-      {isSite && !loading && !loginRequired && !registration && !error ? (
+      {isSite && !loading && !loginRequired && !registration && !officialAccess && !error ? (
         <p className={styles.availableStatus} role="status">
           <I18nText en="Registration form is ready" ko="가입 신청서를 작성할 수 있습니다" />
         </p>
       ) : null}
 
+      {!loading && !loginRequired && !registration && officialAccess ? (
+        <section className={`paper-panel ${styles.memberSummary}`}>
+          <div className="inline-flex items-center gap-2 text-sm font-semibold text-pine"><CheckCircle2 aria-hidden className="h-4 w-4" /><I18nText en="Official member approved" ko="정식회원 승인 완료" /></div>
+          {isSite ? <h1 className="font-serif text-2xl font-semibold text-ink"><I18nText en="Welcome to Hanhwal" ko="한활 정식회원입니다" /></h1> : <h2 className="font-serif text-2xl font-semibold text-ink"><I18nText en="Welcome to Hanhwal" ko="한활 정식회원입니다" /></h2>}
+          {periodLabel ? <p className="text-sm font-semibold text-ink/65">{periodLabel}</p> : null}
+          {membershipActions}
+          {teamChatInstructions}
+          {managementLink}
+          <p className="text-sm text-ink/60"><I18nText en="No registration form has been submitted with this account." ko="이 계정으로 제출된 가입 신청서는 없습니다." /></p>
+        </section>
+      ) : null}
+
       {!loading && !loginRequired && registration && !editing ? (
-        <section className="paper-panel p-5 md:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-5">
-            <div>
+        <section className={`paper-panel ${styles.memberSummary}`}>
+          <div className={styles.memberHeader}>
+            <div className="grid min-w-0 gap-3">
               <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
                 <CheckCircle2 aria-hidden className="h-4 w-4" />
-                {statusText(registration, language)}
+                {statusText(registration, language, approved)}
               </div>
-              <h2 className="mt-5 font-serif text-3xl font-semibold text-ink">
-                <I18nText en="Registration submitted" ko="등록이 제출되었습니다" />
-              </h2>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-ink/68">
-                {statusDescription(registration, language)}
+              {isSite ? (
+                <h1 className="font-serif text-2xl font-semibold text-ink">
+                  {canEdit ? <I18nText en="Registration received" ko="가입 신청이 접수되었습니다" /> : <I18nText en="Welcome to Hanhwal" ko="한활 정식회원입니다" />}
+                </h1>
+              ) : (
+                <h2 className="font-serif text-2xl font-semibold text-ink"><I18nText en="Registration received" ko="가입 신청이 접수되었습니다" /></h2>
+              )}
+              <p className="max-w-3xl text-sm leading-7 text-ink/68">
+                {statusDescription(registration, language, approved)}
               </p>
             </div>
             {registration.googleAvatarUrl ? (
               <img
                 src={registration.googleAvatarUrl}
                 alt=""
-                className="h-14 w-14 rounded-full border border-ink/10 object-cover"
+                className="h-11 w-11 shrink-0 rounded-full border border-ink/10 object-cover"
               />
             ) : null}
           </div>
 
-          <dl className="mt-8 grid gap-4 text-sm md:grid-cols-2">
+          {periodLabel ? <p className="text-sm font-semibold text-ink/65">{periodLabel}</p> : null}
+          {membershipActions}
+          {teamChatInstructions}
+          {managementLink}
+          <details className={styles.submittedDetails}>
+            <summary>
+              <FileText aria-hidden className="h-4 w-4 shrink-0" />
+              <I18nText en="View my submitted form" ko="내가 제출한 신청서 보기" />
+              <ChevronDown aria-hidden className={styles.detailsChevron} />
+            </summary>
+          <dl className="grid gap-x-6 gap-y-3 text-sm md:grid-cols-2">
             {[
               ["Full Name / 이름", registration.fullName],
               ["Student ID / 학번", registration.studentId],
@@ -375,31 +465,25 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
                     : "Waiting for official member approval"
               ]
             ].map(([label, value]) => (
-              <div key={label} className="border border-ink/10 bg-white/45 p-4">
+              <div key={label} className="min-w-0 border-b border-ink/10 py-3 [overflow-wrap:anywhere]">
                 <dt className="text-xs font-semibold uppercase text-ink/45">{label}</dt>
                 <dd className="mt-2 font-semibold text-ink">{value}</dd>
               </div>
             ))}
           </dl>
+          </details>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {canEdit ? (
               <button
                 type="button"
-                onClick={() => setEditing(true)}
+                onClick={() => { setForm(registrationToForm(registration)); setEditing(true); }}
                 className="inline-flex min-h-11 items-center gap-2 border border-navy/20 px-5 text-sm font-semibold text-ink transition hover:border-brass hover:bg-brass/15"
               >
                 <Edit3 aria-hidden className="h-4 w-4" />
                 <I18nText en="Edit Registration" ko="등록 정보 수정" />
               </button>
-            ) : (
-              <Link
-                href="/hanhwal-official"
-                className="inline-flex min-h-11 items-center gap-2 bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-navy"
-              >
-                <I18nText en="Open Hanhwal OFFICIAL" ko="한활 OFFICIAL 열기" />
-              </Link>
-            )}
+            ) : null}
             {registration.adminNote ? (
               <p className="text-sm font-semibold text-brass">{registration.adminNote}</p>
             ) : null}
@@ -421,6 +505,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
           <div className={isSite ? styles.fieldsGrid : "grid gap-4 md:grid-cols-2"}>
             <TextField
               label="Full Name / 이름"
+              disabled={saving}
               site={isSite}
               placeholder={isSite ? "Your full name" : undefined}
               error={fieldErrors.fullName}
@@ -429,6 +514,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             />
             <TextField
               label="Student ID / 학번"
+              disabled={saving}
               site={isSite}
               placeholder={isSite ? "Your student ID" : undefined}
               error={fieldErrors.studentId}
@@ -437,6 +523,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             />
             <TextField
               label="Department or Major / 학과 또는 전공"
+              disabled={saving}
               site={isSite}
               placeholder={isSite ? "e.g. Computer Science" : undefined}
               error={fieldErrors.departmentOrMajor}
@@ -445,6 +532,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             />
             <TextField
               label="Nationality / 국적"
+              disabled={saving}
               site={isSite}
               placeholder={isSite ? "e.g. Indonesia" : undefined}
               error={fieldErrors.nationality}
@@ -453,6 +541,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             />
             <TextField
               label="KakaoTalk Display Name / 카카오톡 표시 이름"
+              disabled={saving}
               site={isSite}
               error={fieldErrors.kakaoDisplayName}
               value={form.kakaoDisplayName}
@@ -460,6 +549,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
             />
             <TextField
               label="Kakao ID / 카카오톡 ID"
+              disabled={saving}
               site={isSite}
               error={fieldErrors.kakaoId}
               helper={
@@ -487,6 +577,7 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
                   <input
                     required
                     type="radio"
+                    disabled={saving}
                     name="gender"
                     value={option.value}
                     checked={form.gender === option.value}
@@ -514,12 +605,13 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
               {saving ? (
                 <I18nText en="Submitting..." ko="제출 중..." />
               ) : (
-                <I18nText en="Submit Registration" ko="등록 제출" />
+                <I18nText en="Submit Registration" ko="가입 신청서 제출" />
               )}
             </button>
             {registration && editing ? (
               <button
                 type="button"
+                disabled={saving}
                 onClick={() => {
                   setEditing(false);
                   setForm(registrationToForm(registration));
@@ -536,12 +628,14 @@ Please enter the same name that you use in KakaoTalk so the officers can identif
       ) : null}
 
       {message ? <p className="text-sm font-semibold text-pine">{message}</p> : null}
+      {teamChatUnavailable ? <p role="alert" className="text-sm font-semibold text-red-700"><I18nText en="Your registration is saved, but the team chat is temporarily unavailable. Please try again later." ko="신청서는 저장되어 있습니다. 팀채팅 연결 정보를 불러올 수 없으니 잠시 후 다시 확인해 주세요." /></p> : null}
       {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
     </div>
   );
 }
 
 function TextField({
+  disabled = false,
   error,
   helper,
   label,
@@ -550,6 +644,7 @@ function TextField({
   site = false,
   value
 }: {
+  disabled?: boolean;
   error?: string;
   helper?: string;
   label: string;
@@ -563,6 +658,7 @@ function TextField({
       <span>{label}</span>
       <input
         required
+        disabled={disabled}
         aria-invalid={Boolean(error)}
         className="form-field"
         placeholder={placeholder}

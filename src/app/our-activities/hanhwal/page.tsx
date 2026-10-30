@@ -7,28 +7,64 @@ import { absoluteUrl, createPublicMetadata } from "@/lib/seo";
 import styles from "./hanhwal.module.css";
 
 const base = "/our-activities/hanhwal";
-const description = "Hanhwal (한활) is a Korean traditional archery club for international students at Jeonbuk National University.";
+const title = "한활 Hanhwal | 전북대학교 국궁 동아리";
+const description = "K_LINE 한활(Hanhwal)은 전북대학교 외국인 유학생과 함께하는 한국 전통 활쏘기·국궁 동아리입니다. Korean traditional archery club for international students at Jeonbuk National University.";
 
-export const metadata: Metadata = createPublicMetadata({
-  title: "Hanhwal | Korean Traditional Archery Club",
+const publicMetadata = createPublicMetadata({
+  title,
   description,
   path: base,
   image: "/images/hanhwal-site/hero.webp",
   imageAlt: "Hanhwal Korean traditional archery club",
-  keywords: ["Hanhwal", "한활", "Korean traditional archery", "국궁", "Jeonbuk National University"]
+  keywords: ["Hanhwal", "한활", "Kline Hanhwal", "K_LINE 한활", "Korean traditional archery", "국궁", "Jeonbuk National University"]
 });
+export const metadata: Metadata = {
+  ...publicMetadata,
+  openGraph: {
+    ...publicMetadata.openGraph,
+    images: [{ url: "/images/hanhwal-site/hero.webp", width: 2000, height: 1500, alt: "한활 Hanhwal Korean traditional archery club" }]
+  }
+};
 
-const jsonLd = {
-  "@context": "https://schema.org",
+const organization = {
   "@type": "SportsOrganization",
-  name: "Hanhwal",
-  alternateName: "한활",
+  "@id": absoluteUrl(`${base}#organization`),
+  name: "한활 Hanhwal",
+  alternateName: ["한활", "Hanhwal", "HANHWAL"],
   url: absoluteUrl(base),
+  logo: absoluteUrl("/images/hanhwal-bow-arrow-centered.webp"),
+  image: absoluteUrl("/images/hanhwal-site/hero.webp"),
   foundingDate: "2023-05-12",
   description,
   sport: "Korean traditional archery",
   sameAs: [hanhwalFacts.instagram],
   location: { "@type": "Place", name: "보조구장 (Auxiliary Field)", address: "전북 전주시 덕진구 건지로 20" }
+};
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    organization,
+    {
+      "@type": "WebPage",
+      "@id": absoluteUrl(`${base}#webpage`),
+      url: absoluteUrl(base),
+      name: `${title} | K_LINE`,
+      description,
+      inLanguage: ["ko", "en"],
+      isPartOf: { "@id": absoluteUrl("/#website") },
+      mainEntity: { "@id": organization["@id"] },
+      breadcrumb: { "@id": absoluteUrl(`${base}#breadcrumb`) }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": absoluteUrl(`${base}#breadcrumb`),
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "K_LINE", item: absoluteUrl("/") },
+        { "@type": "ListItem", position: 2, name: "International Student Clubs", item: absoluteUrl("/our-activities") },
+        { "@type": "ListItem", position: 3, name: "한활 Hanhwal", item: absoluteUrl(base) }
+      ]
+    }
+  ]
 };
 
 const gallery = [
@@ -46,7 +82,7 @@ export default function HanhwalHomePage() {
           <Image src="/images/hanhwal-site/hero.webp" alt="Hanhwal Korean traditional archery club" fill priority sizes="100vw" className={styles.heroImage} />
           <div className={styles.heroOverlay}>
             <p className={`${styles.eyebrow} ${styles.heroEyebrow}`}>KOREAN TRADITIONAL ARCHERY CLUB<br />FOR INTERNATIONAL STUDENTS</p>
-            <h1>Hanhwal</h1>
+            <h1>한활 Hanhwal</h1>
             <p>Jeonbuk National University</p>
           </div>
         </section>
@@ -56,6 +92,7 @@ export default function HanhwalHomePage() {
             <div className={styles.welcomeContent}>
               <p className={styles.eyebrow}>WELCOME</p>
               <h2>Welcome to Hanhwal</h2>
+              <p className={styles.largeText}>K_LINE에서 한활의 활동, 가입 안내와 한국 전통 활쏘기 문화를 만나보세요.</p>
               <p className={styles.largeText}>Hanhwal (한활) is a Korean Traditional Archery Club for foreign students at Jeonbuk National University.</p>
               <p>We learn, practice, and preserve the tradition of Korean archery while building a welcoming community together.</p>
               <a href={hanhwalFacts.instagram} target="_blank" rel="noopener noreferrer" className={styles.primaryButton}>Visit our Instagram →</a>

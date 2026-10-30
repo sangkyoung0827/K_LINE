@@ -26,7 +26,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     ...publicRoutes.map((route) => ({
       url: `${siteConfig.url}${route}`,
-      lastModified: now,
+      lastModified: route === "/our-activities/hanhwal" ? new Date("2026-10-30T00:00:00Z") : now,
       changeFrequency: "weekly" as const,
       priority: route === "" ? 1 : 0.8
     })),

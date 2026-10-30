@@ -39,9 +39,11 @@ export async function GET() {
       settings: {
         officialTeamChatUrl: access.isOfficialMember ? settings.officialTeamChatUrl : "",
         periodLabel: settings.periodLabel,
+        teamChatDescriptionKo: access.isOfficialMember ? settings.teamChatDescriptionKo : "",
+        teamChatDescriptionEn: access.isOfficialMember ? settings.teamChatDescriptionEn : "",
         updatedAt: settings.updatedAt
       }
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return errorResponse(error);
   }
@@ -59,6 +61,14 @@ export async function PATCH(request: Request) {
     }
 
     const body = (await request.json()) as Record<string, unknown>;
+    if (typeof body.officialTeamChatUrl === "string") {
+      try {
+        const url = new URL(body.officialTeamChatUrl);
+        if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("Invalid URL");
+      } catch {
+        return NextResponse.json({ error: "Please enter a valid team chat URL." }, { status: 400 });
+      }
+    }
     const current = await getHanhwalOperationalSettings();
     const settings = cleanHanhwalOperationalSettings(
       {
@@ -67,7 +77,9 @@ export async function PATCH(request: Request) {
             ? body.officialTeamChatUrl
             : current.officialTeamChatUrl,
         periodLabel:
-          typeof body.periodLabel === "string" ? body.periodLabel : current.periodLabel
+          typeof body.periodLabel === "string" ? body.periodLabel : current.periodLabel,
+        teamChatDescriptionKo: body.teamChatDescriptionKo,
+        teamChatDescriptionEn: body.teamChatDescriptionEn
       },
       current
     );

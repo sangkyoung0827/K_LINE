@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createNoIndexMetadata({
@@ -9,5 +9,5 @@ export const metadata: Metadata = createNoIndexMetadata({
 });
 
 export default function HanHwalRedirectPage() {
-  redirect("/our-activities/hanhwal");
+  permanentRedirect("/our-activities/hanhwal");
 }

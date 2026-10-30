@@ -7,32 +7,32 @@
 .content {
   width: min(100%, 960px);
   margin: 0 auto;
-  padding: 92px 30px 120px;
+  padding: 48px 30px 64px;
 }
 
 .pageHeader {
-  margin-bottom: 72px;
+  margin-bottom: 24px;
 }
 
 .eyebrow {
-  margin: 0 0 26px;
+  margin: 0 0 16px;
   color: #163c68;
   font-size: 14px;
   font-weight: 800;
-  letter-spacing: 5px;
+  letter-spacing: 0;
 }
 
 .pageHeader h1 {
   margin: 0;
-  font-size: clamp(50px, 7vw, 85px);
+  font-size: 40px;
   font-weight: 800;
-  letter-spacing: -2px;
+  letter-spacing: 0;
   line-height: 1.1;
 }
 
 .intro {
   max-width: 760px;
-  margin: 30px 0 0;
+  margin: 16px 0 0;
   color: #657991;
   font-size: 19px;
   line-height: 1.8;
@@ -60,21 +60,21 @@
 
 @media (max-width: 700px) {
   .content {
-    padding: 64px 20px 90px;
+    padding: 24px 20px 40px;
   }
 
   .pageHeader {
-    margin-bottom: 50px;
+    margin-bottom: 20px;
   }
 
   .eyebrow {
     font-size: 12px;
-    letter-spacing: 3px;
+    letter-spacing: 0;
   }
 
   .pageHeader h1 {
-    font-size: clamp(42px, 12vw, 58px);
-    letter-spacing: -1px;
+    font-size: 32px;
+    letter-spacing: 0;
   }
 
   .intro {

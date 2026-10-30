@@ -10,15 +10,16 @@ import { ReadOnlyDeveloperNotice } from "@/components/ReadOnlyDeveloperNotice";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublicHanhwalPage = [
+  const isStandaloneHanhwalPage = [
     "/hanhwal-join",
     "/our-activities/hanhwal",
     "/our-activities/hanhwal/gallery",
     "/our-activities/hanhwal/solbam",
-    "/our-activities/hanhwal/activities"
-  ].includes(pathname);
+    "/our-activities/hanhwal/activities",
+    "/our-activities/hanhwal/resources"
+  ].includes(pathname) || pathname.startsWith("/our-activities/hanhwal/resources/");
 
-  if (isPublicHanhwalPage) {
+  if (isStandaloneHanhwalPage) {
     return <main>{children}</main>;
   }
 

@@ -8,6 +8,8 @@ import { useReadOnlyDeveloper } from "@/components/ReadOnlyDeveloperNotice";
 type Settings = {
   officialTeamChatUrl: string;
   periodLabel: string;
+  teamChatDescriptionKo: string;
+  teamChatDescriptionEn: string;
   updatedAt: string;
 };
 
@@ -20,6 +22,8 @@ type OperationsResponse = {
 const emptySettings: Settings = {
   officialTeamChatUrl: "",
   periodLabel: "",
+  teamChatDescriptionKo: "",
+  teamChatDescriptionEn: "",
   updatedAt: ""
 };
 
@@ -137,7 +141,8 @@ export function HanhwalOperationsManagementPanel() {
           <label className="grid gap-2 text-sm font-semibold text-ink">
             {korean ? "현재 학기 / 운영기수" : "Current semester / operating period"}
             <input
-              disabled={!editable}
+              disabled={!editable || saving}
+              maxLength={120}
               value={draft.periodLabel}
               onChange={(event) =>
                 setDraft((current) => ({ ...current, periodLabel: event.target.value }))
@@ -162,7 +167,8 @@ export function HanhwalOperationsManagementPanel() {
               </p>
               <input
                 required
-                disabled={!editable}
+                disabled={!editable || saving}
+                maxLength={1000}
                 type="url"
                 value={draft.officialTeamChatUrl}
                 onChange={(event) =>
@@ -174,9 +180,9 @@ export function HanhwalOperationsManagementPanel() {
                 className="form-field mt-3 w-full disabled:opacity-60"
                 placeholder="https://..."
               />
-              {draft.officialTeamChatUrl ? (
+              {settings.officialTeamChatUrl ? (
                 <a
-                  href={draft.officialTeamChatUrl}
+                  href={settings.officialTeamChatUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-navy underline underline-offset-4"
@@ -198,6 +204,17 @@ export function HanhwalOperationsManagementPanel() {
               />
             </div>
           </section>
+          {(["Ko", "En"] as const).map((locale) => {
+            const key = `teamChatDescription${locale}` as const;
+            return (
+              <label key={key} className="grid gap-2 text-sm font-semibold text-ink">
+                {locale === "Ko" ? (korean ? "한국어 안내문" : "Korean instructions") : (korean ? "영어 안내문" : "English instructions")}
+                <textarea disabled={!editable || saving} maxLength={2000} value={draft[key]}
+                  onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
+                  className="form-field min-h-24 disabled:opacity-60" />
+              </label>
+            );
+          })}
         </div>
 
         {message ? <p className="mt-5 text-sm font-semibold text-pine">{message}</p> : null}
