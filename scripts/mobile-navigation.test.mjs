@@ -105,10 +105,10 @@ test("Hanhwal join hides all global site chrome for every role while preserving 
 });
 
 test("Hanhwal public pages stay standalone and all other pages retain global navigation", () => {
-  for (const pathname of ["/our-activities/hanhwal", "/our-activities/hanhwal/gallery", "/our-activities/hanhwal/solbam", "/our-activities/hanhwal/activities"]) {
+  for (const pathname of ["/our-activities/hanhwal", "/our-activities/hanhwal/gallery", "/our-activities/hanhwal/solbam", "/our-activities/hanhwal/activities", "/our-activities/hanhwal/resources", "/our-activities/hanhwal/resources/00000000-0000-4000-8000-000000000001"]) {
     assert.doesNotMatch(renderLayout(pathname, "member"), /data-site-chrome/);
   }
-  for (const pathname of ["/", "/ecc-join", "/hanhwal-official", "/our-activities/hanhwal/members", "/our-activities/hanhwal/resources", "/co-development"]) {
+  for (const pathname of ["/", "/ecc-join", "/hanhwal-official", "/our-activities/hanhwal/members", "/our-activities/hanhwal/operations", "/our-activities/hanhwal/activity", "/our-activities/hanhwal/fund", "/our-activities/hanhwal/register", "/our-activities/hanhwal/free-board", "/co-development"]) {
     const html = renderLayout(pathname, "admin");
     for (const component of ["Navbar", "Footer", "MobileBottomNav"]) {
       assert.ok(html.includes(`data-site-chrome="${component}"`), `${pathname}: ${component}`);

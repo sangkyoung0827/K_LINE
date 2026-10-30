@@ -34,7 +34,6 @@ export default function robots(): MetadataRoute.Robots {
           "/ecc-official",
           "/hanhwal-join",
           "/hanhwal-official",
-          "/han-hwal",
           "/ecc-alumni/activity-inquiry",
           "/ecc-alumni/rejoin",
           "/ecc-alumni/status",

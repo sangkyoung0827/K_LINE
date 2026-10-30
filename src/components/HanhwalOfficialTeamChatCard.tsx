@@ -8,6 +8,8 @@ import { useReadOnlyDeveloper } from "@/components/ReadOnlyDeveloperNotice";
 type Props = {
   initialPeriodLabel: string;
   initialTeamChatUrl: string;
+  initialDescriptionKo?: string;
+  initialDescriptionEn?: string;
   isAdmin: boolean;
 };
 
@@ -16,12 +18,16 @@ type OperationsResponse = {
   settings?: {
     officialTeamChatUrl: string;
     periodLabel: string;
+    teamChatDescriptionKo: string;
+    teamChatDescriptionEn: string;
   };
 };
 
 export function HanhwalOfficialTeamChatCard({
   initialPeriodLabel,
   initialTeamChatUrl,
+  initialDescriptionKo = "등록한 이름 또는 카카오톡 표시 이름으로 입장해 주세요.",
+  initialDescriptionEn = "Please join using your registered name or KakaoTalk display name.",
   isAdmin: adminAccess
 }: Props) {
   const readOnly = useReadOnlyDeveloper();
@@ -32,6 +38,8 @@ export function HanhwalOfficialTeamChatCard({
   const [periodLabel, setPeriodLabel] = useState(initialPeriodLabel);
   const [draftUrl, setDraftUrl] = useState(initialTeamChatUrl);
   const [draftPeriodLabel, setDraftPeriodLabel] = useState(initialPeriodLabel);
+  const [description, setDescription] = useState({ ko: initialDescriptionKo, en: initialDescriptionEn });
+  const [draftDescription, setDraftDescription] = useState({ ko: initialDescriptionKo, en: initialDescriptionEn });
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -41,6 +49,7 @@ export function HanhwalOfficialTeamChatCard({
     if (!isAdmin) return;
     setDraftUrl(teamChatUrl);
     setDraftPeriodLabel(periodLabel);
+    setDraftDescription(description);
     setError("");
     setEditing(true);
   };
@@ -55,7 +64,9 @@ export function HanhwalOfficialTeamChatCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           officialTeamChatUrl: draftUrl,
-          periodLabel: draftPeriodLabel
+          periodLabel: draftPeriodLabel,
+          teamChatDescriptionKo: draftDescription.ko,
+          teamChatDescriptionEn: draftDescription.en
         })
       });
       const data = (await response.json()) as OperationsResponse;
@@ -68,6 +79,9 @@ export function HanhwalOfficialTeamChatCard({
       setPeriodLabel(data.settings.periodLabel);
       setDraftUrl(data.settings.officialTeamChatUrl);
       setDraftPeriodLabel(data.settings.periodLabel);
+      const nextDescription = { ko: data.settings.teamChatDescriptionKo, en: data.settings.teamChatDescriptionEn };
+      setDescription(nextDescription);
+      setDraftDescription(nextDescription);
       setQrVersion((value) => value + 1);
       setEditing(false);
     } catch (saveError) {
@@ -83,51 +97,27 @@ export function HanhwalOfficialTeamChatCard({
 
   return (
     <div
-      role={isAdmin && !editing ? "button" : undefined}
-      tabIndex={isAdmin && !editing ? 0 : undefined}
-      onClick={isAdmin && !editing ? beginEditing : undefined}
-      onKeyDown={(event) => {
-        if (isAdmin && !editing && (event.key === "Enter" || event.key === " ")) {
-          event.preventDefault();
-          beginEditing();
-        }
-      }}
       className={`paper-panel mx-auto grid w-full max-w-5xl justify-items-center text-center ${
         !editing
           ? "max-md:rounded-none max-md:border-0 max-md:bg-transparent p-0 md:p-10"
           : "p-4 sm:p-6 md:p-10"
-      } ${
-        isAdmin && !editing
-          ? "cursor-pointer outline-none transition hover:border-brass hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-navy/35"
-          : ""
       }`}
     >
       {!editing ? (
         <>
-          <div className="hidden max-w-2xl md:block">
+          <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 border border-pine/20 bg-pine/10 px-3 py-2 text-xs font-semibold uppercase text-pine">
               <I18nText en="Confirmed member" ko="정식회원 확인됨" />
             </div>
-            {isAdmin && periodLabel ? (
+            {periodLabel ? (
               <p className="mt-4 text-xs font-semibold uppercase text-brass">{periodLabel}</p>
             ) : null}
-            <h2 className="mt-4 font-serif text-2xl font-semibold text-ink sm:mt-5 sm:text-3xl md:text-4xl">
+            <h2 className="mt-4 font-serif text-xl font-semibold text-ink sm:text-2xl">
               <I18nText en="Join the Hanhwal team chat" ko="한활 팀채팅에 입장하세요" />
             </h2>
-            <p className="mt-4 text-sm leading-7 text-ink/66">
-              <I18nText
-                en="Please use your registered name or KakaoTalk display name when joining the official team chat."
-                ko="공식 팀채팅에 입장할 때는 등록한 이름 또는 카카오톡 표시 이름을 사용해 주세요."
-              />
+            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink/66">
+              {description[language]}
             </p>
-            {isAdmin ? (
-              <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-navy">
-                <Edit3 className="h-3.5 w-3.5" />
-                {korean
-                  ? "관리자: 이 영역을 눌러 팀채팅 링크·QR·학기 정보를 수정할 수 있습니다."
-                  : "Admin: click this area to edit the team chat link, QR destination, and semester label."}
-              </p>
-            ) : null}
           </div>
 
           <div className="flex w-full items-center gap-3 md:mt-6 md:grid md:max-w-60">
@@ -157,7 +147,7 @@ export function HanhwalOfficialTeamChatCard({
                 }}
                 aria-label={korean ? "팀채팅 정보 수정" : "Edit team chat"}
                 title={korean ? "팀채팅 정보 수정" : "Edit team chat"}
-                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-ink/15 bg-white/65 text-ink md:hidden"
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center justify-self-center rounded-lg border border-ink/15 bg-white/65 text-ink"
               >
                 <Edit3 aria-hidden className="h-4 w-4" />
               </button>
@@ -194,6 +184,8 @@ export function HanhwalOfficialTeamChatCard({
               {korean ? "현재 학기 / 운영기수" : "Current semester / operating period"}
               <input
                 value={draftPeriodLabel}
+                disabled={saving}
+                maxLength={120}
                 onChange={(event) => setDraftPeriodLabel(event.target.value)}
                 placeholder={korean ? "예: 2026년 2학기" : "e.g. Fall 2026"}
                 className="form-field"
@@ -205,11 +197,21 @@ export function HanhwalOfficialTeamChatCard({
                 required
                 type="url"
                 value={draftUrl}
+                disabled={saving}
+                maxLength={1000}
                 onChange={(event) => setDraftUrl(event.target.value)}
                 className="form-field"
                 placeholder="https://..."
               />
             </label>
+            {(["ko", "en"] as const).map((locale) => (
+              <label key={locale} className="grid gap-2 text-sm font-semibold text-ink">
+                {locale === "ko" ? (korean ? "한국어 안내문" : "Korean instructions") : (korean ? "영어 안내문" : "English instructions")}
+                <textarea disabled={saving} maxLength={2000} value={draftDescription[locale]}
+                  onChange={(event) => setDraftDescription((current) => ({ ...current, [locale]: event.target.value }))}
+                  className="form-field min-h-24" />
+              </label>
+            ))}
           </div>
 
           <p className="mt-3 text-xs leading-5 text-ink/55">

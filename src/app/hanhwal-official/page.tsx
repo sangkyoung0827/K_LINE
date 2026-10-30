@@ -78,6 +78,8 @@ export default async function HanhwalOfficialPage() {
         <HanhwalOfficialTeamChatCard
           initialPeriodLabel={operations.periodLabel}
           initialTeamChatUrl={operations.officialTeamChatUrl}
+          initialDescriptionKo={operations.teamChatDescriptionKo}
+          initialDescriptionEn={operations.teamChatDescriptionEn}
           isAdmin={access.isAdmin}
         />
 

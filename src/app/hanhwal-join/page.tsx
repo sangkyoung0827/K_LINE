@@ -25,6 +25,7 @@ export default async function HanhwalJoinPage() {
     <HanhwalPublicShell>
       <main className={styles.joinPage}>
         <div className={styles.content}>
+          <HanhwalMemberRegistrationForm variant="site" intro={<>
           <header className={styles.pageHeader}>
             <p className={styles.eyebrow}>BECOME PART OF HANHWAL</p>
             <h1><I18nText en="Join Hanhwal" ko="한활 가입하기" /></h1>
@@ -48,7 +49,7 @@ export default async function HanhwalJoinPage() {
             </p>
           </section>
 
-          <HanhwalMemberRegistrationForm variant="site" />
+          </>} />
         </div>
       </main>
     </HanhwalPublicShell>
