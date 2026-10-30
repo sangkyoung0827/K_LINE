@@ -4,6 +4,8 @@ import { HomeTrackSections } from "@/components/HomeTrackSections";
 import { seoKeywords, siteConfig } from "@/lib/seo";
 import { auth } from "@/auth";
 import { canUseCoDevelopment } from "@/lib/coDevelopment/model";
+import { getGksHubAccess } from "@/lib/gksHub/access";
+import { GksHubCard } from "@/components/gks-hub/GksHubCard";
 
 export const metadata: Metadata = {
   title: {
@@ -47,10 +49,11 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const session = await auth();
+  const gksAccess = await getGksHubAccess();
   return (
     <>
       <HeroSection />
-      <HomeTrackSections showEventStudio={Boolean(session?.user?.email)} showCoDevelopment={canUseCoDevelopment(session?.user?.email)} />
+      <HomeTrackSections showEventStudio={Boolean(session?.user?.email)} showCoDevelopment={canUseCoDevelopment(session?.user?.email)} developerServices={gksAccess.allowed ? <GksHubCard /> : null} />
     </>
   );
 }

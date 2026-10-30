@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowRight, CalendarRange, LibraryBig, FlaskConical } from "lucide-react";
 import { WoohyukmonLauncher } from "@/components/WoohyukmonLauncher";
 import { WoohyukmonGlassesIcon } from "@/components/WoohyukmonGlassesIcon";
@@ -73,7 +74,7 @@ const homeCards: HomeCard[] = [
   }
 ];
 
-export function HomeTrackSections({ showEventStudio = false, showCoDevelopment = false }: { showEventStudio?: boolean; showCoDevelopment?: boolean }) {
+export function HomeTrackSections({ showEventStudio = false, showCoDevelopment = false, developerServices }: { showEventStudio?: boolean; showCoDevelopment?: boolean; developerServices?: ReactNode }) {
   return (
     <section className="bg-paper px-4 pb-10 sm:px-5 sm:pb-14 md:px-8 md:pb-20">
       <div className="mx-auto max-w-7xl">
@@ -82,6 +83,7 @@ export function HomeTrackSections({ showEventStudio = false, showCoDevelopment =
             <HomePortalCard key={card.href} card={card} />
           ))}
           <PublishedServices />
+          {developerServices}
           <CoDevelopmentCard personalize={showCoDevelopment} />
         </div>
       </div>
