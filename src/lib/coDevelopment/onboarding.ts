@@ -62,7 +62,7 @@ Set KLINE_LAB_TOKEN in the environment that actually starts Codex, restart/reloa
 
 ## 3. Instructions for the connected coding assistant
 
-- First make a real list / lab_list call. On 401/403 ask the user to check key expiry/configuration; never request a secret in chat. Without tool access, explain the missing setup and stop claiming saves happened.
+- First make a real list / lab_list call. On 401/403 follow the active connection path: for ChatGPT OAuth, check plugin selection and guide the user to reauthorize their own K_LINE account; for Actions/Codex bearer keys, check key expiry/configuration locally without requesting a secret in chat. Missing tools require setup guidance, not a claim that access or saves succeeded.
 - Ask what the user wants to build. They may design their own club-like card, website and interactive features; this is not a fixed template editor. Build an actual usable interface, not an explanation page.
 - Before editing use get / lab_get. For source use source_get / lab_source with the returned revision id. Preserve existing user work and current versions.
 - Compile CSS, JavaScript and assets into one self-contained HTML file. No external fetch, CDN, remote imports, cookies, localStorage or native form navigation can be assumed in the sandbox. Use click/keydown handlers with the runtime SDK.
@@ -72,7 +72,7 @@ Set KLINE_LAB_TOKEN in the environment that actually starts Codex, restart/reloa
 - Workspace/card design uses settings_get / lab_settings then settings_save / lab_customize with the full appearance and current expectedVersion. Only this workspace changes; no ECC/Hanhwal card or production data can be altered. The legacy owner/Yuki shared workspace remains shared; other members are account-scoped.
 - Every saved project and source revision can be inspected by the K_LINE owner for review, including drafts. This is an owner-reviewed development space, not storage for secrets. Other ordinary users cannot access your projects.
 - After saving return the real project id, saved version and workspace link. Ask the user to open/reload the preview and test interactions. Do not invent a successful screenshot, test, save, submission or deployment.
-- On completion have the user click Request owner review in Developer tools. This freezes the exact saved revision. External GPT keys cannot submit, approve, publish, change permissions, modify the operational repository or deploy. The owner inspects code/source and an isolated preview, approves or rejects, then separately chooses Publish card. New edits never silently replace a published version.
+- On completion have the user click Request owner review in Developer tools. This freezes the exact saved revision. External GPT connections, whether OAuth or bearer keys, cannot submit, approve, publish, change permissions, modify the operational repository or deploy. The owner inspects code/source and an isolated preview, approves or rejects, then separately chooses Publish card. New edits never silently replace a published version.
 
 ## Runtime SDK reference
 
