@@ -61,7 +61,7 @@ export function labSources(value: unknown): Record<string, string> {
 }
 
 export function labNoSecrets(value: string) {
-  if (/\bkll_[a-f0-9]{64}\b|\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{32,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(value)) throw new LabError("SOURCE_CONTAINS_CREDENTIAL");
+  if (/\b(?:kll|kla|klr|klsecret|klcode)_[a-f0-9]{64}\b|\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{32,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(value)) throw new LabError("SOURCE_CONTAINS_CREDENTIAL");
 }
 
 export function labRecordData(value: unknown) {

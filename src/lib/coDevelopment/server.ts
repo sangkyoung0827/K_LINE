@@ -4,8 +4,9 @@ import { auth } from "@/auth";
 import { getSupabaseConfig } from "@/lib/supabaseServer";
 import { canUseCoDevelopment, isLabOwner, defaultLabAppearance, LabError, labAppearance, labCollection, labData, labId, labRecordData, labSave, labSources, labVersion, type LabProject, type LabRevision, type LabState, type LabSettings, type LabRecord, type LabRecords, type LabReviewDetail, type PublishedLab } from "./model";
 import type { LabOwnerProject, LabOwnerDetail } from "./model";
+import { labOAuthVerify } from "./oauth-store";
 
-export type LabActor = { email: string; via: "session" | "token" };
+export type LabActor = { email: string; via: "session" | "token" | "oauth" };
 type Actor = LabActor;
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 const procedures = new Set(["list", "get", "revision", "save", "state_read", "state_save", "review", "token_lookup", "token_rotate", "token_revoke", "settings_get", "settings_save", "bundle_save", "source_get", "records_list", "record_save", "review_queue", "review_detail", "review_decide", "release", "catalog", "public_revision", "service_data"]);
@@ -53,6 +54,11 @@ async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
 export async function labActor(request: Request, sessionOnly = false): Promise<Actor> {
   const bearer = request.headers.get("authorization");
   if (bearer) {
+    if (!sessionOnly && new URL(request.url).pathname === "/api/co-development/mcp" && bearer.startsWith("Bearer kla_")) {
+      const row = await labOAuthVerify(request, bearer.slice(7));
+      if (!canUseCoDevelopment(row.email)) throw new LabError("LAB_FORBIDDEN", 403);
+      return { email: row.email, via: "oauth" };
+    }
     if (sessionOnly || !/^Bearer kll_[a-f0-9]{64}$/.test(bearer)) throw new LabError("LAB_FORBIDDEN", 403);
     const row = await rpc<{ email: string } | null>("token_lookup", { p_hash: hash(bearer.slice(7)) });
     if (!row || !canUseCoDevelopment(row.email)) throw new LabError("LAB_FORBIDDEN", 403);

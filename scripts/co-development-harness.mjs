@@ -13,7 +13,7 @@ const dbOrigin = "http://co-dev-db.invalid";
 export async function coDevelopmentHarness() {
   const db = new PGlite(); await db.waitReady;
   await db.exec("create role anon; create role authenticated; create role service_role bypassrls; grant usage on schema public to anon, authenticated, service_role; alter default privileges in schema public grant all on tables to anon, authenticated, service_role;");
-  const migrations = (await readdir("supabase/migrations")).filter(name => /_(?:co_development_(lab|customization|codex)|developer_studio)\.sql$/.test(name)).sort();
+  const migrations = (await readdir("supabase/migrations")).filter(name => /_(?:co_development_(lab|customization|codex|oauth)|developer_studio)\.sql$/.test(name)).sort();
   for (const migration of migrations) await db.exec(await readFile(`supabase/migrations/${migration}`, "utf8"));
   const signatures = new Map((await db.query("select proname,proargnames from pg_proc where pronamespace='public'::regnamespace and proname like 'co_dev_%' and proname<>'co_dev_assert'")).rows.map(row => [row.proname, row.proargnames || []]));
   await db.exec("set role service_role;");
@@ -23,6 +23,7 @@ export async function coDevelopmentHarness() {
   const calls = [];
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(String(input));
+    if (url.href === "https://chatgpt.com/oauth/client.json") return Response.json({client_id:url.href,client_name:"ChatGPT",redirect_uris:["https://chatgpt.com/connector_platform_oauth_redirect"],token_endpoint_auth_method:"private_key_jwt",token_endpoint_auth_methods_supported:["none","private_key_jwt"]});
     if (url.origin !== dbOrigin) throw new Error("UNEXPECTED_EXTERNAL_REQUEST");
     if (init.method === "GET") {
       const table=url.pathname.slice("/rest/v1/".length);
@@ -54,7 +55,7 @@ export async function coDevelopmentHarness() {
   };
   const directory = await mkdtemp(join(tmpdir(), "co-dev-qa-"));
   await build({
-    stdin: { contents: "export * from './src/lib/coDevelopment/model'; export * from './src/lib/coDevelopment/server'; export * from './src/lib/coDevelopment/schema'; export {GET,POST} from './src/app/api/co-development/[[...segments]]/route'; export {middleware} from './src/middleware';", resolveDir: process.cwd(), loader: "ts" },
+    stdin: { contents: "export * from './src/lib/coDevelopment/model'; export * from './src/lib/coDevelopment/server'; export * from './src/lib/coDevelopment/schema'; export {labOAuthMetadata} from './src/lib/coDevelopment/oauth'; export {GET,POST} from './src/app/api/co-development/[[...segments]]/route'; export {middleware} from './src/middleware';", resolveDir: process.cwd(), loader: "ts" },
     outfile: join(directory, "api.cjs"), bundle: true, platform: "node", packages: "external", format: "cjs",
     banner: { js: `module.paths.unshift(${JSON.stringify(join(process.cwd(), "node_modules"))});` },
     plugins: [{ name: "isolated-lab", setup(builder) {
@@ -69,6 +70,7 @@ export async function coDevelopmentHarness() {
   });
   const api = createRequire(import.meta.url)(join(directory, "api.cjs"));
   const previousSecret = process.env.AUTH_SECRET; process.env.AUTH_SECRET = secret;
+  const previousOAuthOrigin = process.env.CO_DEVELOPMENT_OAUTH_ORIGIN; process.env.CO_DEVELOPMENT_OAUTH_ORIGIN = "https://kline.test";
   async function cookie(email, https = false) {
     const salt = https ? "__Secure-authjs.session-token" : "authjs.session-token";
     return `${salt}=${await encode({ token: { email }, secret, salt })}`;
@@ -77,6 +79,7 @@ export async function coDevelopmentHarness() {
     return identity.run(request, async () => {
       const guard = await api.middleware(request);
       if (guard.status !== 200) return guard;
+      if (new URL(request.url).pathname.startsWith("/.well-known/")) return api.labOAuthMetadata(request,new URL(request.url).pathname.includes("oauth-protected-resource"));
       const segments = new URL(request.url).pathname.slice("/api/co-development".length).split("/").filter(Boolean);
       return (request.method === "GET" ? api.GET : api.POST)(request, { params: Promise.resolve({ segments }) });
     });
@@ -89,6 +92,7 @@ export async function coDevelopmentHarness() {
   return { api, db, calls, handle, cookie, call, async close() {
     globalThis.fetch = originalFetch; delete globalThis.__coDevQA;
     if (previousSecret === undefined) delete process.env.AUTH_SECRET; else process.env.AUTH_SECRET = previousSecret;
+    if (previousOAuthOrigin === undefined) delete process.env.CO_DEVELOPMENT_OAUTH_ORIGIN; else process.env.CO_DEVELOPMENT_OAUTH_ORIGIN = previousOAuthOrigin;
     await db.close(); await rm(directory, { recursive: true, force: true });
   } };
 }

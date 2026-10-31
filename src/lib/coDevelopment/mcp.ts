@@ -5,14 +5,16 @@ import * as z from "zod/v4";
 import { LabError } from "./model";
 import { labCommand, type LabActor } from "./server";
 import { labStarter } from "./starter";
+import { labOAuthScope } from "./oauth-store";
 
 const instructions = "K_LINE Developer Studio. Develop source files in your own Codex workspace; build self-contained HTML locally and upload it with lab_save_bundle. Use lab_records for synthetic project data, never production members or credentials. Only this account's projects are available; the original owner/Yuki shared workspace remains shared. No shell, arbitrary SQL, production tables, repository writes, review approval or deployment access is provided. Read current versions before saving; reconcile conflicts instead of overwriting. Keep lab credentials in environment variables, not source or model messages.";
 
 export async function labMcp(request: Request, actor: LabActor) {
+  const securitySchemes = [{ type: "oauth2", scopes: [labOAuthScope] }];
   const server = new McpServer({ name: "kline-private-development", version: "1.0.0" }, { instructions });
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, maxRequestBodySize: 2097152 });
   function tool(name: string, description: string, schema: z.ZodRawShape, action: string, readOnly = false) {
-    server.registerTool(name, { description, inputSchema: schema, annotations: { readOnlyHint: readOnly, destructiveHint: false, openWorldHint: false } }, async args => {
+    server.registerTool(name, { description, inputSchema: schema, _meta: { securitySchemes }, annotations: { readOnlyHint: readOnly, destructiveHint: false, openWorldHint: false } }, async args => {
       try {
         const result = await labCommand(actor, { ...args, action });
         return { content: [{ type: "text" as const, text: JSON.stringify(result) }], structuredContent: { result } };
@@ -22,11 +24,11 @@ export async function labMcp(request: Request, actor: LabActor) {
     });
   }
   const id = z.uuid();
-  server.registerTool("lab_starter", { description: "Read an empty editable project with local build/sync scripts and Codex MCP configuration. No example clubs, member records or keys are included.", inputSchema: {}, annotations: { readOnlyHint: true, openWorldHint: false } }, async () => {
+  server.registerTool("lab_starter", { description: "Read an empty editable project with local build/sync scripts and Codex MCP configuration. No example clubs, member records or keys are included.", inputSchema: {}, _meta: { securitySchemes }, annotations: { readOnlyHint: true, openWorldHint: false } }, async () => {
     const result = { files: labStarter(new URL(request.url).origin) };
     return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: { result } };
   });
-  tool("lab_list", "List shared private development projects.", {}, "list", true);
+  tool("lab_list", "List this authenticated account's private development projects.", {}, "list", true);
   tool("lab_get", "Read a project's current HTML, metadata and revision ids before editing.", { id }, "get", true);
   tool("lab_save_bundle", "Save compiled inline HTML and up to 100 text source files (1 MiB total), atomically versioned. Build locally. No credentials, external imports or real member data. expectedRevision is 0 for new projects. Preserve id on retry. Backend source can be archived but is NOT executed on K_LINE; use lab_records for the shared test backend.", {
     id, expectedRevision: z.number().int().min(0), title: z.string().min(1).max(120), description: z.string().max(2000), html: z.string().min(1).max(262144),
@@ -47,6 +49,16 @@ export async function labMcp(request: Request, actor: LabActor) {
     await server.connect(transport);
     const response = await transport.handleRequest(request);
     const body = await response.arrayBuffer();
+    // SDK 1.32 emits extension metadata under _meta; ChatGPT also reads the
+    // top-level per-tool auth declaration. Keep both representations identical.
+    if (response.headers.get("content-type")?.includes("application/json") && body.byteLength) {
+      const value = JSON.parse(new TextDecoder().decode(body));
+      if (Array.isArray(value?.result?.tools)) {
+        for (const tool of value.result.tools) tool.securitySchemes = securitySchemes;
+        const headers = new Headers(response.headers); headers.delete("Content-Length");
+        return Response.json(value, { status: response.status, headers });
+      }
+    }
     return new Response(response.status === 202 || response.status === 204 ? null : body, { status: response.status, headers: response.headers });
   } finally { await server.close(); }
 }
