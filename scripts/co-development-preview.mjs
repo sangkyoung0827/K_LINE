@@ -37,10 +37,10 @@ const server = createServer(async (request,response)=>{
     response.writeHead(302,{Location:"/","Set-Cookie":`${fixtureCookie}=${chosen}; Path=/; HttpOnly; SameSite=Strict`});response.end();return;
   }
   if(url.pathname==="/__fixture/session"){response.setHeader("Content-Type","application/json");response.end(JSON.stringify({email}));return;}
-  if(url.pathname.startsWith("/api/co-development")){
+  if(url.pathname.startsWith("/api/co-development") || url.pathname.startsWith("/.well-known/")){
     const chunks=[];let length=0;
     for await(const chunk of request){length+=chunk.length;if(length>2097152){response.writeHead(413);response.end();return;}chunks.push(chunk);}
-    const next = new NextRequest(url,{method:request.method,headers:{...request.headers,cookie},...(chunks.length?{body:Buffer.concat(chunks)}:{})});
+    const next = new NextRequest(url,{method:request.method,headers:{...request.headers,cookie:`${cookie}; ${request.headers.cookie || ""}`},...(chunks.length?{body:Buffer.concat(chunks)}:{})});
     const result = await harness.handle(next);response.writeHead(result.status,Object.fromEntries(result.headers));response.end(Buffer.from(await result.arrayBuffer()));return;
   }
   if(url.pathname==="/ui.js"){response.setHeader("Content-Type","text/javascript");response.end(await readFile(join(directory,"ui.js")));return;}
@@ -49,10 +49,10 @@ const server = createServer(async (request,response)=>{
     if(!/^\/images\/[a-zA-Z0-9_./-]+$/.test(url.pathname)||url.pathname.includes("..")){response.writeHead(404);response.end();return;}
     try{response.setHeader("Content-Type",url.pathname.endsWith(".svg")?"image/svg+xml":"image/png");response.end(await readFile("public"+url.pathname));}catch{response.writeHead(404);response.end();}return;
   }
-  if(url.pathname!=="/"&&url.pathname!=="/co-development"&&!/^\/services\/[0-9a-f-]{36}$/.test(url.pathname)){response.writeHead(404);response.end();return;}
+  if(url.pathname!=="/"&&url.pathname!=="/co-development"&&url.pathname!=="/co-development/connect"&&!/^\/services\/[0-9a-f-]{36}$/.test(url.pathname)){response.writeHead(404);response.end();return;}
   if(url.pathname==="/co-development"&&!harness.api.canUseCoDevelopment(email)){response.writeHead(404);response.end("Not found");return;}
   response.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"});
   response.end('<!doctype html><html lang="ko"><meta name="viewport" content="width=device-width,initial-scale=1"><title>K_LINE 공동개발실 · 로컬 검증</title><link rel="stylesheet" href="/ui.css"><body><div id="root"></div><script src="/ui.js"></script></body></html>');
 });
-server.listen(Number(process.env.PORT || 0),"127.0.0.1",()=>console.log(`Co-development isolated preview: http://localhost:${server.address().port}/`));
+server.listen(Number(process.env.PORT || 0),"127.0.0.1",()=>{process.env.CO_DEVELOPMENT_OAUTH_ORIGIN=`http://localhost:${server.address().port}`;console.log(`Co-development isolated preview: http://localhost:${server.address().port}/`);});
 for(const signal of ["SIGINT","SIGTERM"])process.once(signal,()=>{server.close(async()=>{await harness.close();await rm(directory,{recursive:true,force:true});process.exit(0);});});

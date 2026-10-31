@@ -48,6 +48,9 @@ function isPublicPath(pathname: string) {
     ["/jeju", "/jeju/profile", "/jeju/memories", "/jeju/map", "/jeju/ai", "/jeju/discover", "/jeju/program"].includes(pathname) ||
     /^\/jeju\/place\/[^/]+$/.test(pathname) ||
     pathname === "/login" ||
+    pathname === "/.well-known/oauth-authorization-server" ||
+    pathname === "/.well-known/oauth-protected-resource" ||
+    pathname === "/.well-known/oauth-protected-resource/api/co-development/mcp" ||
     pathname.startsWith("/ecc-alumni") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/api/") ||
@@ -130,7 +133,16 @@ export async function middleware(request: NextRequest) {
       requestHeaders.set(readOnlyDeveloperHeader, "1");
     }
   }
-  const next = () => NextResponse.next({ request: { headers: requestHeaders } });
+  const next = () => {
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    if (pathname === "/co-development/connect") {
+      response.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+      response.headers.set("X-Frame-Options", "DENY");
+      response.headers.set("Referrer-Policy", "no-referrer");
+      response.headers.set("Cache-Control", "private, no-store");
+    }
+    return response;
+  };
 
   if (isPublicPath(pathname)) {
     return next();

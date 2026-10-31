@@ -6,6 +6,8 @@ import { labMcp } from "@/lib/coDevelopment/mcp";
 import { labStarter } from "@/lib/coDevelopment/starter";
 import { labOnboarding } from "@/lib/coDevelopment/onboarding";
 import JSZip from "jszip";
+import { labOAuthHandle } from "@/lib/coDevelopment/oauth";
+import { LabOAuthError, labOAuthChallenge } from "@/lib/coDevelopment/oauth-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,13 +36,14 @@ async function handle(request: Request, context: Context) {
     const path = (await context.params).segments || [];
     const isActions = path.length === 1 && path[0] === "actions";
     const isMcp = path.length === 1 && path[0] === "mcp";
+    if (path.length === 2 && path[0] === "oauth") return labOAuthHandle(request, path[1]);
     if (request.method === "GET" && path.length === 1 && path[0] === "catalog") return Response.json(await labCatalog(), { headers: privateHeaders });
     if (request.method === "GET" && path.length === 2 && path[0] === "service") {
       const revision = await labPublicRevision(path[1]);
       return htmlResponse(revision.html);
     }
     const actor = await labActor(request, !(isActions || isMcp));
-    if ((isActions || isMcp) && actor.via !== "token") throw new LabError("LAB_FORBIDDEN", 403);
+    if ((isActions && actor.via !== "token") || (isMcp && actor.via !== "token" && actor.via !== "oauth")) throw new LabError("LAB_FORBIDDEN", 403);
     if (isMcp) {
       if (request.headers.get("origin") && request.headers.get("origin") !== new URL(request.url).origin) throw new LabError("INVALID_ORIGIN", 403);
       const response = await labMcp(request, actor);
@@ -92,6 +95,13 @@ async function handle(request: Request, context: Context) {
     if (isActions && !["list", "get", "save", "bundle_save", "source_get", "records_list", "record_save", "settings_get", "settings_save"].includes(String(body.action))) throw new LabError("LAB_FORBIDDEN", 403);
     return Response.json(await labCommand(actor, body), { headers: privateHeaders });
   } catch (error) {
+    if (new URL(request.url).pathname === "/api/co-development/mcp" &&
+      ((error instanceof LabError && error.code === "LAB_FORBIDDEN") || (error instanceof LabOAuthError && error.status === 401))) {
+      let challenge: string;
+      try { challenge = labOAuthChallenge(request); } catch { return Response.json({ error: "invalid_target" }, { status: 400, headers: privateHeaders }); }
+      return Response.json({ error: "invalid_token" }, { status: 401, headers: { ...privateHeaders, "WWW-Authenticate": challenge } });
+    }
+    if (error instanceof LabOAuthError) return Response.json({ error: error.code }, { status: error.status, headers: privateHeaders });
     const known = error instanceof LabError;
     return Response.json({ error: known ? error.code : "LAB_UNAVAILABLE" }, { status: known ? error.status : 503, headers: privateHeaders });
   }

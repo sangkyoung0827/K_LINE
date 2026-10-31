@@ -9,15 +9,23 @@ export function labOnboarding(origin: string) {
 
 This file contains the actual connection contract, capabilities and workflow. It contains NO key.
 이 파일에는 연결 방법과 실제 지원 기능이 들어 있습니다. 비밀키는 포함하지 않습니다.
-Attaching a file to an ordinary ChatGPT conversation does not install tools or grant API access. Configure a private GPT Action or Codex MCP once, then attach this file and start developing.
-일반 채팅에 파일만 첨부해도 API가 연결되는 것은 아닙니다. 개인 GPT Actions 또는 Codex MCP를 최초 1회 설정해야 합니다.
+Attaching a file to an ordinary ChatGPT conversation does not install tools or grant API access. Connect ChatGPT MCP with OAuth, a private GPT Action, or Codex MCP once, then attach this file and start developing.
+일반 채팅에 파일만 첨부해도 API가 연결되는 것은 아닙니다. ChatGPT MCP(OAuth), 개인 GPT Actions 또는 Codex MCP를 최초 1회 설정해야 합니다.
 ${local ? "LOCAL PREVIEW: this localhost address is not reachable by a remote GPT. Obtain this file again from the approved public HTTPS Developer Studio before external connection.\n로컬 미리보기 주소입니다. 외부 GPT 연결에는 운영 HTTPS 사이트에서 다시 받은 파일을 사용하세요.\n" : ""}
 Workspace: ${base}/co-development
 Actions endpoint: ${base}/api/co-development/actions
 Codex MCP: ${base}/api/co-development/mcp
 Owner / 최종 승인자: K_LINE owner Lee Sangkyoung (이상경).
 
-## 1. The only credential you need / 필요한 연결키
+## 1A. Ordinary ChatGPT / 일반 ChatGPT — OAuth, no API key
+
+In ChatGPT's custom MCP connection settings, add ${base}/api/co-development/mcp and choose OAuth. Client metadata and endpoints are discovered automatically. Sign in to K_LINE with YOUR OWN Google account and explicitly allow Developer Studio workspace access. No OpenAI API key, KLINE_LAB_TOKEN value, or Codex TOML belongs in these ChatGPT settings.
+ChatGPT의 사용자 지정 MCP 연결에서 위 MCP URL과 OAuth를 선택하세요. K_LINE 본인 계정으로 로그인하고 개발 공간 연결을 허용합니다. 별도 API 키는 필요하지 않습니다.
+
+This path requires your ChatGPT plan/workspace to allow custom MCP. If that setting is unavailable, use the supported Actions or Codex paths below; do not disable authentication. A 401 with WWW-Authenticate before login is the OAuth discovery challenge, not a broken workspace. Verify the finished connection with lab_list; then save a real bundle and confirm the same project in K_LINE. Disconnect individual linked apps in Development connection → ChatGPT. Access tokens last one hour; refresh tokens rotate and expire after 30 days of inactivity; each consent lasts at most 90 days.
+본인 작업 공간만 연결되며 다른 일반 이용자의 프로젝트·운영 DB·GitHub·배포 권한은 열리지 않습니다. 기존 소유자/Yuki 공유 공간은 그대로 유지됩니다. 저장한 결과물은 소유자가 검수할 수 있습니다.
+
+## 1B. Actions / Codex credentials / 필요한 연결키
 
 Sign in to K_LINE with YOUR OWN Google account. Open Development connection and issue your own Developer Studio connection key. It starts with kll_. Each user must use their own key; do not share the owner's or Yuki's key. Rotating revokes that account's previous key. Keys expire and can be revoked from the same screen.
 본인의 K_LINE 계정으로 로그인해 개인 연결키를 발급하세요. 다른 사람의 키를 공유하지 마세요. 갱신하면 기존 키가 무효화됩니다.
