@@ -55,7 +55,7 @@ export async function coDevelopmentHarness() {
   };
   const directory = await mkdtemp(join(tmpdir(), "co-dev-qa-"));
   await build({
-    stdin: { contents: "export * from './src/lib/coDevelopment/model'; export * from './src/lib/coDevelopment/server'; export * from './src/lib/coDevelopment/schema'; export {labOAuthMetadata} from './src/lib/coDevelopment/oauth'; export {GET,POST} from './src/app/api/co-development/[[...segments]]/route'; export {middleware} from './src/middleware';", resolveDir: process.cwd(), loader: "ts" },
+    stdin: { contents: "export * from './src/lib/coDevelopment/model'; export * from './src/lib/coDevelopment/server'; export * from './src/lib/coDevelopment/schema'; export * from './src/lib/coDevelopment/setup-guide'; export {labOAuthMetadata} from './src/lib/coDevelopment/oauth'; export {GET,POST} from './src/app/api/co-development/[[...segments]]/route'; export {middleware} from './src/middleware';", resolveDir: process.cwd(), loader: "ts" },
     outfile: join(directory, "api.cjs"), bundle: true, platform: "node", packages: "external", format: "cjs",
     banner: { js: `module.paths.unshift(${JSON.stringify(join(process.cwd(), "node_modules"))});` },
     plugins: [{ name: "isolated-lab", setup(builder) {

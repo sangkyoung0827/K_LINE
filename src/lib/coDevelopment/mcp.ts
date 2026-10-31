@@ -7,7 +7,7 @@ import { labCommand, type LabActor } from "./server";
 import { labStarter } from "./starter";
 import { labOAuthScope } from "./oauth-store";
 
-const instructions = "K_LINE Developer Studio. Develop source files in your own Codex workspace; build self-contained HTML locally and upload it with lab_save_bundle. Use lab_records for synthetic project data, never production members or credentials. Only this account's projects are available; the original owner/Yuki shared workspace remains shared. No shell, arbitrary SQL, production tables, repository writes, review approval or deployment access is provided. Read current versions before saving; reconcile conflicts instead of overwriting. Keep lab credentials in environment variables, not source or model messages.";
+const instructions = "K_LINE Developer Studio. First call lab_list to verify this conversation's real connection; an empty projects array is valid. For step-by-step onboarding read START-HERE.md from lab_starter. Ask what the user wants to build before creating anything. Develop source in ChatGPT or the user's Codex workspace and upload self-contained HTML plus source with lab_save_bundle. Read it back with lab_get, return the actual project ID/version and guide the user to test it in K_LINE. Use lab_records only for requested synthetic data, never operating members or credentials. Only this account's projects are available; the original owner/Yuki shared workspace remains shared. No shell, arbitrary SQL, production tables, repository writes, review submission/approval or deployment access is provided. Read current versions before saving; reconcile conflicts instead of overwriting. Guide the user to Request owner review in K_LINE after they test their feature; public release requires the owner's separate approval. Keep credentials outside source and chat.";
 
 export async function labMcp(request: Request, actor: LabActor) {
   const securitySchemes = [{ type: "oauth2", scopes: [labOAuthScope] }];
@@ -24,7 +24,7 @@ export async function labMcp(request: Request, actor: LabActor) {
     });
   }
   const id = z.uuid();
-  server.registerTool("lab_starter", { description: "Read an empty editable project with local build/sync scripts and Codex MCP configuration. No example clubs, member records or keys are included.", inputSchema: {}, _meta: { securitySchemes }, annotations: { readOnlyHint: true, openWorldHint: false } }, async () => {
+  server.registerTool("lab_starter", { description: "Use for guided setup and first development steps: read START-HERE.md plus an empty editable project, local build/sync scripts and Codex configuration. No example clubs, member records or keys are included.", inputSchema: {}, _meta: { securitySchemes }, annotations: { readOnlyHint: true, openWorldHint: false } }, async () => {
     const result = { files: labStarter(new URL(request.url).origin) };
     return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: { result } };
   });

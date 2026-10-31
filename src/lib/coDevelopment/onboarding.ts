@@ -1,16 +1,18 @@
 import { labActionSchema } from "./schema";
+import { labGuidedSetup } from "./setup-guide";
 
 export function labOnboarding(origin: string) {
   const base = new URL(origin).origin;
   const local = new URL(base).protocol !== "https:";
   return `# K_LINE Developer Studio — GPT / Codex Start File
 
+${labGuidedSetup(base)}
 ## Read this first / 먼저 읽기
 
 This file contains the actual connection contract, capabilities and workflow. It contains NO key.
 이 파일에는 연결 방법과 실제 지원 기능이 들어 있습니다. 비밀키는 포함하지 않습니다.
-Attaching a file to an ordinary ChatGPT conversation does not install tools or grant API access. Connect ChatGPT MCP with OAuth, a private GPT Action, or Codex MCP once, then attach this file and start developing.
-일반 채팅에 파일만 첨부해도 API가 연결되는 것은 아닙니다. ChatGPT MCP(OAuth), 개인 GPT Actions 또는 Codex MCP를 최초 1회 설정해야 합니다.
+Attaching a file does not install tools or grant API access. Attach this file before setup so your assistant can guide you through the first connection. After installing/selecting the plugin, bring this file into the tool-enabled conversation and verify access before developing.
+파일 첨부만으로 API가 연결되는 것은 아닙니다. 설치 전에 이 파일을 첨부해 단계별 안내를 받으세요. 설치 후에는 플러그인을 선택한 대화에서 파일을 이어 읽고 실제 연결을 확인한 뒤 개발을 시작합니다.
 ${local ? "LOCAL PREVIEW: this localhost address is not reachable by a remote GPT. Obtain this file again from the approved public HTTPS Developer Studio before external connection.\n로컬 미리보기 주소입니다. 외부 GPT 연결에는 운영 HTTPS 사이트에서 다시 받은 파일을 사용하세요.\n" : ""}
 Workspace: ${base}/co-development
 Actions endpoint: ${base}/api/co-development/actions

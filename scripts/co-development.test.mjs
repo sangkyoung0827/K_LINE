@@ -232,10 +232,14 @@ test("native MCP SDK client initializes and develops a shared club-like project 
   });
   try {
     await client.connect(transport);
+    assert.match(client.getInstructions(),/First call lab_list/);
+    assert.match(client.getInstructions(),/START-HERE.md from lab_starter/);
     const tools = (await client.listTools()).tools.map(item=>item.name);
     assert.deepEqual(tools.sort(),["lab_starter","lab_list","lab_get","lab_save_bundle","lab_source","lab_settings","lab_customize","lab_records","lab_save_record"].sort());
     const call = async (name,args={}) => { const result=await client.callTool({name,arguments:args}); assert.notEqual(result.isError,true,JSON.stringify(result)); return result.structuredContent.result; };
     const starter = await call("lab_starter"); assert.match(starter.files["README.md"], /bearer_token_env_var/); assert.match(starter.files["src/main.js"], /KLINE_LAB.records/);
+    assert.match(starter.files["START-HERE.md"],/## START HERE/);
+    assert.match(starter.files["START-HERE.md"],/Register the ChatGPT plugin/);
     assert.ok(!JSON.stringify(starter).includes(issued.token));
     const files=Object.fromEntries(Object.entries(starter.files).filter(([name])=>name!==".gitignore"));
     const compiled=await build({stdin:{contents:files["src/main.js"],loader:"js"},bundle:true,write:false,format:"iife",plugins:[{name:"starter-css",setup(b){b.onResolve({filter:/^\.\/style\.css$/},()=>({path:"style",namespace:"starter"}));b.onLoad({filter:/.*/,namespace:"starter"},()=>({contents:files["src/style.css"],loader:"text"}));}}]});
@@ -289,6 +293,45 @@ test("GPT start file is authenticated, complete, origin-bound and never contains
   assert.equal(await zip.file("START-HERE.md").async("string"),await (await publicGet("onboarding","onboarding@example.test")).text());
   assert.equal(JSON.parse(await zip.file("openapi.json").async("string")).servers[0].url,"https://kline.test");
   const local=await h.handle(new NextRequest("http://localhost:3365/api/co-development/onboarding",{headers:{cookie:await h.cookie("onboarding@example.test")}}));assert.match(await local.text(),/not reachable by a remote GPT/);
+});
+
+test("guided start leads from unconnected ChatGPT through installation, real verification and first requested feature",async()=>{
+  const beforeCalls=h.calls.length;
+  const response=await publicGet("onboarding","setup-guide@example.test");assert.equal(response.status,200);
+  const guide=await response.text();
+  assert.ok(guide.indexOf("## START HERE")<guide.indexOf("## Read this first"));
+  for(const language of ["ko","en"]){
+    const prompt=h.api.labSetupPrompt("https://kline.test",language);
+    assert.ok(guide.includes(prompt));assert.ok(prompt.includes("https://kline.test/api/co-development/mcp"));
+    const positions=["PREPARE","REGISTER","CONSENT","INSTALL","VERIFY","BUILD","REVIEW"].map(stage=>prompt.indexOf(stage));
+    assert.ok(positions.every((position,i)=>position>=0&&(!i||position>positions[i-1])));
+    for(const text of ["https://chatgpt.com/plugins","OAuth","Create as a plugin","lab_list","lab_save_bundle","lab_get"])assert.ok(prompt.includes(text),text);
+  }
+  assert.match(guide,/one action to take now and one confirmation question/);
+  assert.match(guide,/registration alone is not installation|Registration alone is not installation/);
+  assert.match(guide,/new conversation.*@/s);assert.match(guide,/An empty projects array is valid/);
+  assert.match(guide,/An attachment or my saying 'done' is not proof/);
+  assert.match(guide,/Do not create sample projects or test data before my request/);
+  assert.match(guide,/No authentication/);assert.match(guide,/user chooses that alternative/);
+  assert.match(guide,/Do not complete consent for them/);assert.match(guide,/External GPTs cannot submit reviews, approve, publish/);
+  assert.equal(h.calls.length,beforeCalls,"reading setup instructions must not save projects, rotate keys or change grants");
+  const zip=await JSZip.loadAsync(await (await publicGet("starter","setup-guide@example.test")).arrayBuffer());
+  assert.equal(await zip.file("START-HERE.md").async("string"),guide);
+});
+
+test("guided commands remain origin-bound, secret-free and honest about localhost and unsupported accounts",()=>{
+  for(const language of ["ko","en"]){
+    const local=h.api.labSetupPrompt("http://localhost:3365",language);
+    assert.ok(local.includes("http://localhost:3365/api/co-development/mcp"));
+    assert.match(local,/로컬 미리보기|LOCAL PREVIEW/);assert.ok(!local.includes("https://kline-nine-wheat.vercel.app"));
+    const publicPrompt=h.api.labSetupPrompt("https://kline.test/nested?ignored=yes",language);
+    assert.ok(!publicPrompt.includes("nested"));assert.ok(!publicPrompt.includes("ignored"));
+    assert.doesNotMatch(publicPrompt,/\b(?:kll|kla|klr|sk-proj)_[a-f0-9]{32,}\b/);
+  }
+  const prompt=h.api.labSetupPrompt("https://kline.test","en");
+  assert.match(prompt,/account\/workspace policy blocks custom MCP/);
+  assert.match(prompt,/I must complete installation, login and permission consent myself/);
+  assert.match(prompt,/Do not overwrite existing work without approval/);
 });
 
 test("owner inspects all saved drafts and immutable source but members and GPT keys cannot cross tenants or release",async()=>{
