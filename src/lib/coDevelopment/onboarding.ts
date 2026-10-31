@@ -1,16 +1,18 @@
 import { labActionSchema } from "./schema";
+import { labGuidedSetup } from "./setup-guide";
 
 export function labOnboarding(origin: string) {
   const base = new URL(origin).origin;
   const local = new URL(base).protocol !== "https:";
   return `# K_LINE Developer Studio — GPT / Codex Start File
 
+${labGuidedSetup(base)}
 ## Read this first / 먼저 읽기
 
 This file contains the actual connection contract, capabilities and workflow. It contains NO key.
 이 파일에는 연결 방법과 실제 지원 기능이 들어 있습니다. 비밀키는 포함하지 않습니다.
-Attaching a file to an ordinary ChatGPT conversation does not install tools or grant API access. Connect ChatGPT MCP with OAuth, a private GPT Action, or Codex MCP once, then attach this file and start developing.
-일반 채팅에 파일만 첨부해도 API가 연결되는 것은 아닙니다. ChatGPT MCP(OAuth), 개인 GPT Actions 또는 Codex MCP를 최초 1회 설정해야 합니다.
+Attaching a file does not install tools or grant API access. Attach this file before setup so your assistant can guide you through the first connection. After installing/selecting the plugin, bring this file into the tool-enabled conversation and verify access before developing.
+파일 첨부만으로 API가 연결되는 것은 아닙니다. 설치 전에 이 파일을 첨부해 단계별 안내를 받으세요. 설치 후에는 플러그인을 선택한 대화에서 파일을 이어 읽고 실제 연결을 확인한 뒤 개발을 시작합니다.
 ${local ? "LOCAL PREVIEW: this localhost address is not reachable by a remote GPT. Obtain this file again from the approved public HTTPS Developer Studio before external connection.\n로컬 미리보기 주소입니다. 외부 GPT 연결에는 운영 HTTPS 사이트에서 다시 받은 파일을 사용하세요.\n" : ""}
 Workspace: ${base}/co-development
 Actions endpoint: ${base}/api/co-development/actions
@@ -60,7 +62,7 @@ Set KLINE_LAB_TOKEN in the environment that actually starts Codex, restart/reloa
 
 ## 3. Instructions for the connected coding assistant
 
-- First make a real list / lab_list call. On 401/403 ask the user to check key expiry/configuration; never request a secret in chat. Without tool access, explain the missing setup and stop claiming saves happened.
+- First make a real list / lab_list call. On 401/403 follow the active connection path: for ChatGPT OAuth, check plugin selection and guide the user to reauthorize their own K_LINE account; for Actions/Codex bearer keys, check key expiry/configuration locally without requesting a secret in chat. Missing tools require setup guidance, not a claim that access or saves succeeded.
 - Ask what the user wants to build. They may design their own club-like card, website and interactive features; this is not a fixed template editor. Build an actual usable interface, not an explanation page.
 - Before editing use get / lab_get. For source use source_get / lab_source with the returned revision id. Preserve existing user work and current versions.
 - Compile CSS, JavaScript and assets into one self-contained HTML file. No external fetch, CDN, remote imports, cookies, localStorage or native form navigation can be assumed in the sandbox. Use click/keydown handlers with the runtime SDK.
@@ -70,7 +72,7 @@ Set KLINE_LAB_TOKEN in the environment that actually starts Codex, restart/reloa
 - Workspace/card design uses settings_get / lab_settings then settings_save / lab_customize with the full appearance and current expectedVersion. Only this workspace changes; no ECC/Hanhwal card or production data can be altered. The legacy owner/Yuki shared workspace remains shared; other members are account-scoped.
 - Every saved project and source revision can be inspected by the K_LINE owner for review, including drafts. This is an owner-reviewed development space, not storage for secrets. Other ordinary users cannot access your projects.
 - After saving return the real project id, saved version and workspace link. Ask the user to open/reload the preview and test interactions. Do not invent a successful screenshot, test, save, submission or deployment.
-- On completion have the user click Request owner review in Developer tools. This freezes the exact saved revision. External GPT keys cannot submit, approve, publish, change permissions, modify the operational repository or deploy. The owner inspects code/source and an isolated preview, approves or rejects, then separately chooses Publish card. New edits never silently replace a published version.
+- On completion have the user click Request owner review in Developer tools. This freezes the exact saved revision. External GPT connections, whether OAuth or bearer keys, cannot submit, approve, publish, change permissions, modify the operational repository or deploy. The owner inspects code/source and an isolated preview, approves or rejects, then separately chooses Publish card. New edits never silently replace a published version.
 
 ## Runtime SDK reference
 

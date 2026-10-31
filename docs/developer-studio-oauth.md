@@ -33,6 +33,16 @@ Local checks on 2026-10-31: the OAuth suite passed 12 cases; 24 existing Develop
 
 Official references: https://developers.openai.com/plugins/build/auth and https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization .
 
+## Guided First Run
+
+`KLINE-GPT-START.md` and the ZIP's identical `START-HERE.md` now begin with a complete Korean/English start command and an assistant-facing checkpoint guide. Users can attach the file before setup or use Copy start command in the ChatGPT connection panel. Both are generated from the same origin-bound `setup-guide.ts`; they contain no credentials.
+
+The requested assistant behavior is PREPARE → REGISTER → CONSENT → INSTALL → VERIFY → BUILD → REVIEW. It gives one next action/question at a time, follows the actual screen order, and resumes with a real `lab_list` call when tools are available. Registration, OAuth consent, installing the plugin and selecting it via @ are separate checkpoints. Users carry the file/command into a new tool-enabled chat if needed. No project is created until the user requests their first feature; the guide requires source/HTML save plus read-back and an actual user preview before owner-review instructions.
+
+Missing tools, 401/403, account/workspace restrictions, localhost and a successful empty list are distinguished. The guide never asks for secrets, disables auth, claims installation from an attachment, or treats 'done' as a successful API call. The connected server instructions and `lab_starter` description point to the same guide. Tools, auth, database schema and review permissions are unchanged.
+
+This is explicit guidance for the user's GPT, not programmatic control of ChatGPT settings or a guarantee that every model follows every instruction. Users must perform their own installation, login and consent. Validation checks the generated contract, route/ZIP consistency, native MCP instructions and the copy control's success state. The automation browser's virtual clipboard does not mirror navigator.clipboard, so an OS clipboard round-trip was not asserted. A real local browser download contained the full origin-bound, secret-free guide. No simulated assistant transcript is represented as a real end-user GPT setup.
+
 ## Approved Production Migration
 
 The additive `co_development_oauth` migration was applied to the existing `okcabiimxuhhhokqajjg` project on 2026-10-31. A real DB query confirmed all five tables have RLS, anon/authenticated have no SELECT grants, and only service_role can execute the new SECURITY INVOKER RPC. Existing project/revision/legacy-key/record counts were unchanged. The full `npm run check` passed again before the release PR. External ChatGPT connection must still be confirmed by a user after deployment; no account connection is inferred from the isolated SDK tests.
