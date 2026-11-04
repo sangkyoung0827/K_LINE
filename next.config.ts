@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The new private-photo route loads this native binary in the server runtime.
+  serverExternalPackages: ["@napi-rs/canvas"],
   outputFileTracingIncludes: {
     "/api/ecc/official-team-qr": ["./private/ecc-official-team-qr.png"]
   },

@@ -1,0 +1,70 @@
+name: Woohyukmon Installable Android Preview
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/woohyukmon/**'
+      - '.github/workflows/woohyukmon-installable-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: woohyukmon-apk-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-preview:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile/woohyukmon
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_API_ORIGIN: 'https://kline-nine-wheat.vercel.app'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/woohyukmon/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install native dependencies
+        run: npm ci
+      - name: Typecheck and release-guard tests
+        run: npm run typecheck
+      - run: npm run test:release
+      - name: Generate Android project
+        run: npx --no-install expo prebuild --no-install --platform android
+      - name: Build embedded-bundle APK with test signing only
+        working-directory: mobile/woohyukmon/android
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --max-workers=2 --stacktrace
+      - name: Verify signature, package, permissions and embedded bundle
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/release/app-release.apk > apk-badging.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions android/app/build/outputs/apk/release/app-release.apk > apk-permissions.txt
+          node scripts/verify-preview-apk.mjs
+      - name: Attach test-only installation notes
+        run: cp ../../docs/woohyukmon-1/installable-preview.md INSTALLATION.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: woohyukmon-android-arm64-TEST-ONLY-${{ github.sha }}
+          retention-days: 3
+          if-no-files-found: error
+          path: |
+            mobile/woohyukmon/android/app/build/outputs/apk/release/app-release.apk
+            mobile/woohyukmon/apk-badging.txt
+            mobile/woohyukmon/apk-permissions.txt
+            mobile/woohyukmon/apk-verification.json
+            mobile/woohyukmon/INSTALLATION.md
