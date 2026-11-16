@@ -55,19 +55,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: post.excerpt,
       url: `${siteConfig.url}/our-activities/${post.slug}`,
       siteName: siteConfig.name,
-      images: [
-        {
-          url: post.image.src,
-          alt: post.image.alt
-        }
-      ],
       type: "article"
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
       title: `${post.title} | ${siteConfig.name}`,
-      description: post.excerpt,
-      images: [post.image.src]
+      description: post.excerpt
     }
   };
 }

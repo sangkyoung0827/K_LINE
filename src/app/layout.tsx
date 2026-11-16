@@ -28,22 +28,13 @@ export const metadata: Metadata = {
     description: siteConfig.socialDescription,
     url: siteConfig.url,
     siteName: siteConfig.name,
-    images: [
-      {
-        url: "/images/k-line-hero.jpg",
-        width: 1600,
-        height: 840,
-        alt: "K_LINE Korean cultural platform hero image"
-      }
-    ],
     locale: "en_US",
     type: "website"
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: siteConfig.title,
-    description: siteConfig.socialDescription,
-    images: ["/images/k-line-hero.jpg"]
+    description: siteConfig.socialDescription
   },
   manifest: "/manifest.webmanifest",
   alternates: {

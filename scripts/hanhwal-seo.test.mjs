@@ -26,7 +26,8 @@ test("Hanhwal has bilingual visible identity, a single canonical URL and linked 
   assert.equal(page.metadata.robots.index, true);
   assert.match(page.metadata.title, /한활 Hanhwal/);
   assert.match(page.metadata.description, /K_LINE 한활/);
-  assert.equal(page.metadata.openGraph.images[0].width, 2000);
+  assert.equal(page.metadata.openGraph.images, undefined);
+  assert.equal(page.metadata.twitter.images, undefined);
   const tree = page.default();
   assert.equal(nodes(tree, "h1").length, 1);
   assert.equal(renderToStaticMarkup(nodes(tree, "h1")[0]), "<h1>한활 Hanhwal</h1>");

@@ -148,19 +148,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       url: `${siteConfig.url}/k-culture-project/${project.slug}`,
       siteName: siteConfig.name,
-      images: [
-        {
-          url: project.image.src,
-          alt: project.image.alt
-        }
-      ],
       type: "website"
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
       title: `From Word to Light | ${siteConfig.name}`,
-      description,
-      images: [project.image.src]
+      description
     },
     robots: {
       index: false,
