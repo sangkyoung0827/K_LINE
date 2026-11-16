@@ -66,36 +66,20 @@ export function absoluteUrl(path: string) {
   return new URL(path, `${siteConfig.url}/`).toString();
 }
 
-const defaultOgImage = {
-  url: "/images/k-line-hero.jpg",
-  width: 1600,
-  height: 840,
-  alt: "K_LINE campus K-culture platform"
-};
-
 type SeoMetadataOptions = {
   title: string;
   description: string;
   path: string;
   keywords?: string[];
-  image?: string;
-  imageAlt?: string;
 };
 
 export function createPublicMetadata({
   description,
-  image,
-  imageAlt,
   keywords = [],
   path,
   title
 }: SeoMetadataOptions): Metadata {
   const url = absoluteUrl(path);
-  const ogImage = {
-    ...defaultOgImage,
-    url: image ?? defaultOgImage.url,
-    alt: imageAlt ?? defaultOgImage.alt
-  };
 
   return {
     title,
@@ -109,15 +93,13 @@ export function createPublicMetadata({
       description,
       url,
       siteName: siteConfig.name,
-      images: [ogImage],
       locale: "en_US",
       type: "website"
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
       title: `${title} | ${siteConfig.name}`,
-      description,
-      images: [ogImage.url]
+      description
     },
     robots: {
       index: true,

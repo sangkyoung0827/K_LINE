@@ -10,21 +10,12 @@ const base = "/our-activities/hanhwal";
 const title = "한활 Hanhwal | 전북대학교 국궁 동아리";
 const description = "K_LINE 한활(Hanhwal)은 전북대학교 외국인 유학생과 함께하는 한국 전통 활쏘기·국궁 동아리입니다. Korean traditional archery club for international students at Jeonbuk National University.";
 
-const publicMetadata = createPublicMetadata({
+export const metadata: Metadata = createPublicMetadata({
   title,
   description,
   path: base,
-  image: "/images/hanhwal-site/hero.webp",
-  imageAlt: "Hanhwal Korean traditional archery club",
   keywords: ["Hanhwal", "한활", "Kline Hanhwal", "K_LINE 한활", "Korean traditional archery", "국궁", "Jeonbuk National University"]
 });
-export const metadata: Metadata = {
-  ...publicMetadata,
-  openGraph: {
-    ...publicMetadata.openGraph,
-    images: [{ url: "/images/hanhwal-site/hero.webp", width: 2000, height: 1500, alt: "한활 Hanhwal Korean traditional archery club" }]
-  }
-};
 
 const organization = {
   "@type": "SportsOrganization",

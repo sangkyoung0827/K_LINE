@@ -6,18 +6,17 @@ import { CTAButton } from "@/components/CTAButton";
 import { I18nText, useLanguage } from "@/components/LanguageProvider";
 
 type LoginPanelProps = {
-  callbackUrl?: string;
+  callbackUrl: string;
+  isInAppBrowser: boolean;
+  isKakaoTalk: boolean;
 };
 
-export function LoginPanel({ callbackUrl = "/ecc-join" }: LoginPanelProps) {
+export function LoginPanel({ callbackUrl, isInAppBrowser, isKakaoTalk }: LoginPanelProps) {
   const { data: session, status } = useSession();
   const isLoading = status === "loading";
   const isSignedIn = Boolean(session?.user);
   const { language } = useLanguage();
   const displayName = session?.user?.name ?? session?.user?.email ?? (language === "ko" ? "K_LINE 회원" : "K_LINE member");
-  const safeCallbackUrl = callbackUrl.startsWith("/") && !callbackUrl.startsWith("/login")
-    ? callbackUrl
-    : "/ecc-join";
 
   return (
     <div className="grid gap-4 sm:gap-8 lg:grid-cols-[1fr_0.9fr]">
@@ -39,7 +38,7 @@ export function LoginPanel({ callbackUrl = "/ecc-join" }: LoginPanelProps) {
           {isSignedIn ? (
             <>
               <span className="grid w-full sm:w-auto">
-                <CTAButton href={safeCallbackUrl}>
+                <CTAButton href={callbackUrl}>
                   <I18nText en="Go to dashboard" ko="대시보드로 이동" />
                 </CTAButton>
               </span>
@@ -52,15 +51,35 @@ export function LoginPanel({ callbackUrl = "/ecc-join" }: LoginPanelProps) {
                 <I18nText en="Sign out" ko="로그아웃" />
               </button>
             </>
+          ) : isInAppBrowser && !isLoading ? (
+            <div className="space-y-3">
+              {isKakaoTalk && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = new URL(callbackUrl, window.location.origin);
+                    window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(target.href)}`;
+                  }}
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-paper transition hover:bg-navy sm:min-h-11 sm:w-auto sm:rounded-none"
+                >
+                  <I18nText en="Open in default browser" ko="기본 브라우저에서 열기" />
+                </button>
+              )}
+              <p className="text-sm leading-6 text-ink/68">
+                <I18nText
+                  en="Use the app menu to open this link in Safari, Chrome, or your default browser. If you are already signed in there, the shared page opens directly. Otherwise, choose your Google account."
+                  ko="앱 메뉴에서 이 링크를 Safari, Chrome 또는 기본 브라우저로 여세요. 이미 로그인돼 있으면 공유 페이지가 바로 열리고, 세션이 없으면 Google 계정을 선택할 수 있습니다."
+                />
+              </p>
+            </div>
           ) : (
             <button
               type="button"
               disabled={isLoading}
               onClick={() =>
                 signIn("google", {
-                  callbackUrl: safeCallbackUrl,
-                  redirectTo: safeCallbackUrl
-                })
+                  redirectTo: callbackUrl
+                }, { prompt: "select_account" })
               }
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-paper transition hover:bg-navy disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-11 sm:w-auto sm:rounded-none"
             >

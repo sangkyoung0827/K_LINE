@@ -52,22 +52,13 @@ export const metadata: Metadata = {
     description: goodsPageDescription,
     url: absoluteUrl("/goods"),
     siteName: siteConfig.name,
-    images: [
-      {
-        url: "/images/goods-hero-clean.jpg",
-        width: 780,
-        height: 600,
-        alt: "K_LINE Goods Korean heritage lifestyle goods"
-      }
-    ],
     locale: "en_US",
     type: "website"
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: goodsPageTitle,
-    description: goodsPageDescription,
-    images: ["/images/goods-hero-clean.jpg"]
+    description: goodsPageDescription
   },
   robots: {
     index: false,
